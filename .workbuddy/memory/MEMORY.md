@@ -93,3 +93,22 @@
   安装包扩展名、`.tmp-*`、`*.log`。**注意 `.tmp-*/` 只匹配目录**，文件形式必须另写 `.tmp-*`。
 - `.gitattributes` 已钉 `*.bat text eol=crlf` + `*.gbk -text`：系统级 `core.autocrlf=true`，
   不钉住会有改写 GBK 批处理脚本行尾/编码的风险。
+
+## 环境异常：D 盘过滤驱动拦截 `refs/remotes`（2026-09-17 定案）
+
+- **现象**：`git fetch` / `git update-ref` 写远端跟踪引用时**返回 0、零报错，但文件不存在**，
+  且会把 `refs/remotes/origin` **整个目录删掉**；refs 的 reflog（`.git/logs/refs/remotes/...`）
+  反而写成功。后果是 `git status` 长期显示 `## main...origin/main [gone]`，
+  `git fetch` 每次都打印 `* [new branch] ... -> origin/main` 却永远建不起来。
+- **范围：D 盘卷层面，与本仓库无关**。跨盘对照实验（全新仓库）：
+  C 盘 `%TEMP%` 存活 3/3，D 盘（同盘不同目录、仓库父目录）**0/3**。
+  路径特异性：`refs/heads` 5/5、`refs/tags` 5/5、`refs/remotes/origin` **0/5**。
+- **已排除**：`core.fscache=false`（同样复现；注意 `-c` 必须写在子命令前）、hooks、`core.hooksPath`、
+  全局 alias、ACL 差异、重解析点、Defender 受控文件夹访问。
+- **嫌疑**：机器同时运行 **Avast**（`aswidsagent.exe`/`aswengsrv.exe`）、
+  **360 安全卫士**（`360tray.exe`）、Windows Defender，均带文件过滤驱动。
+  修复需主人为 `D:\code` 加排除项 —— **未做，不能靠改 git 配置绕**。
+- **影响面**：不影响远端内容正确性（push 确实成功）。因 `branch.main.remote/merge` 已配置，
+  `git pull` / `git push` 照常可用。已在本地用 Python 直写恢复一次跟踪引用，
+  但**下游任何 `git fetch`/`push` 都会再次清掉**。完整判据与复现步骤见技能
+  `git-push-failure-diagnosis` 的 L5 节。

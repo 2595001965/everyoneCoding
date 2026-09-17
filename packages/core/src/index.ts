@@ -4,6 +4,7 @@
  * 组成：
  * - `event-bus`：类型化事件总线（once / 通配符 / 异步串行）
  * - `command-registry`：命令系统（快捷键、启用条件、命令面板检索、冲突检测）
+ * - `command-catalog`：应用命令目录（真实动作的 id / 标题 / 默认键位，设置页快捷键类目的数据源）
  * - `undo-manager`：基于 Immer patch 的撤销重做，按域隔离
  * - `persist-middleware`：Zustand 持久化中间件（版本化 + 迁移 + 可插拔存储）
  * - `crash-recovery`：20s 快照 + 脏标记，丢失窗口 ≤30s
@@ -18,6 +19,7 @@
 
 export * from './event-bus';
 export * from './command-registry';
+export * from './command-catalog';
 export * from './undo-manager';
 export * from './persist-middleware';
 export * from './crash-recovery';

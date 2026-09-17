@@ -3,6 +3,9 @@ import path from 'node:path';
 import { registerAllIpc, type RegisteredIpc } from './ipc';
 import type { IpcDependencies } from './types';
 import { createElectronAiRuntime } from './ai/runtime';
+import { createDomainRuntime } from './domain/runtime';
+import { createSettingsDomain } from './domain/settings';
+import { UNAVAILABLE_DOMAIN_REASONS } from './domain/reasons';
 
 /**
  * Electron 主进程入口。
@@ -35,6 +38,7 @@ const shouldAutoOpenDevTools = isDev && process.env['EC_ELECTRON_DEVTOOLS'] === 
 let mainWindow: BrowserWindow | null = null;
 let registered: RegisteredIpc | null = null;
 let aiRuntime: Awaited<ReturnType<typeof createElectronAiRuntime>> | null = null;
+let domainRuntime: ReturnType<typeof createDomainRuntime> | null = null;
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -96,8 +100,30 @@ function buildDependencies(): IpcDependencies {
     dataDir,
     secureDir,
     ...(aiRuntime ? { aiHost: aiRuntime } : {}),
+    ...(domainRuntime ? { domainHost: domainRuntime } : {}),
     openExternal: (url) => shell.openExternal(url),
   };
+}
+
+/**
+ * 装配域运行时。
+ *
+ * 与 AI 栈**刻意分离**：AI 栈依赖 `safeStorage`（DPAPI），在无加密可用性的环境下会整体装配失败；
+ * 而设置/工作台/文档这些域不该被它连坐，故各自独立装配、各自在 `describe()` 里如实上报。
+ */
+function buildDomainRuntime(dataDir: string, cacheDir: string): ReturnType<typeof createDomainRuntime> {
+  const settings = createSettingsDomain({
+    dataDir,
+    cacheDir,
+    defaultWorkspaceRoot: path.join(app.getPath('userData'), 'workspace'),
+    onNotice: (message) => console.warn(`[domain] ${message}`),
+  });
+
+  return createDomainRuntime({
+    routers: { settings: settings.router },
+    unavailableReasons: UNAVAILABLE_DOMAIN_REASONS,
+    disposers: [() => settings.dispose()],
+  });
 }
 
 void app.whenReady().then(async () => {
@@ -116,6 +142,17 @@ void app.whenReady().then(async () => {
   } catch (error) {
     console.warn(`[AI] 主进程 AI 栈未装配：${error instanceof Error ? error.message : String(error)}`);
   }
+
+  const userData = app.getPath('userData');
+  try {
+    domainRuntime = buildDomainRuntime(path.join(userData, 'data'), path.join(userData, 'cache'));
+    const descriptors = await domainRuntime.describe();
+    const installed = descriptors.filter((item) => item.available).map((item) => item.kind);
+    console.info(`[domain] 已装配域=[${installed.join(', ') || '无'}]`);
+  } catch (error) {
+    console.warn(`[domain] 域运行时未装配：${error instanceof Error ? error.message : String(error)}`);
+  }
+
   registered = registerAllIpc(ipcMain, buildDependencies());
 
   mainWindow = createWindow();
@@ -134,6 +171,8 @@ app.on('before-quit', () => {
   registered = null;
   void aiRuntime?.dispose();
   aiRuntime = null;
+  void domainRuntime?.dispose();
+  domainRuntime = null;
 });
 
 // 外链一律走系统浏览器，禁止在应用内打开任意 web 内容

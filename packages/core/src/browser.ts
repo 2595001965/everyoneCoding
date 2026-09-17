@@ -11,6 +11,7 @@
 
 export * from './event-bus';
 export * from './command-registry';
+export * from './command-catalog';
 export * from './undo-manager';
 export * from './persist-middleware';
 export * from './crash-recovery';

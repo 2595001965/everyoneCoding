@@ -106,7 +106,7 @@ Wave 10 收官时 Electron 形态标注为"未本机验证"。本轮补齐前置
 | NFR-P-01 冷启动 ≤5s、NFR-P-05 双形态内存 | 未实测 | 同上（需真实安装包） | 安装后按 `docs/PERF-REPORT.md §3` 的方法测 |
 | 真机多端编译（Flutter / hvigor / cargo tauri） | 未执行 | 本机无三套工具链 | 装齐后按 `docs/E2E-CHECKLIST.md M-04` 走查；缺工具链时客户端已给出引导与待验清单 |
 | 全程不打开终端的人工录像走查（FR-SET-08） | 未完成 | 本机为无人值守环境，无法录像 | 交付前人工走查一次：新建项目 → S1 → S2 → 设计器 → 提交 → 预览 |
-| 四端口真实装配后的页面走查（Wave 9 遗留） | 进行中 | 2026-09-17 已落地共享装配层（`DomainControlHost` + `ec:domain:invoke`/`describe` + 双形态能力位 + 兜底）与测试；**四个域的后端仍未装配**（settings 缺命令目录与 package-kit 作业接线、workspace/docs 缺 SQLite 存储适配、auth 缺账号服务） | 见 `docs/E2E-CHECKLIST.md M-07`（含逐域阻塞点） |
+| 四端口真实装配后的页面走查（Wave 9 遗留） | 进行中 | 2026-09-17：共享装配层已落地；**settings 域已装配（14/16 方法，设置页五个类目可真实使用）**，`exportProject`/`importPackage` 与 workspace / docs / auth 三域未装配（阻塞点见下表） | 见 `docs/E2E-CHECKLIST.md M-07`（含逐域状态） |
 | 邮箱链接验证（E2E-01 的「验证」环节） | 未实现 | PRD §8 的最小服务端仅八个接口，不含邮件投递与验签 | 若要补齐需新增 SMTP 投递与链接验签接口；当前作为待实现项记录 |
 | 真机 OAuth（GitHub / Google / 微信） | 未执行 | 需真实 OAuth 应用凭据与浏览器交互 | 见 `docs/E2E-CHECKLIST.md M-02` |
 | 服务端容器化验证 | 未执行 | 本机无 Docker 运行环境 | `services/account` 的 `Dockerfile` / `docker-compose.yml` 已就绪 |

@@ -172,7 +172,7 @@
 - **步骤**：装配 `__EC_WORKSPACE__` / `__EC_DOCS__` / `__EC_AUTH__` / `__EC_SETTINGS__` 后走查工作台、文档中心、账号页、设置页。
 - **判定**：各页无装配引导页残留（即端口已注入）、数据与 SQLite 一致、设计器联动目标端生效。
 
-**2026-09-17 进展（基础设施已落地，四个域的运行时仍未装配）**
+**2026-09-17 进展（共享装配层与 settings 域均已落地；workspace / docs / auth 三域仍未装配）**
 
 已完成 **共享装配层**，四个端口此后只需各自补一个域运行时，不必再各开一套 IPC：
 
@@ -185,18 +185,24 @@
 | preload | `domain.invoke` / `domain.describe`，已进 `PRELOAD_TOP_LEVEL_KEYS` 与安全面自检 | ✅ 已落地 |
 | 双形态 | Electron `capabilities().domain = true`；Tauri 如实 `false`（Rust 侧无命令），与既有 `ai: false` 同一口径 | ✅ 已落地 |
 
-**仍缺的是四个域各自的后端**，这是功能而非接线，逐条列出：
+**仍缺的是四个域各自的后端**，这是功能而非接线，逐条列出（2026-09-17 更新）：
 
-| 域 | 缺什么（已核实的阻塞点） |
+| 域 | 状态与缺口 |
 | --- | --- |
-| settings | ① `listCommands()` 无数据源——全仓不存在命令目录（`CommandInfo` 只有端口类型定义，`CommandRegistry` 仅测试里实例化过），快捷键面板拿不到可绑定命令，属 M15 未建；② `exportProject`/`importPackage` 需接 `@ec/package-kit` 的 `runExport`/`runImport`，并实现其 `ExportSourcePort` 与 `ExportJobRequest` |
-| workspace | SQLite `ProjectStore`（5 方法）适配 + `ProjectService` 装配；`duplicateProject` 的 `ProjectDuplicatePort`；`createFromTemplate`/`importFromGit`/`createFromDigest` 三个导入链路；`getDashboardMetrics` 五项指标聚合（memory / pages / features / usage / git）与 `getMetricDetail` 下钻均未实现 |
-| docs | SQLite `DocStore` 适配 + `DocService` 装配；Node 侧解析器注册表；`previewConvertToMemory`/`commitConvertToMemory` 需接记忆写入；`listMemoryNodes`/`listDocLinks` 等记忆关联查询 |
-| auth | 需运行 `services/account`（本机无 Docker，见 L-01）与 OAuth 应用凭据；邮箱验证链路在 PRD §8 的最小服务端中不存在（见 §5 尾条） |
+| settings | **已装配（14/16 方法）**。已实现：`getAll`/`update`（settings.json 落盘 + zod 校验）、`getDataDirs`、`migrateDataDirs`/`rollbackMigration`（复制 + 条目数校验 + 旧目录改名备份；SQLite 用 `VACUUM INTO` 在线快照）、`setTelemetry`/`inspectLocalTelemetry`/`clearLocalTelemetry`（文件缓冲 + 缓存字节数）、`listCommands`（**新建 `@ec/core` 的 `command-catalog.ts` 作为命令 id/标题/默认键位的单一事实源**，并由渲染层漂移守卫测试钉住导航与 i18n）、`saveKeymap`/`exportKeymap`/`importKeymap`、`getBackupConfig`/`saveBackupConfig`。**未实现 `exportProject`/`importPackage`**：归档写入端要把记忆/文档/代码落回库与工程目录，那是 workspace 与 docs 域的写路径，随它们一并交付；当前抛带原因的 `NOT_SUPPORTED`，无静默降级 |
+| workspace | 未装配：缺 SQLite `ProjectStore`（5 方法）+ `ProjectService` 装配、`ProjectDuplicatePort`、模板/git/digest 三条导入链、`getDashboardMetrics` 五项指标聚合与 `getMetricDetail` |
+| docs | 未装配：缺 SQLite `DocStore` + `DocService` 装配、Node 侧解析器注册表、记忆关联查询、转记忆 |
+| auth | 未装配：需可用的账号服务（本机无 Docker，见 L-01）与 OAuth 应用凭据 |
 
-> **设计约束（务必遵守）**：`describe()` 必须如实。某域未装配时**不要**把端口注入 `globalThis.__EC_*__`——
+**渲染层已闭环**：`installDomainPorts()` 按 `describe()` 结果注入，`settings` 可用即自动点亮设置页的
+通用 / 数据与位置 / 隐私 / 快捷键 / 导出与备份 五个类目，无需再改一行渲染层代码。
+启动日志会打印 `[bootstrap] 域端口=[settings]` 与未装配域的原因，便于定位"某页为何仍是引导态"。
+
+> **设计约束（务必遵守）**：`describe()` 必须如实。未装配的域**不要**把端口注入 `globalThis.__EC_*__`——
 > 页面会保留现有装配引导；反之注入半成品端口会让用户看到"能打开但每个动作都失败"的界面，比现状更差。
 > `createMockDomainControlHost()` 与 Tauri 侧都按此口径实现。
+> 例外口径：某域**大部分方法真实现、个别方法明确报错**时可注入（如 settings 的 export/import），
+> 前提是报错必须带可读原因且写进文档——这与"假装可用"是两件事。
 
 
 ---

@@ -59,8 +59,26 @@
 
 - **Tauri 受权限阻塞**：账号 `f2595` 无管理员权限且不在 Administrators 组，装不了 MSVC linker；没有 linker 时装 Rust 也无用。
   需主人以管理员身份跑 `apps/desktop-tauri/scripts/setup-rust-tauri.ps1`，再 `cargo check` → `clippy -D warnings` → `pnpm build:tauri`。
-- 设计器真实端口装配、docx/pdf 真实文件覆盖面、图片 OCR 接入待补；仓库尚未 git init；`.quarantine/` 待主人手动清理。
+- 设计器真实端口装配、docx/pdf 真实文件覆盖面、图片 OCR 接入待补；`.quarantine/` 待主人手动清理。
+- 仓库已 `git init`（2026-09-17），首次提交 `addec09`（1175 文件 / 6.45 MB），远端
+  `git@github.com:2595001965/everyoneCoding.git`。**推送仍待主人把 ed25519 公钥登记到 GitHub**
+  （`~/.ssh/id_ed25519`，无口令短语）。登记后 `ssh -T git@github.com` 应回 `Hi 2595001965!`，
+  再 `git push -u origin main`；若报 non-fast-forward（远端有初始提交），用 `git pull --rebase origin main`。
 
-## 开源与保密
+## 开源与保密（2026-09-17 口径变更，与此前相反）
 
-- **本项目闭源**，All Rights Reserved，不接受外部贡献。文档/注释/打包配置不得出现开源贡献引导、LICENSE 或公开仓库表述。
+- **主人已决定开源，仓库 `2595001965/everyoneCoding` 为公开仓库**（主人 2026-09-17 当场确认）。
+  此决定**推翻了 2026-09-14 之前的"闭源、All Rights Reserved、不写 LICENSE、不写贡献引导"约定**，
+  后续新增文档/注释/打包配置**不必再回避开源与贡献表述**。
+- **⚠️ 仓库内许可口径尚未统一，六处自相矛盾（待主人定许可后一次性收敛）**：
+  `README.md` 声明 Fair Core License (FCL)；根及各包 `package.json` 为 `"license": "UNLICENSED"` 且写「闭源项目」；
+  `services/account/README.md` 与 `openapi.yaml` 为 `All Rights Reserved`；
+  `docs/DEV-SETUP.md`、`docs/RELEASE.md`、`ci/*.yml`、`ci/make-release.mts`、`docs/tasks/00|01` 一律「内部闭源」。
+  **且全仓无 LICENSE 文件**——公开仓库无 LICENSE 时默认 All Rights Reserved，与"开源"意图直接冲突。
+  未擅自改动：选许可证是主人的法律决定。
+- 公开仓库前敏感信息核查已做（2026-09-17，结论干净）：全仓无真实 API key、私钥、口令或主机 IP；
+  命中的 `sk-live-abcdef*`、`example.com` 邮箱、`127.0.0.1` 均为测试夹具。
+- `.gitignore` 已收口：`release/`（electron-builder 输出，内含 180 MB exe，超 GitHub 100 MB 单文件硬限）、
+  安装包扩展名、`.tmp-*`、`*.log`。**注意 `.tmp-*/` 只匹配目录**，文件形式必须另写 `.tmp-*`。
+- `.gitattributes` 已钉 `*.bat text eol=crlf` + `*.gbk -text`：系统级 `core.autocrlf=true`，
+  不钉住会有改写 GBK 批处理脚本行尾/编码的风险。

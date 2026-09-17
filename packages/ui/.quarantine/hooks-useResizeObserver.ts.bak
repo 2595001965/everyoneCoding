@@ -1,0 +1,22 @@
+import { useCallback, useEffect, useRef } from 'react';
+
+/** 元素尺寸观察（高分屏缩放 / 分栏拖拽共用） */
+export function useResizeObserver<T extends HTMLElement>(
+  onResize: (entry: { width: number; height: number }) => void,
+): (node: T | null) => void {
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const callbackRef = useRef(onResize);
+  callbackRef.current = onResize;
+
+  return useCallback((node: T | null) => {
+    observerRef.current?.disconnect();
+    if (node) {
+      const observer = new ResizeObserver((entries) => {
+        const rect = entries[0]?.contentRect;
+        if (rect) callbackRef.current({ width: rect.width, height: rect.height });
+      });
+      observer.observe(node);
+      observerRef.current = observer;
+    }
+  }, []);
+}

@@ -1,0 +1,717 @@
+/**
+ * 记忆中心样式。
+ *
+ * 只做布局与间距，颜色一律走 @ec/ui 的设计令牌（CSS 变量），
+ * 保证浅色主题默认 + `[data-theme='dark']` 自动适配。
+ */
+
+.ec-memory-center {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-3, 12px);
+}
+
+.ec-memory-center__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ec-space-3, 12px);
+  flex-wrap: wrap;
+}
+
+.ec-memory-center__project {
+  min-width: 160px;
+}
+
+.ec-memory-center__order {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ec-font-size-sm, 12px);
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-center__notice {
+  font-size: var(--ec-font-size-sm, 12px);
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-center__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-2, 8px);
+  min-width: 0;
+}
+
+.ec-memory-center__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-memory-center__count {
+  font-size: var(--ec-font-size-sm, 12px);
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-center__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-3, 12px);
+  min-width: 0;
+}
+
+.ec-memory-center__changelog h2 {
+  margin: 0 0 6px;
+  font-size: var(--ec-font-size-md, 14px);
+}
+
+/* ---------------------------- 树 ---------------------------- */
+
+.ec-memory-tree__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ec-memory-tree__count {
+  color: var(--ec-color-text-tertiary, #8b95a5);
+  font-size: 11px;
+}
+
+.ec-memory-tree__dot {
+  color: var(--ec-color-warning, #d97706);
+  font-size: 10px;
+}
+
+.ec-memory-tree__mark {
+  color: var(--ec-color-primary, #2563eb);
+}
+
+/* --------------------------- 列表 --------------------------- */
+
+.ec-memory-list__empty {
+  padding: 24px;
+  color: var(--ec-color-text-secondary, #5b6472);
+  text-align: center;
+}
+
+.ec-memory-list__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  height: 100%;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ec-color-border, #e5e7eb);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.ec-memory-list__row--selected {
+  background: var(--ec-color-bg-selected, #eef4ff);
+}
+
+.ec-memory-list__check {
+  padding-top: 2px;
+}
+
+.ec-memory-list__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ec-memory-list__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ec-font-size-md, 14px);
+  color: var(--ec-color-text-primary, #1f2733);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ec-memory-list__pin {
+  color: var(--ec-color-warning, #d97706);
+}
+
+.ec-memory-list__issue {
+  font-size: 11px;
+  color: var(--ec-color-warning, #d97706);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.ec-memory-list__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-list__status {
+  color: var(--ec-color-text-tertiary, #8b95a5);
+}
+
+.ec-memory-list__conflicts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ------------------------ 冲突徽标 ------------------------ */
+
+.ec-conflict-badge {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ec-conflict-badge__trigger {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ec-conflict-badge__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--ec-color-border, #e5e7eb);
+  border-radius: var(--ec-radius-sm, 4px);
+  background: var(--ec-color-bg-subtle, #f8fafc);
+  font-size: 11px;
+}
+
+.ec-conflict-badge__field {
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-conflict-badge__value {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.ec-conflict-badge__value-label {
+  color: var(--ec-color-text-tertiary, #8b95a5);
+  min-width: 48px;
+}
+
+.ec-conflict-badge code {
+  word-break: break-all;
+}
+
+/* --------------------------- 编辑器 --------------------------- */
+
+.ec-memory-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ec-memory-editor__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ec-memory-editor__title {
+  flex: 1;
+}
+
+.ec-memory-editor__meta {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.ec-memory-editor__version {
+  font-size: 11px;
+  color: var(--ec-color-text-tertiary, #8b95a5);
+}
+
+.ec-memory-editor__toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-memory-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-editor__field--wide {
+  flex: 1;
+  min-width: 160px;
+}
+
+.ec-memory-editor__conflicts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-memory-editor__structured {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ec-memory-editor__structured-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ec-memory-editor__structured-label {
+  font-size: 11px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-editor__raw summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-editor__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ec-memory-editor__message,
+.ec-memory-editor__hint {
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-editor__error {
+  font-size: 11px;
+  color: var(--ec-color-danger, #dc2626);
+}
+
+/* --------------------------- Markdown --------------------------- */
+
+.ec-markdown {
+  padding: 8px 4px;
+  font-size: var(--ec-font-size-md, 14px);
+  line-height: 1.6;
+  color: var(--ec-color-text-primary, #1f2733);
+}
+
+.ec-markdown h3,
+.ec-markdown h4,
+.ec-markdown h5,
+.ec-markdown h6 {
+  margin: 10px 0 4px;
+}
+
+.ec-markdown ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.ec-markdown pre {
+  background: var(--ec-color-bg-subtle, #f8fafc);
+  border: 1px solid var(--ec-color-border, #e5e7eb);
+  border-radius: var(--ec-radius-sm, 4px);
+  padding: 8px;
+  overflow: auto;
+}
+
+.ec-markdown blockquote {
+  margin: 4px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--ec-color-border, #e5e7eb);
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+/* --------------------------- 批量操作 --------------------------- */
+
+.ec-memory-batch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+
+.ec-memory-batch__count {
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-batch__undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-memory-batch__modal-foot,
+.ec-issue-draft__actions,
+.ec-import__modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* --------------------------- 变更日志 --------------------------- */
+
+.ec-change-log__empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-change-log__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  height: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--ec-color-border, #e5e7eb);
+}
+
+.ec-change-log__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-change-log__snippet {
+  font-size: 12px;
+  color: var(--ec-color-text-primary, #1f2733);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ec-change-log__jump {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ec-color-primary, #2563eb);
+  cursor: pointer;
+}
+
+.ec-change-log__jump--disabled {
+  color: var(--ec-color-text-tertiary, #8b95a5);
+  cursor: default;
+}
+
+/* --------------------------- 自动写入提示 --------------------------- */
+
+.ec-auto-write-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: var(--ec-z-toast, 1100);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 10px 12px;
+  border: 1px solid var(--ec-color-border, #e5e7eb);
+  border-radius: var(--ec-radius-md, 6px);
+  background: var(--ec-color-bg-elevated, #ffffff);
+  box-shadow: var(--ec-shadow-md, 0 4px 12px rgb(15 23 42 / 12%));
+}
+
+.ec-auto-write-toast__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ec-font-size-md, 14px);
+}
+
+.ec-auto-write-toast__desc {
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-auto-write-toast__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ec-auto-write-toast__progress {
+  font-size: 10px;
+  color: var(--ec-color-text-tertiary, #8b95a5);
+}
+
+/* --------------------------- 冲突对比卡 --------------------------- */
+
+.ec-conflict-card__sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ec-conflict-card__side h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-conflict-card__side-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.ec-conflict-card__body {
+  margin: 0;
+  padding: 8px;
+  max-height: 180px;
+  overflow: auto;
+  background: var(--ec-color-bg-subtle, #f8fafc);
+  border: 1px solid var(--ec-color-border, #e5e7eb);
+  border-radius: var(--ec-radius-sm, 4px);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.ec-conflict-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ec-conflict-card__hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-conflict-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* --------------------------- 问题记忆提示 --------------------------- */
+
+.ec-issue-prompt {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: var(--ec-z-toast, 1100);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 460px;
+  padding: 12px;
+  border: 1px solid var(--ec-color-warning, #d97706);
+  border-radius: var(--ec-radius-md, 6px);
+  background: var(--ec-color-bg-elevated, #ffffff);
+  box-shadow: var(--ec-shadow-md, 0 4px 12px rgb(15 23 42 / 12%));
+}
+
+.ec-issue-prompt__title {
+  margin: 0;
+  font-size: var(--ec-font-size-md, 14px);
+}
+
+.ec-issue-prompt__detail {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-issue-prompt__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------- 问题记忆草稿 --------------------------- */
+
+.ec-issue-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ec-issue-draft__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-issue-draft__summary {
+  padding: 8px;
+  background: var(--ec-color-bg-subtle, #f8fafc);
+  border: 1px solid var(--ec-color-border, #e5e7eb);
+  border-radius: var(--ec-radius-sm, 4px);
+  font-size: 12px;
+}
+
+.ec-issue-draft__summary h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.ec-issue-draft__summary p {
+  margin: 2px 0;
+}
+
+.ec-issue-draft__label {
+  color: var(--ec-color-text-tertiary, #8b95a5);
+}
+
+/* --------------------------- 导入导出 --------------------------- */
+
+.ec-import {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ec-color-border, #e5e7eb);
+}
+
+.ec-import__title {
+  margin: 0;
+  font-size: var(--ec-font-size-lg, 16px);
+}
+
+.ec-import__desc,
+.ec-import__hint,
+.ec-import__summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-import__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-import__filename {
+  max-width: 240px;
+}
+
+.ec-import__error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ec-color-danger, #dc2626);
+}
+
+.ec-import__batch {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+
+/* --------------------------- 结构摘要 --------------------------- */
+
+.ec-structure-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ec-structure-preview__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ec-structure-preview__title {
+  font-weight: 600;
+}
+
+.ec-structure-preview__tokens {
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-structure-preview__row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--ec-color-border, #e5e7eb);
+  font-size: 12px;
+}
+
+.ec-structure-preview__label {
+  color: var(--ec-color-text-tertiary, #8b95a5);
+}
+
+.ec-structure-preview__value {
+  word-break: break-word;
+}
+
+.ec-structure-preview__value--mono {
+  font-family: var(--ec-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.ec-structure-preview__revisions h3 {
+  margin: 8px 0 4px;
+  font-size: 13px;
+}
+
+.ec-structure-preview__revisions ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+}
+
+.ec-structure-preview__rev {
+  margin-right: 6px;
+  color: var(--ec-color-text-tertiary, #8b95a5);
+}
+
+.ec-structure-preview__rev-tokens,
+.ec-structure-preview__rev-changed {
+  margin-left: 8px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-structure-preview__hint {
+  font-size: 12px;
+  color: var(--ec-color-text-secondary, #5b6472);
+}
+
+.ec-structure-preview__error {
+  font-size: 12px;
+  color: var(--ec-color-danger, #dc2626);
+}
+
+.ec-structure-preview__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}

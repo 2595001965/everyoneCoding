@@ -1,0 +1,60 @@
+{
+  "name": "everyonecoding",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EveryoneCoding —— Windows 桌面端 AI 全栈开发工作台（闭源项目）",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:renderer": "pnpm --filter @ec/renderer dev",
+    "dev:tauri": "pnpm --filter @ec/desktop-tauri dev",
+    "dev:electron": "pnpm --filter @ec/desktop-electron dev",
+    "build": "pnpm -r --filter './packages/**' build",
+    "build:renderer": "pnpm --filter @ec/renderer build",
+    "build:tauri": "pnpm --filter @ec/desktop-tauri build",
+    "build:electron": "pnpm --filter @ec/desktop-electron build",
+    "lint": "eslint . --ext .ts,.tsx,.mts,.mjs --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts,.tsx,.mts,.mjs --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,css,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,css,yml,yaml}\"",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage",
+    "test:e2e": "vitest run -c e2e/vitest.config.ts",
+    "perf": "node --experimental-strip-types perf/run.ts",
+    "version:check": "node --experimental-strip-types ci/version.mts --check",
+    "version:sync": "node --experimental-strip-types ci/version.mts",
+    "quality-gate": "node --experimental-strip-types ci/quality-gate.mts",
+    "release:manifest": "node --experimental-strip-types ci/make-release.mts"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.9.0",
+    "@typescript-eslint/eslint-plugin": "^8.13.0",
+    "@typescript-eslint/parser": "^8.13.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}

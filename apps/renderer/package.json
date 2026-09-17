@@ -1,0 +1,50 @@
+{
+  "name": "@ec/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React 渲染层（双形态共用）",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ec/ai": "workspace:*",
+    "@ec/account": "workspace:*",
+    "@ec/core": "workspace:*",
+    "@ec/designer": "workspace:*",
+    "@ec/git": "workspace:*",
+    "@ec/memory": "workspace:*",
+    "@ec/pipeline": "workspace:*",
+    "@ec/preview": "workspace:*",
+    "@ec/registry": "workspace:*",
+    "@ec/shell-api": "workspace:*",
+    "@ec/ui": "workspace:*",
+    "immer": "^10.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.27.0",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4",
+    "jsdom": "^25.0.1",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/user-event": "^14.5.2"
+  }
+}

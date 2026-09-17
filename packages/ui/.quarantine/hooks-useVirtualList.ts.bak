@@ -1,0 +1,94 @@
+import { useCallback, useRef, useState } from 'react';
+export interface VirtualListOptions {
+  /** 条目总数 */
+  count: number;
+  /** 固定行高（px） */
+  itemHeight: number;
+  /** 视口外额外渲染的条目数（上下各 overscan） */
+  overscan?: number;
+}
+
+export interface VirtualListResult {
+  /** 绑定到滚动容器 ref */
+  containerRef: (node: HTMLElement | null) => void;
+  /** 绑定到内部撑高元素 */
+  innerProps: {
+    style: { height: number; paddingTop: number; willChange: 'transform' };
+  };
+  /** 可见区间 [start, end) */
+  range: { start: number; end: number };
+  totalHeight: number;
+  scrollToIndex(index: number): void;
+}
+
+/**
+ * 固定行高虚拟列表：只渲染可视窗口内的条目。
+ * Tree / Table / List 共用，1 万条数据仅渲染窗口内节点。
+ */
+export function useVirtualList(options: VirtualListOptions): VirtualListResult {
+  const { count, itemHeight, overscan = 6 } = options;
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(600);
+  const containerRef = useRef<HTMLElement | null>(null);
+
+  const setContainer = useCallback((node: HTMLElement | null) => {
+    containerRef.current = node;
+    if (node) setViewportHeight(node.clientHeight || 600);
+  }, []);
+
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const onScroll = () => setScrollTop(node.scrollTop);
+    node.addEventListener('scroll', onScroll, { passive: true });
+    return () => node.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const start = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+  const visibleCount = Math.ceil(viewportHeight / itemHeight) + overscan * 2;
+  const end = Math.min(count, start + visibleCount);
+  const totalHeight = count * itemHeight;
+
+  const scrollToIndex = useCallback(
+    (index: number) => {
+      const node = containerRef.current;
+      if (!node) return;
+      node.scrollTop = Math.min(Math.max(0, index), count - 1) * itemHeight;
+    },
+    [count, itemHeight],
+  );
+
+  return {
+    containerRef: setContainer,
+    innerProps: {
+      style: {
+        height: totalHeight,
+        paddingTop: start * itemHeight,
+        willChange: 'transform',
+      },
+    },
+    range: { start, end },
+    totalHeight,
+    scrollToIndex,
+  };
+}
+
+/** 开关态（Modal / Drawer / Popover / Dropdown 通用） */
+export interface DisclosureResult {
+  isOpen: boolean;
+  open(): void;
+  close(): void;
+  toggle(): void;
+  set(open: boolean): void;
+}
+
+export function useDisclosure(initial = false): DisclosureResult {
+  const [isOpen, setIsOpen] = useState(initial);
+  return {
+    isOpen,
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false),
+    toggle: () => setIsOpen((value) => !value),
+    set: (value: boolean) => setIsOpen(value),
+  };
+}

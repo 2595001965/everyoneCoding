@@ -1,0 +1,33 @@
+{
+  "name": "@ec/memory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "记忆领域层：五层模型、检索、自动抽取",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "browser": "./src/browser.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ec/core": "workspace:*",
+    "@ec/data": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.11.1",
+    "vitest": "^2.1.4"
+  }
+}

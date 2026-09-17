@@ -1,0 +1,160 @@
+# 双形态发布流水线（T10-04 / D-01 / FR-SET-05 / NFR-P-09）。
+#
+# 说明：本仓库为内部闭源仓库（未接入远端 CI 平台），本文件是**发布流程的可执行定义**，
+# 接入内部 CI（GitLab CE / Gitea Actions 兼容此语法）时直接使用或按平台改写。
+#
+# 两个构建 job **并行**（D-01：Tauri 与 Electron 功能等价、各自独立产出），
+# 最后由 release job 收敛成同一条更新通道：谁失败都不影响另一个形态的产物，
+# 但 release 阶段任一形态缺产物 = 发版失败。
+#
+# 触发：打 tag（v*）发版，或手动 workflow_dispatch。
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 更新通道
+        required: true
+        default: stable
+        type: choice
+        options: [stable, beta]
+
+env:
+  # 版本号单一事实源 = 根 package.json；双形态共用
+  CHANNEL: ${{ github.event.inputs.channel || 'stable' }}
+  UPDATE_BASE_URL: https://update.everyonecoding.com
+
+jobs:
+  # ---- 发版前置门禁：版本号必须五处一致，否则双形态会各自打包出不同版本 ----
+  version-guard:
+    name: 版本号一致性（单一事实源校验）
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 校验 root / tauri.conf.json / Cargo.toml / electron-builder.yml 版本一致
+        run: pnpm version:check
+
+  # ---- 通道一：Tauri 2（Rust + WebView2），Updater 走 minisign 签名 ----
+  build-tauri:
+    name: Tauri 2 构建（NSIS + Updater 签名）
+    needs: version-guard
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - name: 生成 updater 签名密钥（仅首次；密钥内容不落仓库）
+        shell: pwsh
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            Write-Error "缺少 TAURI_SIGNING_PRIVATE_KEY（minisign 私钥，CI Secret 注入）；生成方法见 docs/RELEASE.md"
+          }
+      - name: 构建渲染层
+        run: pnpm build:renderer
+      - name: 构建 Tauri 安装包与更新包
+        working-directory: apps/desktop-tauri
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm build
+      - name: 收集产物
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
+          Copy-Item "apps/desktop-tauri/src-tauri/target/release/bundle/nsis/*" release-artifacts/ -Recurse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-windows
+          path: release-artifacts/**
+
+  # ---- 通道二：Electron（Node 主进程 + Chromium），electron-updater 走 sha512 ----
+  build-electron:
+    name: Electron 构建（NSIS + asar）
+    needs: version-guard
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 构建渲染层
+        run: pnpm build:renderer
+      - name: 构建 Electron 安装包（原生模块按 Node ABI 重建）
+        working-directory: apps/desktop-electron
+        run: pnpm build
+      - name: 收集产物
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
+          Copy-Item "apps/desktop-electron/release/*" release-artifacts/ -Recurse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: electron-windows
+          path: release-artifacts/**
+
+  # ---- 收敛：合并两形态产物 → 生成更新清单与分发页 → 体积门禁 ----
+  release:
+    name: 汇总更新清单与分发页（体积门禁 NFR-P-09）
+    needs: [build-tauri, build-electron]
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+      - name: 生成 latest.json / latest.yml / release-manifest.json / distribution.html
+        run: >-
+          pnpm release:manifest --
+          --dir release-artifacts
+          --base-url ${{ env.UPDATE_BASE_URL }}
+          --channel ${{ env.CHANNEL }}
+          --notes "EveryoneCoding ${{ github.ref_name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-manifests
+          path: |
+            release-artifacts/latest.json
+            release-artifacts/latest.yml
+            release-artifacts/release-manifest.json
+            release-artifacts/distribution.html
+      - name: 上传到内部更新服务（占位：接入内部对象存储 / 静态站）
+        shell: pwsh
+        run: |
+          Write-Host "将 release-artifacts/ 同步到 $env:UPDATE_BASE_URL/$env:CHANNEL/ 下："
+          Write-Host "  windows-x86_64/  安装包与更新包"
+          Write-Host "  latest.json      Tauri Updater 响应体（服务按 {{target}}/{{arch}}/{{current_version}} 路由）"
+          Write-Host "  latest.yml       electron-updater 清单"
+          Write-Host "  分发页与清单由运维脚本推送，不在本流水线内直连生产存储"

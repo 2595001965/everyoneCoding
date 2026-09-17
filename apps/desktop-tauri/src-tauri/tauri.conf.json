@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "EveryoneCoding",
+  "version": "0.1.0",
+  "identifier": "com.everyonecoding.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @ec/renderer dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm --filter @ec/renderer build",
+    "frontendDist": "../../renderer/dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "EveryoneCoding",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "nsis",
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["SimpChinese", "English"],
+        "installerHooks": "nsis/installer-hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://update.everyonecoding.com/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "pubkey": "REPLACE_WITH_YOUR_TAURI_UPDATER_PUBLIC_KEY"
+    }
+  }
+}

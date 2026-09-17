@@ -1,0 +1,49 @@
+appId: com.everyonecoding.desktop
+productName: EveryoneCoding
+# 版本号与根 package.json 保持一致（发布流水线以根版本为唯一事实源）
+copyright: Copyright © 2026 EveryoneCoding（闭源软件，保留所有权利）
+
+directories:
+  app: dist
+  output: release
+  buildResources: build
+
+files:
+  - "**/*"
+
+asarUnpack:
+  - build/Release/better_sqlite3.node
+
+# 使用项目已安装的 Electron 运行时，避免打包阶段再次从 GitHub 下载。
+electronDist: node_modules/electron/dist
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # ARM64 为 P2 规划
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: EveryoneCoding
+  # 与 Tauri 版共用同一版本号与升级通道命名
+  uninstallDisplayName: EveryoneCoding ${version}
+  # 装完留档本版本安装包（供更新失败回滚时静默重装），与 Tauri 版同口径
+  include: build/installer.nsh
+
+# electron-updater 通用通道；端点为占位，接入自建更新服务时替换
+publish:
+  provider: generic
+  url: https://updates.everyonecoding.invalid/electron/
+  channel: latest
+
+asar: true
+# better-sqlite3 由 prepare-native.mjs 按 Electron ABI 单独准备；pnpm 虚拟目录不参与二次 rebuild。
+npmRebuild: false
+compression: normal

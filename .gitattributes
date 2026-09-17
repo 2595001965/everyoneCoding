@@ -1,0 +1,15 @@
+# 行尾与编码策略
+#
+# 背景：scripts/*.bat 必须保持 GBK(cp936) + CRLF + 无 BOM，否则 cmd.exe 解析多字节字符会错位。
+# 系统级 gitconfig 中 core.autocrlf=true 会对文本文件做归一化，此处显式声明以固定行为，
+# 避免不同机器 clone 后 .bat 行尾/编码被改写导致桌面启停脚本失效。
+
+# 批处理脚本：检出时强制 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# GBK 编码的校验副本，按二进制处理，禁止任何换行或编码转换
+*.gbk -text
+
+# 锁定文件一律不参与 diff 与语言统计
+pnpm-lock.yaml -diff linguist-generated

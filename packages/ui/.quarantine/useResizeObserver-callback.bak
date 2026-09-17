@@ -1,0 +1,35 @@
+import { useCallback, useRef, useState } from 'react';
+
+/**
+ * 元素尺寸观察（高分屏缩放 / 分栏拖拽共用）。
+ * 返回 [ref, size]：把 ref 绑到目标元素，size 随 ResizeObserver 更新。
+ * jsdom 等无 ResizeObserver 的环境安全降级（size 保持 0，不抛错）。
+ */
+
+export interface ElementSize {
+  width: number;
+  height: number;
+}
+
+export function useResizeObserver<T extends HTMLElement>(): [
+  (node: T | null) => void,
+  ElementSize,
+] {
+  const [size, setSize] = useState<ElementSize>({ width: 0, height: 0 });
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const ref = useCallback((node: T | null) => {
+    observerRef.current?.disconnect();
+    if (node === null) return;
+    setSize({ width: node.clientWidth, height: node.clientHeight });
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) setSize({ width: rect.width, height: rect.height });
+    });
+    observer.observe(node);
+    observerRef.current = observer;
+  }, []);
+
+  return [ref, size];
+}

@@ -1,0 +1,99 @@
+/**
+ * EveryoneCoding 设计令牌 —— CSS 变量。
+ * 浅色为默认；深色通过 [data-theme='dark'] 覆盖。
+ * 与 src/tokens/*.ts 保持同源，主题测试（theme.test.tsx）守护一致性。
+ */
+
+:root {
+  /* ---- 浅色（默认） ---- */
+  --ec-color-bg: #ffffff;
+  --ec-color-bg-subtle: #f7f8fa;
+  --ec-color-bg-muted: #eef0f4;
+  --ec-color-surface: #ffffff;
+  --ec-color-surface-hover: #f2f4f8;
+  --ec-color-border: #d9dee7;
+  --ec-color-border-strong: #b7c0cf;
+  --ec-color-text: #1c2333;
+  --ec-color-text-secondary: #5a6478;
+  --ec-color-text-disabled: #9aa3b5;
+  --ec-color-text-on-accent: #ffffff;
+
+  --ec-color-primary: #2563eb;
+  --ec-color-primary-hover: #1d4fd7;
+  --ec-color-primary-active: #1a3fb0;
+  --ec-color-success: #16803c;
+  --ec-color-warning: #b45309;
+  --ec-color-danger: #dc2626;
+  --ec-color-danger-hover: #b91c1c;
+  --ec-color-info: #0369a1;
+  --ec-color-focus-ring: rgba(37, 99, 235, 0.35);
+
+  /* ---- 尺寸 ---- */
+  --ec-space-xs: 4px;
+  --ec-space-sm: 8px;
+  --ec-space-md: 12px;
+  --ec-space-lg: 16px;
+  --ec-space-xl: 24px;
+  --ec-space-2xl: 32px;
+
+  --ec-radius-sm: 3px;
+  --ec-radius-md: 6px;
+  --ec-radius-lg: 10px;
+
+  --ec-font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
+  --ec-font-family-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  --ec-font-size-xs: 12px;
+  --ec-font-size-sm: 13px;
+  --ec-font-size-md: 14px;
+  --ec-font-size-lg: 16px;
+  --ec-font-size-xl: 20px;
+  --ec-font-size-2xl: 26px;
+
+  --ec-control-height-sm: 26px;
+  --ec-control-height-md: 32px;
+  --ec-control-height-lg: 38px;
+
+  --ec-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --ec-shadow-md: 0 4px 12px rgba(16, 24, 40, 0.12);
+  --ec-shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.18);
+
+  --ec-z-drawer: 200;
+  --ec-z-modal: 300;
+  --ec-z-popover: 400;
+  --ec-z-tooltip: 500;
+  --ec-z-toast: 600;
+}
+
+/* ---- 深色 ---- */
+[data-theme='dark'] {
+  --ec-color-bg: #141821;
+  --ec-color-bg-subtle: #1a1f2b;
+  --ec-color-bg-muted: #232a39;
+  --ec-color-surface: #1c2230;
+  --ec-color-surface-hover: #262e40;
+  --ec-color-border: #333c50;
+  --ec-color-border-strong: #4a5670;
+  --ec-color-text: #e6eaf2;
+  --ec-color-text-secondary: #a8b1c5;
+  --ec-color-text-disabled: #5d6678;
+  --ec-color-text-on-accent: #ffffff;
+
+  --ec-color-primary: #5b8def;
+  --ec-color-primary-hover: #7aa4f5;
+  --ec-color-primary-active: #4674d6;
+  --ec-color-success: #3ecf6e;
+  --ec-color-warning: #f0a24b;
+  --ec-color-danger: #f26d6d;
+  --ec-color-danger-hover: #e05252;
+  --ec-color-info: #57b3e8;
+  --ec-color-focus-ring: rgba(91, 141, 239, 0.45);
+}
+
+/* ---- 高分屏（150% / 200%）：以系统缩放为准，禁用位图模糊 ---- */
+@media (resolution >= 1.5dppx) {
+  :root {
+    --ec-shadow-sm: 0 1px 1px rgba(16, 24, 40, 0.06);
+    --ec-shadow-md: 0 3px 10px rgba(16, 24, 40, 0.1);
+    --ec-shadow-lg: 0 10px 28px rgba(16, 24, 40, 0.16);
+  }
+}

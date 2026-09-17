@@ -1,0 +1,305 @@
+/* 全局统一重命名模块 —— 渲染层组件专用样式（T7-04 / T7-05）。
+ * 仅使用 @ec/ui 的设计令牌变量，不写死颜色，深浅色两套主题都成立。 */
+
+.ec-rename-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-md);
+  color: var(--ec-color-text);
+  font-family: var(--ec-font-family);
+  font-size: var(--ec-font-size-md);
+}
+
+/* ---------- UnifiedDiffView ---------- */
+.ec-rename-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-md);
+}
+
+.ec-rename-diff__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ec-space-sm);
+}
+
+.ec-rename-diff__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ec-space-sm);
+}
+
+.ec-rename-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+  padding: var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-bg-subtle);
+  min-width: 0;
+}
+
+.ec-rename-column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ec-space-xs);
+  font-weight: 600;
+}
+
+.ec-rename-column__count {
+  color: var(--ec-color-text-secondary);
+  font-weight: 400;
+}
+
+.ec-rename-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+  padding: var(--ec-space-xs);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-sm);
+  background: var(--ec-color-surface);
+}
+
+.ec-rename-entry__main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ec-space-sm);
+}
+
+.ec-rename-entry__loc {
+  font-family: var(--ec-font-family-mono);
+  font-size: var(--ec-font-size-xs);
+  color: var(--ec-color-text-secondary);
+  word-break: break-all;
+}
+
+.ec-rename-entry__before,
+.ec-rename-entry__after {
+  font-family: var(--ec-font-family-mono);
+  font-size: var(--ec-font-size-xs);
+  padding: 1px 4px;
+  border-radius: var(--ec-radius-sm);
+}
+
+.ec-rename-entry__before {
+  background: var(--ec-color-bg-muted);
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.ec-rename-entry__after {
+  background: var(--ec-color-bg-subtle);
+  color: var(--ec-color-text);
+}
+
+.ec-rename-entry__context {
+  font-family: var(--ec-font-family-mono);
+  font-size: var(--ec-font-size-xs);
+  white-space: pre;
+  background: var(--ec-color-bg);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-sm);
+  padding: var(--ec-space-xs);
+  overflow-x: auto;
+}
+
+.ec-rename-entry__revision {
+  font-family: var(--ec-font-family-mono);
+  font-size: var(--ec-font-size-xs);
+  color: var(--ec-color-info);
+}
+
+.ec-rename-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+  padding: var(--ec-space-sm);
+  border: 1px dashed var(--ec-color-border-strong);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-bg-subtle);
+}
+
+.ec-rename-scope-notice {
+  color: var(--ec-color-warning);
+  font-size: var(--ec-font-size-sm);
+}
+
+/* ---------- 风险 / 投影 标签 ---------- */
+.ec-rename-risk-auto {
+  color: var(--ec-color-success);
+}
+.ec-rename-risk-confirm {
+  color: var(--ec-color-warning);
+}
+.ec-rename-risk-warn {
+  color: var(--ec-color-danger);
+}
+
+/* ---------- RenameProgress ---------- */
+.ec-rename-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-sm);
+}
+
+.ec-rename-progress__segments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+}
+
+.ec-rename-progress__segment {
+  padding: var(--ec-space-xs) var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-sm);
+  background: var(--ec-color-surface);
+}
+
+.ec-rename-rollback {
+  padding: var(--ec-space-sm);
+  border: 1px solid var(--ec-color-danger);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-bg-subtle);
+  color: var(--ec-color-danger);
+}
+
+.ec-rename-summary {
+  font-weight: 600;
+}
+
+/* ---------- 通用 ---------- */
+.ec-rename-muted {
+  color: var(--ec-color-text-secondary);
+}
+
+.ec-rename-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ec-space-xs);
+}
+
+.ec-rename-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ec-space-sm);
+}
+
+.ec-rename-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+}
+
+.ec-rename-danger {
+  color: var(--ec-color-danger);
+}
+
+.ec-rename-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ec-space-sm);
+}
+
+/* ---------- MigrationDialog ---------- */
+.ec-rename-sql-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ec-space-sm);
+}
+
+.ec-rename-sql-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+  padding: var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-bg-subtle);
+}
+
+.ec-rename-sql-stmt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ec-space-xs);
+  font-family: var(--ec-font-family-mono);
+  font-size: var(--ec-font-size-xs);
+  padding: var(--ec-space-xs);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-sm);
+  background: var(--ec-color-surface);
+}
+
+.ec-rename-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-bg);
+  font-family: var(--ec-font-family-mono);
+  font-size: var(--ec-font-size-xs);
+}
+
+.ec-rename-log__line--warn {
+  color: var(--ec-color-warning);
+}
+.ec-rename-log__line--error {
+  color: var(--ec-color-danger);
+}
+.ec-rename-log__line--success {
+  color: var(--ec-color-success);
+}
+
+/* ---------- AliasCleanupPanel ---------- */
+.ec-rename-alias-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+}
+
+.ec-rename-alias-row {
+  display: grid;
+  grid-template-columns: 24px 1.2fr 1fr 1fr 1fr 1fr;
+  gap: var(--ec-space-sm);
+  align-items: center;
+  padding: var(--ec-space-xs) var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-sm);
+  background: var(--ec-color-surface);
+}
+
+.ec-rename-alias-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- BatchRenameDialog ---------- */
+.ec-rename-batch-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-xs);
+  padding: var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-surface);
+}
+
+.ec-rename-batch-step--blocked {
+  border-color: var(--ec-color-danger);
+}
+
+.ec-rename-batch-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1.5fr;
+  gap: var(--ec-space-sm);
+  align-items: center;
+}

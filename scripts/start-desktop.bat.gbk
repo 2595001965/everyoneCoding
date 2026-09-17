@@ -1,0 +1,6 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+title EveryoneCoding ????? - ???
+
+REM ==========================================================================
+REM  EveryoneCoding ????

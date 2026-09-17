@@ -1,0 +1,297 @@
+/* AI 设置（模型服务 / 远程配置）样式。
+   只使用设计令牌变量，不引入第三方 UI 框架样式。 */
+
+.ec-ai {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-5, 20px);
+}
+
+.ec-ai__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-3, 12px);
+  padding: var(--ec-space-4, 16px);
+  border: 1px solid var(--ec-color-border, #e3e6ea);
+  border-radius: var(--ec-radius-md, 8px);
+  background: var(--ec-color-surface, #fff);
+}
+
+.ec-ai__section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ec-space-4, 16px);
+}
+
+.ec-ai__section-title {
+  margin: 0;
+  font-size: var(--ec-font-size-md, 15px);
+  font-weight: 600;
+  color: var(--ec-color-text, #1f2329);
+}
+
+.ec-ai__hint {
+  margin: 0;
+  font-size: var(--ec-font-size-sm, 13px);
+  color: var(--ec-color-text-secondary, #646a73);
+}
+
+.ec-ai__error {
+  margin: 0;
+  font-size: var(--ec-font-size-sm, 13px);
+  color: var(--ec-color-danger, #d83931);
+}
+
+.ec-ai__legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--ec-font-size-sm, 13px);
+  color: var(--ec-color-text-secondary, #646a73);
+}
+
+.ec-ai__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ec-ai__url {
+  font-family: var(--ec-font-family-mono, ui-monospace, Consolas, monospace);
+  font-size: var(--ec-font-size-sm, 13px);
+  color: var(--ec-color-text-secondary, #646a73);
+  overflow-wrap: anywhere;
+}
+
+.ec-ai__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-ai__inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ------------------------------ 编辑表单 ------------------------------ */
+
+.ec-ai__editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-3, 12px);
+  padding: var(--ec-space-4, 16px);
+  border: 1px solid var(--ec-color-border, #e3e6ea);
+  border-radius: var(--ec-radius-md, 8px);
+  background: var(--ec-color-surface, #fff);
+}
+
+.ec-ai__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: var(--ec-space-4, 16px);
+}
+
+.ec-ai__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--ec-font-size-sm, 13px);
+  color: var(--ec-color-text-secondary, #646a73);
+}
+
+.ec-ai__field--wide {
+  grid-column: 1 / -1;
+}
+
+.ec-ai__checks {
+  display: flex;
+  gap: var(--ec-space-4, 16px);
+}
+
+.ec-ai__editor-actions {
+  display: flex;
+  gap: var(--ec-space-2, 8px);
+}
+
+/* ------------------------------ 连接测试 ------------------------------ */
+
+.ec-ai__test {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ec-ai__test-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ec-space-2, 8px);
+}
+
+.ec-ai__test-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ec-space-2, 8px);
+  font-size: var(--ec-font-size-sm, 13px);
+}
+
+.ec-ai__test-models {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ec-ai__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ec-ai__error-box {
+  padding: var(--ec-space-3, 12px);
+  border: 1px solid var(--ec-color-danger-border, #f5c6c2);
+  border-radius: var(--ec-radius-sm, 6px);
+  background: var(--ec-color-danger-bg, #fef1f1);
+  font-size: var(--ec-font-size-sm, 13px);
+}
+
+.ec-ai__error-box p {
+  margin: 4px 0 0;
+  color: var(--ec-color-text-secondary, #646a73);
+}
+
+/* ---------------------------- 远程配置源 ---------------------------- */
+
+.ec-ai__sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-2, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ec-ai__source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ec-space-3, 12px);
+  padding: var(--ec-space-3, 12px);
+  border: 1px solid var(--ec-color-border, #e3e6ea);
+  border-radius: var(--ec-radius-md, 8px);
+}
+
+.ec-ai__source--active {
+  border-color: var(--ec-color-primary, #2b5cff);
+}
+
+.ec-ai__source-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ------------------------------ 差异预览 ------------------------------ */
+
+.ec-ai__diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ec-ai__diff-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--ec-font-size-sm, 13px);
+}
+
+.ec-ai__diff-label {
+  min-width: 160px;
+}
+
+.ec-ai__diff-before {
+  color: var(--ec-color-text-disabled, #8f959e);
+  text-decoration: line-through;
+}
+
+.ec-ai__diff-after {
+  color: var(--ec-color-text, #1f2329);
+}
+
+.ec-ai__notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--ec-space-3, 12px);
+  border: 1px solid var(--ec-color-warning-border, #f0d9a8);
+  border-radius: var(--ec-radius-md, 8px);
+  background: var(--ec-color-warning-bg, #fff8e6);
+}
+
+.ec-ai__btn-danger,
+.ec-ai__btn-ghost {
+  padding: 6px 12px;
+  border-radius: var(--ec-radius-sm, 6px);
+  font-size: var(--ec-font-size-sm, 13px);
+  cursor: pointer;
+}
+
+.ec-ai__btn-danger {
+  border: 1px solid var(--ec-color-danger, #d83931);
+  background: var(--ec-color-danger, #d83931);
+  color: #fff;
+}
+
+.ec-ai__btn-ghost {
+  border: 1px solid var(--ec-color-border, #e3e6ea);
+  background: transparent;
+  color: var(--ec-color-text, #1f2329);
+}
+
+/* ------------------------------ 能力表格 ------------------------------ */
+
+.ec-ai__table-scroll {
+  max-height: 280px;
+  overflow: auto;
+}
+
+.ec-ai__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ec-font-size-sm, 13px);
+}
+
+.ec-ai__table th,
+.ec-ai__table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ec-color-border, #e3e6ea);
+  text-align: left;
+  font-weight: 400;
+  color: var(--ec-color-text, #1f2329);
+}
+
+.ec-ai__table thead th {
+  color: var(--ec-color-text-secondary, #646a73);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--ec-color-surface, #fff);
+}

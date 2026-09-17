@@ -1,0 +1,392 @@
+openapi: 3.0.3
+info:
+  title: EveryoneCoding 云端账号服务端 API
+  description: >
+    客户端可离线工作，服务端仅负责账号注册/登录与版本更新。
+    本服务不提供云同步、远程配置下发与分享链接。
+  version: "1.3.0"
+  license:
+    name: All Rights Reserved
+servers:
+  - url: http://localhost:3000
+    description: 本地开发
+
+tags:
+  - name: auth
+    description: 认证与账号
+  - name: usage
+    description: 用量上报
+  - name: release
+    description: 版本更新
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: 邮箱注册（自注册即开通）
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, description: "≥8 位且含两类字符（大写/小写/数字/特殊）" }
+                displayName: { type: string }
+      responses:
+        "201":
+          description: 注册成功，已开通默认工作区与免费权益包
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 邮箱 + 密码登录
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /api/auth/oauth/{provider}/authorize:
+    get:
+      tags: [auth]
+      summary: 发起 OAuth 授权
+      operationId: oauthAuthorize
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [wechat, google, github] }
+        - name: redirect_uri
+          in: query
+          required: true
+          schema: { type: string, format: uri }
+        - name: code_challenge
+          in: query
+          required: true
+          schema: { type: string, description: PKCE S256 code_challenge }
+        - name: scope
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 返回授权 URL 与 state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorizeUrl: { type: string }
+                  state: { type: string }
+        "400":
+          $ref: "#/components/responses/Error"
+
+  /api/auth/oauth/{provider}/callback:
+    get:
+      tags: [auth]
+      summary: OAuth 回调换令牌（首次授权自动建号）
+      operationId: oauthCallback
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [wechat, google, github] }
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+        - name: code_verifier
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 授权成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthResult"
+        "400":
+          $ref: "#/components/responses/Error"
+
+  /api/auth/refresh:
+    post:
+      tags: [auth]
+      summary: 刷新令牌（旧 refresh 轮换失效）
+      operationId: refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: 新令牌对
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /api/auth/bindings:
+    get:
+      tags: [auth]
+      summary: 列出第三方绑定
+      operationId: listBindings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 绑定列表（cursor 分页）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Binding" }
+                  nextCursor: { type: string }
+        "401":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [auth]
+      summary: 绑定第三方身份到当前账号
+      operationId: addBinding
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, code, state, code_verifier]
+              properties:
+                provider: { type: string, enum: [wechat, google, github] }
+                code: { type: string }
+                state: { type: string }
+                code_verifier: { type: string }
+      responses:
+        "200":
+          description: 绑定结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Binding" }
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [auth]
+      summary: 解绑第三方身份
+      operationId: removeBinding
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: bindingId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 解绑成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean } }
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/usage/report:
+    post:
+      tags: [usage]
+      summary: 匿名用量上报（需授权）
+      operationId: usageReport
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client: { type: string }
+                version: { type: string }
+                events:
+                  type: array
+                  items: { type: object }
+                  maxItems: 200
+      responses:
+        "202":
+          description: 已接受
+          content:
+            application/json:
+              schema: { type: object, properties: { accepted: { type: boolean } } }
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /api/release/check:
+    get:
+      tags: [release]
+      summary: 版本检查（按形态分别下发）
+      operationId: releaseCheck
+      parameters:
+        - name: form
+          in: query
+          required: true
+          schema: { type: string, enum: [tauri, electron] }
+      responses:
+        "200":
+          description: 版本与增量包清单
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TauriRelease"
+                  - $ref: "#/components/schemas/ElectronRelease"
+        "400":
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: 统一错误结构
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [code, message, traceId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        traceId: { type: string }
+    TokenPair:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer }
+    RegisterResult:
+      type: object
+      properties:
+        userId: { type: string }
+        email: { type: string }
+        workspaceId: { type: string }
+        planId: { type: string }
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer }
+    OAuthResult:
+      type: object
+      properties:
+        userId: { type: string }
+        workspaceId: { type: string }
+        planId: { type: string }
+        isNew: { type: boolean }
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer }
+    Binding:
+      type: object
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        providerUserId: { type: string, description: 脱敏后的第三方标识 }
+        createdAt: { type: integer }
+    TauriRelease:
+      type: object
+      properties:
+        form: { type: string, enum: [tauri] }
+        version: { type: string }
+        channel: { type: string }
+        publishedAt: { type: string, format: date-time }
+        notes: { type: string }
+        installer:
+          type: object
+          properties:
+            url: { type: string }
+            size: { type: integer }
+            signature: { type: string }
+        patch:
+          type: object
+          properties:
+            from: { type: string }
+            to: { type: string }
+            url: { type: string }
+            size: { type: integer }
+    ElectronRelease:
+      type: object
+      properties:
+        form: { type: string, enum: [electron] }
+        version: { type: string }
+        channel: { type: string }
+        publishedAt: { type: string, format: date-time }
+        notes: { type: string }
+        installer:
+          type: object
+          properties:
+            url: { type: string }
+            size: { type: integer }
+        patch:
+          type: object
+          properties:
+            from: { type: string }
+            to: { type: string }
+            url: { type: string }
+            size: { type: integer }

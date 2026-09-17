@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "baseUrl": "..",
+    // services/account 与各包的测试工具以 `.ts` 扩展名直引（Node ESM 口径），
+    // 需要显式开启该选项才能通过 tsc（noEmit 已满足其前置条件）。
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@ec/*": ["packages/*/src", "packages/*/src/index.ts"],
+      "@renderer/*": ["apps/renderer/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "./vitest.config.ts"]
+}

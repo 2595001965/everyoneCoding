@@ -1,0 +1,20 @@
+import { useState } from 'react';
+/** 开关态（Modal / Drawer / Popover / Dropdown 通用） */
+export interface DisclosureResult {
+  isOpen: boolean;
+  open(): void;
+  close(): void;
+  toggle(): void;
+  set(open: boolean): void;
+}
+
+export function useDisclosure(initial = false): DisclosureResult {
+  const [isOpen, setIsOpen] = useState(initial);
+  return {
+    isOpen,
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false),
+    toggle: () => setIsOpen((value) => !value),
+    set: (value: boolean) => setIsOpen(value),
+  };
+}

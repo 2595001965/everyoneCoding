@@ -1,0 +1,59 @@
+[package]
+# 包名采用 kebab-case；crate 名自动转为 everyone_coding（lib/main 共用）。
+name = "everyone-coding"
+version = "0.1.0"
+description = "EveryoneCoding Tauri 2 外壳（Rust 命令层）"
+authors = ["EveryoneCoding"]
+edition = "2021"
+# 闭源项目：不声明任何开源许可证。
+license = "proprietary"
+
+# 同时提供 lib（供 mobile/集成测试复用）与 bin（桌面入口）。
+[lib]
+name = "everyone_coding"
+path = "src/lib.rs"
+
+[[bin]]
+name = "everyone-coding"
+path = "src/main.rs"
+
+[build-dependencies]
+# Tauri 2 构建脚本：收集能力、生成代码。
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri 2 核心（默认使用 wry 渲染引擎，即 WebView2 运行时）。
+tauri = { version = "2", features = ["protocol-asset"] }
+# 序列化：命令参数/返回值与 TS 桥接层结构对齐。
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 异步运行时：进程管理、网络请求、插件。
+tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "sync", "fs"] }
+# 受限网络能力（OAuth / AI 请求 / 版本检查），由 Rust 侧强制 host 白名单。
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# 二进制请求体（body_base64）解码。
+base64 = "0.22"
+# 对话框 / 文件选择。
+tauri-plugin-dialog = "2"
+# 文件系统（补充能力，主逻辑仍用 std 实现原子写）。
+tauri-plugin-fs = "2"
+# 进程管理（relaunch / exit 等宿主级能力）。
+tauri-plugin-process = "2"
+# 自动更新（check / download / install）。
+tauri-plugin-updater = "2"
+# 操作系统信息（arch / 平台 / 语言）。
+tauri-plugin-os = "2"
+# 剪贴板读写。
+tauri-plugin-clipboard-manager = "2"
+# Windows 系统能力：DPAPI 加解密、注册表探测 WebView2。
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_Security_Cryptography",
+  "Win32_System_Memory",
+  "Win32_System_Registry",
+] }
+
+[features]
+# 默认启用自定义协议（用于加载本地资源）。
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

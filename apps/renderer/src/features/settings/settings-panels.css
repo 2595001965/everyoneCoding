@@ -1,0 +1,230 @@
+/**
+ * 设置面板样式（Wave 9 / T9-03 新增类）。
+ */
+
+.ec-settings {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  padding: 16px;
+  height: 100%;
+  color: var(--ec-color-text, #1f2328);
+}
+
+.ec-settings__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ec-settings__nav button {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: inherit;
+  font-size: 13px;
+}
+
+.ec-settings__nav button[data-active='true'] {
+  background: var(--ec-color-primary-soft, #eaf1ff);
+  color: var(--ec-color-primary, #2f6fed);
+  font-weight: 600;
+}
+
+.ec-settings__body {
+  min-width: 0;
+  overflow: auto;
+}
+
+.ec-settings__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 680px;
+}
+
+.ec-settings__panel h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.ec-settings__panel h3 {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.ec-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.ec-settings__field > span:first-child {
+  color: var(--ec-color-text-secondary, #6b7280);
+}
+
+.ec-settings__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-settings__list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ec-color-text-secondary, #6b7280);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ec-settings__keymap {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ec-settings__keymap li {
+  display: grid;
+  grid-template-columns: 1fr 200px auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.ec-settings__keymap li[data-conflict='true'] input {
+  border-color: var(--ec-color-danger, #c0392b);
+}
+
+.ec-settings__command {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ec-settings__notice {
+  margin: 0;
+  color: var(--ec-color-primary, #2f6fed);
+  font-size: 13px;
+}
+
+.ec-settings__error {
+  margin: 0;
+  color: var(--ec-color-danger, #c0392b);
+  font-size: 13px;
+}
+
+.ec-settings__hint {
+  margin: 0;
+  color: var(--ec-color-text-secondary, #6b7280);
+  font-size: 12px;
+}
+
+/* --------------------------- 自动更新面板（T10-04） --------------------------- */
+
+.ec-update {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-lg);
+}
+
+.ec-update__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ec-space-sm);
+}
+
+.ec-update__block h3 {
+  margin: 0;
+  font-size: var(--ec-font-size-sm);
+  color: var(--ec-color-text-secondary);
+}
+
+.ec-update__facts {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 6px var(--ec-space-md);
+  margin: 0;
+  font-size: var(--ec-font-size-sm);
+}
+
+.ec-update__facts dt {
+  color: var(--ec-color-text-secondary);
+}
+
+.ec-update__facts dd {
+  margin: 0;
+}
+
+.ec-update__actions {
+  display: flex;
+  gap: var(--ec-space-sm);
+  flex-wrap: wrap;
+}
+
+.ec-update__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--ec-space-sm);
+  font-size: var(--ec-font-size-xs);
+  color: var(--ec-color-text-secondary);
+}
+
+.ec-update__progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ec-color-primary, #2f6fed);
+}
+
+.ec-update__message {
+  margin: 0;
+  font-size: var(--ec-font-size-sm);
+  color: var(--ec-color-primary, #2f6fed);
+}
+
+.ec-update__available {
+  padding: var(--ec-space-sm);
+  border: 1px solid var(--ec-color-border);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-color-bg-subtle);
+  font-size: var(--ec-font-size-sm);
+}
+
+.ec-update__available p {
+  margin: 0;
+}
+
+.ec-update__notes {
+  margin-top: 4px !important;
+  color: var(--ec-color-text-secondary);
+  font-size: var(--ec-font-size-xs);
+  white-space: pre-wrap;
+}
+
+.ec-update__switch {
+  display: flex;
+  align-items: center;
+  gap: var(--ec-space-sm);
+  font-size: var(--ec-font-size-sm);
+}
+
+.ec-update__rolled-back {
+  margin: 0;
+  color: var(--ec-color-primary, #2f6fed);
+  font-size: var(--ec-font-size-sm);
+}
+
+.ec-update__rollback-failed {
+  margin: 0;
+  color: var(--ec-color-danger, #c0392b);
+  font-size: var(--ec-font-size-sm);
+}

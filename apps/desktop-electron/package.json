@@ -1,0 +1,40 @@
+{
+  "name": "@ec/desktop-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron 外壳（Node 主进程）",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "dist/main/index.cjs",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "prepare:native": "node scripts/prepare-native.mjs",
+    "prepare:production": "node scripts/prepare-production.mjs",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/prepare-native.mjs && node scripts/prepare-production.mjs && pnpm run build:main && pnpm run build:preload && electron-builder",
+    "build:main": "esbuild src/main/index.ts --bundle --platform=node --format=cjs --external:electron --log-override:empty-import-meta=silent --outfile=dist/main/index.cjs",
+    "build:preload": "esbuild src/preload/index.ts --bundle --platform=node --format=cjs --external:electron --log-override:empty-import-meta=silent --outfile=dist/preload/index.cjs"
+  },
+  "dependencies": {
+    "@ec/ai": "workspace:*",
+    "@ec/core": "workspace:*",
+    "@ec/data": "workspace:*",
+    "@ec/shell-api": "workspace:*",
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.4",
+    "esbuild": "^0.21.5",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

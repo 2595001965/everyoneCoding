@@ -1,0 +1,32 @@
+{
+  "name": "@ec/data",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SQLite 存储层：迁移框架、DAO、FTS5 与向量检索",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "browser": "./src/browser.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ec/shell-api": "workspace:*",
+    "better-sqlite3": "^12.11.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "vitest": "^2.1.4"
+  }
+}

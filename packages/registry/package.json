@@ -1,0 +1,31 @@
+{
+  "name": "@ec/registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "统一标识注册表 + 重命名引擎",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "browser": "./src/browser.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ec/core": "workspace:*",
+    "typescript": "^5.6.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.4"
+  }
+}

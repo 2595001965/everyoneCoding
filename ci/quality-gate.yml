@@ -1,0 +1,97 @@
+# CI 质量门禁（T10-03 / §10.2）。
+#
+# 说明：本仓库为内部闭源仓库（尚未 git init / 未接入远端 CI 平台），本文件是
+# **门禁的可执行定义**——接入内部 CI（GitLab CE / Gitea Actions 均兼容此语法）
+# 时直接使用或按平台改写。四个 job 任一失败 = 构建失败。
+#
+# 触发：main 分支推送与内部 MR。
+
+name: quality-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: ESLint（零 error 零 warning）
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  typecheck:
+    name: TypeScript strict（零 error）
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  test:
+    name: 全量测试（vitest）
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  coverage:
+    name: 六核心模块覆盖率 ≥70%
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 质量门禁（逐模块阈值校验，任一 <70% 失败）
+        run: node --experimental-strip-types ci/quality-gate.mts
+
+  clippy:
+    name: Tauri Rust（cargo clippy 零 warning）
+    runs-on: [self-hosted, windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: pnpm install --frozen-lockfile
+      - name: clippy（-D warnings：warning 即失败）
+        working-directory: apps/desktop-tauri/src-tauri
+        run: cargo clippy --all-targets -- -D warnings

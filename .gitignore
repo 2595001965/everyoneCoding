@@ -1,0 +1,70 @@
+# 依赖
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 构建产物
+dist/
+build/
+out/
+release/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# 打包产物（电子壳 / 安装包）：体积达数百 MB，超出 GitHub 单文件 100 MB 硬限
+# 注意 release/ 是 electron-builder 的默认输出目录，且不在 dist/build/out 之列，必须单独忽略
+*.exe
+*.msi
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+*.blockmap
+
+# vitest 加载 .ts 配置时在配置旁生成的 timestamp 临时文件
+vitest.config.ts.timestamp-*
+
+# 测试运行期在仓库根创建的临时目录（如 secure-store 测试）
+.tmp-*/
+# 临时日志/中间产物文件（注意 .tmp-*/ 只匹配目录，文件形式需单独一条）
+.tmp-*
+*.log
+!npm-debug.log.example
+
+# Rust / Tauri
+target/
+apps/desktop-tauri/src-tauri/target/
+apps/desktop-tauri/src-tauri/gen/
+
+# 归档包
+*.ecpkg
+*.ecpkg.tmp
+
+# 本地数据与运行时
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db-journal
+runtime/
+.snapshots/
+
+# 编辑器与系统
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 环境变量与密钥（永不入库）
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/

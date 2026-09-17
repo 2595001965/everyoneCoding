@@ -1,0 +1,142 @@
+/* 用量与预算面板（T10-01） */
+
+.ec-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ec-usage__hint {
+  color: var(--ec-text-secondary, #666);
+  margin: 0;
+}
+
+.ec-usage__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ec-usage__scopes,
+.ec-usage__groups {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ec-usage__scopes [data-active='true'],
+.ec-usage__groups [data-active='true'] {
+  background: var(--ec-primary, #2b6cb0);
+  color: #fff;
+  border-color: transparent;
+}
+
+.ec-usage__scopes button,
+.ec-usage__groups button {
+  border: 1px solid var(--ec-border, #d0d0d0);
+  background: transparent;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.ec-usage__scopes button:disabled,
+.ec-usage__groups button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ec-usage__project-select {
+  padding: 4px 8px;
+  border: 1px solid var(--ec-border, #d0d0d0);
+  border-radius: 4px;
+}
+
+.ec-usage__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.ec-usage__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--ec-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--ec-bg-elevated, #fafafa);
+}
+
+.ec-usage__metric-label {
+  font-size: 12px;
+  color: var(--ec-text-secondary, #666);
+}
+
+.ec-usage__metric-value {
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ec-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ec-budget__state {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ec-budget__state--ok {
+  background: var(--ec-success-bg, #e8f5e9);
+  border: 1px solid var(--ec-success, #4caf50);
+}
+
+.ec-budget__state--warning {
+  background: var(--ec-warning-bg, #fff8e1);
+  border: 1px solid var(--ec-warning, #ffb300);
+}
+
+.ec-budget__state--exceeded {
+  background: var(--ec-danger-bg, #fdecea);
+  border: 1px solid var(--ec-danger, #e53935);
+}
+
+.ec-budget__state-hint {
+  font-size: 12px;
+  color: var(--ec-text-secondary, #666);
+}
+
+.ec-budget__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ec-budget__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ec-text-secondary, #666);
+}
+
+.ec-budget__saved {
+  color: var(--ec-success, #2e7d32);
+  font-size: 12px;
+}
+
+.ec-budget__error {
+  color: var(--ec-danger, #c62828);
+  font-size: 12px;
+}

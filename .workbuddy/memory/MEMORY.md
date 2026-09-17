@@ -70,12 +70,23 @@
 - **主人已决定开源，仓库 `2595001965/everyoneCoding` 为公开仓库**（主人 2026-09-17 当场确认）。
   此决定**推翻了 2026-09-14 之前的"闭源、All Rights Reserved、不写 LICENSE、不写贡献引导"约定**，
   后续新增文档/注释/打包配置**不必再回避开源与贡献表述**。
-- **⚠️ 仓库内许可口径尚未统一，六处自相矛盾（待主人定许可后一次性收敛）**：
-  `README.md` 声明 Fair Core License (FCL)；根及各包 `package.json` 为 `"license": "UNLICENSED"` 且写「闭源项目」；
-  `services/account/README.md` 与 `openapi.yaml` 为 `All Rights Reserved`；
-  `docs/DEV-SETUP.md`、`docs/RELEASE.md`、`ci/*.yml`、`ci/make-release.mts`、`docs/tasks/00|01` 一律「内部闭源」。
-  **且全仓无 LICENSE 文件**——公开仓库无 LICENSE 时默认 All Rights Reserved，与"开源"意图直接冲突。
-  未擅自改动：选许可证是主人的法律决定。
+- **许可已定为 Apache License 2.0（主人 2026-09-17 决定），全仓口径已统一**。落地清单：
+  - 根目录新增 `LICENSE`（11358 字节，Apache-2.0 逐字正文，无 BOM、LF 行尾，
+    sha256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`）与 `NOTICE`（署名 + 第三方组件说明）。
+  - 18 个 `package.json` 的 `"license": "UNLICENSED"` → `"Apache-2.0"`（根 + 3 apps + 13 packages + services/account），
+    两处 description 中「（闭源项目）」→「（Apache-2.0）」。
+  - `README.md`：许可表格行、§九「内部协作」→「协作方式」、§十 FCL 段落全部改写为 Apache-2.0；
+    克隆地址由 `<内部仓库地址>` 占位换成公开 HTTPS 地址。
+  - `services/account/README.md`（标题 + 版权行）、`openapi.yaml`（`info.license`）、
+    `docs/DEV-SETUP.md`、`docs/RELEASE.md`、`docs/TEST-REPORT.md`、
+    `ci/quality-gate.yml`、`ci/release.yml`、`ci/make-release.mts`、
+    `apps/desktop-tauri/README.md`、`Cargo.toml`（`license = "proprietary"` → `"Apache-2.0"`）、
+    `build.rs`、`main.rs`、`electron-builder.yml`（copyright）、`docs/tasks/00`（治理性约定块）同步更新。
+  - **随产物分发许可文本**（Apache-2.0 第 4 条要求）：`electron-builder.yml` 加 `extraResources`
+    带入 `LICENSE`/`NOTICE`；`tauri.conf.json` 的 `bundle.resources` 加同两项。
+    ⚠️ **两处打包配置本次未重新构建验证**（Tauri 本机本就无法构建），下次出包需确认这两个文件进了 `resources/`。
+- `docs/tasks/01-Wave0-工程底座与内核.md` 是**历史任务卡**，其中「闭源 / 不写 LICENSE」原文**刻意保留未改**，
+  只在文首加了 2026-09-17 的口径变更提示，避免改写执行记录。
 - 公开仓库前敏感信息核查已做（2026-09-17，结论干净）：全仓无真实 API key、私钥、口令或主机 IP；
   命中的 `sk-live-abcdef*`、`example.com` 邮箱、`127.0.0.1` 均为测试夹具。
 - `.gitignore` 已收口：`release/`（electron-builder 输出，内含 180 MB exe，超 GitHub 100 MB 单文件硬限）、

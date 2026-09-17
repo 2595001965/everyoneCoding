@@ -1,4 +1,4 @@
-# 云端账号服务端（EveryoneCoding · 闭源项目）
+# 云端账号服务端（EveryoneCoding · Apache-2.0）
 
 账号服务端最小实现，对应任务卡 **T9-06**。客户端可完全离线工作，服务端**仅负责账号注册/登录与版本更新**。
 
@@ -88,4 +88,4 @@ pnpm typecheck
 
 ---
 
-Copyright © EveryoneCoding. All Rights Reserved. 本仓库为闭源商业项目，不开放贡献。
+Copyright 2026 EveryoneCoding. Licensed under the Apache License, Version 2.0 — 见仓库根目录 [LICENSE](../LICENSE)。

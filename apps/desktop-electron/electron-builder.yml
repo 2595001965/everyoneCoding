@@ -1,7 +1,7 @@
 appId: com.everyonecoding.desktop
 productName: EveryoneCoding
 # 版本号与根 package.json 保持一致（发布流水线以根版本为唯一事实源）
-copyright: Copyright © 2026 EveryoneCoding（闭源软件，保留所有权利）
+copyright: Copyright © 2026 EveryoneCoding（Apache License 2.0）
 
 directories:
   app: dist
@@ -10,6 +10,13 @@ directories:
 
 files:
   - "**/*"
+
+# Apache-2.0 第 4 条要求向接收方随附许可文本；app 目录是 dist，根目录文件需显式带入。
+extraResources:
+  - from: ../../LICENSE
+    to: LICENSE
+  - from: ../../NOTICE
+    to: NOTICE
 
 asarUnpack:
   - build/Release/better_sqlite3.node

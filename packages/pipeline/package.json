@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "S1–S7 状态机与阶段产物",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

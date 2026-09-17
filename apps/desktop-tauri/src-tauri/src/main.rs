@@ -1,5 +1,5 @@
 // 桌面端二进制入口：仅调用 lib 的 run()。
-// 闭源项目，无额外的开源许可声明。
+// Apache-2.0 开源项目，许可文本见仓库根目录 LICENSE。
 
 fn main() {
     everyone_coding::run()

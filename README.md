@@ -10,7 +10,7 @@
 | 目标平台   | Windows 10 1809 (Build 17763)+ / Windows 11，x64（ARM64 为 P2 规划）    |
 | 需求基线   | [PRD v1.3](docs/PRD-EveryoneCoding.md)（15 个模块 / 162 条功能需求） |
 | 当前状态   | **Wave 0 工程底座已完成**：双形态外壳空壳可启动、SQLite 迁移可执行、UI 组件库可用、崩溃可恢复；功能开发按 `docs/tasks/` 的 Wave 1–10 推进          |
-| 许可协议   | **[Fair Core License (FCL)](https://fcl.dev/)**（Fair Source 许可）                                   |
+| 许可协议   | **[Apache License 2.0](LICENSE)**（OSI 认证开源许可）                          |
 | 最近更新   | 2026-09-17                                                        |
 
 ---
@@ -149,8 +149,8 @@ EveryoneCoding 的思路是：以**分层记忆系统**为核心，以**可视�
 ### 安装与运行
 
 ```bash
-# 1. 克隆内部仓库（私有，需授权访问）
-git clone <内部仓库地址>
+# 1. 克隆仓库
+git clone https://github.com/2595001965/everyoneCoding.git
 cd everyoneCoding
 
 # 2. 安装依赖
@@ -253,9 +253,9 @@ everyoneCoding/
 
 ---
 
-## 九、内部协作
+## 九、协作方式
 
-> 本项目采用 **Fair Core License (FCL)**。当前仓库访问与内部协作仍由项目方管理，暂不接受外部代码贡献。
+> 本项目采用 **Apache License 2.0**（详见 [LICENSE](LICENSE)），仓库公开可访问。
 
 需求基线尚未冻结，当前阶段的协作以**文档评审与技术方案论证**为主：
 
@@ -270,11 +270,13 @@ everyoneCoding/
 
 ## 十、许可协议与敏感信息保护
 
-本项目采用 **[Fair Core License (FCL)](https://fcl.dev/)**，使用、修改与分发本项目须遵守相应许可条款。
+本项目采用 **Apache License 2.0**，使用、修改与分发本项目须遵守相应许可条款。
 
-- FCL 属于 **Fair Source（源码可用）许可**，允许在条款规定的非竞争性用途下使用、修改和分发代码，并对绕过商业功能的许可密钥限制设有约束。
-- 按照 FCL 的延迟开源机制，每个已发布版本在发布满两年后转换为开源许可；官方提供 **FCL-1.0-ALv2**（转换为 Apache License 2.0）和 **FCL-1.0-MIT**（转换为 MIT License）两种版本，项目采用的具体版本需在正式许可文本中明确。
-- 协议说明及标准文本见 [FCL 官方网站](https://fcl.dev/)。本节为协议摘要，具体权利与义务以项目采用的完整许可文本为准。
+- 完整许可文本见仓库根目录的 [LICENSE](LICENSE) 文件。
+- 允许商业使用、修改、分发与再许可：需保留版权与许可声明，并在分发时附上许可文本副本（第 4 条 Redistribution）。
+- 依第 3 条，贡献者向本项目及其使用者授予专利许可；若对项目提起专利诉讼，该许可自动终止。
+- 本项目按「现状」提供，不附带任何明示或默示担保（第 7、8 条）。
+- 第三方组件的许可声明见 [NOTICE](NOTICE)，桌面端打包产物另含 LICENSES.chromium.html。
 - 仓库内的 API Key、Provider 凭据、用户数据样本等敏感信息不得提交；本地敏感数据一律经 DPAPI 加密存储（NFR-S-01）。
 - 对外披露或演示前，需确认内容不涉及未公开的产品规划与用户数据。
 

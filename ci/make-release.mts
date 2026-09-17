@@ -18,7 +18,7 @@
  *            EveryoneCoding_<version>_x64-setup.nsis.zip   更新包（含 .sig 签名）
  *   Electron EveryoneCoding-<version>-x64-setup.exe        安装包 + 更新包同文件
  *
- * 本仓库为内部闭源项目：产物只上传到内部更新服务，不生成开源分发引导。
+ * 本仓库以 Apache-2.0 开源：源码公开发布，安装产物通过更新服务分发。
  */
 
 import { createHash } from 'node:crypto';

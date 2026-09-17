@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "PageDSL、画布、组件库、属性面板",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

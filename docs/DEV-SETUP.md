@@ -1,6 +1,6 @@
 # 开发环境搭建（DEV-SETUP）
 
-> 本文档面向 EveryoneCoding 内部开发者。**本项目为闭源软件**，仓库地址见 README（内部仓库占位）。
+> 本文档面向 EveryoneCoding 的开发者。本项目以 **Apache License 2.0** 开源，仓库地址见 README。
 
 ## 1. 环境要求
 

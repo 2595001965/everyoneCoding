@@ -2,8 +2,8 @@
   "name": "@ec/account-service",
   "version": "0.1.0",
   "private": true,
-  "description": "云端账号服务端最小实现：账号注册/登录、OAuth、用量上报与版本检查（闭源项目）",
-  "license": "UNLICENSED",
+  "description": "云端账号服务端最小实现：账号注册/登录、OAuth、用量上报与版本检查（Apache-2.0）",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {

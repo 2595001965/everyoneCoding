@@ -69,4 +69,4 @@ vitest.config.ts
 - **updater**：端点与公钥在 `tauri.conf.json` 中为占位符，发布前须替换为真实 `pubkey`。
 - **fs.watch**：采用轻量轮询实现（约 400ms 粒度），非原生 inotify/ReadDirectoryChangesW。
 - **clipboard**：依赖 `tauri-plugin-clipboard-manager`，需确认其 API 与所用版本一致。
-- 闭源项目：未附带任何开源许可证文件。
+- 开源项目：采用 Apache License 2.0，许可文本见仓库根目录 `LICENSE`。

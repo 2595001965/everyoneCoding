@@ -2,8 +2,8 @@
   "name": "everyonecoding",
   "version": "0.1.0",
   "private": true,
-  "description": "EveryoneCoding —— Windows 桌面端 AI 全栈开发工作台（闭源项目）",
-  "license": "UNLICENSED",
+  "description": "EveryoneCoding —— Windows 桌面端 AI 全栈开发工作台（Apache-2.0）",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"

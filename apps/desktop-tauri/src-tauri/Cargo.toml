@@ -5,8 +5,8 @@ version = "0.1.0"
 description = "EveryoneCoding Tauri 2 外壳（Rust 命令层）"
 authors = ["EveryoneCoding"]
 edition = "2021"
-# 闭源项目：不声明任何开源许可证。
-license = "proprietary"
+# 采用 Apache License 2.0，与仓库根目录 LICENSE 一致。
+license = "Apache-2.0"
 
 # 同时提供 lib（供 mobile/集成测试复用）与 bin（桌面入口）。
 [lib]

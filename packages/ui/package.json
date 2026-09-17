@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "设计令牌 + 自建基础组件库（不引第三方 UI 框架）",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

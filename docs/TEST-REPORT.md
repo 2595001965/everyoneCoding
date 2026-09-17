@@ -104,7 +104,7 @@ merge → stash → 回滚 → 推送 → 冲突解决，单趟含上百次真�
 任一 job 失败 = 构建失败（D-01：双形态均需达标——Electron 侧由 1/2/3/4 覆盖，
 Tauri Rust 侧由 5 覆盖；渲染层与包为两形态共用代码，天然双形态同测）。
 
-> 本仓库为内部闭源仓库（尚未接入远端 CI 平台），此 yml 为**可执行门禁定义**，
+> 本仓库为公开仓库（Apache-2.0，尚未接入远端 CI 平台），此 yml 为**可执行门禁定义**，
 > 接入内部 CI（GitLab CE / Gitea Actions 兼容语法）时直接使用或按平台改写。
 > 本地等价复现命令：
 > `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm quality-gate`。

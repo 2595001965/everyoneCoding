@@ -11,72 +11,44 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { WorkspaceWelcome } from './WorkspaceWelcome';
 
+import type { WorkspaceImportProgress } from '@ec/shell-api';
 import type {
   CreateProjectInput,
+  DashboardMetrics,
   DuplicateOptions,
+  DuplicateResult,
+  MetricDetail,
+  MetricKey,
   ProjectQuery,
+  ProjectStageInfo,
   ProjectSummary,
   RequirementDigest,
   UpdateProjectPatch,
 } from '@ec/core';
 
-/** 复制结果（含各资源计数，供 UI 展示"复制了什么"） */
-export interface DuplicateResult {
-  project: ProjectSummary;
-  copied: { design: number; memory: number; docs: number; codeFiles: number };
-}
-
-/** 流水线阶段（进度环用；null 表示项目尚未进入流水线） */
-export interface ProjectStageInfo {
-  stage: string;
-  status: string;
-  /** 已确认阶段数 / 总阶段数（用于进度环比例） */
-  confirmed: number;
-  total: number;
-}
-
 /* --------------------- 项目仪表盘（T9-02 / FR-WSP-06） --------------------- */
 
-/** 五项指标的聚合结果 */
-export interface DashboardMetrics {
-  /** 记忆条目数（按五层分组） */
-  memory: { total: number; byScope: Record<string, number> };
-  /** 页面数（按端分组） */
-  pages: { total: number; byPlatform: Record<string, number> };
-  /** 功能完成度 */
-  features: { done: number; total: number; completion: number };
-  /** AI 调用量与成本（本期 / 累计，按模型分组） */
-  usage: {
-    periodLabel: string;
-    periodTokens: number;
-    periodCost: number;
-    totalTokens: number;
-    totalCost: number;
-    byModel: Array<{ modelId: string; tokens: number; cost: number }>;
-  };
-  /** 最近 Git 提交（最多 5 条） */
-  git: { recent: Array<{ sha: string; message: string; author: string; at: number }> };
-  /** 聚合计算耗时（毫秒，性能口径） */
-  computeMs: number;
-}
+/**
+ * 仪表盘与阶段视图的形状**由 `@ec/core` 统一定义**（`project/project-metrics.ts`）。
+ *
+ * 这些结构跨进程传递：主进程的 workspace 域运行时负责聚合，渲染层只做展示。
+ * 两侧各写一份声明会在字段变更时静默漂移（主进程发了、渲染层解析不到），
+ * 故上面从 `@ec/core` 取值、此处再导出，保持既有 import 路径继续可用。
+ */
+export type {
+  DashboardMetrics,
+  DuplicateResult,
+  MetricDetail,
+  MetricDetailRow,
+  MetricKey,
+  ProjectStageInfo,
+} from '@ec/core';
 
-/** 指标键 */
-export type MetricKey = 'memory' | 'pages' | 'features' | 'usage' | 'git';
-
-/** 下钻明细行 */
-export interface MetricDetailRow {
-  label: string;
-  value: string;
-  /** 关联对象 id（如记忆 scope 筛选、页面 id），供跳转 */
-  refId?: string | undefined;
-}
-
-/** 下钻明细 */
-export interface MetricDetail {
-  key: MetricKey;
-  title: string;
-  rows: MetricDetailRow[];
-}
+/**
+ * 导入进度形状同样跨进程（主进程按阶段推送、渲染层展示），
+ * 声明在 `@ec/shell-api` 的域事件契约里；这里再导出让特性内沿用同一入口。
+ */
+export type { WorkspaceImportProgress };
 
 export interface WorkspaceApi {
   listProjects(query?: ProjectQuery): Promise<ProjectSummary[]>;
@@ -104,7 +76,11 @@ export interface WorkspaceApi {
     url: string;
     projectName?: string;
     targetDir: string;
-    onProgress?: (ratio: number, message: string) => void;
+    /**
+     * 过程反馈（三阶段：克隆 / 扫描 / 落库）。
+     * 由域事件通道推送，`ratio` 仅在克隆阶段有值，其余阶段为 `null`（比例不可知）。
+     */
+    onProgress?: (progress: WorkspaceImportProgress) => void;
   }): Promise<ProjectSummary>;
   /** 文档导入：把解析出的功能清单落成功能/页面 + 项目记忆 */
   createFromDigest(input: { digest: RequirementDigest; name: string }): Promise<ProjectSummary>;

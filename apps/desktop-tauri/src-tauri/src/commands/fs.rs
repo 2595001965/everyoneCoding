@@ -371,20 +371,23 @@ pub fn fs_watch(
         }
     });
 
-    state.watchers.lock().await.insert(
-        id.clone(),
-        WatcherHandle {
-            stop,
-            handle: Some(handle),
-        },
-    );
+    state
+        .watchers
+        .blocking_lock()
+        .insert(
+            id.clone(),
+            WatcherHandle {
+                stop,
+                handle: Some(handle),
+            },
+        );
     Ok(id)
 }
 
 /// 停止监听并释放线程。
 #[tauri::command(rename_all = "snake_case")]
 pub fn fs_unwatch(id: String, state: State<'_, AppState>) -> Result<(), CommandError> {
-    if let Some(mut h) = state.watchers.lock().await.remove(&id) {
+    if let Some(mut h) = state.watchers.blocking_lock().remove(&id) {
         h.close();
     }
     Ok(())

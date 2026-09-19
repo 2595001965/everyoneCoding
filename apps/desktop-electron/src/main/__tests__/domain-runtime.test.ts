@@ -1,16 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { DOMAIN_KINDS, type DomainRpcRequest } from '@ec/shell-api';
+import { DOMAIN_KINDS, createDomainEventSink, type DomainRpcRequest } from '@ec/shell-api';
 
 import { createDomainRuntime, type DomainRouter } from '../domain/runtime';
 
 /**
  * 域运行时聚合器测试。
  *
- * 三条纪律必须锁住：
+ * 四条纪律必须锁住：
  * 1. 白名单封闭（未登记域/未登记方法一律拒绝，不做反射）；
  * 2. `describe()` 如实（未装配报 false 并给原因，不谎报可用）；
- * 3. 错误脱敏后才回渲染层。
+ * 3. 错误脱敏后才回渲染层；
+ * 4. 事件信封的 requestId/domain 由本层补齐（域实现只给载荷）。
  */
 
 function request(overrides: Partial<DomainRpcRequest> = {}): DomainRpcRequest {
@@ -24,7 +25,8 @@ describe('createDomainRuntime 白名单与路由', () => {
 
     const response = await runtime.invoke(request({ method: 'update', params: { patch: { theme: 'dark' } } }));
     expect(response).toEqual({ requestId: 'r1', ok: true, result: { echo: 'update' } });
-    expect(router).toHaveBeenCalledWith('update', { patch: { theme: 'dark' } });
+    // 第三参数为请求上下文（requestId + emit），断言前两项即可
+    expect(router).toHaveBeenCalledWith('update', { patch: { theme: 'dark' } }, expect.anything());
   });
 
   it('白名单外的方法被拒，且不调用路由', async () => {
@@ -63,7 +65,7 @@ describe('createDomainRuntime 白名单与路由', () => {
     const router = vi.fn<DomainRouter>(async () => 'ok');
     const runtime = createDomainRuntime({ routers: { settings: router } });
     await runtime.invoke(request({ params: 'not-an-object' }));
-    expect(router).toHaveBeenCalledWith('getAll', {});
+    expect(router).toHaveBeenCalledWith('getAll', {}, expect.anything());
   });
 
   it('路由返回 undefined 时不带 result 字段', async () => {
@@ -71,6 +73,33 @@ describe('createDomainRuntime 白名单与路由', () => {
     const response = await runtime.invoke(request({ method: 'setTelemetry' }));
     expect(response).toEqual({ requestId: 'r1', ok: true });
     expect('result' in response).toBe(false);
+  });
+
+  it('ctx.emit 推事件时由本层补齐 requestId 与 domain（域实现只管载荷）', async () => {
+    const sink = createDomainEventSink();
+    const router: DomainRouter = async (_method, _params, ctx) => {
+      ctx.emit({ stage: 'clone', ratio: 0.5 });
+      return 'ok';
+    };
+    const runtime = createDomainRuntime({ routers: { workspace: router }, events: sink });
+
+    const events: unknown[] = [];
+    sink.register('r1', (event) => events.push(event));
+    await runtime.invoke(request({ domain: 'workspace', method: 'importFromGit' }));
+
+    expect(events).toEqual([
+      { requestId: 'r1', domain: 'workspace', payload: { stage: 'clone', ratio: 0.5 } },
+    ]);
+  });
+
+  it('ctx.emit 在无订阅者时静默丢弃，不影响路由结果', async () => {
+    const router: DomainRouter = async (_method, _params, ctx) => {
+      ctx.emit({ stage: 'clone' });
+      return 'ok';
+    };
+    const runtime = createDomainRuntime({ routers: { workspace: router } });
+    const response = await runtime.invoke(request({ domain: 'workspace', method: 'importFromGit' }));
+    expect(response).toEqual({ requestId: 'r1', ok: true, result: 'ok' });
   });
 });
 

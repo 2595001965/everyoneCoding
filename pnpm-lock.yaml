@@ -65,6 +65,9 @@ importers:
 
   apps/desktop-electron:
     dependencies:
+      '@ec/account':
+        specifier: workspace:*
+        version: link:../../packages/account
       '@ec/ai':
         specifier: workspace:*
         version: link:../../packages/ai
@@ -74,6 +77,12 @@ importers:
       '@ec/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@ec/designer':
+        specifier: workspace:*
+        version: link:../../packages/designer
+      '@ec/package-kit':
+        specifier: workspace:*
+        version: link:../../packages/package-kit
       '@ec/shell-api':
         specifier: workspace:*
         version: link:../../packages/shell-api

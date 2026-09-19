@@ -37,8 +37,8 @@
     ],
     "createUpdaterArtifacts": true,
     "resources": [
-      "../../LICENSE",
-      "../../NOTICE"
+      "../../../LICENSE",
+      "../../../NOTICE"
     ],
     "windows": {
       "nsis": {

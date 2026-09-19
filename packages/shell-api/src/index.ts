@@ -18,22 +18,31 @@ export type { AiControlHost } from './ai-control';
 export {
   DOMAIN_KINDS,
   DOMAIN_RPC_METHODS,
+  WORKSPACE_IMPORT_PROGRESS_EVENT,
+  WORKSPACE_IMPORT_STAGES,
+  createDomainEventSink,
   createDomainRequestId,
   createLocalEmitter,
   domainErrorFromUnknown,
   domainUnavailableError,
   isDomainKind,
   isDomainRpcMethod,
+  isWorkspaceImportProgressEvent,
   sanitizeDomainMessage,
 } from './domain-control';
 export type {
   DomainControlHost,
   DomainControlServiceHost,
   DomainDescriptor,
+  DomainEvent,
+  DomainEventSink,
   DomainKind,
   DomainRpcError,
   DomainRpcRequest,
   DomainRpcResponse,
+  WorkspaceImportProgress,
+  WorkspaceImportProgressEvent,
+  WorkspaceImportStage,
 } from './domain-control';
 export type {
   AiRpcMethod,

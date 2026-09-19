@@ -4,24 +4,42 @@ import Database from 'better-sqlite3';
 
 import { APP_COMMANDS, SettingsStore, migrateSettings, type GlobalSettings, type Settings } from '@ec/core';
 import { ShellError } from '@ec/shell-api';
+import {
+  EcpkgReader,
+  buildDiffPreview,
+  collectPackageObjects,
+  runExport,
+  runImport,
+  type ConflictResolution,
+  type ContentSelection,
+  type ExportSelection,
+  type ImportMode,
+  type PackageObject,
+} from '@ec/package-kit';
 
 import type { DomainRouter } from './runtime';
+import { createExportSourcePort, createImportLocalStatePort, createImportTargetPort } from './package-ports';
 import { createTelemetryFileStore } from './telemetry-store';
 
 /**
- * 设置域运行时（settings 域，16 个方法）。
+ * 设置域运行时（settings 域，16 个方法全部可用）。
  *
  * 数据落点全部在 `dataDir` 之下，便于"数据与位置"面板如实展示：
  * - `settings.json`      全局/项目两级设置（zod 校验 + 版本迁移，见 `@ec/core`）
  * - `backup-config.json` 定时备份配置
  * - `telemetry-buffer.json` 本地遥测缓冲
  * - `everyonecoding.sqlite`  业务库（迁移时用 `VACUUM INTO` 安全复制）
+ * - `exports/`（或备份配置里的目录）归档 `.ecpkg` 的默认输出位置
  *
- * **未完成说明（如实）**：`exportProject` 与 `importPackage` 暂未接线。导出的读取端需经
- * `@ec/package-kit` 的 `runExport` + `ExportSourcePort` 读取工程 / 记忆 / 文档，导入的写入端要把
- * 记忆 / 文档 / 代码落回库与工程目录 —— 两者都压在 workspace / docs 两个域上。在它们落地前先行实现，
- * 会形成第二条分叉读写路径，故按 settings → workspace → docs → 归档导入导出的顺序推进。
- * 这两个方法当前抛出**带原因**的 `NOT_SUPPORTED`，不做任何静默降级。
+ * 归档导出/导入接 `@ec/package-kit` 的真实作业：
+ * - 导出：`runExport` + 本目录 `package-ports.ts` 的 `ExportSourcePort`；
+ * - 导入：`runImport` + `ImportLocalStatePort` / `ImportTargetPort`；
+ *   `mode: 'merge'` 且按类型批量决策为 `keepLocal`（与界面"冲突按不覆盖处理"的文案一致）；
+ * - `ImportReportData` 只有四分类计数，故 memory/docs/codeFiles 三个数在导入前
+ *   另开一次 `EcpkgReader` 按对象类型统计。
+ *
+ * 加密归档的**合同细节**：加密用口令派生密钥（PBKDF2-SHA256），
+ * `encrypted: true` 却没给口令时**拒绝导出**，绝不静默产出未加密文件。
  */
 
 export interface SettingsDomainOptions {
@@ -29,6 +47,10 @@ export interface SettingsDomainOptions {
   cacheDir: string;
   /** 未显式配置工作区时的默认根目录 */
   defaultWorkspaceRoot: string;
+  /** 工程目录根（`<workspaceRoot>/projects`），归档导出/导入需要 */
+  projectsDir: string;
+  /** 业务库连接（归档导出/导入读写项目与文档元数据） */
+  db: Database.Database;
   userId?: string;
   /** 迁移完成后需要重启才能跟随的提示（如 AI 栈仍持旧库连接） */
   onNotice?: (message: string) => void;
@@ -109,8 +131,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * 归档内容选择。
+ *
+ * `attachments` 恒为 false：附件子系统尚未装配，`listAttachments()` 如实返回空，
+ * 若宣称包含附件会让 manifest 与实际内容不符。
+ */
+function buildExportSelection(mode: 'full' | 'code-only', projectId: string): ExportSelection {
+  const full: ContentSelection = {
+    memory: { longterm: true, project: true, feature: true, page: true, issue: true },
+    documents: true,
+    code: true,
+    pipeline: true,
+    anchors: true,
+    registry: true,
+    attachments: false,
+  };
+  // 「仅代码（轻量包）」与导入侧 MODE_PARTICIPATING_TYPES['code-only'] 的参与类型对齐
+  const codeOnly: ContentSelection = {
+    memory: { longterm: false, project: false, feature: false, page: false, issue: false },
+    documents: false,
+    code: true,
+    pipeline: true,
+    anchors: true,
+    registry: true,
+    attachments: false,
+  };
+  return { scope: 'project', projectIds: [projectId], content: mode === 'full' ? full : codeOnly };
+}
+
+/** 归档文件名里剔除路径非法字符（项目名可能含 `\ / : * ? " < > |`） */
+function sanitizeFileName(name: string): string {
+  const cleaned = name.replace(/[\\/:*?"<>|]/g, '_').trim();
+  return cleaned.length > 0 ? cleaned.slice(0, 60) : 'project';
+}
+
 export function createSettingsDomain(options: SettingsDomainOptions): SettingsDomain {
-  const { dataDir, cacheDir } = options;
+  const { dataDir, cacheDir, db, projectsDir } = options;
+  const userId = options.userId ?? 'local-user';
   const settingsPath = join(dataDir, 'settings.json');
   const backupConfigPath = join(dataDir, 'backup-config.json');
   const telemetryBufferPath = join(dataDir, 'telemetry-buffer.json');
@@ -259,17 +317,96 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
         return { ok: true, counts, rolledBack: true };
       }
 
-      case 'exportProject':
-        throw new ShellError(
-          'NOT_SUPPORTED',
-          '工程导出尚未接线：需接 @ec/package-kit 的 runExport 并实现其 ExportSourcePort（工程代码 / 记忆 / 文档的读取端），随 workspace 与 docs 域一并交付。',
+      case 'exportProject': {
+        const input = params['input'] as {
+          projectId: string;
+          mode: 'full' | 'code-only';
+          encrypted: boolean;
+          password?: string | undefined;
+        };
+        const password = typeof input.password === 'string' && input.password.length > 0 ? input.password : undefined;
+        if (input.encrypted && password === undefined) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            '加密导出需要口令：请先在「加密归档」下方填写口令再重试（不会退化成未加密导出）。',
+          );
+        }
+        const project = db.prepare(`SELECT id, name FROM project WHERE id = ?`).get(input.projectId) as
+          | { id: string; name: string }
+          | undefined;
+        if (!project) throw new ShellError('NOT_FOUND', `项目不存在：${input.projectId}`);
+
+        const outputDir = backupConfig.dir.trim() ? backupConfig.dir : join(dataDir, 'exports');
+        mkdirSync(outputDir, { recursive: true });
+        const outputPath = join(outputDir, `${sanitizeFileName(project.name)}-${Date.now()}.ecpkg`);
+
+        const source = createExportSourcePort({ db, projectsDir, userId });
+        const result = await runExport(
+          {
+            outputPath,
+            selection: buildExportSelection(input.mode, input.projectId),
+            redact: true,
+            ...(password !== undefined ? { password } : {}),
+          },
+          source,
+        );
+        return { ok: true, filePath: result.outputPath, bytes: result.archiveSizeBytes, mode: input.mode };
+      }
+
+      case 'importPackage': {
+        const input = params['input'] as { filePath: string; password?: string | undefined };
+        const password = typeof input.password === 'string' && input.password.length > 0 ? input.password : undefined;
+        if (!existsSync(input.filePath)) {
+          throw new ShellError('NOT_FOUND', `归档文件不存在：${input.filePath}`);
+        }
+
+        // 先按对象类型统计（ImportReportData 只有 added/conflicted/unchanged/missing 四分类）
+        const counts = { memory: 0, docs: 0, codeFiles: 0 };
+        let objects: PackageObject[] = [];
+        try {
+          const reader = EcpkgReader.open(input.filePath, password !== undefined ? { password } : {});
+          try {
+            objects = collectPackageObjects(reader);
+            counts.memory = objects.filter((object) => object.type === 'memory').length;
+            counts.docs = objects.filter((object) => object.type === 'document').length;
+            counts.codeFiles = objects.filter((object) => object.type === 'code').length;
+          } finally {
+            reader.close();
+          }
+        } catch (error) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            `无法读取归档包：${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+
+        // 逐条给"冲突"项决策为 keepLocal，**不**用类型级批量决策：
+        // `resolveStrategy` 里用户决策优先于分类，类型级 keepLocal 会把「包内新增」也一并丢弃。
+        const localPort = createImportLocalStatePort({ db, projectsDir, userId });
+        const preview = buildDiffPreview(objects, localPort);
+        const decisions = preview.items
+          .filter((item) => item.classification === 'conflicted')
+          .map((item) => ({ id: item.incoming.id, resolution: 'keepLocal' as ConflictResolution }));
+
+        const report = await runImport(
+          {
+            packagePath: input.filePath,
+            mode: 'merge' satisfies ImportMode,
+            decisions,
+            ...(password !== undefined ? { password } : {}),
+          },
+          {
+            local: localPort,
+            target: createImportTargetPort({ db, projectsDir, userId }),
+          },
         );
 
-      case 'importPackage':
-        throw new ShellError(
-          'NOT_SUPPORTED',
-          '归档导入尚未接线：其写入端需要对记忆 / 文档 / 代码落库，属 workspace 与 docs 域的写路径，随这两个域一并交付。',
-        );
+        return {
+          ok: report.failures.length === 0,
+          counts,
+          conflicted: report.counts.conflicted,
+        };
+      }
 
       case 'setTelemetry': {
         const enabled = params['enabled'];

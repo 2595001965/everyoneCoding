@@ -35,21 +35,16 @@ fn detect_arch() -> String {
 }
 
 /// 语言：优先取系统 locale。
-fn detect_locale(app: &AppHandle) -> String {
-    use tauri_plugin_os::OsExt;
-    app.os().locale().unwrap_or_else(|| "en-US".to_string())
+fn detect_locale() -> String {
+    tauri_plugin_os::locale().unwrap_or_else(|| "en-US".to_string())
 }
 
 /// 取得数据目录。
 fn data_dir(app: &AppHandle) -> Result<String, CommandError> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(CommandError::io_error)
-        .unwrap_or_else(|_| {
-            let base = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
-            std::path::PathBuf::from(base).join("EveryoneCoding")
-        });
+    let dir = app.path().app_data_dir().unwrap_or_else(|_| {
+        let base = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+        std::path::PathBuf::from(base).join("EveryoneCoding")
+    });
     // 确保目录存在，便于上层直接写入。
     let _ = std::fs::create_dir_all(&dir);
     Ok(dir.to_string_lossy().to_string())
@@ -57,7 +52,10 @@ fn data_dir(app: &AppHandle) -> Result<String, CommandError> {
 
 /// 获取完整应用信息。
 #[tauri::command(rename_all = "snake_case")]
-pub fn app_info_get(app: AppHandle, state: State<'_, AppState>) -> Result<AppInfoWire, CommandError> {
+pub async fn app_info_get(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<AppInfoWire, CommandError> {
     let data_dir = data_dir(&app)?;
     let workspace_root = state.workspace_root.lock().await.clone();
     Ok(AppInfoWire {
@@ -68,7 +66,7 @@ pub fn app_info_get(app: AppHandle, state: State<'_, AppState>) -> Result<AppInf
         arch: detect_arch(),
         data_dir,
         workspace_root,
-        locale: detect_locale(&app),
+        locale: detect_locale(),
         is_packaged: !cfg!(debug_assertions),
     })
 }
@@ -81,7 +79,7 @@ pub fn app_info_get_data_dir(app: AppHandle) -> Result<String, CommandError> {
 
 /// 设置当前工作区根目录。
 #[tauri::command(rename_all = "snake_case")]
-pub fn app_info_set_workspace_root(
+pub async fn app_info_set_workspace_root(
     root: String,
     state: State<'_, AppState>,
 ) -> Result<(), CommandError> {

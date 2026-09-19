@@ -180,23 +180,38 @@
 | --- | --- | --- |
 | 契约 | `packages/shell-api/src/domain-control.ts`：`DomainKind` 四域、四张方法白名单（workspace 19 / docs 20 / auth 14 / settings 16）、`DomainRpcRequest/Response`、`DomainDescriptor`、`describe()` | ✅ 已落地 |
 | 能力位 | `ShellCapabilities.domain` + `ShellHost.domain`；`negotiate()` 兜底同步 | ✅ 已落地 |
-| 通道 | `ec:domain:invoke` / `ec:domain:describe`（单通道 + 白名单分发，沿用 `ai` 通道已验证的做法，避免约 70 个方法各开通道） | ✅ 已落地 |
-| 主进程 | `main/ipc/domain.ts` + `IpcDependencies.domainHost`；未装配时兜底如实回 `NOT_SUPPORTED` 与空 `describe` | ✅ 已落地 |
-| preload | `domain.invoke` / `domain.describe`，已进 `PRELOAD_TOP_LEVEL_KEYS` 与安全面自检 | ✅ 已落地 |
+| 通道 | `ec:domain:invoke` / `ec:domain:describe` / `ec:domain:event`（单通道 + 白名单分发，沿用 `ai` 通道已验证的做法，避免约 70 个方法各开通道；`event` 为**单向推送**通道，见下方「域事件通道」） | ✅ 已落地 |
+| 主进程 | `main/ipc/domain.ts` + `IpcDependencies.domainHost`；未装配时兜底如实回 `NOT_SUPPORTED` 与空 `describe`；`invoke` 期间把 `event.sender` 按 `requestId` 注册进 `host.events`，`finally` 中注销 | ✅ 已落地 |
+| preload | `domain.invoke` / `domain.describe` / `domain.onEvent`，已进 `PRELOAD_TOP_LEVEL_KEYS` 与安全面自检 | ✅ 已落地 |
 | 双形态 | Electron `capabilities().domain = true`；Tauri 如实 `false`（Rust 侧无命令），与既有 `ai: false` 同一口径 | ✅ 已落地 |
 
 **仍缺的是四个域各自的后端**，这是功能而非接线，逐条列出（2026-09-17 更新）：
 
 | 域 | 状态与缺口 |
 | --- | --- |
-| settings | **已装配（14/16 方法）**。已实现：`getAll`/`update`（settings.json 落盘 + zod 校验）、`getDataDirs`、`migrateDataDirs`/`rollbackMigration`（复制 + 条目数校验 + 旧目录改名备份；SQLite 用 `VACUUM INTO` 在线快照）、`setTelemetry`/`inspectLocalTelemetry`/`clearLocalTelemetry`（文件缓冲 + 缓存字节数）、`listCommands`（**新建 `@ec/core` 的 `command-catalog.ts` 作为命令 id/标题/默认键位的单一事实源**，并由渲染层漂移守卫测试钉住导航与 i18n）、`saveKeymap`/`exportKeymap`/`importKeymap`、`getBackupConfig`/`saveBackupConfig`。**未实现 `exportProject`/`importPackage`**：归档写入端要把记忆/文档/代码落回库与工程目录，那是 workspace 与 docs 域的写路径，随它们一并交付；当前抛带原因的 `NOT_SUPPORTED`，无静默降级 |
-| workspace | 未装配：缺 SQLite `ProjectStore`（5 方法）+ `ProjectService` 装配、`ProjectDuplicatePort`、模板/git/digest 三条导入链、`getDashboardMetrics` 五项指标聚合与 `getMetricDetail` |
-| docs | 未装配：缺 SQLite `DocStore` + `DocService` 装配、Node 侧解析器注册表、记忆关联查询、转记忆 |
-| auth | 未装配：需可用的账号服务（本机无 Docker，见 L-01）与 OAuth 应用凭据 |
+| settings | **已装配（16/16 方法）**。已实现：`getAll`/`update`（settings.json 落盘 + zod 校验）、`getDataDirs`、`migrateDataDirs`/`rollbackMigration`（复制 + 条目数校验 + 旧目录改名备份；SQLite 用 `VACUUM INTO` 在线快照）、`setTelemetry`/`inspectLocalTelemetry`/`clearLocalTelemetry`（文件缓冲 + 缓存字节数）、`listCommands`（**新建 `@ec/core` 的 `command-catalog.ts` 作为命令 id/标题/默认键位的单一事实源**，并由渲染层漂移守卫测试钉住导航与 i18n）、`saveKeymap`/`exportKeymap`/`importKeymap`、`getBackupConfig`/`saveBackupConfig`；**归档 `exportProject`/`importPackage` 已接 `@ec/package-kit`**（`runExport`/`runImport` + 本目录实现的 `ExportSourcePort`/`ImportLocalStatePort`/`ImportTargetPort`），并有**导出→导入空库**的往返验证。<br>**合同层的一处补强**：加密归档需要口令，而原端口入参没有口令位——现已给 `exportProject`/`importPackage` 加可选 `password`，并在「导出与备份」面板补两个口令输入框（勾选加密时才显示、未填口令禁用导出）；缺口令时**拒绝导出**而不是静默产出未加密文件 |
+| workspace | **已装配（19/19 方法）**。已实现：`listProjects`（视图/搜索/排序/置顶/最近 N）、`getProject`、`createProject`（落库 + 建出 `projects/<id>/{design,docs,pipeline,code,meta}`）、`updateProject`、`markOpened`、`archiveProject`/`unarchiveProject`、`moveToRecycleBin`/`restoreFromRecycleBin`/`purgeProject`（软删除 30 天；彻底删除级联清行 + 删工程目录）、`cleanupExpiredRecycleBin`、`duplicateProject`（按选项机械搬运设计/记忆/文档/代码并回传计数）、`createFromTemplate`（**经 `@ec/designer/dsl` 子入口产出初始 DSL 并落盘**，页面行 `dsl_ref` 指向 `<pageId>.dsl.json`，模板记忆草稿与页面备注一并落 `memory_item`）、**`importFromGit`**（走系统 git CLI 克隆 + 扫描清单推断目标端与技术栈 + 写项目记忆；`GitImportPort` 实现在 `domain/git-import-port.ts`；克隆/扫描/落库三阶段进度经**域事件通道**回渲染层）、`createFromDigest`（功能 + 页面 + 项目记忆落库，`sourceKind='doc_import'`）、`getProjectStage`、`getThumbnailUrl`（如实 null）、`getDashboardMetrics`（记忆按 scope / 页面按 DSL 平台 / 功能完成度 / 用量按模型 / git 暂空）、`getMetricDetail`。<br>**新增约定：代码根登记**（`domain/code-root.ts`）。「克隆目录」的界面语义是**用户指定仓库落点**，因此仓库可能落在工程目录之外；`<projectDir>/meta/code-root.txt` 登记实际代码根，导出与复制按它取文件（未登记则退回 `<projectDir>/code`）。不用目录联接是因为 `rmSync(projectDir, {recursive:true})` 会穿过 junction 删掉用户仓库本身 |
+| docs | **已装配（20/20 方法）**。`DocService`（`@ec/core` 文档域）+ 本目录的 SQLite 适配器 `DocStore` / `DocMemoryPort` + Node 全集解析器注册表。导入（含 `importFromFile` 读真实文件）、编辑与版本快照、更新提示与忽略、软删/恢复/彻底删除（级联清关联与版本）、记忆关联双向查询与批量计数、`commitConvertToMemory`（不依赖 AI）均可用。**`previewConvertToMemory` 如实报 `NOT_SUPPORTED`**：一键转记忆需要 AI 摘要端口（`MemoryExtractionPort`），AI 栈未注入时 `DocService` 自带的中文引导语原样回传。另：`DocMemoryPort` 落 `memory_item` 时**不生成 embedding**（关键词检索正常、向量检索跳过），待记忆域装配后改为委托其服务并补算向量 |
+| auth | **已装配（14/14 方法）**。`@ec/account` 的 `AuthClient` + 本目录装配：`TransportPort`（Node fetch）、`SecureStorePort`（safeStorage/DPAPI 加密落盘，键即文件）、`SystemPort`（回环监听为 OAuth 主通道；`registerProtocol` 如实返回 false，自定义协议辅通道未接线）、`OfflineController`（`isOffline`/`tryRecover`）。会话令牌经 DPAPI 加密落盘（恢复 / 登出 / 令牌提取均真实）；**两个外壳持有的状态**：待完成的 OAuth 握手（按 provider 暂存，一次性消费）与当前会话令牌（`listBindings`/`bind`/`unbind` 契约不带 token）。服务不可达 → 离线模式（本地功能可用，登录置灰），5xx 不算离线；装配前置：safeStorage 不可用时**不装配**并动态给出原因。<br>**如实边界**：邮箱验证 / 重置密码依赖服务端投递邮件，PRD §8 最小服务端不含该能力——客户端侧是真实实现，调用会得到服务端的真实响应（含"未实现"的业务错误），不在域内伪造成功；OAuth 需要真实第三方应用凭据才能走通授权 |
 
 **渲染层已闭环**：`installDomainPorts()` 按 `describe()` 结果注入，`settings` 可用即自动点亮设置页的
 通用 / 数据与位置 / 隐私 / 快捷键 / 导出与备份 五个类目，无需再改一行渲染层代码。
 启动日志会打印 `[bootstrap] 域端口=[settings]` 与未装配域的原因，便于定位"某页为何仍是引导态"。
+
+**域事件通道（2026-09-18 新增）**：域 RPC 是请求/响应模型，承载不了"执行到哪一步"——
+此前 `importFromGit` 的 `onProgress` 回调因**函数无法跨进程**（Electron 结构化克隆遇函数直接抛错）
+只能在渲染层出口剥掉，克隆大仓库时界面全程干等，没有任何过程反馈。
+
+现补一条与 `AiControlHost.stream` 同构的**单向事件通道**：
+
+| 环节 | 落地 |
+| --- | --- |
+| 契约 | `shell-api`：`DomainEvent` 信封、`DomainEventSink`（requestId → 发送器的注册表）、`DomainControlHost.onEvent?`（**可选能力**，外壳不提供即退化为"无过程反馈"而不是让调用失败）、`DomainControlServiceHost.events` |
+| 关联 | 事件**不带自有 id**，一律按触发它的 `requestId` 回流；渲染层据此把事件对到具体那次调用，并发调用（工作台与文档中心同时刷新）不会串台 |
+| 信封 | `requestId` 与 `domain` 由运行时（`createDomainRuntime`）统一补齐，域实现只给 `ctx.emit(payload)`——省得各自漏填关联字段 |
+| 收口 | 主进程 IPC 在 `invoke` 期间注册 `event.sender`、`finally` 注销；渲染层在请求定局（成功或失败）后退订。两侧都不留悬空回调 |
+| 载荷 | 跨进程数据先过守卫（`isWorkspaceImportProgressEvent`）：形状/边界不符直接丢弃，脏值不进 UI |
+| 首个消费者 | `workspace.importFromGit` 三阶段：`clone`（0-1，解析 git `--progress` 的 stderr）→ `inspect`（比例不可知，`ratio: null`）→ `finalize`；界面有比例时显示百分比、无比例时显示**不确定进度条**，不假装 100% |
 
 > **设计约束（务必遵守）**：`describe()` 必须如实。未装配的域**不要**把端口注入 `globalThis.__EC_*__`——
 > 页面会保留现有装配引导；反之注入半成品端口会让用户看到"能打开但每个动作都失败"的界面，比现状更差。

@@ -77,8 +77,25 @@ export interface SettingsApi {
   /** 迁移失败后回滚到迁移前目录 */
   rollbackMigration(): Promise<MigrationResult>;
 
-  exportProject(input: { projectId: string; mode: 'full' | 'code-only'; encrypted: boolean }): Promise<ExportResult>;
-  importPackage(input: { filePath: string }): Promise<ImportResult>;
+  /**
+   * 导出项目为 `.ecpkg` 归档。
+   *
+   * `encrypted: true` 时**必须**提供 `password`：归档加密用的是口令派生密钥
+   * （PBKDF2-SHA256），没有口令就无法加密。缺口令时实现会拒绝并给出可读原因，
+   * **不会**退化成"静默产出未加密文件"。
+   */
+  exportProject(input: {
+    projectId: string;
+    mode: 'full' | 'code-only';
+    encrypted: boolean;
+    password?: string | undefined;
+  }): Promise<ExportResult>;
+  /**
+   * 导入 `.ecpkg` 归档。加密包需提供 `password`。
+   *
+   * 冲突按「不覆盖」处理（`keepLocal`），与本页提示文案一致。
+   */
+  importPackage(input: { filePath: string; password?: string | undefined }): Promise<ImportResult>;
 
   setTelemetry(enabled: boolean): Promise<void>;
   inspectLocalTelemetry(): Promise<TelemetryInspection>;

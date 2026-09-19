@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, State};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, Stdio};
+use tauri::{AppHandle, Manager, State};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command as TokioCommand};
 use tokio::sync::Mutex;
 
@@ -75,9 +75,9 @@ pub async fn process_spawn(
         c.args(&args);
         c
     };
-    cmd.stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .stdin(Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .stdin(std::process::Stdio::piped());
     if let Some(cwd) = cwd {
         cmd.current_dir(cwd);
     }
@@ -103,8 +103,8 @@ pub async fn process_spawn(
     if let Some(out) = stdout {
         let ch = channel.clone();
         tauri::async_runtime::spawn(async move {
-            let mut reader = BufReader::new(out).lines();
-            while let Ok(Some(line)) = reader.next_line().await {
+            let mut lines = BufReader::new(out).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
                 let _ = ch.send(ProcessEvent::Stdout { data: line });
             }
         });
@@ -113,8 +113,8 @@ pub async fn process_spawn(
     if let Some(err) = stderr {
         let ch = channel.clone();
         tauri::async_runtime::spawn(async move {
-            let mut reader = BufReader::new(err).lines();
-            while let Ok(Some(line)) = reader.next_line().await {
+            let mut lines = BufReader::new(err).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
                 let _ = ch.send(ProcessEvent::Stderr { data: line });
             }
         });
@@ -138,22 +138,19 @@ pub async fn process_spawn(
     let ch = channel.clone();
     let app2 = app.clone();
     tauri::async_runtime::spawn(async move {
-        let exit = app2
+        let exit = match app2
             .state::<AppState>()
             .processes
             .lock()
             .await
             .get_mut(&id_clone)
-            .map(|p| p.child.wait())
-            .unwrap_or_else(|| Box::pin(async { Ok(Default::default()) }))
-            .await;
+        {
+            Some(p) => p.child.wait().await,
+            None => Ok(Default::default()),
+        };
+        // Windows 上子进程没有 Unix 语义的 signal，一律以退出码为准。
         let (code, signal) = match exit {
-            Ok(status) => (
-                status.code(),
-                status
-                    .signal()
-                    .map(|s| s.to_string()),
-            ),
+            Ok(status) => (status.code(), None),
             Err(_) => (None, None),
         };
         let _ = ch.send(ProcessEvent::Exit { code, signal });
@@ -187,8 +184,10 @@ pub async fn process_write(
             if let Some(s) = w.as_mut() {
                 s.write_all(data.as_bytes())
                     .await
-                    .map_err(CommandError::io_error)?;
-                s.flush().await.map_err(CommandError::io_error)?;
+                    .map_err(|e| CommandError::io_error(e.to_string()))?;
+                s.flush()
+                    .await
+                    .map_err(|e| CommandError::io_error(e.to_string()))?;
                 Ok(())
             } else {
                 Err(CommandError::invalid_argument("该进程 stdin 不可用"))
@@ -206,7 +205,7 @@ pub async fn process_kill(id: String, state: State<'_, AppState>) -> Result<(), 
         Some(p) => {
             p.child
                 .start_kill()
-                .map_err(CommandError::io_error)?;
+                .map_err(|e| CommandError::io_error(e.to_string()))?;
             Ok(())
         }
         None => Err(CommandError::not_found(format!("进程不存在: {id}"))),

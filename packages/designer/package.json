@@ -8,7 +8,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./dsl": "./src/dsl-entry.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

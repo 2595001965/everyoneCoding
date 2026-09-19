@@ -4,6 +4,7 @@
 //! 但 `path.rs` 提供的规范化/越界检测被 `fs` 等命令内部复用。
 
 pub mod ai;
+pub mod app_info;
 pub mod clipboard;
 pub mod dialog;
 pub mod external;

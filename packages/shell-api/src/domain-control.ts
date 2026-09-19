@@ -141,6 +141,65 @@ export interface DomainRpcResponse {
   error?: DomainRpcError;
 }
 
+/* ----------------------------- 域事件通道 ----------------------------- */
+
+/**
+ * 域事件信封（主进程 → 渲染层**单向**推送）。
+ *
+ * 域 RPC 是请求/响应模型，天然承载不了「执行到哪一步」这类中途信息：
+ * 克隆一个大仓库要几十秒到几分钟，若只有请求/响应，界面只能干等。
+ * 这里补一条与 `AiControlHost.stream` 同构的事件通道，把过程反馈送回来。
+ *
+ * 事件**不携带自己的 id**，而是复用触发它的请求 `requestId`：
+ * - 渲染层据此把事件关联到具体那次调用，多请求并发时不会串台；
+ * - 请求结束（resolve/reject）后渲染层退订，事件自然失去投递目标。
+ *
+ * 载荷必须可结构化克隆（函数 / 类实例 / Error 永不跨界，见本模块顶部边界）。
+ */
+export interface DomainEvent {
+  /** 触发事件的域请求 id，与 `DomainRpcRequest.requestId` 一致 */
+  requestId: string;
+  domain: DomainKind;
+  /** 域自定义载荷 */
+  payload: unknown;
+}
+
+/**
+ * 事件下发注册表（主进程侧）。
+ *
+ * 之所以按 requestId 注册而不是"广播到所有窗口"：域调用可能并发
+ * （工作台与文档中心同时刷新），而事件只属于发起那次请求的渲染进程。
+ * IPC 层在 `invoke` 期间注册 `event.sender`，在 `finally` 中注销——
+ * 请求一结束就没有投递目标，不会给已结束的请求留下悬空回调。
+ */
+export interface DomainEventSink {
+  register(requestId: string, send: (event: DomainEvent) => void): void;
+  unregister(requestId: string): void;
+  /** 投递事件；无注册目标时静默丢弃（不抛出，避免反过来打断业务路由） */
+  send(event: DomainEvent): void;
+}
+
+export function createDomainEventSink(): DomainEventSink {
+  const targets = new Map<string, (event: DomainEvent) => void>();
+  return {
+    register(requestId: string, send: (event: DomainEvent) => void): void {
+      targets.set(requestId, send);
+    },
+    unregister(requestId: string): void {
+      targets.delete(requestId);
+    },
+    send(event: DomainEvent): void {
+      const target = targets.get(event.requestId);
+      if (!target) return;
+      try {
+        target(event);
+      } catch {
+        // 下发失败（窗口已销毁等）不应影响业务本身
+      }
+    },
+  };
+}
+
 /**
  * `ShellHost.domain` 的稳定契约。
  *
@@ -151,11 +210,64 @@ export interface DomainControlHost {
   invoke(request: DomainRpcRequest): Promise<DomainRpcResponse>;
   /** 各域装配状态；未装配的域必须如实回答 false 而不是假装可用 */
   describe(): Promise<DomainDescriptor[]>;
+  /**
+   * 订阅域事件（**可选能力**）。
+   *
+   * 未实现该能力的外壳（Tauri / 早期 mock）不提供本方法，渲染层据此
+   * 退化为「无过程反馈」——即调用照常成功，只是拿不到中途进度，
+   * 而不是让整次调用失败。
+   */
+  onEvent?(listener: (event: DomainEvent) => void): Unsubscribe;
 }
 
 /** 主进程实现的入口（渲染层只消费 DomainControlHost） */
 export interface DomainControlServiceHost extends DomainControlHost {
   dispose(): Promise<void>;
+  /** 事件下发注册表；IPC 层按 requestId 注册渲染进程发送器 */
+  events: DomainEventSink;
+}
+
+/* ------------------------- 导入进度事件（首个消费者） ------------------------- */
+
+/**
+ * `workspace.importFromGit` 的执行阶段。
+ *
+ * 这三个阶段是用户实际等待的全部时间：克隆（可分比例）、扫描仓库文件、
+ * 落库并生成项目记忆。只报克隆进度的话，扫描与落库期间界面会退回"转圈"，
+ * 所以通道一次铺到三个阶段，`ratio` 在不可知时为 `null`。
+ */
+export const WORKSPACE_IMPORT_STAGES = ['clone', 'inspect', 'finalize'] as const;
+export type WorkspaceImportStage = (typeof WORKSPACE_IMPORT_STAGES)[number];
+
+/** 导入进度（渲染层消费的形状） */
+export interface WorkspaceImportProgress {
+  stage: WorkspaceImportStage;
+  /** 仅 clone 阶段可知比例（0-1）；其余阶段为 null，UI 应显示不确定进度 */
+  ratio: number | null;
+  message: string;
+}
+
+/** 事件载荷（`type` 用于跨进程判别，避免把别的域事件误当进度） */
+export const WORKSPACE_IMPORT_PROGRESS_EVENT = 'workspace:import-progress';
+
+export interface WorkspaceImportProgressEvent extends WorkspaceImportProgress {
+  type: typeof WORKSPACE_IMPORT_PROGRESS_EVENT;
+}
+
+/**
+ * 跨进程载荷守卫。
+ * 渲染层不信任主进程来的任意对象：形状不对就丢弃，而不是把脏值塞进 UI。
+ */
+export function isWorkspaceImportProgressEvent(value: unknown): value is WorkspaceImportProgressEvent {
+  if (value === null || typeof value !== 'object') return false;
+  const event = value as { type?: unknown; stage?: unknown; ratio?: unknown; message?: unknown };
+  if (event.type !== WORKSPACE_IMPORT_PROGRESS_EVENT) return false;
+  if (!(WORKSPACE_IMPORT_STAGES as readonly string[]).includes(event.stage as string)) return false;
+  if (event.ratio !== null) {
+    if (typeof event.ratio !== 'number' || !Number.isFinite(event.ratio)) return false;
+    if (event.ratio < 0 || event.ratio > 1) return false;
+  }
+  return typeof event.message === 'string';
 }
 
 export function isDomainKind(value: unknown): value is DomainKind {

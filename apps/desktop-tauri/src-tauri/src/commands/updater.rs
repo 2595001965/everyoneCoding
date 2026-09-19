@@ -2,8 +2,6 @@
 //!
 //! 基于 `tauri-plugin-updater`。更新端点与公钥在 `tauri.conf.json` 中配置（占位，需替换）。
 
-use std::collections::HashMap;
-
 use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -45,8 +43,11 @@ pub async fn updater_check(app: AppHandle) -> Result<Option<UpdateInfoWire>, Com
     match update {
         Some(u) => Ok(Some(UpdateInfoWire {
             version: u.version.to_string(),
-            notes: u.notes,
-            release_date: u.date.map(|d| d.to_rfc3339()),
+            notes: u.body,
+            release_date: u.date.map(|d| {
+                d.format(&time::format_description::well_known::Rfc3339)
+                    .unwrap_or_default()
+            }),
         })),
         None => Ok(None),
     }

@@ -3,12 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMAIN_KINDS,
   DOMAIN_RPC_METHODS,
+  WORKSPACE_IMPORT_PROGRESS_EVENT,
+  WORKSPACE_IMPORT_STAGES,
+  createDomainEventSink,
   createDomainRequestId,
   createLocalEmitter,
   domainErrorFromUnknown,
   domainUnavailableError,
   isDomainKind,
   isDomainRpcMethod,
+  isWorkspaceImportProgressEvent,
   sanitizeDomainMessage,
   type DomainDescriptor,
   type DomainRpcRequest,
@@ -141,5 +145,88 @@ describe('本地订阅分发器', () => {
     emitter.set(false);
     expect(seen).toEqual([true]);
     expect(emitter.get()).toBe(false);
+  });
+});
+
+describe('域事件下发注册表', () => {
+  it('只投递给注册了该 requestId 的目标，其余静默丢弃', () => {
+    const sink = createDomainEventSink();
+    const seen: unknown[] = [];
+    sink.register('r1', (event) => seen.push(event.payload));
+
+    sink.send({ requestId: 'r1', domain: 'workspace', payload: 'progress' });
+    // 没有订阅者（渲染层未订阅 / 请求已结束）时丢弃，而不是抛出
+    sink.send({ requestId: 'r2', domain: 'workspace', payload: 'progress' });
+    expect(seen).toEqual(['progress']);
+  });
+
+  it('注销后不再投递（请求定局即收口，不留悬空回调）', () => {
+    const sink = createDomainEventSink();
+    const seen: unknown[] = [];
+    sink.register('r1', (event) => seen.push(event.payload));
+    sink.unregister('r1');
+    sink.send({ requestId: 'r1', domain: 'workspace', payload: 'x' });
+    expect(seen).toEqual([]);
+  });
+
+  it('重复注册同一 requestId 时后者覆盖（不叠加投递）', () => {
+    const sink = createDomainEventSink();
+    const first: unknown[] = [];
+    const second: unknown[] = [];
+    sink.register('r1', (event) => first.push(event.payload));
+    sink.register('r1', (event) => second.push(event.payload));
+    sink.send({ requestId: 'r1', domain: 'workspace', payload: 'x' });
+    expect(first).toEqual([]);
+    expect(second).toEqual(['x']);
+  });
+
+  it('目标抛错不向外传播（窗口销毁等失败不能反过来打断业务）', () => {
+    const sink = createDomainEventSink();
+    sink.register('r1', () => {
+      throw new Error('窗口已销毁');
+    });
+    expect(() => sink.send({ requestId: 'r1', domain: 'workspace', payload: 'x' })).not.toThrow();
+  });
+});
+
+describe('导入进度事件载荷守卫', () => {
+  const valid = {
+    type: WORKSPACE_IMPORT_PROGRESS_EVENT,
+    stage: 'clone',
+    ratio: 0.42,
+    message: 'Receiving objects:  42%',
+  };
+
+  it('三阶段常量与事件名稳定（跨进程判别依据）', () => {
+    expect(WORKSPACE_IMPORT_STAGES).toEqual(['clone', 'inspect', 'finalize']);
+    expect(WORKSPACE_IMPORT_PROGRESS_EVENT).toBe('workspace:import-progress');
+  });
+
+  it('接受合法载荷，含比例不可知阶段的 null', () => {
+    expect(isWorkspaceImportProgressEvent(valid)).toBe(true);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: 0 })).toBe(true);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: 1 })).toBe(true);
+    expect(isWorkspaceImportProgressEvent({ ...valid, stage: 'inspect', ratio: null })).toBe(true);
+    expect(isWorkspaceImportProgressEvent({ ...valid, stage: 'finalize', ratio: null })).toBe(true);
+  });
+
+  it('拒绝形状不符的载荷（脏值不许进 UI）', () => {
+    expect(isWorkspaceImportProgressEvent(null)).toBe(false);
+    expect(isWorkspaceImportProgressEvent(undefined)).toBe(false);
+    expect(isWorkspaceImportProgressEvent('clone')).toBe(false);
+    expect(isWorkspaceImportProgressEvent({})).toBe(false);
+    // 别的域事件必须被挡掉，不能当成进度
+    expect(isWorkspaceImportProgressEvent({ ...valid, type: 'docs:other' })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, stage: 'upload' })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, message: 3 })).toBe(false);
+  });
+
+  it('拒绝越界或非数值的 ratio', () => {
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: 1.5 })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: -0.1 })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: Number.NaN })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: '42%' })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: undefined })).toBe(false);
   });
 });

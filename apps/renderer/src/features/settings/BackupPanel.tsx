@@ -20,8 +20,10 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
   const api = useSettings();
   const [mode, setMode] = useState<'full' | 'code-only'>('full');
   const [encrypted, setEncrypted] = useState(false);
+  const [exportPassword, setExportPassword] = useState('');
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [importPath, setImportPath] = useState('');
+  const [importPassword, setImportPassword] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [intervalHours, setIntervalHours] = useState('24');
   const [backupDir, setBackupDir] = useState('');
@@ -48,27 +50,40 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      setExportResult(await api.exportProject({ projectId, mode, encrypted }));
+      setExportResult(
+        await api.exportProject({
+          projectId,
+          mode,
+          encrypted,
+          // 只有勾选加密时才带口令；空串按"未提供"处理，由实现给出明确报错
+          ...(encrypted && exportPassword ? { password: exportPassword } : {}),
+        }),
+      );
       setNotice('导出完成（本地文件，未上传任何服务器）');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
-  }, [api, encrypted, mode, projectId]);
+  }, [api, encrypted, exportPassword, mode, projectId]);
 
   const importNow = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      setImportResult(await api.importPackage({ filePath: importPath.trim() }));
+      setImportResult(
+        await api.importPackage({
+          filePath: importPath.trim(),
+          ...(importPassword ? { password: importPassword } : {}),
+        }),
+      );
       setNotice('导入完成');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
-  }, [api, importPath]);
+  }, [api, importPassword, importPath]);
 
   const saveSchedule = useCallback(async () => {
     setBusy(true);
@@ -103,7 +118,24 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
         <span>加密归档（口令保护）</span>
         <Switch checked={encrypted} onChange={setEncrypted} aria-label="加密归档" />
       </label>
-      <Button variant="primary" loading={busy} disabled={!projectId} onClick={() => void exportNow()}>
+      {encrypted ? (
+        <label className="ec-settings__field">
+          <span>口令</span>
+          <Input
+            type="password"
+            value={exportPassword}
+            onChange={setExportPassword}
+            aria-label="归档口令"
+            placeholder="设置用于加密归档的口令"
+          />
+        </label>
+      ) : null}
+      <Button
+        variant="primary"
+        loading={busy}
+        disabled={!projectId || (encrypted && exportPassword.length === 0)}
+        onClick={() => void exportNow()}
+      >
         一键导出
       </Button>
       {exportResult ? (
@@ -117,6 +149,16 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
       <label className="ec-settings__field">
         <span>导入归档包（.ecpkg）</span>
         <Input value={importPath} onChange={setImportPath} aria-label="归档包路径" placeholder="D:\\backup\\ec-2026.ecpkg" />
+      </label>
+      <label className="ec-settings__field">
+        <span>归档口令（加密包才需要）</span>
+        <Input
+          type="password"
+          value={importPassword}
+          onChange={setImportPassword}
+          aria-label="导入口令"
+          placeholder="未加密的归档可留空"
+        />
       </label>
       <Button variant="secondary" loading={busy} disabled={!importPath.trim()} onClick={() => void importNow()}>
         导入归档

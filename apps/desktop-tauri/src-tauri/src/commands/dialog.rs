@@ -22,7 +22,8 @@ pub fn dialog_open_file(
     }
     if let Some(filters) = filters {
         for (name, exts) in filters {
-            dlg = dlg.add_filter(name, exts);
+            let ext_list: Vec<&str> = exts.split(',').collect();
+            dlg = dlg.add_filter(name, &ext_list);
         }
     }
     let picked = if multiple.unwrap_or(false) {
@@ -30,7 +31,13 @@ pub fn dialog_open_file(
     } else {
         dlg.blocking_pick_file().map(|p| vec![p])
     };
-    Ok(picked.map(|paths| paths.iter().map(|p| p.to_string_lossy().to_string()).collect()))
+    Ok(picked.map(|paths| {
+        paths
+            .iter()
+            .filter_map(|p| p.clone().into_path().ok())
+            .map(|p| p.to_string_lossy().to_string())
+            .collect()
+    }))
 }
 
 /// 打开目录选择对话框。返回目录路径，取消时为 null。
@@ -45,6 +52,7 @@ pub fn dialog_open_directory(
     }
     Ok(dlg
         .blocking_pick_folder()
+        .and_then(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().to_string()))
 }
 
@@ -61,11 +69,13 @@ pub fn dialog_save_file(
     }
     if let Some(filters) = filters {
         for (name, exts) in filters {
-            dlg = dlg.add_filter(name, exts);
+            let ext_list: Vec<&str> = exts.split(',').collect();
+            dlg = dlg.add_filter(name, &ext_list);
         }
     }
     Ok(dlg
         .blocking_save_file()
+        .and_then(|p| p.into_path().ok())
         .map(|p| p.to_string_lossy().to_string()))
 }
 
@@ -87,9 +97,11 @@ pub fn dialog_confirm(
     title: String,
     message: String,
 ) -> Result<bool, CommandError> {
+    use tauri_plugin_dialog::MessageDialogButtons;
     Ok(app
         .dialog()
-        .confirm(message)
+        .message(message)
         .title(title)
+        .buttons(MessageDialogButtons::OkCancel)
         .blocking_show())
 }

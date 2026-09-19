@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { defaultPresetFor, canvasSizeOf } from '@ec/designer';
 import { RECYCLE_BIN_RETENTION_MS } from '@ec/core';
 
@@ -7,7 +7,7 @@ import { NewProjectDialog } from '../NewProjectDialog';
 import { ProjectSettings } from '../ProjectSettings';
 import { RecycleBin } from '../RecycleBin';
 import { WorkspaceHome, GRID_WINDOW_SIZE } from '../WorkspaceHome';
-import { WorkspaceApiProvider } from '../workspace-api';
+import { WorkspaceApiProvider, type WorkspaceApi, type WorkspaceImportProgress } from '../workspace-api';
 import { buildTargetsPayload, onTargetsChanged, type TargetsChangedPayload } from '../workspace-events';
 import { createFakeWorkspace, seedProjects, type FakeWorkspaceEnvironment } from './fake-workspace';
 import { normalizeTiming, reportTiming } from './perf-probe';
@@ -192,8 +192,63 @@ describe('新建项目四类来源（FR-WSP-02）', () => {
     expect(row.tech_stack_fingerprint).toContain('flutter');
   });
 
-  it('文档来源：解析预览显示功能清单，创建后落功能与页面', async () => {
-    renderDialog();
+  it('Git 来源：克隆进度实时显示，扫描阶段退化为不确定进度条', async () => {
+    // 用可挂起的包装端口在"调用进行中"投递进度，验证 UI 真的跟着事件走
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let report: ((progress: WorkspaceImportProgress) => void) | null = null;
+    const api: WorkspaceApi = {
+      ...env.api,
+      importFromGit: async (input) => {
+        report = input.onProgress ?? null;
+        await gate;
+        return env.api.importFromGit({
+          url: input.url,
+          targetDir: input.targetDir,
+          ...(input.projectName !== undefined ? { projectName: input.projectName } : {}),
+        });
+      },
+    };
+    const onCreated = vi.fn();
+    render(
+      <WorkspaceApiProvider api={api}>
+        <NewProjectDialog open onClose={vi.fn()} onCreated={onCreated} />
+      </WorkspaceApiProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: '从 Git 仓库' }));
+    fireEvent.change(screen.getByLabelText('Git 仓库地址'), { target: { value: 'https://example.com/mobile.git' } });
+    fireEvent.change(screen.getByLabelText('克隆目录'), { target: { value: 'D:/projects/mobile' } });
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+
+    await waitFor(() => expect(report).not.toBeNull());
+    expect(screen.queryByRole('progressbar')).toBeNull();
+
+    // 克隆阶段：文案 + 具体百分比
+    await act(async () => {
+      report?.({ stage: 'clone', ratio: 0.42, message: 'Receiving objects: 42%' });
+    });
+    await screen.findByText('Receiving objects: 42%');
+    const bar = screen.getByRole('progressbar');
+    expect(bar.getAttribute('aria-valuenow')).toBe('42');
+    expect(bar.className).not.toContain('indeterminate');
+
+    // 扫描阶段：比例不可知，显示不确定进度而不是假装 100%
+    await act(async () => {
+      report?.({ stage: 'inspect', ratio: null, message: '克隆完成，正在扫描仓库文件…' });
+    });
+    await screen.findByText('克隆完成，正在扫描仓库文件…');
+    const scanning = screen.getByRole('progressbar');
+    expect(scanning.getAttribute('aria-valuenow')).toBeNull();
+    expect(scanning.className).toContain('indeterminate');
+
+    release();
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+  });
+
+  it('文档来源：解析预览显示功能清单，创建后落功能与页面', async () => {    renderDialog();
     fireEvent.click(screen.getByRole('tab', { name: '从需求文档' }));
     fireEvent.change(screen.getByLabelText('需求文档内容'), {
       target: {

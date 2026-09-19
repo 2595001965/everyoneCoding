@@ -23,7 +23,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Tauri 2 核心（默认使用 wry 渲染引擎，即 WebView2 运行时）。
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = [] }
 # 序列化：命令参数/返回值与 TS 桥接层结构对齐。
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -41,6 +41,8 @@ tauri-plugin-fs = "2"
 tauri-plugin-process = "2"
 # 自动更新（check / download / install）。
 tauri-plugin-updater = "2"
+# 更新发布时间的 RFC3339 格式化（updater 插件返回 time::OffsetDateTime）。
+time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
 # 操作系统信息（arch / 平台 / 语言）。
 tauri-plugin-os = "2"
 # 剪贴板读写。

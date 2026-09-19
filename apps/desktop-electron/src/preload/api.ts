@@ -325,6 +325,25 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
       return ipc.invoke(CHANNELS.domain.invoke, request);
     },
     describe: () => ipc.invoke(CHANNELS.domain.describe),
+    /**
+     * 订阅域事件（主进程 → 渲染层单向推送）。
+     *
+     * 与 `ai.stream` 的差别：AI 流在发起时就绑定 requestId，域事件则可能
+     * 属于任意一次域调用，故这里只做**形状校验**后原样回调，
+     * 由渲染层按 `requestId` 过滤到自己关心的那次调用。
+     */
+    onEvent: (listener: (event: unknown) => void) => {
+      if (typeof listener !== 'function') throw new TypeError('参数 listener 必须是函数');
+      const wrapped = (_event: unknown, payload: unknown) => {
+        if (!payload || typeof payload !== 'object') return;
+        const envelope = payload as { requestId?: unknown };
+        // 缺 requestId 的事件无法关联到任何调用，直接丢弃（渲染层无从过滤）
+        if (typeof envelope.requestId !== 'string' || envelope.requestId.length === 0) return;
+        listener(payload);
+      };
+      ipc.on(CHANNELS.domain.event, wrapped);
+      return () => ipc.off(CHANNELS.domain.event, wrapped);
+    },
   };
 
   const api = {

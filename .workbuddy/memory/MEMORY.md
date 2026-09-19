@@ -32,6 +32,13 @@
   新增包或 Node 侧模块时同步维护 browser 入口。
 - **依赖方向**：`core` 不得反向依赖 `@ec/pipeline`（七端常量在 core 侧镜像为 `TARGET_PLATFORM_KEYS`）。
 - **跨特性复用**：特性之间禁止直接 import，走 `features/workspace/workspace-events.ts` 事件总线。
+- **域调用只有请求/响应，过程反馈走域事件通道**（2026-09-18 落地）：跨进程函数（`onProgress` 之类）一律传不过去，
+  Electron 结构化克隆会直接抛 `An object could not be cloned`。长任务的中途进度/事件走 `ec:domain:event`：
+  契约在 `shell-api`（`DomainEvent` 信封 **复用请求 requestId**、`DomainEventSink`、`DomainControlHost.onEvent?` 可选能力、
+  `DomainControlServiceHost.events`）；域实现只调 `ctx.emit(payload)`，**requestId/domain 由 runtime 补齐**；
+  渲染层按 id 过滤并在请求定局后退订，主进程在 `finally` 注销 sender。
+  **新增域事件三件套**：shell-api 定载荷 + 加 `is*Event()` 守卫（跨进程数据不信任）、IPC 通道进 `EVENT_CHANNELS`、
+  preload 方法进 `PRELOAD_METHOD_KEYS`。比例不可知的阶段用 `ratio: null` 让 UI 走不确定进度，**不准假装 100%**。
 - **设计器**：不得依赖 `@ec/memory`（会传递 better-sqlite3 污染浏览器构建），外部能力一律经 `store/ports.ts` 的 `DesignerPorts` 注入；
   文档变更唯一入口 `apply(label, recipe, { coalesceKey })`；选中态/hover 由 `editor-store` 单源持有；
   **DSL 加可序列化字段必须同步改 zod（`dsl/schema.ts`）**，否则保存/加载被静默剥离。

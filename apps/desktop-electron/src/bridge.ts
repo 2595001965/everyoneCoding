@@ -3,6 +3,7 @@ import type {
   AppInfo,
   ChildProcessHandle,
   DomainDescriptor,
+  DomainEvent,
   DomainRpcRequest,
   DomainRpcResponse,
   FsWatchHandle,
@@ -107,6 +108,8 @@ export interface EcShellPreload {
   domain: {
     invoke(request: DomainRpcRequest): Promise<DomainRpcResponse>;
     describe(): Promise<DomainDescriptor[]>;
+    /** 域事件订阅（返回退订函数）；载荷形状由渲染层校验 */
+    onEvent(listener: (event: DomainEvent) => void): () => void;
   };
   openExternal(url: string): Promise<void>;
 }
@@ -343,6 +346,8 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
     domain: {
       invoke: (request: DomainRpcRequest) => call(() => api.domain.invoke(request)),
       describe: () => call(() => api.domain.describe()),
+      // 取消订阅由调用方按 requestId 自行收口（见 runtime/domain-ports.ts）
+      onEvent: (listener) => api.domain.onEvent(listener),
     },
     openExternal: (url) => call(() => api.openExternal(url)),
     capabilities: async () => ({

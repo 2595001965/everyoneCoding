@@ -18,7 +18,7 @@ import {
 } from '@ec/core';
 
 import { TargetPlatformPicker } from './ProjectSettings';
-import { useWorkspace } from './workspace-api';
+import { useWorkspace, type WorkspaceImportProgress } from './workspace-api';
 import type { TargetPlatform } from '@ec/pipeline';
 
 export interface NewProjectDialogProps {
@@ -36,7 +36,7 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
   const [templateId, setTemplateId] = useState(PROJECT_TEMPLATES[0]!.id);
   const [gitUrl, setGitUrl] = useState('');
   const [targetDir, setTargetDir] = useState('');
-  const [progress, setProgress] = useState<{ ratio: number; message: string } | null>(null);
+  const [progress, setProgress] = useState<WorkspaceImportProgress | null>(null);
   const [docText, setDocText] = useState('');
   const [digest, setDigest] = useState<RequirementDigest | null>(null);
   const [busy, setBusy] = useState(false);
@@ -81,7 +81,7 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
           url: gitUrl.trim(),
           ...(name.trim() ? { projectName: name.trim() } : {}),
           targetDir: targetDir.trim(),
-          onProgress: (ratio, message) => setProgress({ ratio, message }),
+          onProgress: (next) => setProgress(next),
         });
       } else if (source === 'doc') {
         if (!digest) throw new Error('请先解析需求文档，确认功能清单后再创建项目');
@@ -234,7 +234,12 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
                 {progress ? (
                   <div className="ec-ws__field">
                     <span>{progress.message}</span>
-                    <Progress value={Math.round(progress.ratio * 100)} max={100} />
+                    {/* 扫描/落库阶段比例不可知，用不确定进度而不是假装 100% */}
+                    <Progress
+                      {...(progress.ratio === null
+                        ? { indeterminate: true }
+                        : { value: Math.round(progress.ratio * 100), max: 100 })}
+                    />
                   </div>
                 ) : null}
                 <p className="ec-ws__hint">

@@ -23,9 +23,12 @@
     "build:preload": "esbuild src/preload/index.ts --bundle --platform=node --format=cjs --external:electron --log-override:empty-import-meta=silent --outfile=dist/preload/index.cjs"
   },
   "dependencies": {
+    "@ec/account": "workspace:*",
     "@ec/ai": "workspace:*",
     "@ec/core": "workspace:*",
     "@ec/data": "workspace:*",
+    "@ec/designer": "workspace:*",
+    "@ec/package-kit": "workspace:*",
     "@ec/shell-api": "workspace:*",
     "better-sqlite3": "^12.11.1"
   },

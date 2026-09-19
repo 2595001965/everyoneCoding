@@ -87,6 +87,8 @@ export const CHANNELS = {
   domain: {
     invoke: 'ec:domain:invoke',
     describe: 'ec:domain:describe',
+    /** 域事件（主进程 → 渲染层单向推送），payload 携带 requestId 供渲染层关联调用 */
+    event: 'ec:domain:event',
   },
   openExternal: 'ec:openExternal',
 } as const;
@@ -98,6 +100,7 @@ export const EVENT_CHANNELS: readonly string[] = [
   CHANNELS.process.exit,
   CHANNELS.updater.onProgress,
   CHANNELS.ai.stream,
+  CHANNELS.domain.event,
 ];
 
 /** preload 允许暴露到渲染层的顶层命名空间白名单（安全审计依据） */
@@ -153,5 +156,5 @@ export const PRELOAD_METHOD_KEYS: Record<string, readonly string[]> = {
   clipboard: ['readText', 'writeText', 'clear'],
   net: ['fetch', 'isHostAllowed', 'setAllowedHosts'],
   ai: ['invoke', 'stream', 'abort'],
-  domain: ['invoke', 'describe'],
+  domain: ['invoke', 'describe', 'onEvent'],
 };

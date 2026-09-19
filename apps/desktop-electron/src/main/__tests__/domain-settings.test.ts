@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { APP_COMMANDS } from '@ec/core';
 import type { DomainControlServiceHost } from '@ec/shell-api';
+import type Database from 'better-sqlite3';
 
-import { createDomainRuntime } from '../domain/runtime';
+import { openBusinessDb } from '../domain/db';
+import { createDomainRuntime, type DomainRouterContext } from '../domain/runtime';
 import { createSettingsDomain, type SettingsDomain } from '../domain/settings';
 
 /**
@@ -16,13 +18,17 @@ import { createSettingsDomain, type SettingsDomain } from '../domain/settings';
  * 重点：
  * - `update` / `saveKeymap` / `saveBackupConfig` 必须真的落盘（重启后仍在）；
  * - 数据目录迁移必须**按条目数校验**，不一致时如实报失败并清掉复制产物；
- * - 未实现的方法必须抛带原因的 NOT_SUPPORTED（不做静默降级）。
+ * - 归档导出/导入走真实 `.ecpkg`，并做**导出→导入→再导出**的往返一致性验证；
+ * - 加密导出缺口令时必须拒绝，不得静默产出未加密文件。
  *
  * 调用一律经 `createDomainRuntime`：错误码映射与脱敏发生在那一层，
  * 直接调 router 会拿到未映射的原始异常，测出来的结论不代表真实链路。
  */
 
 let root: string;
+let dataDir: string;
+let projectsDir: string;
+let db: Database.Database;
 let domain: SettingsDomain;
 let runtime: DomainControlServiceHost;
 
@@ -31,11 +37,18 @@ function makeDomain(): SettingsDomain {
     dataDir: join(root, 'data'),
     cacheDir: join(root, 'cache'),
     defaultWorkspaceRoot: join(root, 'workspace'),
+    projectsDir: join(root, 'workspace', 'projects'),
+    db,
   });
 }
 
-async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-  const response = await runtime.invoke({ requestId: 'test', domain: 'settings', method, params });
+/**
+ * 直连 router 时用的最小上下文（绕过 runtime 单独问一次域实现时使用）。
+ * 此时没有事件接收方，`emit` 用空实现。
+ */
+const DIRECT_CTX: DomainRouterContext = { requestId: 'test-direct', emit: () => undefined };
+
+async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {  const response = await runtime.invoke({ requestId: 'test', domain: 'settings', method, params });
   if (!response.ok) {
     const error = new Error(response.error?.message ?? '域调用失败') as Error & { code?: string };
     // exactOptionalPropertyTypes 下不可显式赋值 undefined，故仅在确有 code 时写入
@@ -48,11 +61,15 @@ async function call<T>(method: string, params: Record<string, unknown> = {}): Pr
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'ec-settings-'));
+  dataDir = join(root, 'data');
+  projectsDir = join(root, 'workspace', 'projects');
+  db = openBusinessDb({ dataDir });
   domain = makeDomain();
   runtime = createDomainRuntime({ routers: { settings: domain.router } });
 });
 
 afterEach(() => {
+  db.close();
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -74,7 +91,7 @@ describe('设置读写与落盘', () => {
 
     // 新实例从磁盘恢复，证明是持久化而非内存态
     const reopened = makeDomain();
-    const restored = (await reopened.router('getAll', {})) as { theme: string };
+    const restored = (await reopened.router('getAll', {}, DIRECT_CTX)) as { theme: string };
     expect(restored.theme).toBe('dark');
   });
 
@@ -252,7 +269,7 @@ describe('定时备份配置', () => {
     expect(saved.dir).toBe(join(root, 'bak'));
 
     const reopened = makeDomain();
-    const restored = (await reopened.router('getBackupConfig', {})) as { intervalHours: number };
+    const restored = (await reopened.router('getBackupConfig', {}, DIRECT_CTX)) as { intervalHours: number };
     expect(restored.intervalHours).toBe(6);
   });
 
@@ -265,21 +282,178 @@ describe('定时备份配置', () => {
   });
 });
 
-describe('暂未实现的方法如实报错', () => {
-  it('exportProject 抛 NOT_SUPPORTED 并说明原因与归口', async () => {
-    const input = { projectId: 'p1', mode: 'full', encrypted: false };
-    await expect(call('exportProject', { input })).rejects.toMatchObject({
-      code: 'NOT_SUPPORTED',
+describe('归档导出与导入（真实 .ecpkg）', () => {
+  const projectId = 'p-export';
+
+  /** 造一个内容齐全的项目：代码文件 + 记忆 + 文档 */
+  function seedProject(): void {
+    const now = Date.now();
+    db.prepare(
+      `INSERT INTO project (id, user_id, workspace_id, name, description, tech_stack_json, status,
+         created_at, updated_at, target_platforms, tech_stack_fingerprint, git_remote, pinned,
+         last_opened_at, deleted_at, source_kind, source_ref)
+       VALUES (?, 'local-user', NULL, '演示项目', '导出用', NULL, 'active', ?, ?, '[]', NULL, NULL, 0, NULL, NULL, 'blank', NULL)`,
+    ).run(projectId, now, now);
+
+    mkdirSync(join(projectsDir, projectId, 'code', 'src'), { recursive: true });
+    writeFileSync(join(projectsDir, projectId, 'code', 'src', 'index.ts'), 'export const a = 1;', 'utf8');
+
+    db.prepare(
+      `INSERT INTO memory_item (id, user_id, scope, project_id, title, content, tags, source_type,
+         confidence, importance, status, pinned, version, created_at, updated_at)
+       VALUES ('m-1', 'local-user', 'project', ?, '技术选型', '用 React', '["前端"]', 'manual', 1.0, 3, 'active', 0, 1, ?, ?)`,
+    ).run(projectId, now, now);
+
+    db.prepare(
+      `INSERT INTO document (id, project_id, kind, title, content_ref, version, created_at, updated_at,
+         format, content_text, sections_json, source_ref, deleted_at, ignored_version)
+       VALUES ('d-1', ?, 'requirement', '登录需求', NULL, 1, ?, ?, 'markdown', '# 登录需求', NULL, NULL, NULL, NULL)`,
+    ).run(projectId, now, now);
+  }
+
+  it('完整归档：产出 .ecpkg、文件存在且有体积', async () => {
+    seedProject();
+    const result = await call<{ ok: boolean; filePath: string; bytes: number; mode: string }>('exportProject', {
+      input: { projectId, mode: 'full', encrypted: false },
     });
-    await expect(call('exportProject', { input })).rejects.toThrowError(/ExportSourcePort/);
+    expect(result.ok).toBe(true);
+    expect(result.mode).toBe('full');
+    expect(existsSync(result.filePath)).toBe(true);
+    expect(result.bytes).toBeGreaterThan(0);
   });
 
-  it('importPackage 抛 NOT_SUPPORTED 并说明原因与归口', async () => {
-    await expect(call('importPackage', { input: { filePath: 'D:/x.ecpkg' } })).rejects.toMatchObject({
-      code: 'NOT_SUPPORTED',
-    });
-    await expect(call('importPackage', { input: { filePath: 'D:/x.ecpkg' } })).rejects.toThrowError(
-      /workspace 与 docs 域的写路径/,
+  it('项目不存在时如实报 NOT_FOUND', async () => {
+    await expect(
+      call('exportProject', { input: { projectId: 'missing', mode: 'full', encrypted: false } }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('勾选加密却没给口令时拒绝导出（绝不静默产出未加密文件）', async () => {
+    seedProject();
+    await expect(
+      call('exportProject', { input: { projectId, mode: 'full', encrypted: true } }),
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    await expect(call('exportProject', { input: { projectId, mode: 'full', encrypted: true } })).rejects.toThrowError(
+      /不会退化成未加密导出/,
     );
+  });
+
+  it('导出 → 导入到**空库**：项目 / 记忆 / 文档 / 代码全部回来', async () => {
+    seedProject();
+    const exported = await call<{ filePath: string }>('exportProject', {
+      input: { projectId, mode: 'full', encrypted: false },
+    });
+
+    // 另起一套全新的 dataDir + projectsDir，模拟"换台机器恢复"
+    const freshRoot = mkdtempSync(join(tmpdir(), 'ec-settings-restore-'));
+    const freshDb = openBusinessDb({ dataDir: join(freshRoot, 'data') });
+    try {
+      const freshDomain = createSettingsDomain({
+        dataDir: join(freshRoot, 'data'),
+        cacheDir: join(freshRoot, 'cache'),
+        defaultWorkspaceRoot: join(freshRoot, 'workspace'),
+        projectsDir: join(freshRoot, 'workspace', 'projects'),
+        db: freshDb,
+      });
+      const freshRuntime = createDomainRuntime({ routers: { settings: freshDomain.router } });
+      const response = await freshRuntime.invoke({
+        requestId: 'restore',
+        domain: 'settings',
+        method: 'importPackage',
+        params: { input: { filePath: exported.filePath } },
+      });
+      expect(response.ok, JSON.stringify(response.error)).toBe(true);
+      const result = response.result as {
+        ok: boolean;
+        counts: { memory: number; docs: number; codeFiles: number };
+        conflicted: number;
+      };
+      expect(result.ok).toBe(true);
+      expect(result.counts).toEqual({ memory: 1, docs: 1, codeFiles: 1 });
+      expect(result.conflicted).toBe(0);
+
+      // 项目、记忆、文档都真的落库了
+      expect(freshDb.prepare(`SELECT name FROM project WHERE id = ?`).get(projectId)).toEqual({ name: '演示项目' });
+      expect(freshDb.prepare(`SELECT COUNT(*) AS n FROM memory_item WHERE project_id = ?`).get(projectId)).toEqual({ n: 1 });
+      expect(freshDb.prepare(`SELECT COUNT(*) AS n FROM document WHERE project_id = ?`).get(projectId)).toEqual({ n: 1 });
+      // 代码文件回到工程目录
+      expect(readFileSync(join(freshRoot, 'workspace', 'projects', projectId, 'code', 'src', 'index.ts'), 'utf8')).toBe(
+        'export const a = 1;',
+      );
+      // 文档正文也灌回来了，导入后即可检索
+      expect(freshDb.prepare(`SELECT content_text FROM document WHERE id = 'd-1'`).get()).toEqual({
+        content_text: '# 登录需求',
+      });
+    } finally {
+      freshDb.close();
+      rmSync(freshRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('导入到已有同 id 对象的库：按「不覆盖」处理并回传冲突数', async () => {
+    seedProject();
+    const exported = await call<{ filePath: string }>('exportProject', {
+      input: { projectId, mode: 'full', encrypted: false },
+    });
+    // 本地已有同 id 记忆与文档 → 必须被计为冲突且保留本地内容
+    db.prepare(`UPDATE memory_item SET content = '本地内容' WHERE id = 'm-1'`).run();
+
+    const result = await call<{ counts: { memory: number }; conflicted: number }>('importPackage', {
+      input: { filePath: exported.filePath },
+    });
+    expect(result.counts.memory).toBe(1);
+    expect(result.conflicted).toBeGreaterThan(0);
+    expect(db.prepare(`SELECT content FROM memory_item WHERE id = 'm-1'`).get()).toEqual({ content: '本地内容' });
+  });
+
+  it('归档文件不存在时报 NOT_FOUND', async () => {
+    await expect(call('importPackage', { input: { filePath: join(root, 'nope.ecpkg') } })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
+  it('加密归档：带口令可导出；导入时给错口令如实报错', async () => {
+    seedProject();
+    const exported = await call<{ filePath: string }>('exportProject', {
+      input: { projectId, mode: 'full', encrypted: true, password: 's3cret-pass' },
+    });
+    expect(existsSync(exported.filePath)).toBe(true);
+
+    await expect(
+      call('importPackage', { input: { filePath: exported.filePath, password: '错误口令' } }),
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+  });
+
+  it('仅代码包：不含记忆与文档，但代码文件在', async () => {
+    seedProject();
+    const exported = await call<{ filePath: string; mode: string }>('exportProject', {
+      input: { projectId, mode: 'code-only', encrypted: false },
+    });
+    expect(exported.mode).toBe('code-only');
+
+    const freshRoot = mkdtempSync(join(tmpdir(), 'ec-settings-codeonly-'));
+    const freshDb = openBusinessDb({ dataDir: join(freshRoot, 'data') });
+    try {
+      const freshDomain = createSettingsDomain({
+        dataDir: join(freshRoot, 'data'),
+        cacheDir: join(freshRoot, 'cache'),
+        defaultWorkspaceRoot: join(freshRoot, 'workspace'),
+        projectsDir: join(freshRoot, 'workspace', 'projects'),
+        db: freshDb,
+      });
+      const freshRuntime = createDomainRuntime({ routers: { settings: freshDomain.router } });
+      const response = await freshRuntime.invoke({
+        requestId: 'restore-code-only',
+        domain: 'settings',
+        method: 'importPackage',
+        params: { input: { filePath: exported.filePath } },
+      });
+      expect(response.ok, JSON.stringify(response.error)).toBe(true);
+      const result = response.result as { counts: { memory: number; docs: number; codeFiles: number } };
+      expect(result.counts).toEqual({ memory: 0, docs: 0, codeFiles: 1 });
+    } finally {
+      freshDb.close();
+      rmSync(freshRoot, { recursive: true, force: true });
+    }
   });
 });

@@ -7,6 +7,7 @@
  */
 
 export * from './project-types';
+export * from './project-metrics';
 export * from './project-service';
 export * from './project-templates';
 export * from './git-import';

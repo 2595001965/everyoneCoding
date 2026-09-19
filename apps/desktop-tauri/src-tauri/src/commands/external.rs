@@ -20,6 +20,6 @@ pub fn open_external(url: String) -> Result<(), CommandError> {
     Command::new("cmd")
         .args(["/C", "start", "", &url])
         .spawn()
-        .map_err(CommandError::io_error)?;
+        .map_err(|e| CommandError::io_error(e.to_string()))?;
     Ok(())
 }

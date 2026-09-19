@@ -5,6 +5,11 @@ import type { IpcDependencies } from './types';
 import { createElectronAiRuntime } from './ai/runtime';
 import { createDomainRuntime } from './domain/runtime';
 import { createSettingsDomain } from './domain/settings';
+import { createWorkspaceDomain } from './domain/workspace';
+import { createDocsDomain } from './domain/docs';
+import { createAuthDomain, type SafeStorageLike } from './domain/auth';
+import { openBusinessDb } from './domain/db';
+import { resolveProjectsDir } from './domain/settings-file';
 import { UNAVAILABLE_DOMAIN_REASONS } from './domain/reasons';
 
 /**
@@ -110,19 +115,61 @@ function buildDependencies(): IpcDependencies {
  *
  * 与 AI 栈**刻意分离**：AI 栈依赖 `safeStorage`（DPAPI），在无加密可用性的环境下会整体装配失败；
  * 而设置/工作台/文档这些域不该被它连坐，故各自独立装配、各自在 `describe()` 里如实上报。
+ *
+ * 域内共用**一个**业务库连接（workspace / docs 都要读同一份 SQLite），随域运行时一起释放。
  */
 function buildDomainRuntime(dataDir: string, cacheDir: string): ReturnType<typeof createDomainRuntime> {
+  const defaultWorkspaceRoot = path.join(app.getPath('userData'), 'workspace');
+  const projectsDir = resolveProjectsDir(dataDir, defaultWorkspaceRoot);
+  const db = openBusinessDb({ dataDir });
+
   const settings = createSettingsDomain({
     dataDir,
     cacheDir,
-    defaultWorkspaceRoot: path.join(app.getPath('userData'), 'workspace'),
+    defaultWorkspaceRoot,
+    projectsDir,
+    db,
     onNotice: (message) => console.warn(`[domain] ${message}`),
   });
 
+  const workspace = createWorkspaceDomain({ db, dataDir, projectsDir });
+  const docs = createDocsDomain({ db });
+
+  // auth 域依赖系统加密能力（DPAPI）保存凭据：不可用时**不装配**并如实上报原因，
+  // 而不是装配一个"所有动作都报错"的端口。可用时基址取环境变量，缺省为本机自建账号服务。
+  let auth: ReturnType<typeof createAuthDomain> | null = null;
+  const encryptionAvailable =
+    safeStorage !== null && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable();
+  if (encryptionAvailable) {
+    auth = createAuthDomain({
+      baseUrl: process.env['EC_ACCOUNT_BASE_URL'] ?? 'http://127.0.0.1:3000',
+      safeStorage: safeStorage as SafeStorageLike,
+      secureDir: path.join(app.getPath('userData'), 'secure'),
+      openExternal: (url) => shell.openExternal(url),
+      writeClipboard: (text) => clipboard.writeText(text),
+    });
+  }
+
+  const unavailableReasons = { ...UNAVAILABLE_DOMAIN_REASONS };
+  if (!auth) {
+    unavailableReasons.auth =
+      '系统加密能力不可用（safeStorage），无法安全保存登录凭据，账号域未装配';
+  }
+
   return createDomainRuntime({
-    routers: { settings: settings.router },
-    unavailableReasons: UNAVAILABLE_DOMAIN_REASONS,
-    disposers: [() => settings.dispose()],
+    routers: {
+      settings: settings.router,
+      workspace: workspace.router,
+      docs: docs.router,
+      ...(auth ? { auth: auth.router } : {}),
+    },
+    unavailableReasons: unavailableReasons,
+    disposers: [
+      () => settings.dispose(),
+      async () => {
+        db.close();
+      },
+    ],
   });
 }
 

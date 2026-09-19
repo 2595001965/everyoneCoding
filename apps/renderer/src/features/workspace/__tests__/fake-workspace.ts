@@ -253,6 +253,9 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
     },
 
     importFromGit: async (input) => {
+      // core 的 clone 端口按 (ratio, message) 回调；堆到端口契约的 stage 形状上，
+      // 与主进程经域事件通道推送的三阶段口径保持一致
+      const onPortProgress = input.onProgress;
       const plan = await runGitImport(
         {
           url: input.url,
@@ -260,7 +263,9 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
           targetDir: input.targetDir,
         },
         clonePort,
-        input.onProgress,
+        onPortProgress === undefined
+          ? undefined
+          : (ratio, message) => onPortProgress({ stage: 'clone', ratio, message }),
       );
       const project = await service.createProject({
         name: plan.projectName,

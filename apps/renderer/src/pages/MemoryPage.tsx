@@ -33,7 +33,8 @@ export function MemoryPage(): JSX.Element {
     <section className="ec-page" aria-label="记忆中心页">
       <h1 className="ec-page__title">记忆中心</h1>
       <p className="ec-page__desc">
-        五层记忆（长期 / 项目 / 功能 / 页面 / 元素）与问题记忆统一管理；下层自动携带上层，冲突时下层优先并标注来源。
+        五层记忆（长期 / 项目 / 功能 / 页面 /
+        元素）与问题记忆统一管理；下层自动携带上层，冲突时下层优先并标注来源。
       </p>
       <MemoryProvider api={api}>
         <MemoryCenter userId={currentUserId()} />

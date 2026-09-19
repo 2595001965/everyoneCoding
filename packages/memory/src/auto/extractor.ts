@@ -51,9 +51,11 @@ export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, string> = {
 export interface ExtractionModelPort {
   readonly name: string;
   /** 一次轻量模型调用，返回完整文本；失败返回 ok:false（不抛错） */
-  complete(request: { system: string; user: string; signal?: AbortSignal }): Promise<
-    { ok: true; text: string } | { ok: false; reason: string }
-  >;
+  complete(request: {
+    system: string;
+    user: string;
+    signal?: AbortSignal;
+  }): Promise<{ ok: true; text: string } | { ok: false; reason: string }>;
 }
 
 /** 一轮对话的输入（用户消息 + AI 回复）。 */
@@ -107,7 +109,9 @@ export function buildExtractionPrompt(
   turn: TurnInput,
   knownPreferences: readonly string[] = [],
 ): { system: string; user: string } {
-  const categoryLines = MEMORY_CATEGORIES.map((c) => `- ${c}（${MEMORY_CATEGORY_LABELS[c]}）`).join('\n');
+  const categoryLines = MEMORY_CATEGORIES.map((c) => `- ${c}（${MEMORY_CATEGORY_LABELS[c]}）`).join(
+    '\n',
+  );
   const knownBlock =
     knownPreferences.length > 0
       ? `\n# 该用户已有的长期偏好（请勿重复抽取，除非有补充或冲突）\n${knownPreferences.map((p) => `- ${p}`).join('\n')}`
@@ -174,7 +178,8 @@ function parseOne(element: unknown, turn: TurnInput): MemoryCandidate | null {
   if (title.length === 0) return null;
 
   const rawCategory = obj['category'];
-  if (typeof rawCategory !== 'string' || !MEMORY_CATEGORIES.includes(rawCategory as MemoryCategory)) return null;
+  if (typeof rawCategory !== 'string' || !MEMORY_CATEGORIES.includes(rawCategory as MemoryCategory))
+    return null;
   const category = rawCategory as MemoryCategory;
 
   const content = typeof obj['content'] === 'string' ? (obj['content'] as string) : '';
@@ -183,7 +188,12 @@ function parseOne(element: unknown, turn: TurnInput): MemoryCandidate | null {
     : [];
 
   const evidence = locateEvidence(turn, title, content);
-  const snippet = turn.snippet ?? turn.messages.map((m) => m.content).join('\n').slice(0, 500);
+  const snippet =
+    turn.snippet ??
+    turn.messages
+      .map((m) => m.content)
+      .join('\n')
+      .slice(0, 500);
   const hasImperative = detectImperatives(`${title} ${content} ${evidence}`).length > 0;
   const baseConfidence = clamp01((hasImperative ? 0.75 : 0.6) + (tags.length > 0 ? 0.05 : 0));
 
@@ -208,7 +218,10 @@ function locateEvidence(turn: TurnInput, title: string, content: string): string
     .filter((m) => m.role === 'user')
     .map((m) => m.content)
     .concat(turn.messages.filter((m) => m.role === 'assistant').map((m) => m.content));
-  const keywords = [title, ...content.split(/[\s，。,.!?；;]+/).filter((w) => w.length >= 2)].filter(Boolean);
+  const keywords = [
+    title,
+    ...content.split(/[\s，。,.!?；;]+/).filter((w) => w.length >= 2),
+  ].filter(Boolean);
 
   for (const text of haystacks) {
     for (const keyword of keywords) {
@@ -335,20 +348,27 @@ export class MemoryExtractor {
 
   /** 统计信号强度：结合既有长期记忆与本次批次内的近似匹配累计出现次数。 */
   private enrichSignal(candidates: MemoryCandidate[], turn: TurnInput): MemoryCandidate[] {
-    const existing = this.repo.list({ userId: turn.userId, scopes: ['longterm'], status: 'active' });
+    const existing = this.repo.list({
+      userId: turn.userId,
+      scopes: ['longterm'],
+      status: 'active',
+    });
     return candidates.map((candidate) => {
       const key = normalizeTitleKey(candidate.title);
       let count = 1;
       if (existing.some((e) => normalizeTitleKey(e.title) === key)) count += 1;
       const overlap = existing.filter(
-        (e) => e.tags.includes(candidate.category) && e.tags.some((t) => candidate.tags.includes(t)),
+        (e) =>
+          e.tags.includes(candidate.category) && e.tags.some((t) => candidate.tags.includes(t)),
       );
       count += overlap.length;
-      count += candidates.filter((c) => c !== candidate && normalizeTitleKey(c.title) === key).length;
+      count += candidates.filter(
+        (c) => c !== candidate && normalizeTitleKey(c.title) === key,
+      ).length;
 
-      const hasImperative = detectImperatives(
-        `${candidate.title} ${candidate.content} ${candidate.evidence}`,
-      ).length > 0;
+      const hasImperative =
+        detectImperatives(`${candidate.title} ${candidate.content} ${candidate.evidence}`).length >
+        0;
       const baseConfidence = clamp01(candidate.baseConfidence + (count >= 2 ? 0.1 : 0));
       return { ...candidate, signalCount: count, hasImperative, baseConfidence };
     });

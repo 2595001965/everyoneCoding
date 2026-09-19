@@ -23,14 +23,22 @@ export interface ErrorMapOptions extends AiErrorOptions {
   model?: string;
 }
 
-export function mapHttpError(status: number, bodyText: string, options: ErrorMapOptions = {}): AiError {
+export function mapHttpError(
+  status: number,
+  bodyText: string,
+  options: ErrorMapOptions = {},
+): AiError {
   const snippet = bodyText.slice(0, 500);
   const lowered = bodyText.toLowerCase();
   const retryAfterMs = parseRetryAfter(options.headers);
 
   // 与状态码无关的强特征：上下文超限与内容过滤
   if (isContextLength(lowered)) {
-    return new ContextLengthError(`上下文超限：${firstMessage(bodyText)}`, extractLimit(bodyText), options);
+    return new ContextLengthError(
+      `上下文超限：${firstMessage(bodyText)}`,
+      extractLimit(bodyText),
+      options,
+    );
   }
   if (isContentFilter(lowered)) {
     return new ContentFilterError(`内容被过滤：${firstMessage(bodyText)}`, options);
@@ -41,23 +49,39 @@ export function mapHttpError(status: number, bodyText: string, options: ErrorMap
       return new AuthError(`认证失败（${status}）：${firstMessage(bodyText)}`, options);
     case status === 402:
       // 余额不足：重试无意义
-      return new ProviderUnavailableError(`余额不足或服务未开通（402）：${firstMessage(bodyText)}`, {
-        ...options,
-        retryable: false,
-      });
+      return new ProviderUnavailableError(
+        `余额不足或服务未开通（402）：${firstMessage(bodyText)}`,
+        {
+          ...options,
+          retryable: false,
+        },
+      );
     case status === 408:
       return new TimeoutError(`请求超时（408）：${firstMessage(bodyText)}`, options);
     case status === 429:
-      return new RateLimitError(`请求被限流（429）：${firstMessage(bodyText)}`, retryAfterMs, options);
+      return new RateLimitError(
+        `请求被限流（429）：${firstMessage(bodyText)}`,
+        retryAfterMs,
+        options,
+      );
     case status >= 500:
-      return new ProviderUnavailableError(`服务端错误（${status}）：${firstMessage(bodyText)}`, options);
+      return new ProviderUnavailableError(
+        `服务端错误（${status}）：${firstMessage(bodyText)}`,
+        options,
+      );
     case status === 404:
-      return new ProtocolError(`接口不存在（404）：${firstMessage(bodyText)}，请检查 baseUrl 与协议是否匹配`, {
+      return new ProtocolError(
+        `接口不存在（404）：${firstMessage(bodyText)}，请检查 baseUrl 与协议是否匹配`,
+        {
+          ...options,
+          snippet,
+        },
+      );
+    case status >= 400:
+      return new ProtocolError(`请求被拒绝（${status}）：${firstMessage(bodyText)}`, {
         ...options,
         snippet,
       });
-    case status >= 400:
-      return new ProtocolError(`请求被拒绝（${status}）：${firstMessage(bodyText)}`, { ...options, snippet });
     default:
       return new ProtocolError(`非预期状态码 ${status}`, { ...options, snippet });
   }

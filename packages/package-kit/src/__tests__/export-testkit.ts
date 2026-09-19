@@ -41,7 +41,11 @@ export interface FakeExportConfig {
 }
 
 export function makeFakePort(config: FakeExportConfig): ExportSourcePort {
-  const projects: ExportProjectMeta[] = config.projects.map((p) => ({ id: p.id, name: p.name, metaJson: p.metaJson }));
+  const projects: ExportProjectMeta[] = config.projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    metaJson: p.metaJson,
+  }));
 
   const memoryItems: ExportMemoryItem[] = [];
   const memoryLinks: Array<{ projectId: string; linksJson: string }> = [];
@@ -86,7 +90,8 @@ export function makeFakePort(config: FakeExportConfig): ExportSourcePort {
       const pageOk = layers.page;
       const issueOk = layers.issue;
       return memoryItems.filter((m) => {
-        if (projectIds !== null && m.projectId !== null && !projectIds.includes(m.projectId)) return false;
+        if (projectIds !== null && m.projectId !== null && !projectIds.includes(m.projectId))
+          return false;
         if (projectIds !== null && m.projectId === null) {
           // 长期记忆：仅当 projectIds 为 null（全范围）时返回
           if (projectIds.length > 0) return false;
@@ -112,7 +117,9 @@ export function makeFakePort(config: FakeExportConfig): ExportSourcePort {
         ? memoryLinks
         : memoryLinks.filter((l) => projectIds.includes(l.projectId)),
     listDocuments: (projectIds) =>
-      projectIds === null ? documents : documents.filter((d) => d.projectId === null || projectIds.includes(d.projectId)),
+      projectIds === null
+        ? documents
+        : documents.filter((d) => d.projectId === null || projectIds.includes(d.projectId)),
     readDocument: (docId) => {
       const content = docContents.get(docId);
       return content === undefined ? null : { content };
@@ -126,7 +133,8 @@ export function makeFakePort(config: FakeExportConfig): ExportSourcePort {
     listDesignPages: (projectId) => [...(designPages.get(projectId)?.keys() ?? [])],
     readDesignPage: (projectId, fileName) => designPages.get(projectId)?.get(fileName) ?? null,
     listDesignComponents: (projectId) => [...(designComponents.get(projectId)?.keys() ?? [])],
-    readDesignComponent: (projectId, fileName) => designComponents.get(projectId)?.get(fileName) ?? null,
+    readDesignComponent: (projectId, fileName) =>
+      designComponents.get(projectId)?.get(fileName) ?? null,
     listAttachments: () => attachments,
     readEcignore: (projectId) => ecignore.get(projectId) ?? null,
   };

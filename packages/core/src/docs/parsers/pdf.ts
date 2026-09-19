@@ -159,7 +159,10 @@ function fileBytesToUint8Array(input: string | Uint8Array): Uint8Array {
 }
 
 /** 解析 PDF 字节为结构化文档 */
-export function parsePdf(input: { raw: string | Uint8Array; fileName?: string | undefined }): ParsedDocument {
+export function parsePdf(input: {
+  raw: string | Uint8Array;
+  fileName?: string | undefined;
+}): ParsedDocument {
   const bytes = fileBytesToUint8Array(input.raw);
   const objs = parseObjects(bytes);
   const pageMap = buildPageMap(objs);
@@ -249,7 +252,13 @@ export function parsePdf(input: { raw: string | Uint8Array; fileName?: string | 
   flush();
 
   if (sections.length === 0) {
-    sections.push({ index: 0, level: 0, heading: '', anchor: 'doc', text: tokens.map((t) => t.text).join('\n') });
+    sections.push({
+      index: 0,
+      level: 0,
+      heading: '',
+      anchor: 'doc',
+      text: tokens.map((t) => t.text).join('\n'),
+    });
   }
   if (!title) {
     const firstHeading = sections.find((section) => section.heading);

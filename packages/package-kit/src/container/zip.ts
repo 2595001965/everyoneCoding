@@ -74,8 +74,13 @@ function crc32Of(data: Buffer): number {
 
 function dosDateTime(date: Date): { time: number; date: number } {
   const time =
-    ((date.getHours() & 0x1f) << 11) | ((date.getMinutes() & 0x3f) << 5) | (Math.floor(date.getSeconds() / 2) & 0x1f);
-  const dateField = ((Math.max(1980, date.getFullYear()) - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+    ((date.getHours() & 0x1f) << 11) |
+    ((date.getMinutes() & 0x3f) << 5) |
+    (Math.floor(date.getSeconds() / 2) & 0x1f);
+  const dateField =
+    ((Math.max(1980, date.getFullYear()) - 1980) << 9) |
+    ((date.getMonth() + 1) << 5) |
+    date.getDate();
   return { time, date: dateField & 0xffff };
 }
 
@@ -137,7 +142,13 @@ export class ZipWriter {
   private writeFully(buffer: Buffer): void {
     let written = 0;
     while (written < buffer.length) {
-      const n = fs.writeSync(this.fd, buffer, written, buffer.length - written, this.position + written);
+      const n = fs.writeSync(
+        this.fd,
+        buffer,
+        written,
+        buffer.length - written,
+        this.position + written,
+      );
       if (n <= 0) throw new ZipWriteError('ZIP 写入异常（writeSync 返回 0 字节）');
       written += n;
     }
@@ -193,7 +204,11 @@ export class ZipWriter {
    * 从磁盘流式写入一个大文件：1MB 分块读入 → 泵入 deflate → 压缩块即写即落盘。
    * 内存占用只与块大小相关，与文件大小无关。
    */
-  async addFile(path: string, sourceAbsolutePath: string, timestamp: Date = new Date()): Promise<void> {
+  async addFile(
+    path: string,
+    sourceAbsolutePath: string,
+    timestamp: Date = new Date(),
+  ): Promise<void> {
     this.assertOpen();
     this.assertName(path);
     const nameBuf = Buffer.from(path, 'utf8');
@@ -394,7 +409,10 @@ export class ZipReader {
       readFullyAt(fd, central, centralOffset);
       let pos = 0;
       for (let index = 0; index < entryCount; index += 1) {
-        if (pos + CENTRAL_HEADER_SIZE > central.length || central.readUInt32LE(pos) !== CENTRAL_HEADER_SIG) {
+        if (
+          pos + CENTRAL_HEADER_SIZE > central.length ||
+          central.readUInt32LE(pos) !== CENTRAL_HEADER_SIG
+        ) {
           throw new ZipReadError(`central directory 第 ${index + 1} 条损坏（签名不符或越界）`);
         }
         const method = central.readUInt16LE(pos + 10);
@@ -405,8 +423,17 @@ export class ZipReader {
         const extraLength = central.readUInt16LE(pos + 30);
         const commentLength = central.readUInt16LE(pos + 32);
         const localHeaderOffset = central.readUInt32LE(pos + 42);
-        const name = central.subarray(pos + CENTRAL_HEADER_SIZE, pos + CENTRAL_HEADER_SIZE + nameLength).toString('utf8');
-        entries.push({ path: name, crc32, compressedSize, uncompressedSize, method, localHeaderOffset });
+        const name = central
+          .subarray(pos + CENTRAL_HEADER_SIZE, pos + CENTRAL_HEADER_SIZE + nameLength)
+          .toString('utf8');
+        entries.push({
+          path: name,
+          crc32,
+          compressedSize,
+          uncompressedSize,
+          method,
+          localHeaderOffset,
+        });
         // 条目名恒按 UTF-8 解码（本仓写入端恒置 UTF-8 标志）；
         // 外部工具生成的包如遇乱码名，会在结构断言处报 unknown 分区
         pos += CENTRAL_HEADER_SIZE + nameLength + extraLength + commentLength;
@@ -445,7 +472,9 @@ export class ZipReader {
       throw new ZipReadError(`条目 CRC 校验失败：${path}`);
     }
     if (content.length !== entry.uncompressedSize) {
-      throw new ZipReadError(`条目解压后大小不符（期望 ${entry.uncompressedSize}，实际 ${content.length}）：${path}`);
+      throw new ZipReadError(
+        `条目解压后大小不符（期望 ${entry.uncompressedSize}，实际 ${content.length}）：${path}`,
+      );
     }
     return content;
   }
@@ -511,7 +540,9 @@ export class ZipReader {
         throw new ZipReadError(`条目 CRC 校验失败：${path}`);
       }
       if (written !== entry.uncompressedSize) {
-        throw new ZipReadError(`条目解压后大小不符（期望 ${entry.uncompressedSize}，实际 ${written}）：${path}`);
+        throw new ZipReadError(
+          `条目解压后大小不符（期望 ${entry.uncompressedSize}，实际 ${written}）：${path}`,
+        );
       }
     } catch (error) {
       try {

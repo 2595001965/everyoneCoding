@@ -18,7 +18,11 @@ import { ShellError, type ShellErrorCode } from '@ec/shell-api';
 
 import { LOCAL_USER_ID } from './db';
 import type { DomainRouter } from './runtime';
-import { countLinksForMemories, createSqliteDocMemoryPort, createSqliteDocStore } from './sqlite-doc-store';
+import {
+  countLinksForMemories,
+  createSqliteDocMemoryPort,
+  createSqliteDocStore,
+} from './sqlite-doc-store';
 
 /**
  * docs 域运行时（文档中心，20 个方法）。
@@ -60,9 +64,12 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
     try {
       switch (method) {
         case 'listDocuments':
-          return await service.listDocuments(String(params['projectId']), (params['opts'] ?? {}) as {
-            includeDeleted?: boolean | undefined;
-          });
+          return await service.listDocuments(
+            String(params['projectId']),
+            (params['opts'] ?? {}) as {
+              includeDeleted?: boolean | undefined;
+            },
+          );
 
         case 'getDocument':
           return await service.getDocument(String(params['id']));
@@ -146,7 +153,11 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
           return await service.listMemoryRefs(String(params['memoryId']));
 
         case 'linkToMemory': {
-          const input = params['input'] as { memoryId: string; documentId: string; linkType: DocLinkType };
+          const input = params['input'] as {
+            memoryId: string;
+            documentId: string;
+            linkType: DocLinkType;
+          };
           return await service.linkToMemory(input);
         }
 
@@ -160,7 +171,11 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
         }
 
         case 'previewConvertToMemory': {
-          const input = params['input'] as { docId: string; scope: DocMemoryScope; anchor?: string | undefined };
+          const input = params['input'] as {
+            docId: string;
+            scope: DocMemoryScope;
+            anchor?: string | undefined;
+          };
           return await service.previewConvertToMemory(input);
         }
 

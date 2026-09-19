@@ -17,7 +17,13 @@ describe('AutoWriteToast（T2-04 策略②：自动写入 + 可撤销）', () =>
     const onUndo = vi.fn();
     render(
       <AutoWriteToast
-        record={{ memoryId: 'M1', title: '命名规范', policy: 'confirm', category: '命名规范', snippet: '以后都用小驼峰' }}
+        record={{
+          memoryId: 'M1',
+          title: '命名规范',
+          policy: 'confirm',
+          category: '命名规范',
+          snippet: '以后都用小驼峰',
+        }}
         onUndo={onUndo}
       />,
     );
@@ -92,7 +98,11 @@ describe('IssuePromptCard（T2-05 非模态提示卡）', () => {
   it('非模态：不是 dialog、不夺取输入焦点', async () => {
     render(
       <IssuePromptCard
-        suggestion={{ targetKey: 'page:PG1|element:E1', title: '登录页 / 提交按钮', detail: '窗口内已命中 3 次循环' }}
+        suggestion={{
+          targetKey: 'page:PG1|element:E1',
+          title: '登录页 / 提交按钮',
+          detail: '窗口内已命中 3 次循环',
+        }}
         onBuild={vi.fn()}
         onLater={vi.fn()}
         onNeverShow={vi.fn()}
@@ -182,7 +192,14 @@ describe('StructurePreview（T2-06 摘要预览与 token 估算）', () => {
         tokenEstimate={1840}
         tokenBudget={2000}
         truncated
-        revisions={[{ revision: 3, tokenEstimate: 1800, createdAt: 1_700_000_000_000, changed: ['btn-submit'] }]}
+        revisions={[
+          {
+            revision: 3,
+            tokenEstimate: 1800,
+            createdAt: 1_700_000_000_000,
+            changed: ['btn-submit'],
+          },
+        ]}
       />,
     );
 

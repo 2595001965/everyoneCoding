@@ -34,13 +34,19 @@ export interface NodeLocation {
 /** 前序遍历收集全部节点 */
 export function walkElements(root: ElementNode): WalkedNode[] {
   const out: WalkedNode[] = [];
-  const stack: Array<{ node: ElementNode; indexPath: number[]; depth: number }> = [{ node: root, indexPath: [], depth: 0 }];
+  const stack: Array<{ node: ElementNode; indexPath: number[]; depth: number }> = [
+    { node: root, indexPath: [], depth: 0 },
+  ];
   while (stack.length > 0) {
     const current = stack.pop() as { node: ElementNode; indexPath: number[]; depth: number };
     out.push(current);
     const children = current.node.children ?? [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
-      stack.push({ node: children[index] as ElementNode, indexPath: [...current.indexPath, index], depth: current.depth + 1 });
+      stack.push({
+        node: children[index] as ElementNode,
+        indexPath: [...current.indexPath, index],
+        depth: current.depth + 1,
+      });
     }
   }
   return out;
@@ -119,7 +125,10 @@ export function ancestorChain(root: ElementNode, id: string): ElementNode[] {
 }
 
 /** 祖先链（按 index 路径精确解析） */
-export function ancestorChainOfPath(root: ElementNode, indexPath: readonly number[]): ElementNode[] {
+export function ancestorChainOfPath(
+  root: ElementNode,
+  indexPath: readonly number[],
+): ElementNode[] {
   const chain: ElementNode[] = [];
   for (let depth = 0; depth < indexPath.length; depth += 1) {
     const node = nodeAt(root, indexPath.slice(0, depth));
@@ -169,14 +178,18 @@ export function isDescendant(root: ElementNode, ancestorId: string, descendantId
   const prefix = ancestor.indexPath;
   return locateAllById(root, descendantId).some(
     (location) =>
-      location.indexPath.length >= prefix.length && prefix.every((segment, index) => location.indexPath[index] === segment),
+      location.indexPath.length >= prefix.length &&
+      prefix.every((segment, index) => location.indexPath[index] === segment),
   );
 }
 
 /** 深度优先访问：order='pre' 前序 / 'post' 后序 */
 export function visit(
   root: ElementNode,
-  handlers: { enter?: (node: ElementNode, depth: number) => void; leave?: (node: ElementNode) => void },
+  handlers: {
+    enter?: (node: ElementNode, depth: number) => void;
+    leave?: (node: ElementNode) => void;
+  },
   order: 'pre' | 'post' = 'pre',
 ): void {
   const walk = (node: ElementNode, depth: number): void => {
@@ -189,7 +202,10 @@ export function visit(
 }
 
 /** 结构性映射：返回新的根节点 */
-export function mapTree(root: ElementNode, mapper: (node: ElementNode, depth: number) => ElementNode): ElementNode {
+export function mapTree(
+  root: ElementNode,
+  mapper: (node: ElementNode, depth: number) => ElementNode,
+): ElementNode {
   const walk = (node: ElementNode, depth: number): ElementNode => {
     const mapped = mapper(node, depth);
     const children = mapped.children;
@@ -203,7 +219,11 @@ export function mapTree(root: ElementNode, mapper: (node: ElementNode, depth: nu
  * 在指定 index 路径上替换节点（不可变）。
  * 路径不存在时原样返回。
  */
-export function replaceAtPath(root: ElementNode, indexPath: readonly number[], next: ElementNode): ElementNode {
+export function replaceAtPath(
+  root: ElementNode,
+  indexPath: readonly number[],
+  next: ElementNode,
+): ElementNode {
   if (indexPath.length === 0) return next;
   const [head, ...rest] = indexPath as [number, ...number[]];
   const children = root.children ?? [];
@@ -215,7 +235,11 @@ export function replaceAtPath(root: ElementNode, indexPath: readonly number[], n
 }
 
 /** 按 id 替换节点（首次出现） */
-export function replaceNode(root: ElementNode, id: string, updater: (node: ElementNode) => ElementNode): ElementNode {
+export function replaceNode(
+  root: ElementNode,
+  id: string,
+  updater: (node: ElementNode) => ElementNode,
+): ElementNode {
   const location = locateById(root, id);
   if (location === null) return root;
   return replaceAtPath(root, location.indexPath, updater(location.node));
@@ -244,7 +268,10 @@ export function removeAtPath(
 }
 
 /** 按 id 删除节点 */
-export function removeNode(root: ElementNode, id: string): { root: ElementNode; removed: ElementNode | null } {
+export function removeNode(
+  root: ElementNode,
+  id: string,
+): { root: ElementNode; removed: ElementNode | null } {
   const location = locateById(root, id);
   if (location === null) return { root, removed: null };
   return removeAtPath(root, location.indexPath);

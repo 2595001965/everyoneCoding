@@ -55,7 +55,10 @@ export interface NotePopoverProps {
 }
 
 const TYPE_OPTIONS = NOTE_TYPES.map((type) => ({ value: type, label: NOTE_TYPE_META[type].label }));
-const PRIORITY_OPTIONS = [1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `P${value}` }));
+const PRIORITY_OPTIONS = [1, 2, 3, 4, 5].map((value) => ({
+  value: String(value),
+  label: `P${value}`,
+}));
 
 const MARK_LABELS: Record<InlineMark, string> = {
   bold: '加粗',
@@ -75,7 +78,14 @@ interface DraftState {
 
 function draftFromNote(note: Note | null | undefined): DraftState {
   if (note === null || note === undefined) {
-    return { type: 'todo', title: '', content: emptyDocument(), checklists: [], codeBlocks: [], manualPriority: null };
+    return {
+      type: 'todo',
+      title: '',
+      content: emptyDocument(),
+      checklists: [],
+      codeBlocks: [],
+      manualPriority: null,
+    };
   }
   return {
     type: note.type,
@@ -124,11 +134,19 @@ function BlockEditor({ block, index, onChange, onRemove }: BlockEditorProps): Re
   };
 
   const shapeValue =
-    block.type === 'heading' ? `h${block.level}` : block.type === 'bullet-list' ? 'bullet' : block.type === 'ordered-list' ? 'ordered' : 'paragraph';
+    block.type === 'heading'
+      ? `h${block.level}`
+      : block.type === 'bullet-list'
+        ? 'bullet'
+        : block.type === 'ordered-list'
+          ? 'ordered'
+          : 'paragraph';
 
   return (
     <div className="ec-note-block" data-block-index={index} style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+      <div
+        style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}
+      >
         <Select
           size="sm"
           aria-label={`第 ${index + 1} 段格式`}
@@ -192,8 +210,12 @@ function BlockEditor({ block, index, onChange, onRemove }: BlockEditorProps): Re
                 variant="ghost"
                 aria-label={`删除清单项 ${index + 1}-${itemIndex + 1}`}
                 onClick={() => {
-                  const items = block.items.filter((_, current_index) => current_index !== itemIndex);
-                  onChange(items.length === 0 ? { type: 'paragraph', spans: [] } : { ...block, items });
+                  const items = block.items.filter(
+                    (_, current_index) => current_index !== itemIndex,
+                  );
+                  onChange(
+                    items.length === 0 ? { type: 'paragraph', spans: [] } : { ...block, items },
+                  );
                 }}
               >
                 删除
@@ -221,7 +243,10 @@ export function RichTextPreview({
 }): React.ReactElement | null {
   if (spans.length === 0) return null;
   return (
-    <p className="ec-note-preview" style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}>
+    <p
+      className="ec-note-preview"
+      style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}
+    >
       <span aria-hidden="true">预览：</span>
       {spans.map((span, index) => (
         <span
@@ -231,7 +256,9 @@ export function RichTextPreview({
             fontStyle: span.marks.includes('italic') ? 'italic' : 'normal',
             textDecoration: span.marks.includes('strike') ? 'line-through' : 'none',
             fontFamily: span.marks.includes('code') ? 'monospace' : 'inherit',
-            background: span.marks.includes('code') ? 'var(--ec-surface-sunken, #f1f5f9)' : 'transparent',
+            background: span.marks.includes('code')
+              ? 'var(--ec-surface-sunken, #f1f5f9)'
+              : 'transparent',
           }}
         >
           {span.text}
@@ -274,14 +301,21 @@ export function NotePopover({
       ...current,
       content: {
         type: 'doc',
-        blocks: current.content.blocks.map((block, current_index) => (current_index === index ? next : block)),
+        blocks: current.content.blocks.map((block, current_index) =>
+          current_index === index ? next : block,
+        ),
       },
     }));
   };
 
   const submit = (): void => {
     const plain = documentToText(draft.content).trim();
-    if (draft.title.trim().length === 0 && plain.length === 0 && draft.checklists.length === 0 && draft.codeBlocks.length === 0) {
+    if (
+      draft.title.trim().length === 0 &&
+      plain.length === 0 &&
+      draft.checklists.length === 0 &&
+      draft.codeBlocks.length === 0
+    ) {
       setError('备注内容不能为空（至少填写标题、正文、清单或代码片段之一）。');
       return;
     }
@@ -296,7 +330,11 @@ export function NotePopover({
     const saved =
       note !== null
         ? repository.update(note.id, payload)
-        : repository.create({ ...payload, targetType: target.targetType, targetId: target.targetId });
+        : repository.create({
+            ...payload,
+            targetType: target.targetType,
+            targetId: target.targetId,
+          });
     if (saved === null) {
       setError('备注已不存在，可能被其他窗口删除。');
       return;
@@ -344,7 +382,9 @@ export function NotePopover({
               disabled={meta.mustFollow}
               value={String(meta.mustFollow ? 5 : (draft.manualPriority ?? meta.basePriority))}
               options={PRIORITY_OPTIONS}
-              onChange={(value) => setDraft((current) => ({ ...current, manualPriority: Number(value) }))}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, manualPriority: Number(value) }))
+              }
             />
           </label>
           <label style={{ flex: 1 }}>
@@ -389,7 +429,9 @@ export function NotePopover({
                     blocks:
                       current.content.blocks.length <= 1
                         ? [emptyDocument().blocks[0] as RichTextBlock]
-                        : current.content.blocks.filter((_, current_index) => current_index !== index),
+                        : current.content.blocks.filter(
+                            (_, current_index) => current_index !== index,
+                          ),
                   },
                 }))
               }
@@ -402,7 +444,10 @@ export function NotePopover({
             onClick={() =>
               setDraft((current) => ({
                 ...current,
-                content: { type: 'doc', blocks: [...current.content.blocks, { type: 'paragraph', spans: [] }] },
+                content: {
+                  type: 'doc',
+                  blocks: [...current.content.blocks, { type: 'paragraph', spans: [] }],
+                },
               }))
             }
           >
@@ -413,7 +458,10 @@ export function NotePopover({
         <section aria-label="备注清单" style={{ marginTop: 12 }}>
           <h4 style={{ margin: '0 0 6px', fontSize: 13 }}>checklist 清单</h4>
           {draft.checklists.map((item, index) => (
-            <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+            <div
+              key={item.id}
+              style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}
+            >
               <Checkbox
                 aria-label={`勾选清单项 ${index + 1}`}
                 checked={item.checked}
@@ -460,7 +508,10 @@ export function NotePopover({
             onClick={() =>
               setDraft((current) => ({
                 ...current,
-                checklists: [...current.checklists, { id: tempId('check'), text: '', checked: false }],
+                checklists: [
+                  ...current.checklists,
+                  { id: tempId('check'), text: '', checked: false },
+                ],
               }))
             }
           >
@@ -471,7 +522,10 @@ export function NotePopover({
         <section aria-label="代码片段" style={{ marginTop: 12 }}>
           <h4 style={{ margin: '0 0 6px', fontSize: 13 }}>代码片段</h4>
           {draft.codeBlocks.map((block, index) => (
-            <div key={block.id} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}>
+            <div
+              key={block.id}
+              style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}
+            >
               <Input
                 aria-label={`代码语言 ${index + 1}`}
                 style={{ flex: '0 0 110px' }}
@@ -521,7 +575,10 @@ export function NotePopover({
             onClick={() =>
               setDraft((current) => ({
                 ...current,
-                codeBlocks: [...current.codeBlocks, { id: tempId('code'), language: 'ts', code: '' }],
+                codeBlocks: [
+                  ...current.codeBlocks,
+                  { id: tempId('code'), language: 'ts', code: '' },
+                ],
               }))
             }
           >
@@ -530,7 +587,10 @@ export function NotePopover({
         </section>
 
         {error !== null && (
-          <p role="alert" style={{ color: NOTE_TYPE_META.forbidden.color, fontSize: 12, marginTop: 8 }}>
+          <p
+            role="alert"
+            style={{ color: NOTE_TYPE_META.forbidden.color, fontSize: 12, marginTop: 8 }}
+          >
             {error}
           </p>
         )}

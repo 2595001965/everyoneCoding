@@ -35,7 +35,10 @@ function sample(): ElementNode {
       createElement({
         id: 'B',
         type: 'Card',
-        children: [createElement({ id: 'D', type: 'Text' }), createElement({ id: 'E', type: 'Button' })],
+        children: [
+          createElement({ id: 'D', type: 'Text' }),
+          createElement({ id: 'E', type: 'Button' }),
+        ],
       }),
       createElement({ id: 'C', type: 'Footer' }),
     ],
@@ -77,15 +80,26 @@ describe('T3-01 遍历与定位', () => {
       id: 'root',
       type: 'Container',
       children: [
-        createElement({ id: 'box', type: 'Card', children: [createElement({ id: 'dup', type: 'Text', name: '第一处' })] }),
-        createElement({ id: 'box2', type: 'Card', children: [createElement({ id: 'dup', type: 'Text', name: '第二处' })] }),
+        createElement({
+          id: 'box',
+          type: 'Card',
+          children: [createElement({ id: 'dup', type: 'Text', name: '第一处' })],
+        }),
+        createElement({
+          id: 'box2',
+          type: 'Card',
+          children: [createElement({ id: 'dup', type: 'Text', name: '第二处' })],
+        }),
       ],
     });
     const all = locateAllById(root, 'dup');
     expect(all).toHaveLength(2);
     expect(locateById(root, 'dup')?.node.name).toBe('第一处');
     expect(ancestorChain(root, 'dup').map((node) => node.id)).toEqual(['root', 'box']);
-    expect(ancestorChainOfPath(root, all[1]!.indexPath).map((node) => node.id)).toEqual(['root', 'box2']);
+    expect(ancestorChainOfPath(root, all[1]!.indexPath).map((node) => node.id)).toEqual([
+      'root',
+      'box2',
+    ]);
     // 两处路径不同，各自解析回自身
     const firstPath = indexPathToJsonPath(all[0]!.indexPath);
     const secondPath = indexPathToJsonPath(all[1]!.indexPath);
@@ -134,17 +148,21 @@ describe('T3-01 不可变更新', () => {
     expect(collectIds(inserted.root)).toEqual(['A', 'B', 'D', 'F', 'E', 'C']);
     const appended = insertChild(root, 'A', createElement({ id: 'G', type: 'Image' }));
     expect(collectIds(appended.root)).toEqual(['A', 'B', 'D', 'E', 'C', 'G']);
-    expect(insertChild(root, 'missing', createElement({ id: 'H', type: 'Image' })).inserted).toBe(false);
+    expect(insertChild(root, 'missing', createElement({ id: 'H', type: 'Image' })).inserted).toBe(
+      false,
+    );
   });
 
   it('insertSibling 支持 before / after', () => {
     const root = sample();
-    expect(collectIds(insertSibling(root, 'C', createElement({ id: 'X', type: 'Image' }), 'before').root)).toEqual([
-      'A', 'B', 'D', 'E', 'X', 'C',
-    ]);
-    expect(collectIds(insertSibling(root, 'A', createElement({ id: 'Y', type: 'Image' })).root)).toEqual([
-      'A', 'B', 'D', 'E', 'C',
-    ]);
+    expect(
+      collectIds(
+        insertSibling(root, 'C', createElement({ id: 'X', type: 'Image' }), 'before').root,
+      ),
+    ).toEqual(['A', 'B', 'D', 'E', 'X', 'C']);
+    expect(
+      collectIds(insertSibling(root, 'A', createElement({ id: 'Y', type: 'Image' })).root),
+    ).toEqual(['A', 'B', 'D', 'E', 'C']);
   });
 
   it('moveNode 跨父移动', () => {
@@ -184,6 +202,12 @@ describe('T3-01 不可变更新', () => {
   it('mapTree 结构性映射保留层级', () => {
     const root = sample();
     const mapped = mapTree(root, (node) => ({ ...node, name: `n-${node.id}` }));
-    expect(walkElements(mapped).map((walked) => walked.node.name)).toEqual(['n-A', 'n-B', 'n-D', 'n-E', 'n-C']);
+    expect(walkElements(mapped).map((walked) => walked.node.name)).toEqual([
+      'n-A',
+      'n-B',
+      'n-D',
+      'n-E',
+      'n-C',
+    ]);
   });
 });

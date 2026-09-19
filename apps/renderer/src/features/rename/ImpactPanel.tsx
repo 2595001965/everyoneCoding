@@ -62,7 +62,10 @@ function matchQuery(item: ImpactItem, keyword: string): boolean {
 export function filterGroups(groups: readonly ImpactGroup[], query: string): ImpactGroup[] {
   const keyword = query.trim().toLowerCase();
   if (keyword.length === 0) return [...groups];
-  return groups.map((group) => ({ ...group, items: group.items.filter((item) => matchQuery(item, keyword)) }));
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => matchQuery(item, keyword)),
+  }));
 }
 
 export function ImpactPanel({
@@ -96,10 +99,7 @@ export function ImpactPanel({
   const current = selection ?? internal;
   const groups = useMemo(() => filterGroups(report?.groups ?? [], query), [report, query]);
   const orderedGroups = useMemo(
-    () =>
-      [...groups].sort(
-        (a, b) => GROUP_ORDER.indexOf(a.level) - GROUP_ORDER.indexOf(b.level),
-      ),
+    () => [...groups].sort((a, b) => GROUP_ORDER.indexOf(a.level) - GROUP_ORDER.indexOf(b.level)),
     [groups],
   );
 
@@ -211,7 +211,10 @@ export function ImpactPanel({
             placeholder="检索文件、段落、符号或说明"
             aria-label="检索受影响位置"
           />
-          <span style={{ color: 'var(--ec-color-text-secondary)' }} data-testid="impact-groups-count">
+          <span
+            style={{ color: 'var(--ec-color-text-secondary)' }}
+            data-testid="impact-groups-count"
+          >
             {orderedGroups.length} 组 / 共 {report.totals.total} 处
           </span>
         </div>

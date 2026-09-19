@@ -13,7 +13,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { EcpkgReader } from '../reader';
 import { runExport } from '../export/export-job';
-import { computeExcludeStats, matchExclude, parseEcignore, DEFAULT_EXCLUDE_RULES } from '../export/exclude-rules';
+import {
+  computeExcludeStats,
+  matchExclude,
+  parseEcignore,
+  DEFAULT_EXCLUDE_RULES,
+} from '../export/exclude-rules';
 import type { ExportJobRequest } from '../export/export-types';
 import { makeFakePort, type FakeProject } from './export-testkit';
 
@@ -37,8 +42,12 @@ describe('gitignore 子集语法匹配', () => {
   });
 
   it('`**` 跨越任意层级目录', () => {
-    expect(matchExclude('node_modules/a/b/c.js', [{ pattern: 'node_modules/**', builtin: false }])).toBe(true);
-    expect(matchExclude('node_modules/a.js', [{ pattern: 'node_modules/**', builtin: false }])).toBe(true);
+    expect(
+      matchExclude('node_modules/a/b/c.js', [{ pattern: 'node_modules/**', builtin: false }]),
+    ).toBe(true);
+    expect(
+      matchExclude('node_modules/a.js', [{ pattern: 'node_modules/**', builtin: false }]),
+    ).toBe(true);
   });
 
   it('目录规则 `foo/` 命中目录本身及全部后代', () => {
@@ -111,7 +120,15 @@ describe('默认规则 + 项目级 .ecignore 集成（体积下降 ≥60%）', (
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: emptyMem(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: emptyMem(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: false,
       useDefaultExcludes: true,
@@ -166,7 +183,15 @@ describe('默认规则 + 项目级 .ecignore 集成（体积下降 ≥60%）', (
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: emptyMem(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: emptyMem(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: false,
       useDefaultExcludes: true,

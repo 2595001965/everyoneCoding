@@ -6,7 +6,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EcpkgWriter } from '../writer';
 import { EcpkgReader, EcpkgReadError } from '../reader';
 import { ZipReader, ZipWriter } from '../container/zip';
-import { isEncryptedPackage, PasswordError, wrapWithPassword, encryptionMarker } from '../container/envelope';
+import {
+  isEncryptedPackage,
+  PasswordError,
+  wrapWithPassword,
+  encryptionMarker,
+} from '../container/envelope';
 import { assertLayoutStructure } from '../format/layout';
 import { checkFormatCompatibility } from '../format/version';
 import { generateEd25519KeyPair } from '../format/signature';
@@ -62,7 +67,10 @@ function writeStandardPackage(
       `projects/${pid}/anchors.json`,
       JSON.stringify([{ id: 'anc-1', symbol: 'LoginController', filePath: 'src/auth.ts' }]),
     );
-    writer.writeTextEntry(`projects/${pid}/pipeline/S1/需求文档.v1.json`, JSON.stringify({ stage: 'S1', version: 1 }));
+    writer.writeTextEntry(
+      `projects/${pid}/pipeline/S1/需求文档.v1.json`,
+      JSON.stringify({ stage: 'S1', version: 1 }),
+    );
     writer.writeTextEntry(
       `projects/${pid}/registry.json`,
       JSON.stringify([{ entityType: 'element', entityId: 'el-1', canonicalName: '登录提交' }]),
@@ -75,12 +83,24 @@ function writeStandardPackage(
   );
   writer.writeTextEntry('documents/index.json', JSON.stringify([{ id: 'doc-1', name: '需求.md' }]));
   writer.writeTextEntry('documents/doc-1/需求.md', '# 需求文档\n\n支持账号密码登录。\n');
-  writer.writeBufferEntry('attachments/9f2c1d.png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x01, 0x02, 0x03]));
+  writer.writeBufferEntry(
+    'attachments/9f2c1d.png',
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x01, 0x02, 0x03]),
+  );
 
   return writer.finalize({
     generator: { app: 'EveryoneCoding', version: '0.9.3', platform: 'win32-x64' },
     scope: 'all',
-    includes: ['memory', 'documents', 'design', 'code', 'pipeline', 'anchors', 'registry', 'attachments'],
+    includes: [
+      'memory',
+      'documents',
+      'design',
+      'code',
+      'pipeline',
+      'anchors',
+      'registry',
+      'attachments',
+    ],
     excludes: ['node_modules/**', 'dist/**', 'target/**', '.git/**', '*.log'],
     counts: { projects: projectCount, memoryItems: 2, documents: 1, pages: 1, codeFiles: 1 },
     redacted: options.redacted ?? true,
@@ -96,12 +116,25 @@ describe('EcpkgWriter / EcpkgReader 往返（T8-01）', () => {
     const result = writeStandardPackage(outputPath);
 
     expect(result.manifest.formatVersion).toBe('1.0.0');
-    expect(result.manifest.generator).toEqual({ app: 'EveryoneCoding', version: '0.9.3', platform: 'win32-x64' });
+    expect(result.manifest.generator).toEqual({
+      app: 'EveryoneCoding',
+      version: '0.9.3',
+      platform: 'win32-x64',
+    });
     expect(result.manifest.scope).toBe('all');
-    expect(result.manifest.checksums).toEqual({ algorithm: 'sha-256', entries: 'checksums.sha256' });
+    expect(result.manifest.checksums).toEqual({
+      algorithm: 'sha-256',
+      entries: 'checksums.sha256',
+    });
     expect(result.manifest.encryption).toEqual({ mode: 'none' });
     expect(result.manifest.redacted).toBe(true);
-    expect(result.manifest.counts).toEqual({ projects: 1, memoryItems: 2, documents: 1, pages: 1, codeFiles: 1 });
+    expect(result.manifest.counts).toEqual({
+      projects: 1,
+      memoryItems: 2,
+      documents: 1,
+      pages: 1,
+      codeFiles: 1,
+    });
     expect(fs.existsSync(outputPath)).toBe(true);
     // 临时文件已原子替换走
     expect(fs.existsSync(`${outputPath}.writing.tmp`)).toBe(false);
@@ -125,7 +158,10 @@ describe('EcpkgWriter / EcpkgReader 往返（T8-01）', () => {
   it('中文条目名往返无损', () => {
     const outputPath = pkgPath('chinese-names.ecpkg');
     const writer = EcpkgWriter.create(outputPath);
-    writer.writeTextEntry('documents/doc-中文/需求说明.md', '# 中文需求\n\n内容含中文与 emoji 🫡。\n');
+    writer.writeTextEntry(
+      'documents/doc-中文/需求说明.md',
+      '# 中文需求\n\n内容含中文与 emoji 🫡。\n',
+    );
     writer.finalize({
       generator: { app: 'EveryoneCoding', version: '0.1.0', platform: 'win32-x64' },
       scope: 'project',
@@ -177,7 +213,9 @@ describe('EcpkgWriter / EcpkgReader 往返（T8-01）', () => {
       const report = await reader.verifyIntegrity();
       expect(report.ok).toBe(false);
       expect(report.corrupted.length).toBeGreaterThanOrEqual(1);
-      const hit = report.corrupted.find((issue) => issue.path === 'projects/proj-1/code/src/auth.ts');
+      const hit = report.corrupted.find(
+        (issue) => issue.path === 'projects/proj-1/code/src/auth.ts',
+      );
       expect(hit, '必须指出被篡改的具体文件').toBeTruthy();
       expect(hit?.reason).toContain('SHA-256 不符');
     } finally {
@@ -306,7 +344,9 @@ describe('EcpkgWriter / EcpkgReader 往返（T8-01）', () => {
       reader.close();
     }
     expect(fs.statSync(extracted).size).toBe(10 * 1024 * 1024);
-    expect(fs.readFileSync(extracted).subarray(0, 4)).toEqual(Buffer.from([0x5a, 0x5a, 0x5a, 0x5a]));
+    expect(fs.readFileSync(extracted).subarray(0, 4)).toEqual(
+      Buffer.from([0x5a, 0x5a, 0x5a, 0x5a]),
+    );
   });
 });
 
@@ -329,7 +369,9 @@ describe('加密信封（FR-PKG-05 容器层）', () => {
     try {
       expect(reader.encrypted).toBe(true);
       expect(reader.manifest.encryption.mode).toBe('aes-256-gcm');
-      expect(reader.manifest.encryption.mode === 'aes-256-gcm' && reader.manifest.encryption.iterations).toBe(210000);
+      expect(
+        reader.manifest.encryption.mode === 'aes-256-gcm' && reader.manifest.encryption.iterations,
+      ).toBe(210000);
       expect(reader.readEntryText('memory/longterm.jsonl')).toContain('TypeScript');
     } finally {
       reader.close();
@@ -378,7 +420,9 @@ describe('高版本包在低版本客户端（FR-PKG-03 验收第 3 条）', () 
     writeStandardPackage(outputPath, { formatVersion: '1.0.0' });
     const reader = EcpkgReader.open(outputPath);
     try {
-      expect(checkFormatCompatibility(reader.manifest.formatVersion, '1.0.0').status).toBe('compatible');
+      expect(checkFormatCompatibility(reader.manifest.formatVersion, '1.0.0').status).toBe(
+        'compatible',
+      );
     } finally {
       reader.close();
     }
@@ -387,7 +431,9 @@ describe('高版本包在低版本客户端（FR-PKG-03 验收第 3 条）', () 
     writeStandardPackage(oldPath, { formatVersion: '0.9.0' });
     const readerOld = EcpkgReader.open(oldPath);
     try {
-      expect(checkFormatCompatibility(readerOld.manifest.formatVersion, '1.0.0').status).toBe('compatible');
+      expect(checkFormatCompatibility(readerOld.manifest.formatVersion, '1.0.0').status).toBe(
+        'compatible',
+      );
     } finally {
       readerOld.close();
     }
@@ -397,7 +443,9 @@ describe('高版本包在低版本客户端（FR-PKG-03 验收第 3 条）', () 
 describe('manifest 样例输出（T8-01 验收：输出真实 manifest 样例）', () => {
   it('生成一份真实 manifest 并核对字段集合', () => {
     const outputPath = pkgPath('sample.ecpkg');
-    const result = writeStandardPackage(outputPath, { signWithPrivateKeyPem: generateEd25519KeyPair().privateKeyPem });
+    const result = writeStandardPackage(outputPath, {
+      signWithPrivateKeyPem: generateEd25519KeyPair().privateKeyPem,
+    });
     const keys = Object.keys(result.manifest);
     expect(keys).toEqual(
       expect.arrayContaining([
@@ -415,6 +463,10 @@ describe('manifest 样例输出（T8-01 验收：输出真实 manifest 样例）
       ]),
     );
     // 留档样例（供任务报告引用）
-    fs.writeFileSync(path.join(workDir, 'manifest-sample.json'), JSON.stringify(result.manifest, null, 2), 'utf8');
+    fs.writeFileSync(
+      path.join(workDir, 'manifest-sample.json'),
+      JSON.stringify(result.manifest, null, 2),
+      'utf8',
+    );
   });
 });

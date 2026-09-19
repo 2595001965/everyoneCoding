@@ -18,18 +18,26 @@ const NAMESPACE_DIR: Record<string, string> = {
 
 function validateNamespace(namespace: string): string {
   const dir = NAMESPACE_DIR[namespace];
-  if (!dir) throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: `非法命名空间: ${namespace}` }));
+  if (!dir)
+    throw new Error(
+      JSON.stringify({ code: 'INVALID_ARGUMENT', message: `非法命名空间: ${namespace}` }),
+    );
   return dir;
 }
 
 function sanitizeKey(key: string): string {
   if (!/^[A-Za-z0-9._-]{1,120}$/.test(key)) {
-    throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: '键名只允许字母数字与 . _ -' }));
+    throw new Error(
+      JSON.stringify({ code: 'INVALID_ARGUMENT', message: '键名只允许字母数字与 . _ -' }),
+    );
   }
   return key;
 }
 
-function storage(deps: IpcDependencies, safeStorage: SafeStorageLike): {
+function storage(
+  deps: IpcDependencies,
+  safeStorage: SafeStorageLike,
+): {
   write: (ns: string, key: string, value: string) => Promise<void>;
   read: (ns: string, key: string) => Promise<string | null>;
   remove: (ns: string, key: string) => Promise<void>;
@@ -83,7 +91,9 @@ export function registerSecureStoreIpc(ipc: IpcMainLike, deps: IpcDependencies):
     const ns = validateNamespace(namespace);
     const safeKey = sanitizeKey(key);
     if (value.length === 0) {
-      throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: '空值不允许写入密钥环' }));
+      throw new Error(
+        JSON.stringify({ code: 'INVALID_ARGUMENT', message: '空值不允许写入密钥环' }),
+      );
     }
     const store = storage(deps, requireSafeStorage(deps));
     await store.write(ns, safeKey, value);

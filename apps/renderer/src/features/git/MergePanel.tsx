@@ -29,7 +29,11 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
   const [branchNames, setBranchNames] = useState<string[]>([]);
   const [source, setSource] = useState('');
   const [target, setTarget] = useState('');
-  const [preview, setPreview] = useState<{ commits: number; filesChanged: number; fastForward: boolean } | null>(null);
+  const [preview, setPreview] = useState<{
+    commits: number;
+    filesChanged: number;
+    fastForward: boolean;
+  } | null>(null);
   const [outcome, setOutcome] = useState<MergeOutcome | null>(null);
   const [pending, setPending] = useState<'merge' | 'rebase' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,8 +43,8 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
     const result = await api.branches();
     const names = result.ok && result.data !== null ? result.data.map((branch) => branch.name) : [];
     setBranchNames(names);
-    setSource((current) => (current === '' ? names[0] ?? '' : current));
-    setTarget((current) => (current === '' ? names[1] ?? names[0] ?? '' : current));
+    setSource((current) => (current === '' ? (names[0] ?? '') : current));
+    setTarget((current) => (current === '' ? (names[1] ?? names[0] ?? '') : current));
   }, [api]);
 
   useEffect(() => {
@@ -53,7 +57,11 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
     setOutcome(null);
     const result = await api.previewMerge(source, target);
     if (result.ok && result.data !== null) {
-      setPreview({ commits: result.data.commits.length, filesChanged: result.data.filesChanged, fastForward: result.data.fastForward });
+      setPreview({
+        commits: result.data.commits.length,
+        filesChanged: result.data.filesChanged,
+        fastForward: result.data.fastForward,
+      });
     } else {
       setPreview(null);
       setError(result.error?.message ?? '预览失败');
@@ -63,7 +71,10 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
   const execute = useCallback(async () => {
     if (pending === null || source === '' || target === '') return;
     setBusy(true);
-    const result = pending === 'merge' ? await api.merge(source, { backup: true }) : await api.rebase(target, { backup: true });
+    const result =
+      pending === 'merge'
+        ? await api.merge(source, { backup: true })
+        : await api.rebase(target, { backup: true });
     setBusy(false);
     setPending(null);
     if (result.ok && result.data !== null) {
@@ -79,8 +90,15 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
   }
 
   return (
-    <div className="ec-merge-panel" data-testid="merge-panel" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="ec-merge-panel__row" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div
+      className="ec-merge-panel"
+      data-testid="merge-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
+      <div
+        className="ec-merge-panel__row"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+      >
         <Select
           aria-label="源分支"
           value={source}
@@ -99,7 +117,12 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
         <Button size="sm" onClick={runPreview} data-testid="merge-preview-action">
           预览影响
         </Button>
-        <Button size="sm" variant="primary" onClick={() => setPending('merge')} data-testid="merge-start">
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => setPending('merge')}
+          data-testid="merge-start"
+        >
           合并
         </Button>
         <Button size="sm" onClick={() => setPending('rebase')} data-testid="rebase-start">
@@ -123,7 +146,13 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
       {outcome !== null && (
         <div className="ec-merge-panel__outcome" data-testid="merge-outcome">
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Tag color={outcome.status === 'conflicted' || outcome.status === 'failed' ? 'danger' : 'success'}>
+            <Tag
+              color={
+                outcome.status === 'conflicted' || outcome.status === 'failed'
+                  ? 'danger'
+                  : 'success'
+              }
+            >
               {STATUS_LABELS[outcome.status]}
             </Tag>
             {outcome.backupBranch !== null && (
@@ -155,15 +184,23 @@ export function MergePanel({ onFinished }: MergePanelProps): JSX.Element {
             <Button size="sm" onClick={() => setPending(null)}>
               取消
             </Button>
-            <Button size="sm" variant="primary" onClick={execute} loading={busy} data-testid="merge-confirm">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={execute}
+              loading={busy}
+              data-testid="merge-confirm"
+            >
               确认执行
             </Button>
           </>
         }
       >
         <p>
-          将把 <strong>{source}</strong> {pending === 'rebase' ? '变基到' : '合并进'} <strong>{target}</strong>。
-          执行前会先创建备份分支 <code data-testid="merge-backup-name">{backupBranchName(Date.now())}</code>，出问题可一键回到当前状态。
+          将把 <strong>{source}</strong> {pending === 'rebase' ? '变基到' : '合并进'}{' '}
+          <strong>{target}</strong>。 执行前会先创建备份分支{' '}
+          <code data-testid="merge-backup-name">{backupBranchName(Date.now())}</code>
+          ，出问题可一键回到当前状态。
         </p>
       </Modal>
     </div>

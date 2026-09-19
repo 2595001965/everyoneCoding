@@ -7,11 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type {
-  MigrationExecutionResult,
-  MigrationLogLine,
-  MigrationPreview,
-} from '@ec/registry';
+import type { MigrationExecutionResult, MigrationLogLine, MigrationPreview } from '@ec/registry';
 import { SQL_RISK_LABELS } from '@ec/registry';
 import { Button, Checkbox, Input, Modal, Spinner, Tag } from '@ec/ui';
 
@@ -177,7 +173,9 @@ export function MigrationDialog(props: MigrationDialogProps): JSX.Element {
                   {preview.rollbackStatements.map((stmt, index) => (
                     <div className="ec-rename-sql-stmt" key={`r-${index}`}>
                       <code>{stmt.sql}</code>
-                      {stmt.risk !== null && <Tag color="warning">{SQL_RISK_LABELS[stmt.risk]}</Tag>}
+                      {stmt.risk !== null && (
+                        <Tag color="warning">{SQL_RISK_LABELS[stmt.risk]}</Tag>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -226,8 +224,12 @@ export function MigrationDialog(props: MigrationDialogProps): JSX.Element {
                   ) : (
                     <Tag color="danger">迁移未执行</Tag>
                   )}
-                  {execResult.refused !== null && <div className="ec-rename-muted">{execResult.refused}</div>}
-                  {execResult.failure !== null && <div className="ec-rename-danger">{execResult.failure}</div>}
+                  {execResult.refused !== null && (
+                    <div className="ec-rename-muted">{execResult.refused}</div>
+                  )}
+                  {execResult.failure !== null && (
+                    <div className="ec-rename-danger">{execResult.failure}</div>
+                  )}
                   {execResult.rollbackFailure !== null && (
                     <div className="ec-rename-danger">回滚失败：{execResult.rollbackFailure}</div>
                   )}
@@ -255,7 +257,9 @@ export function MigrationDialog(props: MigrationDialogProps): JSX.Element {
           {!highRisk && <p>即将执行迁移脚本，该操作会直接修改数据库。确认继续？</p>}
           {highRisk && ackStep === 'ack' && (
             <div className="ec-rename-block">
-              <p className="ec-rename-danger">高危操作：本次迁移命中 DROP / 类型变更 / NOT NULL 收紧，可能导致数据丢失。</p>
+              <p className="ec-rename-danger">
+                高危操作：本次迁移命中 DROP / 类型变更 / NOT NULL 收紧，可能导致数据丢失。
+              </p>
               <label className="ec-rename-inline">
                 <Checkbox
                   checked={acked}
@@ -277,7 +281,12 @@ export function MigrationDialog(props: MigrationDialogProps): JSX.Element {
           )}
           {(ackStep === 'none' || ackStep === 'confirm') && (
             <div className="ec-rename-actions">
-              <Button variant="danger" disabled={executing} data-testid="migration-confirm-final" onClick={() => void runExec()}>
+              <Button
+                variant="danger"
+                disabled={executing}
+                data-testid="migration-confirm-final"
+                onClick={() => void runExec()}
+              >
                 确认并执行
               </Button>
               <Button onClick={() => setConfirmOpen(false)}>取消</Button>

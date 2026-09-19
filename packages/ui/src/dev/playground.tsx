@@ -73,7 +73,9 @@ const listItems = Array.from({ length: 200 }, (_, i) => `列表项 ${i}`);
 
 function ToastDemo() {
   const { toast } = useToast();
-  return <Button onClick={() => toast({ title: '已保存', description: '操作成功' })}>弹出 Toast</Button>;
+  return (
+    <Button onClick={() => toast({ title: '已保存', description: '操作成功' })}>弹出 Toast</Button>
+  );
 }
 
 export function Playground(): React.ReactElement {
@@ -115,8 +117,12 @@ export function Playground(): React.ReactElement {
 
         <section>
           <h2>反馈</h2>
-          <Badge color="success" dot>在线</Badge>
-          <Tag closable onClose={() => undefined}>标签</Tag>
+          <Badge color="success" dot>
+            在线
+          </Badge>
+          <Tag closable onClose={() => undefined}>
+            标签
+          </Tag>
           <Progress value={60} />
           <Spinner />
           <EmptyState title="暂无数据" description="请先创建项目" />
@@ -160,8 +166,19 @@ export function Playground(): React.ReactElement {
           <h2>虚拟化：Tree / Table / List（200 条）</h2>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <Tree data={treeData} itemHeight={28} height={200} defaultExpanded={['src']} />
-            <Table columns={columns} rows={tableRows} rowKey={(r) => r.id} rowHeight={32} height={200} />
-            <List items={listItems} itemHeight={28} height={200} renderItem={(it) => <span>{it}</span>} />
+            <Table
+              columns={columns}
+              rows={tableRows}
+              rowKey={(r) => r.id}
+              rowHeight={32}
+              height={200}
+            />
+            <List
+              items={listItems}
+              itemHeight={28}
+              height={200}
+              renderItem={(it) => <span>{it}</span>}
+            />
           </div>
         </section>
 

@@ -81,7 +81,11 @@ export async function createPkcePair(verifier?: string): Promise<PkcePair> {
   const codeVerifier = verifier ?? createCodeVerifier();
   const data = new TextEncoder().encode(codeVerifier);
   const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
-  return { verifier: codeVerifier, challenge: base64UrlEncode(new Uint8Array(digest)), method: 'S256' };
+  return {
+    verifier: codeVerifier,
+    challenge: base64UrlEncode(new Uint8Array(digest)),
+    method: 'S256',
+  };
 }
 
 /** 生成 state（防 CSRF，回调必须校验一致） */

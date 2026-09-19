@@ -53,7 +53,11 @@ export class FileService {
     return next;
   }
 
-  async writeAtomic(path: string, data: string | Uint8Array, options: WriteAtomicOptions = {}): Promise<void> {
+  async writeAtomic(
+    path: string,
+    data: string | Uint8Array,
+    options: WriteAtomicOptions = {},
+  ): Promise<void> {
     return this.withLock(path, async () => {
       const target = this.safe(path);
       if (options.backup && (await this.shell.fs.exists(target))) {

@@ -22,7 +22,12 @@ export interface InsertionIndicatorProps {
 const ACCENT = 'var(--ec-accent, #2f6bff)';
 
 /** 拖拽插入指示 */
-export function InsertionIndicator({ resolution, targetRect, axis = 'y', className }: InsertionIndicatorProps): React.ReactElement | null {
+export function InsertionIndicator({
+  resolution,
+  targetRect,
+  axis = 'y',
+  className,
+}: InsertionIndicatorProps): React.ReactElement | null {
   if (resolution.kind !== 'insert') return null;
 
   if (resolution.position === 'inside') {

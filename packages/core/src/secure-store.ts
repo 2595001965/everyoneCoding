@@ -13,7 +13,12 @@ import { ShellError, isShellError } from '@ec/shell-api';
 export class SecureStore {
   constructor(private readonly shell: ShellHost) {}
 
-  private guard<T>(operation: string, namespace: SecureNamespace, key: string, task: () => Promise<T>): Promise<T> {
+  private guard<T>(
+    operation: string,
+    namespace: SecureNamespace,
+    key: string,
+    task: () => Promise<T>,
+  ): Promise<T> {
     return task().catch((error: unknown) => {
       if (isShellError(error)) throw error;
       // 错误信息中不得包含 key 的实际值（这里只带键名）
@@ -30,7 +35,9 @@ export class SecureStore {
     if (value.length === 0) {
       throw new ShellError('INVALID_ARGUMENT', '空值不允许写入密钥环', undefined, this.shell.kind);
     }
-    await this.guard('set', namespace, key, () => this.shell.secureStore.set(namespace, key, value));
+    await this.guard('set', namespace, key, () =>
+      this.shell.secureStore.set(namespace, key, value),
+    );
   }
 
   async get(namespace: SecureNamespace, key: string): Promise<string | null> {

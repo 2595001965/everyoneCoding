@@ -29,7 +29,11 @@ export interface GitImportPort {
    * 克隆仓库到目标目录。
    * @param onProgress 进度回调（0-1，可缺省）
    */
-  clone(url: string, targetDir: string, onProgress?: (ratio: number, message: string) => void): Promise<void>;
+  clone(
+    url: string,
+    targetDir: string,
+    onProgress?: (ratio: number, message: string) => void,
+  ): Promise<void>;
   /** 扫描已克隆目录，产出推断所需的快照 */
   inspect(dir: string): Promise<RepoSnapshot>;
   /** 目标目录是否可用（非空目录需提示覆盖） */
@@ -61,7 +65,9 @@ function readManifest(snapshot: RepoSnapshot, ...candidates: string[]): string |
 }
 
 function hasFile(snapshot: RepoSnapshot, ...candidates: string[]): boolean {
-  return snapshot.files.some((path) => candidates.some((c) => path === c || path.endsWith(`/${c}`)));
+  return snapshot.files.some((path) =>
+    candidates.some((c) => path === c || path.endsWith(`/${c}`)),
+  );
 }
 
 /** 从 manifest 文本里安全地找子串（不解析 JSON，容错优先） */
@@ -127,7 +133,9 @@ export function inferProjectProfile(snapshot: RepoSnapshot): ProjectProfile {
   }
 
   const isWebLike =
-    packageJson !== null && !contains(packageJson, 'react-native') && !contains(packageJson, '"electron"');
+    packageJson !== null &&
+    !contains(packageJson, 'react-native') &&
+    !contains(packageJson, '"electron"');
   if (isWebLike) {
     if (contains(packageJson, '"vue"') || hasFile(snapshot, 'vue.config.js')) {
       frameworks.push('vue3');
@@ -150,7 +158,11 @@ export function inferProjectProfile(snapshot: RepoSnapshot): ProjectProfile {
     frameworks.push('spring');
     techStack['backend'] = 'java-spring';
     evidence.push('发现 pom.xml（Java / Spring 工程）');
-  } else if (contains(packageJson, '"express"') || contains(packageJson, '"fastify"') || contains(packageJson, '"koa"')) {
+  } else if (
+    contains(packageJson, '"express"') ||
+    contains(packageJson, '"fastify"') ||
+    contains(packageJson, '"koa"')
+  ) {
     frameworks.push('node-backend');
     techStack['backend'] = 'node';
     evidence.push('package.json 含 Node 服务端框架依赖');
@@ -215,7 +227,11 @@ export function isValidGitUrl(url: string): boolean {
 /** 由 URL 推断默认项目名（去掉 .git 后缀与路径前缀） */
 export function projectNameFromUrl(url: string): string {
   const trimmed = url.trim().replace(/[\\/]+$/, '');
-  const last = trimmed.split(/[\\/:]/).filter(Boolean).pop() ?? '导入项目';
+  const last =
+    trimmed
+      .split(/[\\/:]/)
+      .filter(Boolean)
+      .pop() ?? '导入项目';
   return last.replace(/\.git$/i, '') || '导入项目';
 }
 

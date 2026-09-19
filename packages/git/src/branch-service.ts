@@ -1,4 +1,11 @@
-import type { BranchGraph, BranchNode, GitBranchInfo, GitCommit, GitResult, GitTagInfo } from './models';
+import type {
+  BranchGraph,
+  BranchNode,
+  GitBranchInfo,
+  GitCommit,
+  GitResult,
+  GitTagInfo,
+} from './models';
 import type { GitClient } from './git-client';
 
 /**
@@ -169,7 +176,9 @@ export class BranchService {
   }
 
   /** 提交图（默认取最近 200 条） */
-  async graph(options: { limit?: number; branches?: readonly GitBranchInfo[] } = {}): Promise<GitResult<BranchGraph>> {
+  async graph(
+    options: { limit?: number; branches?: readonly GitBranchInfo[] } = {},
+  ): Promise<GitResult<BranchGraph>> {
     const [commits, branches, tags, head] = await Promise.all([
       this.client.log({ limit: options.limit ?? 200 }),
       options.branches !== undefined ? Promise.resolve(null) : this.client.branches(),

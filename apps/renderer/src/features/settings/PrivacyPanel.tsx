@@ -38,7 +38,9 @@ export function PrivacyPanel(): JSX.Element {
       try {
         await api.setTelemetry(enabled);
         setTelemetryEnabled(enabled);
-        setNotice(enabled ? '已开启匿名使用数据上报（可在下方随时关闭）' : '已关闭匿名使用数据上报');
+        setNotice(
+          enabled ? '已开启匿名使用数据上报（可在下方随时关闭）' : '已关闭匿名使用数据上报',
+        );
       } catch (cause: unknown) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -54,7 +56,9 @@ export function PrivacyPanel(): JSX.Element {
       const result = await api.clearLocalTelemetry();
       setInspection(result);
       const clean = result.telemetryRecords === 0 && result.cacheBytes === 0;
-      setNotice(clean ? '已清除本地遥测与缓存数据，自检无残留' : '清除后仍有残留，请重试或联系支持');
+      setNotice(
+        clean ? '已清除本地遥测与缓存数据，自检无残留' : '清除后仍有残留，请重试或联系支持',
+      );
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {

@@ -113,7 +113,11 @@ export function planBatchRename(input: PlanBatchInput): BatchPlan {
       ...(input.timer !== undefined ? { timer: input.timer } : {}),
     });
     if (!check.ok) {
-      blocked.push({ registryId: item.registry.id, newName: item.newCanonicalName, violations: check.violations });
+      blocked.push({
+        registryId: item.registry.id,
+        newName: item.newCanonicalName,
+        violations: check.violations,
+      });
       continue;
     }
     steps.push({
@@ -326,4 +330,3 @@ export function executeBatchRename(input: ExecuteBatchInput): BatchRenameResult 
     failures,
   };
 }
-

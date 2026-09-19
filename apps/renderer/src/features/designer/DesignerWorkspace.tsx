@@ -372,11 +372,9 @@ function ComponentPanel(): JSX.Element {
         ? { style: { ...meta.defaultStyle } }
         : {}),
     };
-    store
-      .getState()
-      .insertElement(store.getState().dsl.tree.id, element, {
-        label: `拖入${meta?.displayName ?? type}`,
-      });
+    store.getState().insertElement(store.getState().dsl.tree.id, element, {
+      label: `拖入${meta?.displayName ?? type}`,
+    });
   };
 
   const groups = useMemo(() => {

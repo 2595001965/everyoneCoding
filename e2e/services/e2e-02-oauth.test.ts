@@ -32,7 +32,12 @@ function fakeGithubFetch(): OAuthFetch {
     if (req.url.includes('api.github.com/user')) {
       return {
         status: 200,
-        body: JSON.stringify({ id: 424242, login: 'octocat-e2e', email: 'octocat@example.com', name: 'Octo E2E' }),
+        body: JSON.stringify({
+          id: 424242,
+          login: 'octocat-e2e',
+          email: 'octocat@example.com',
+          name: 'Octo E2E',
+        }),
       };
     }
     return { status: 404, body: '{}' };
@@ -43,7 +48,11 @@ let app: App;
 
 beforeAll(async () => {
   setOAuthFetch(fakeGithubFetch());
-  const cfg = loadConfig({ dbPath: ':memory:', loginRateLimitPerMin: 50, registerRateLimitPerMin: 50 });
+  const cfg = loadConfig({
+    dbPath: ':memory:',
+    loginRateLimitPerMin: 50,
+    registerRateLimitPerMin: 50,
+  });
   app = await buildApp(cfg, openDatabase(':memory:'));
 });
 

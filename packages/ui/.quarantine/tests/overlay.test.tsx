@@ -130,7 +130,11 @@ describe('DropdownMenu / ContextMenu', () => {
     const run = vi.fn();
     const onClose = vi.fn();
     render(
-      <ContextMenu at={{ x: 40, y: 60 }} onClose={onClose} items={[{ key: 'a', label: '对齐左侧', onSelect: run }]} />,
+      <ContextMenu
+        at={{ x: 40, y: 60 }}
+        onClose={onClose}
+        items={[{ key: 'a', label: '对齐左侧', onSelect: run }]}
+      />,
     );
     await userEvent.click(screen.getByRole('menuitem', { name: '对齐左侧' }));
     expect(run).toHaveBeenCalledTimes(1);

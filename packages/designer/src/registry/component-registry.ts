@@ -122,8 +122,14 @@ export interface CustomComponentInput {
   renderer?: ComponentType<ComponentRenderProps>;
 }
 
-export function registerCustomComponent(input: CustomComponentInput, registry: ComponentRegistry = componentRegistry): ComponentMeta {
+export function registerCustomComponent(
+  input: CustomComponentInput,
+  registry: ComponentRegistry = componentRegistry,
+): ComponentMeta {
   const meta: ComponentMeta = { ...input.meta, group: input.meta.group ?? '自定义' };
-  registry.override({ meta, ...(input.renderer !== undefined ? { renderer: input.renderer } : {}) });
+  registry.override({
+    meta,
+    ...(input.renderer !== undefined ? { renderer: input.renderer } : {}),
+  });
   return meta;
 }

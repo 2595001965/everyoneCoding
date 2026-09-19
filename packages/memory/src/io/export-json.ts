@@ -44,7 +44,10 @@ export interface ExportMeta {
  * 重新导入到别的模型会失真。为保证往返结构一致，这里仍保留
  * `embedding: null` 字段位（详见 `exportJson` 的 TSDoc）。
  */
-export function buildExportEnvelope(items: readonly MemoryItem[], meta: ExportMeta): MemoryExportEnvelope {
+export function buildExportEnvelope(
+  items: readonly MemoryItem[],
+  meta: ExportMeta,
+): MemoryExportEnvelope {
   const exportedAt = meta.exportedAt ?? Date.now();
   return {
     format: MEMORY_EXPORT_FORMAT,

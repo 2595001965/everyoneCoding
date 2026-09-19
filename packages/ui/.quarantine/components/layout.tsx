@@ -14,7 +14,15 @@ export interface TabItem {
 }
 
 /** 方向键切换 + Home/End 跳转（roving tabindex） */
-export function Tabs({ items, initialKey, onChange }: { items: TabItem[]; initialKey?: string; onChange?: (key: string) => void }) {
+export function Tabs({
+  items,
+  initialKey,
+  onChange,
+}: {
+  items: TabItem[];
+  initialKey?: string;
+  onChange?: (key: string) => void;
+}) {
   const selectable = items.filter((item) => !item.disabled);
   const [active, setActive] = useState(initialKey ?? selectable[0]?.key ?? '');
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -171,7 +179,9 @@ export function List({
     >
       {virtual ? (
         <div {...vlist.innerProps}>
-          {rows.slice(vlist.range.start, vlist.range.end).map((row, offset) => renderRow(row, vlist.range.start + offset))}
+          {rows
+            .slice(vlist.range.start, vlist.range.end)
+            .map((row, offset) => renderRow(row, vlist.range.start + offset))}
         </div>
       ) : (
         rows.map((row, index) => renderRow(row, index))
@@ -217,7 +227,14 @@ export interface TreeProps {
   ariaLabel?: string;
 }
 
-export function Tree({ data, defaultExpanded = [], selectedId = null, onSelect, height = 320, ariaLabel = '树' }: TreeProps) {
+export function Tree({
+  data,
+  defaultExpanded = [],
+  selectedId = null,
+  onSelect,
+  height = 320,
+  ariaLabel = '树',
+}: TreeProps) {
   const [expanded, setExpanded] = useState(() => new Set(defaultExpanded));
   const flat = useMemo(() => flattenTree(data, expanded), [data, expanded]);
   const vlist = useVirtualList({ count: flat.length, itemHeight: 32 });
@@ -253,7 +270,14 @@ export function Tree({ data, defaultExpanded = [], selectedId = null, onSelect, 
   };
 
   return (
-    <div ref={vlist.containerRef} role="tree" aria-label={ariaLabel} className="ec-tree" style={{ height }} onKeyDown={onKeyDown}>
+    <div
+      ref={vlist.containerRef}
+      role="tree"
+      aria-label={ariaLabel}
+      className="ec-tree"
+      style={{ height }}
+      onKeyDown={onKeyDown}
+    >
       <div {...vlist.innerProps}>
         {flat.slice(vlist.range.start, vlist.range.end).map((entry, offset) => {
           const index = vlist.range.start + offset;
@@ -306,7 +330,14 @@ export interface TableProps<T> {
   caption?: string;
 }
 
-export function Table<T>({ columns, rows, rowKey, height = 320, ariaLabel = '表格', caption }: TableProps<T>) {
+export function Table<T>({
+  columns,
+  rows,
+  rowKey,
+  height = 320,
+  ariaLabel = '表格',
+  caption,
+}: TableProps<T>) {
   const vlist = useVirtualList({ count: rows.length, itemHeight: 36 });
 
   return (
@@ -329,7 +360,13 @@ export function Table<T>({ columns, rows, rowKey, height = 320, ariaLabel = '表
           {rows.slice(vlist.range.start, vlist.range.end).map((row, offset) => {
             const index = vlist.range.start + offset;
             return (
-              <div key={rowKey(row)} role="row" aria-rowindex={index + 1} className="ec-table__tr" style={{ height: 36 }}>
+              <div
+                key={rowKey(row)}
+                role="row"
+                aria-rowindex={index + 1}
+                className="ec-table__tr"
+                style={{ height: 36 }}
+              >
                 {columns.map((column) => (
                   <div
                     key={column.key}
@@ -383,7 +420,10 @@ export function SplitPane({
     (clientX: number, clientY: number) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const raw = direction === 'horizontal' ? (clientX - rect.left) / rect.width : (clientY - rect.top) / rect.height;
+      const raw =
+        direction === 'horizontal'
+          ? (clientX - rect.left) / rect.width
+          : (clientY - rect.top) / rect.height;
       setRatio(Math.max(minRatio, Math.min(maxRatio, raw)));
     },
     [direction, minRatio, maxRatio],
@@ -413,7 +453,10 @@ export function SplitPane({
       ref={containerRef}
       className={cx('ec-split', isHorizontal ? 'ec-split--horizontal' : 'ec-split--vertical')}
     >
-      <div className="ec-split__pane" style={isHorizontal ? { width: `${ratio * 100}%` } : { height: `${ratio * 100}%` }}>
+      <div
+        className="ec-split__pane"
+        style={isHorizontal ? { width: `${ratio * 100}%` } : { height: `${ratio * 100}%` }}
+      >
         {first}
       </div>
       <div
@@ -424,7 +467,10 @@ export function SplitPane({
         aria-valuemin={Math.round(minRatio * 100)}
         aria-valuemax={Math.round(maxRatio * 100)}
         tabIndex={0}
-        className={cx('ec-split__divider', isHorizontal ? 'ec-split__divider--h' : 'ec-split__divider--v')}
+        className={cx(
+          'ec-split__divider',
+          isHorizontal ? 'ec-split__divider--h' : 'ec-split__divider--v',
+        )}
         onPointerDown={(event) => {
           event.preventDefault();
           dragging.current = true;
@@ -434,10 +480,20 @@ export function SplitPane({
           const step = 0.02;
           if (isHorizontal && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
             event.preventDefault();
-            setRatio((value) => Math.max(minRatio, Math.min(maxRatio, value + (event.key === 'ArrowRight' ? step : -step))));
+            setRatio((value) =>
+              Math.max(
+                minRatio,
+                Math.min(maxRatio, value + (event.key === 'ArrowRight' ? step : -step)),
+              ),
+            );
           } else if (!isHorizontal && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
             event.preventDefault();
-            setRatio((value) => Math.max(minRatio, Math.min(maxRatio, value + (event.key === 'ArrowDown' ? step : -step))));
+            setRatio((value) =>
+              Math.max(
+                minRatio,
+                Math.min(maxRatio, value + (event.key === 'ArrowDown' ? step : -step)),
+              ),
+            );
           }
         }}
       />
@@ -456,7 +512,13 @@ export interface ResizableProps {
 }
 
 /** 右下角拖拽缩放容器 */
-export function Resizable({ width, height, onResize, children, ariaLabel = '可调整大小区域' }: ResizableProps) {
+export function Resizable({
+  width,
+  height,
+  onResize,
+  children,
+  ariaLabel = '可调整大小区域',
+}: ResizableProps) {
   const [size, setSize] = useState({ width, height });
   const resizing = useRef(false);
   const startRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
@@ -483,7 +545,11 @@ export function Resizable({ width, height, onResize, children, ariaLabel = '可�
   }, [onResize]);
 
   return (
-    <div className="ec-resizable" style={{ width: size.width, height: size.height }} aria-label={ariaLabel}>
+    <div
+      className="ec-resizable"
+      style={{ width: size.width, height: size.height }}
+      aria-label={ariaLabel}
+    >
       {children}
       <div
         role="separator"
@@ -493,7 +559,12 @@ export function Resizable({ width, height, onResize, children, ariaLabel = '可�
         onPointerDown={(event) => {
           event.preventDefault();
           resizing.current = true;
-          startRef.current = { x: event.clientX, y: event.clientY, width: size.width, height: size.height };
+          startRef.current = {
+            x: event.clientX,
+            y: event.clientY,
+            width: size.width,
+            height: size.height,
+          };
         }}
         onKeyDown={(event) => {
           if (event.key === 'ArrowRight') {

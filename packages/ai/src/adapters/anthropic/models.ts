@@ -52,9 +52,12 @@ export async function fetchAnthropicModels(
   } catch (error) {
     throw error instanceof ProtocolError
       ? error
-      : new ProtocolError(`/models 请求失败：${error instanceof Error ? error.message : String(error)}`, {
-          providerId: provider.id,
-        });
+      : new ProtocolError(
+          `/models 请求失败：${error instanceof Error ? error.message : String(error)}`,
+          {
+            providerId: provider.id,
+          },
+        );
   }
 
   const list = extractList(payload);

@@ -201,7 +201,10 @@ export interface MemoryDocLinkRowSnapshot {
 /** 解析器：把原始字节/文本转为结构化文档 */
 export interface DocParser {
   format: DocFormat;
-  parse(input: { raw: string | Uint8Array; fileName?: string | undefined }): ParsedDocument | Promise<ParsedDocument>;
+  parse(input: {
+    raw: string | Uint8Array;
+    fileName?: string | undefined;
+  }): ParsedDocument | Promise<ParsedDocument>;
 }
 
 /** 解析器注册表（外壳注入实现，或默认用 core 提供的工厂） */
@@ -252,7 +255,11 @@ export interface DocMemoryPort {
     sourceRef?: DocSourceRef | null;
   }): Promise<DocMemoryNode>;
   /** 建立文档-记忆关联 */
-  link(input: { memoryId: string; documentId: string; linkType: DocLinkType }): Promise<DocMemoryLink>;
+  link(input: {
+    memoryId: string;
+    documentId: string;
+    linkType: DocLinkType;
+  }): Promise<DocMemoryLink>;
   listLinksByDoc(documentId: string): Promise<DocMemoryLink[]>;
   listLinksByMemory(memoryId: string): Promise<DocMemoryLink[]>;
   removeLink(id: string): Promise<void>;
@@ -260,7 +267,10 @@ export interface DocMemoryPort {
 
 /** OCR 端口：图片文档走 OCR，不可用时外壳可不注入 */
 export interface OcrPort {
-  recognize(input: { raw: Uint8Array; fileName?: string | undefined }): Promise<{ title: string; sections: DocSection[] }>;
+  recognize(input: {
+    raw: Uint8Array;
+    fileName?: string | undefined;
+  }): Promise<{ title: string; sections: DocSection[] }>;
 }
 
 /** 记忆抽取（AI 摘要）：缺失时如实报错并给引导，不内置模板顶替 */
@@ -328,7 +338,9 @@ export function deserializeSections(json: string | null): DocSection[] {
 /** 由 sections 拼出提取正文（标题 + 正文），供摘要与检索 */
 export function sectionsToText(sections: DocSection[]): string {
   return sections
-    .map((section) => (section.heading ? `${section.heading}\n${section.text}` : section.text).trimEnd())
+    .map((section) =>
+      (section.heading ? `${section.heading}\n${section.text}` : section.text).trimEnd(),
+    )
     .join('\n\n')
     .trim();
 }

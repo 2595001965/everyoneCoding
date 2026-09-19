@@ -79,7 +79,14 @@ export interface ContextBlock {
 /* ------------------------------ 数据端口 ------------------------------ */
 
 /** 与 @ec/memory 的 MemoryScope 对齐（此处重复声明以避免跨包依赖） */
-export const CONTEXT_MEMORY_SCOPES = ['longterm', 'project', 'feature', 'page', 'element', 'issue'] as const;
+export const CONTEXT_MEMORY_SCOPES = [
+  'longterm',
+  'project',
+  'feature',
+  'page',
+  'element',
+  'issue',
+] as const;
 export type ContextMemoryScope = (typeof CONTEXT_MEMORY_SCOPES)[number];
 
 /** 记忆命中（外壳适配 @ec/memory 的 HybridHit / MemoryItem） */
@@ -109,9 +116,13 @@ export interface ContextMemoryQuery {
 /** 记忆端口（外壳适配 @ec/memory 的双路召回与分层列举） */
 export interface ContextMemoryPort {
   /** 双路召回：相关度排序 */
-  search(input: ContextMemoryQuery): readonly ContextMemoryHit[] | Promise<readonly ContextMemoryHit[]>;
+  search(
+    input: ContextMemoryQuery,
+  ): readonly ContextMemoryHit[] | Promise<readonly ContextMemoryHit[]>;
   /** 无检索能力时的兜底列举（按重要度） */
-  listByScope?(input: Omit<ContextMemoryQuery, 'query'>): readonly ContextMemoryHit[] | Promise<readonly ContextMemoryHit[]>;
+  listByScope?(
+    input: Omit<ContextMemoryQuery, 'query'>,
+  ): readonly ContextMemoryHit[] | Promise<readonly ContextMemoryHit[]>;
 }
 
 /** 备注（结构对齐 @ec/designer 的 `ContextNote`，鸭子类型即可赋值） */
@@ -295,7 +306,8 @@ export interface AssembledContext {
 }
 
 /** 省略原因（与 truncate-report 的 OmitReason 同源，此处声明以避免循环依赖） */
-export type OmitReason = 'block-over-quota' | 'block-over-budget' | 'aggressive-trim' | 'block-disabled';
+export type OmitReason =
+  'block-over-quota' | 'block-over-budget' | 'aggressive-trim' | 'block-disabled';
 
 /** 被省略的条目（省略报告的最小单位） */
 export interface OmittedItemShape {
@@ -357,7 +369,9 @@ export interface BlockBuildContext {
   clock: () => number;
 }
 
-export type ContextBlockBuilder = (context: BlockBuildContext) => ContextBlock | Promise<ContextBlock>;
+export type ContextBlockBuilder = (
+  context: BlockBuildContext,
+) => ContextBlock | Promise<ContextBlock>;
 
 export interface ComposeBlockInput {
   id: ContextBlockId;

@@ -176,10 +176,20 @@ export class PipelineMachine {
     to: StageStatus,
     reason: PipelineEventMap['pipeline:stage-changed']['reason'],
   ): void {
-    void this.bus.emit('pipeline:stage-changed', { projectId: this.projectId, stage, from, to, reason });
+    void this.bus.emit('pipeline:stage-changed', {
+      projectId: this.projectId,
+      stage,
+      from,
+      to,
+      reason,
+    });
   }
 
-  private setStatus(stage: PipelineStage, to: StageStatus, reason: PipelineEventMap['pipeline:stage-changed']['reason']): void {
+  private setStatus(
+    stage: PipelineStage,
+    to: StageStatus,
+    reason: PipelineEventMap['pipeline:stage-changed']['reason'],
+  ): void {
     const state = this.states[stage];
     if (state.status === to) return;
     const from = state.status;
@@ -194,13 +204,28 @@ export class PipelineMachine {
    */
   advance(from: PipelineStage, to: PipelineStage): void {
     if (!STAGE_ORDER.includes(from) || !STAGE_ORDER.includes(to)) {
-      throw new InvalidTransitionError(to, this.states[to]?.status ?? 'pending', 'running', '未知阶段');
+      throw new InvalidTransitionError(
+        to,
+        this.states[to]?.status ?? 'pending',
+        'running',
+        '未知阶段',
+      );
     }
     if (STAGE_ORDER.indexOf(to) !== STAGE_ORDER.indexOf(from) + 1) {
-      throw new InvalidTransitionError(to, this.states[to].status, 'running', `只能从 ${from} 前进到紧邻的下一阶段`);
+      throw new InvalidTransitionError(
+        to,
+        this.states[to].status,
+        'running',
+        `只能从 ${from} 前进到紧邻的下一阶段`,
+      );
     }
     if (this.states[from].status !== 'confirmed') {
-      throw new InvalidTransitionError(from, this.states[from].status, 'confirmed', '上一阶段尚未确认，不能前进');
+      throw new InvalidTransitionError(
+        from,
+        this.states[from].status,
+        'confirmed',
+        '上一阶段尚未确认，不能前进',
+      );
     }
     const blocked = this.guard?.(from, to) ?? null;
     if (blocked !== null) {
@@ -242,7 +267,12 @@ export class PipelineMachine {
   /** 跳过：只允许 skippable 阶段，且必须处于 pending；落为 confirmed 并记 skippedAt */
   skip(stage: PipelineStage): void {
     if (!STAGE_DEFS[stage].skippable) {
-      throw new InvalidTransitionError(stage, this.states[stage].status, 'confirmed', '该阶段不可跳过');
+      throw new InvalidTransitionError(
+        stage,
+        this.states[stage].status,
+        'confirmed',
+        '该阶段不可跳过',
+      );
     }
     const state = this.states[stage];
     if (state.status !== 'pending') {
@@ -289,7 +319,12 @@ export class PipelineMachine {
    */
   back(from: PipelineStage, to: PipelineStage): PipelineStage[] {
     if (STAGE_ORDER.indexOf(to) > STAGE_ORDER.indexOf(from)) {
-      throw new InvalidTransitionError(from, this.states[from].status, this.states[to].status, '回退只能向后');
+      throw new InvalidTransitionError(
+        from,
+        this.states[from].status,
+        this.states[to].status,
+        '回退只能向后',
+      );
     }
     const markedStale: PipelineStage[] = [];
     for (const stage of stagesAfter(to, from)) {
@@ -300,7 +335,12 @@ export class PipelineMachine {
       this.markStale(stage);
       markedStale.push(stage);
     }
-    void this.bus.emit('pipeline:rolled-back', { projectId: this.projectId, from, to, markedStale });
+    void this.bus.emit('pipeline:rolled-back', {
+      projectId: this.projectId,
+      from,
+      to,
+      markedStale,
+    });
     return markedStale;
   }
 
@@ -321,7 +361,14 @@ export class PipelineMachine {
 }
 
 export function blankStageState(stage: PipelineStage, now = 0): StageState {
-  return { stage, status: 'pending', activeVersion: null, latestVersion: 0, skippedAt: null, updatedAt: now };
+  return {
+    stage,
+    status: 'pending',
+    activeVersion: null,
+    latestVersion: 0,
+    skippedAt: null,
+    updatedAt: now,
+  };
 }
 
 function blankSnapshot(): PipelineStageSnapshot {
@@ -336,7 +383,8 @@ function sanitizeSnapshot(snapshot: PipelineStageSnapshot): PipelineStageSnapsho
     const incoming = snapshot[stage];
     const base = merged[stage];
     if (incoming === undefined) continue;
-    base.status = STAGE_ORDER.includes(stage) && isKnownStatus(incoming.status) ? incoming.status : 'pending';
+    base.status =
+      STAGE_ORDER.includes(stage) && isKnownStatus(incoming.status) ? incoming.status : 'pending';
     base.activeVersion = typeof incoming.activeVersion === 'number' ? incoming.activeVersion : null;
     base.latestVersion = typeof incoming.latestVersion === 'number' ? incoming.latestVersion : 0;
     base.skippedAt = typeof incoming.skippedAt === 'number' ? incoming.skippedAt : null;
@@ -346,7 +394,13 @@ function sanitizeSnapshot(snapshot: PipelineStageSnapshot): PipelineStageSnapsho
 }
 
 function isKnownStatus(value: unknown): value is StageStatus {
-  return value === 'pending' || value === 'running' || value === 'awaiting_confirm' || value === 'confirmed' || value === 'stale';
+  return (
+    value === 'pending' ||
+    value === 'running' ||
+    value === 'awaiting_confirm' ||
+    value === 'confirmed' ||
+    value === 'stale'
+  );
 }
 
 function cloneSnapshot(snapshot: PipelineStageSnapshot): PipelineStageSnapshot {
@@ -356,7 +410,10 @@ function cloneSnapshot(snapshot: PipelineStageSnapshot): PipelineStageSnapshot {
 }
 
 /** 供 UI 判断"下一阶段能否前进"（不做转移，只做预检） */
-export function canAdvance(machine: PipelineMachine, from: PipelineStage): { ok: boolean; reason: string | null } {
+export function canAdvance(
+  machine: PipelineMachine,
+  from: PipelineStage,
+): { ok: boolean; reason: string | null } {
   const to = nextStage(from);
   if (to === null) return { ok: false, reason: '已是最后阶段' };
   if (machine.statusOf(from) !== 'confirmed') return { ok: false, reason: `阶段 ${from} 尚未确认` };

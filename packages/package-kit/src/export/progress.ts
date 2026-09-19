@@ -45,7 +45,11 @@ export class ExportProgressTracker {
 
   /** 当前快照（只读副本） */
   getSnapshot(): ExportProgressSnapshot {
-    return { ...this.snapshot, counts: { ...this.snapshot.counts }, failures: [...this.snapshot.failures] };
+    return {
+      ...this.snapshot,
+      counts: { ...this.snapshot.counts },
+      failures: [...this.snapshot.failures],
+    };
   }
 
   private elapsed(): number {

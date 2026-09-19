@@ -43,7 +43,9 @@ describe('reciprocalRankFusion', () => {
   });
 
   it('权重生效：keyword 权重置 0 时语义路主导排序', () => {
-    const fused = reciprocalRankFusion([keyword, semantic], { weights: { keyword: 0, semantic: 1 } });
+    const fused = reciprocalRankFusion([keyword, semantic], {
+      weights: { keyword: 0, semantic: 1 },
+    });
     const order = fused.map((f) => f.id);
     const cIdx = order.indexOf('C');
     const aIdx = order.indexOf('A');

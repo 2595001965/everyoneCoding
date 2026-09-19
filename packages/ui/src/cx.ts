@@ -1,5 +1,6 @@
 /** 极简 className 组合（避免为它引依赖） */
-export type ClassValue = string | number | null | undefined | false | Record<string, boolean | undefined>;
+export type ClassValue =
+  string | number | null | undefined | false | Record<string, boolean | undefined>;
 
 export function cx(...values: ClassValue[]): string {
   const out: string[] = [];

@@ -29,7 +29,12 @@ function isIncoming(data: unknown): data is IncomingMessage {
   return t === 'preview-request' || t === 'element-click';
 }
 
-export function PreviewFrame({ src, title, onRequest, onElementClick }: PreviewFrameProps): JSX.Element {
+export function PreviewFrame({
+  src,
+  title,
+  onRequest,
+  onElementClick,
+}: PreviewFrameProps): JSX.Element {
   // 用 ref 持有最新回调，避免每次渲染重建监听器
   const onRequestRef = React.useRef(onRequest);
   const onElementClickRef = React.useRef(onElementClick);

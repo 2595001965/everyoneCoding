@@ -1,9 +1,5 @@
 import { parseAnchorComments } from '../anchors/comment-marker';
-import type {
-  NavElementRef,
-  NavPageRef,
-  NavSourcePort,
-} from './source-model';
+import type { NavElementRef, NavPageRef, NavSourcePort } from './source-model';
 
 /**
  * 反向跳转（T6-07 要点 4）：代码视图 anchor 标记 → 跳回设计器元素。
@@ -76,7 +72,9 @@ export class ReverseJumpService {
       return {
         success: true,
         hits: [hit],
-        message: `跳回设计器元素 ${hit.elementId}` + (hit.element !== null ? `（${hit.element.name}）` : ''),
+        message:
+          `跳回设计器元素 ${hit.elementId}` +
+          (hit.element !== null ? `（${hit.element.name}）` : ''),
       };
     }
     return { success: false, hits: [], message: `当前行 ${input.line} 无锚点标记` };
@@ -91,7 +89,11 @@ export class ReverseJumpService {
   }
 
   /** 双向跳转成功率统计：forwards 为正跳结果，返回 combined rate（分母保留所有跳转） */
-  combinedStats(forwards: { total: number; success: number }): { total: number; success: number; rate: number } {
+  combinedStats(forwards: { total: number; success: number }): {
+    total: number;
+    success: number;
+    rate: number;
+  } {
     const total = forwards.total + this.stats().total;
     const success = forwards.success + this.stats().success;
     const rate = total === 0 ? 1 : success / total;

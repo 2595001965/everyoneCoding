@@ -99,12 +99,18 @@ export function NotePanel({
   countCallback.current = onCountChange;
 
   React.useEffect(() => {
-    countCallback.current?.({ unresolved, mustFollow, byType: JSON.parse(byTypeKey) as Record<NoteType, number> });
+    countCallback.current?.({
+      unresolved,
+      mustFollow,
+      byType: JSON.parse(byTypeKey) as Record<NoteType, number>,
+    });
   }, [unresolved, mustFollow, byTypeKey]);
 
   return (
     <section className="ec-note-panel" aria-label="备注面板" data-unresolved={unresolved}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+      <header
+        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}
+      >
         <strong style={{ fontSize: 13 }}>备注</strong>
         <Tag color={unresolved > 0 ? 'warning' : 'neutral'}>{`未解决 ${unresolved}`}</Tag>
         {mustFollow > 0 && <Tag color="danger">{`禁止事项 ${mustFollow}`}</Tag>}
@@ -125,12 +131,27 @@ export function NotePanel({
           options={TARGET_FILTER_OPTIONS}
           onChange={setTargetFilter}
         />
-        <Select size="sm" aria-label="按类型筛选" value={typeFilter} options={TYPE_FILTER_OPTIONS} onChange={setTypeFilter} />
-        <Select size="sm" aria-label="按状态筛选" value={statusFilter} options={STATUS_FILTER_OPTIONS} onChange={setStatusFilter} />
+        <Select
+          size="sm"
+          aria-label="按类型筛选"
+          value={typeFilter}
+          options={TYPE_FILTER_OPTIONS}
+          onChange={setTypeFilter}
+        />
+        <Select
+          size="sm"
+          aria-label="按状态筛选"
+          value={statusFilter}
+          options={STATUS_FILTER_OPTIONS}
+          onChange={setStatusFilter}
+        />
       </div>
 
       {notes.length === 0 ? (
-        <EmptyState title="暂无备注" description="在画布元素上右键、或在页面标签页添加「页面备注」。" />
+        <EmptyState
+          title="暂无备注"
+          description="在画布元素上右键、或在页面标签页添加「页面备注」。"
+        />
       ) : (
         <ul
           className="ec-note-panel__list"
@@ -152,7 +173,10 @@ export function NotePanel({
                   borderRadius: 6,
                   padding: '8px 10px',
                   marginBottom: 8,
-                  background: note.status === 'resolved' ? 'var(--ec-surface-sunken, #f8fafc)' : 'transparent',
+                  background:
+                    note.status === 'resolved'
+                      ? 'var(--ec-surface-sunken, #f8fafc)'
+                      : 'transparent',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -163,24 +187,37 @@ export function NotePanel({
                   <Tag color="neutral">{`P${note.priority}`}</Tag>
                   {note.status === 'resolved' && <Tag color="success">已解决</Tag>}
                   <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: 'var(--ec-text-secondary, #64748b)' }}>{`v${note.version}`}</span>
+                  <span
+                    style={{ fontSize: 11, color: 'var(--ec-text-secondary, #64748b)' }}
+                  >{`v${note.version}`}</span>
                 </div>
 
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{note.title.length > 0 ? note.title : '(无标题)'}</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                  {note.title.length > 0 ? note.title : '(无标题)'}
+                </div>
                 {body.length > 0 && (
                   <p style={{ margin: '4px 0 0', fontSize: 12, whiteSpace: 'pre-wrap' }}>{body}</p>
                 )}
                 {note.checklists.length > 0 && (
                   <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 12 }}>
                     {note.checklists.map((item) => (
-                      <li key={item.id} style={{ textDecoration: item.checked ? 'line-through' : 'none' }}>
+                      <li
+                        key={item.id}
+                        style={{ textDecoration: item.checked ? 'line-through' : 'none' }}
+                      >
                         {item.text}
                       </li>
                     ))}
                   </ul>
                 )}
                 {note.codeBlocks.length > 0 && (
-                  <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--ec-text-secondary, #64748b)' }}>
+                  <p
+                    style={{
+                      margin: '4px 0 0',
+                      fontSize: 11,
+                      color: 'var(--ec-text-secondary, #64748b)',
+                    }}
+                  >
                     {`含 ${note.codeBlocks.length} 个代码片段（${note.codeBlocks.map((block) => block.language).join(', ')}）`}
                   </p>
                 )}
@@ -192,12 +229,21 @@ export function NotePanel({
                     aria-label={`跳转到 ${targetLabel}`}
                     disabled={onJumpToTarget === undefined}
                     onClick={() =>
-                      onJumpToTarget?.({ targetType: note.targetType, targetId: note.targetId, noteId: note.id })
+                      onJumpToTarget?.({
+                        targetType: note.targetType,
+                        targetId: note.targetId,
+                        noteId: note.id,
+                      })
                     }
                   >
                     定位
                   </Button>
-                  <Button size="sm" variant="ghost" disabled={onEdit === undefined} onClick={() => onEdit?.(note)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={onEdit === undefined}
+                    onClick={() => onEdit?.(note)}
+                  >
                     编辑
                   </Button>
                   <Button
@@ -213,14 +259,19 @@ export function NotePanel({
                     size="sm"
                     variant="ghost"
                     onClick={() =>
-                      note.status === 'open' ? repository.resolve(note.id) : repository.reopen(note.id)
+                      note.status === 'open'
+                        ? repository.resolve(note.id)
+                        : repository.reopen(note.id)
                     }
                   >
                     {note.status === 'open' ? '标记已解决' : '重新打开'}
                   </Button>
                   {pendingDelete === note.id ? (
                     <>
-                      <span role="alert" style={{ fontSize: 12, color: NOTE_TYPE_META.forbidden.color }}>
+                      <span
+                        role="alert"
+                        style={{ fontSize: 12, color: NOTE_TYPE_META.forbidden.color }}
+                      >
                         删除后历史一并丢失，确认？
                       </span>
                       <Button
@@ -239,7 +290,12 @@ export function NotePanel({
                       </Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="ghost" aria-label={`删除 ${note.id}`} onClick={() => setPendingDelete(note.id)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`删除 ${note.id}`}
+                      onClick={() => setPendingDelete(note.id)}
+                    >
                       删除
                     </Button>
                   )}
@@ -255,5 +311,9 @@ export function NotePanel({
 
 /** 订阅仓库变更：仓库的写操作会递增 revision，触发面板重渲染 */
 export function useNotesRevision(repository: NoteRepository): number {
-  return React.useSyncExternalStore(repository.subscribe, repository.getRevision, repository.getRevision);
+  return React.useSyncExternalStore(
+    repository.subscribe,
+    repository.getRevision,
+    repository.getRevision,
+  );
 }

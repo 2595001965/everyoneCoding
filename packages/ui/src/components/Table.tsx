@@ -81,7 +81,10 @@ export function Table<T>(props: TableProps<T>): React.ReactElement {
   }, [activeIdx]);
 
   return (
-    <div className={cx('ec-table', className)} style={{ height, display: 'flex', flexDirection: 'column' }}>
+    <div
+      className={cx('ec-table', className)}
+      style={{ height, display: 'flex', flexDirection: 'column' }}
+    >
       <div className="ec-table__header" role="rowgroup">
         <div className="ec-table__row ec-table__row--head" role="row">
           {columns.map((col) => (
@@ -122,8 +125,18 @@ export function Table<T>(props: TableProps<T>): React.ReactElement {
                 aria-rowindex={vi.index + 1}
                 aria-selected={isSelected}
                 tabIndex={isActive ? 0 : -1}
-                className={cx('ec-table__row', isActive && 'ec-table__row--active', isSelected && 'ec-table__row--selected')}
-                style={{ position: 'absolute', top: vi.start, left: 0, right: 0, height: rowHeight }}
+                className={cx(
+                  'ec-table__row',
+                  isActive && 'ec-table__row--active',
+                  isSelected && 'ec-table__row--selected',
+                )}
+                style={{
+                  position: 'absolute',
+                  top: vi.start,
+                  left: 0,
+                  right: 0,
+                  height: rowHeight,
+                }}
                 onClick={() => {
                   setActiveIdx(vi.index);
                   onRowSelect?.(key, row);

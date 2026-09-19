@@ -11,13 +11,23 @@ describe('更新回滚台账（FR-SET-05：更新失败可回滚到上一版本�
 
   it('安装中（installing）状态不参与启动判定', () => {
     const ledger = new UpdateLedger();
-    ledger.beginUpdate({ fromVersion: '0.1.0', toVersion: '0.2.0', backupPath: 'D:/bak/0.1.0', now: 1 });
+    ledger.beginUpdate({
+      fromVersion: '0.1.0',
+      toVersion: '0.2.0',
+      backupPath: 'D:/bak/0.1.0',
+      now: 1,
+    });
     expect(ledger.recordBoot(2)).toEqual({ decision: 'none' });
   });
 
   it('待确认状态下首次启动放行，第二次启动判定回滚', () => {
     const ledger = new UpdateLedger();
-    ledger.beginUpdate({ fromVersion: '0.1.0', toVersion: '0.2.0', backupPath: 'D:/bak/0.1.0', now: 1 });
+    ledger.beginUpdate({
+      fromVersion: '0.1.0',
+      toVersion: '0.2.0',
+      backupPath: 'D:/bak/0.1.0',
+      now: 1,
+    });
     ledger.markInstalled(1);
 
     expect(ledger.recordBoot(2)).toEqual({ decision: 'allow', attempts: 1 });
@@ -33,7 +43,12 @@ describe('更新回滚台账（FR-SET-05：更新失败可回滚到上一版本�
 
   it('正常启动一次就 markHealthy，后续启动不再计数（不误判为崩溃）', () => {
     const ledger = new UpdateLedger();
-    ledger.beginUpdate({ fromVersion: '0.1.0', toVersion: '0.2.0', backupPath: 'D:/bak/0.1.0', now: 1 });
+    ledger.beginUpdate({
+      fromVersion: '0.1.0',
+      toVersion: '0.2.0',
+      backupPath: 'D:/bak/0.1.0',
+      now: 1,
+    });
     ledger.markInstalled(1);
 
     expect(ledger.recordBoot(2)).toEqual({ decision: 'allow', attempts: 1 });
@@ -50,7 +65,11 @@ describe('更新回滚台账（FR-SET-05：更新失败可回滚到上一版本�
     ledger.beginUpdate({ fromVersion: '0.1.0', toVersion: '0.2.0', backupPath: null, now: 1 });
     ledger.markInstalled(1);
     ledger.recordBoot(2);
-    expect(ledger.recordBoot(3)).toEqual({ decision: 'no-backup', attempts: 2, toVersion: '0.2.0' });
+    expect(ledger.recordBoot(3)).toEqual({
+      decision: 'no-backup',
+      attempts: 2,
+      toVersion: '0.2.0',
+    });
   });
 
   it('maxBootAttempts 可配置：设为 3 时前两次放行', () => {
@@ -93,7 +112,12 @@ describe('更新回滚台账（FR-SET-05：更新失败可回滚到上一版本�
   it('toJSON / fromJSON 往返一致，且历史条数有上限', () => {
     const ledger = new UpdateLedger(null, { maxHistory: 2 });
     for (let index = 0; index < 4; index += 1) {
-      ledger.beginUpdate({ fromVersion: '0.1.0', toVersion: `0.${index + 2}.0`, backupPath: 'b', now: index });
+      ledger.beginUpdate({
+        fromVersion: '0.1.0',
+        toVersion: `0.${index + 2}.0`,
+        backupPath: 'b',
+        now: index,
+      });
       ledger.markInstalled(index);
       ledger.markHealthy(index);
     }
@@ -107,7 +131,11 @@ describe('更新回滚台账（FR-SET-05：更新失败可回滚到上一版本�
   it('坏数据降级为空账簿，绝不阻塞启动', () => {
     expect(UpdateLedger.fromJSON(null).history).toEqual([]);
     expect(UpdateLedger.fromJSON('garbage').current).toBeNull();
-    expect(UpdateLedger.fromJSON({ current: { stage: '不存在的阶段' } }).current?.stage).toBe('idle');
-    expect(UpdateLedger.fromJSON({ history: [null, 42, { toVersion: '1.0.0' }] }).history).toHaveLength(1);
+    expect(UpdateLedger.fromJSON({ current: { stage: '不存在的阶段' } }).current?.stage).toBe(
+      'idle',
+    );
+    expect(
+      UpdateLedger.fromJSON({ history: [null, 42, { toVersion: '1.0.0' }] }).history,
+    ).toHaveLength(1);
   });
 });

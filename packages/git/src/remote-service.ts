@@ -73,7 +73,12 @@ export class RemoteService {
     if (!result.ok) {
       return {
         ...result,
-        data: { remote: name, ok: false, branches: 0, message: result.error?.message ?? '连通性测试失败' },
+        data: {
+          remote: name,
+          ok: false,
+          branches: 0,
+          message: result.error?.message ?? '连通性测试失败',
+        },
       };
     }
     return {
@@ -95,7 +100,11 @@ export class RemoteService {
     emit(
       onProgress,
       result.ok
-        ? { phase: 'done', message: result.data?.upToDate === true ? '远端已是最新' : '推送完成', percent: null }
+        ? {
+            phase: 'done',
+            message: result.data?.upToDate === true ? '远端已是最新' : '推送完成',
+            percent: null,
+          }
         : { phase: 'error', message: result.error?.message ?? '推送失败', percent: null },
     );
     return result;
@@ -110,7 +119,11 @@ export class RemoteService {
     emit(onProgress, { phase: 'transferring', message: '正在抓取并合并', percent: null });
     const result = await this.client.pull(input);
     if (!result.ok || result.data === null) {
-      emit(onProgress, { phase: 'error', message: result.error?.message ?? '拉取失败', percent: null });
+      emit(onProgress, {
+        phase: 'error',
+        message: result.error?.message ?? '拉取失败',
+        percent: null,
+      });
       return { ...result, data: null };
     }
     const conflicts = result.data.conflictFiles;
@@ -123,7 +136,11 @@ export class RemoteService {
       ok: true,
       error: null,
       logs: result.logs,
-      data: { conflictFiles: conflicts, upToDate: result.data.upToDate, fastForward: result.data.fastForward },
+      data: {
+        conflictFiles: conflicts,
+        upToDate: result.data.upToDate,
+        fastForward: result.data.fastForward,
+      },
     };
   }
 
@@ -146,13 +163,21 @@ export class RemoteService {
   /* ------------------------------ 凭据 ------------------------------ */
 
   /** 保存 HTTPS 令牌（进 DPAPI 密钥环，明文不落盘） */
-  async saveHttpsCredential(input: { remoteName: string; username: string; token: string }): Promise<void> {
+  async saveHttpsCredential(input: {
+    remoteName: string;
+    username: string;
+    token: string;
+  }): Promise<void> {
     if (this.credentials === null) throw new Error('未装配凭据存储');
     await this.credentials.setHttpsCredential(input);
   }
 
   /** 保存 SSH 私钥路径 */
-  async saveSshCredential(input: { remoteName: string; privateKeyPath: string; passphrase?: string | null }): Promise<void> {
+  async saveSshCredential(input: {
+    remoteName: string;
+    privateKeyPath: string;
+    passphrase?: string | null;
+  }): Promise<void> {
     if (this.credentials === null) throw new Error('未装配凭据存储');
     await this.credentials.setSshCredential(input);
   }

@@ -32,7 +32,10 @@ export interface StateVarDraft {
 }
 
 /** 校验单条状态变量草稿，返回按字段索引的中文错误（空对象表示通过） */
-export function validateStateVar(draft: StateVarDraft, existingNames: readonly string[]): Record<string, string> {
+export function validateStateVar(
+  draft: StateVarDraft,
+  existingNames: readonly string[],
+): Record<string, string> {
   const errors: Record<string, string> = {};
   const name = draft.name.trim();
   if (name.length === 0) errors.name = '状态名称不能为空';
@@ -133,7 +136,8 @@ export function StateEditor(props: StateEditorProps): React.ReactElement {
     }
     if (draft.type === 'number') next.initial = Number(draft.initialRaw);
     else if (draft.type === 'boolean') next.initial = draft.initialRaw === 'true';
-    else if (draft.type === 'object' || draft.type === 'array') next.initial = JSON.parse(draft.initialRaw);
+    else if (draft.type === 'object' || draft.type === 'array')
+      next.initial = JSON.parse(draft.initialRaw);
     else if (draft.initialRaw.length > 0) next.initial = draft.initialRaw;
 
     onChange(next);
@@ -240,7 +244,11 @@ export function StateEditor(props: StateEditorProps): React.ReactElement {
   );
 }
 
-function Field(props: { label: string; error?: string | undefined; children: React.ReactNode }): React.ReactElement {
+function Field(props: {
+  label: string;
+  error?: string | undefined;
+  children: React.ReactNode;
+}): React.ReactElement {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <span style={{ fontSize: 12, opacity: 0.8 }}>{props.label}</span>

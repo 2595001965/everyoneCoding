@@ -28,7 +28,14 @@ export const NOTE_TARGET_LABELS: Record<NoteTargetType, string> = {
 };
 
 /** 六类备注（颜色区分，禁止事项红色并自动提升优先级） */
-export const NOTE_TYPES = ['business_rule', 'validation', 'interaction', 'todo', 'question', 'forbidden'] as const;
+export const NOTE_TYPES = [
+  'business_rule',
+  'validation',
+  'interaction',
+  'todo',
+  'question',
+  'forbidden',
+] as const;
 export type NoteType = (typeof NOTE_TYPES)[number];
 
 export const NOTE_STATUSES = ['open', 'resolved'] as const;
@@ -47,12 +54,48 @@ export interface NoteTypeMeta {
 }
 
 export const NOTE_TYPE_META: Record<NoteType, NoteTypeMeta> = {
-  business_rule: { label: '业务规则', color: '#2563eb', background: '#dbeafe', basePriority: 4, mustFollow: false },
-  validation: { label: '校验要求', color: '#0e7490', background: '#cffafe', basePriority: 4, mustFollow: false },
-  interaction: { label: '交互说明', color: '#7c3aed', background: '#ede9fe', basePriority: 3, mustFollow: false },
-  todo: { label: '待办', color: '#b45309', background: '#fef3c7', basePriority: 2, mustFollow: false },
-  question: { label: '疑问', color: '#475569', background: '#e2e8f0', basePriority: 2, mustFollow: false },
-  forbidden: { label: '禁止事项', color: '#dc2626', background: '#fee2e2', basePriority: 5, mustFollow: true },
+  business_rule: {
+    label: '业务规则',
+    color: '#2563eb',
+    background: '#dbeafe',
+    basePriority: 4,
+    mustFollow: false,
+  },
+  validation: {
+    label: '校验要求',
+    color: '#0e7490',
+    background: '#cffafe',
+    basePriority: 4,
+    mustFollow: false,
+  },
+  interaction: {
+    label: '交互说明',
+    color: '#7c3aed',
+    background: '#ede9fe',
+    basePriority: 3,
+    mustFollow: false,
+  },
+  todo: {
+    label: '待办',
+    color: '#b45309',
+    background: '#fef3c7',
+    basePriority: 2,
+    mustFollow: false,
+  },
+  question: {
+    label: '疑问',
+    color: '#475569',
+    background: '#e2e8f0',
+    basePriority: 2,
+    mustFollow: false,
+  },
+  forbidden: {
+    label: '禁止事项',
+    color: '#dc2626',
+    background: '#fee2e2',
+    basePriority: 5,
+    mustFollow: true,
+  },
 };
 
 /** 硬约束备注（禁止事项）—— 上下文组装时的强约束句式前缀 */
@@ -215,7 +258,11 @@ const textSpanSchema: z.ZodType<TextSpan> = z.object({
 
 const richTextBlockSchema: z.ZodType<RichTextBlock> = z.union([
   z.object({ type: z.literal('paragraph'), spans: z.array(textSpanSchema) }),
-  z.object({ type: z.literal('heading'), level: z.union([z.literal(1), z.literal(2), z.literal(3)]), spans: z.array(textSpanSchema) }),
+  z.object({
+    type: z.literal('heading'),
+    level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    spans: z.array(textSpanSchema),
+  }),
   z.object({ type: z.literal('bullet-list'), items: z.array(z.array(textSpanSchema)) }),
   z.object({ type: z.literal('ordered-list'), items: z.array(z.array(textSpanSchema)) }),
 ]);
@@ -469,9 +516,9 @@ export function computeNotePriority(type: NoteType, manualPriority: number | nul
  * 上下文排序（FR-ANN-06 / T4-02 要点 4）：禁止事项置顶，
  * 随后按优先级降序、更新时间降序、id 升序（稳定排序）。
  */
-export function sortNotesForContext<T extends { type: NoteType; priority: number; updatedAt: number; id: string }>(
-  notes: readonly T[],
-): T[] {
+export function sortNotesForContext<
+  T extends { type: NoteType; priority: number; updatedAt: number; id: string },
+>(notes: readonly T[]): T[] {
   return [...notes].sort((a, b) => {
     const hardA = NOTE_TYPE_META[a.type].mustFollow ? 1 : 0;
     const hardB = NOTE_TYPE_META[b.type].mustFollow ? 1 : 0;
@@ -491,9 +538,7 @@ export function toContextNote(note: Note): ContextNote {
   if (body.length > 0) parts.push(body);
   if (note.checklists.length > 0) {
     parts.push(
-      note.checklists
-        .map((item) => `- [${item.checked ? 'x' : ' '}] ${item.text}`)
-        .join('\n'),
+      note.checklists.map((item) => `- [${item.checked ? 'x' : ' '}] ${item.text}`).join('\n'),
     );
   }
   for (const block of note.codeBlocks) {
@@ -521,7 +566,8 @@ export function toContextNote(note: Note): ContextNote {
 export function noteMatchesFilter(note: Note, filter: NoteFilter): boolean {
   if (filter.projectId !== undefined && note.projectId !== filter.projectId) return false;
   if (filter.targetId !== undefined && note.targetId !== filter.targetId) return false;
-  if (filter.targetType !== undefined && !matchOneOf(note.targetType, filter.targetType)) return false;
+  if (filter.targetType !== undefined && !matchOneOf(note.targetType, filter.targetType))
+    return false;
   if (filter.type !== undefined && !matchOneOf(note.type, filter.type)) return false;
   if (filter.status !== undefined && !matchOneOf(note.status, filter.status)) return false;
   if (filter.text !== undefined && filter.text.trim().length > 0) {

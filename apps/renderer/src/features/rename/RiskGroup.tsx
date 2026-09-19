@@ -95,13 +95,27 @@ export function RiskGroup({
 
       {expanded && (
         <div style={{ padding: '4px 10px 10px' }}>
-          <p style={{ margin: '4px 0 8px', color: 'var(--ec-color-text-secondary)' }}>{group.hint}</p>
+          <p style={{ margin: '4px 0 8px', color: 'var(--ec-color-text-secondary)' }}>
+            {group.hint}
+          </p>
           {group.items.length === 0 ? (
-            <p style={{ margin: 0, color: 'var(--ec-color-text-secondary)' }} data-testid="risk-group-empty">
+            <p
+              style={{ margin: 0, color: 'var(--ec-color-text-secondary)' }}
+              data-testid="risk-group-empty"
+            >
               该级别没有受影响的出现位置
             </p>
           ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <ul
+              style={{
+                margin: 0,
+                padding: 0,
+                listStyle: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}
+            >
               {group.items.map((item) => {
                 const showContext = expandedItems?.has(item.id) === true && item.context !== null;
                 return (
@@ -118,8 +132,18 @@ export function RiskGroup({
                       aria-label={`选择 ${item.id}`}
                       onChange={(checked) => onToggleItem(item.id, checked)}
                     />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}
+                      >
                         <code style={{ wordBreak: 'break-all' }}>{describeLocation(item)}</code>
                         <Tag color="info">{matchedLabel(item)}</Tag>
                         <span style={{ color: 'var(--ec-color-text-secondary)' }}>
@@ -129,13 +153,17 @@ export function RiskGroup({
                           <Tag color="neutral">{item.scopeLayer} 记忆</Tag>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div
+                        style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}
+                      >
                         <del>{item.oldText}</del>
                         <span aria-hidden="true">→</span>
                         <ins data-testid="impact-new-text">{item.newText}</ins>
                       </div>
                       {item.detail !== null && (
-                        <span style={{ color: 'var(--ec-color-text-secondary)' }}>{item.detail}</span>
+                        <span style={{ color: 'var(--ec-color-text-secondary)' }}>
+                          {item.detail}
+                        </span>
                       )}
                     </div>
                     {item.context !== null && (
@@ -161,7 +189,9 @@ export function RiskGroup({
                           fontSize: 12,
                         }}
                       >
-                        {[...item.context.before, item.context.line, ...item.context.after].join('\n')}
+                        {[...item.context.before, item.context.line, ...item.context.after].join(
+                          '\n',
+                        )}
                       </pre>
                     )}
                   </li>

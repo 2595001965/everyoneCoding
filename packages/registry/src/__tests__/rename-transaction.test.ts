@@ -145,7 +145,8 @@ function codeHit(
   let cursor = -1;
   for (let index = 0; index <= occurrenceIndex; index += 1) {
     cursor = content.indexOf(symbol, cursor + 1);
-    if (cursor < 0) throw new Error(`夹具错误：${refPath} 缺少第 ${occurrenceIndex} 次「${symbol}」`);
+    if (cursor < 0)
+      throw new Error(`夹具错误：${refPath} 缺少第 ${occurrenceIndex} 次「${symbol}」`);
   }
   const before = content.slice(0, cursor);
   const line = before.split('\n').length;
@@ -285,10 +286,16 @@ function createHarness(options: HarnessOptions = {}): Harness {
   const files = new Map(Object.entries(FILES));
   const docs = new Map([['doc-1', DOC]]);
   const memories = new Map<string, { structured: unknown; content: string }>([
-    ['mem-1', { structured: { logic: { states: [{ key: p.variable }] } }, content: MEMORY_CONTENT }],
+    [
+      'mem-1',
+      { structured: { logic: { states: [{ key: p.variable }] } }, content: MEMORY_CONTENT },
+    ],
   ]);
   const logicDocs = new Map<string, unknown>([
-    ['page-login', { id: 'page-login', nodes: [{ id: 'btn-1', name: '登录按钮', identifier: p.variable }] }],
+    [
+      'page-login',
+      { id: 'page-login', nodes: [{ id: 'btn-1', name: '登录按钮', identifier: p.variable }] },
+    ],
   ]);
   const anchors = new Map([['anchor-1', p.component]]);
   const failures = new Set(options.failures ?? []);
@@ -365,8 +372,7 @@ function createHarness(options: HarnessOptions = {}): Harness {
       rename: (input) => {
         boom('logicRename');
         const doc = logicDocs.get(input.documentId) as
-          | { nodes?: { id: string; name?: string; identifier?: string }[] }
-          | undefined;
+          { nodes?: { id: string; name?: string; identifier?: string }[] } | undefined;
         const node = doc?.nodes?.find((item) => item.id === input.nodeId);
         if (node === undefined) throw new Error(`DSL 节点不存在：${input.nodeId}`);
         if (input.field === 'name') node.name = input.to;
@@ -446,7 +452,13 @@ function allSelected(report: ImpactReport): Set<string> {
 
 describe('T7-04 事务化执行：顺序与四栏 diff', () => {
   it('执行顺序固定为五段（PRD §15.2 ⑤）', () => {
-    expect([...EXECUTION_ORDER]).toEqual(['code-ast', 'doc-replace', 'memory-update', 'logic-recalc', 'anchor-sync']);
+    expect([...EXECUTION_ORDER]).toEqual([
+      'code-ast',
+      'doc-replace',
+      'memory-update',
+      'logic-recalc',
+      'anchor-sync',
+    ]);
     expect(createDefaultExecutors().map((executor) => executor.id)).toEqual([...EXECUTOR_IDS]);
   });
 
@@ -456,7 +468,12 @@ describe('T7-04 事务化执行：顺序与四栏 diff', () => {
     const diff = buildUnifiedDiff(report, { now: NOW });
 
     expect(diff.columns.map((column) => column.column)).toEqual(['code', 'doc', 'memory', 'logic']);
-    expect(diff.columns.map((column) => column.label)).toEqual(['代码', '文档', '记忆', '逻辑结构']);
+    expect(diff.columns.map((column) => column.label)).toEqual([
+      '代码',
+      '文档',
+      '记忆',
+      '逻辑结构',
+    ]);
     expect(diff.summary.total).toBe(report.totals.total);
     expect(diff.summary.selected).toBe(report.totals.selected);
     expect(diff.scopeNotice).toBe(PROJECT_SCOPE_NOTICE);
@@ -465,7 +482,9 @@ describe('T7-04 事务化执行：顺序与四栏 diff', () => {
     const docColumn = diff.columns[1]!;
     expect(docColumn.entries.length).toBeGreaterThan(0);
     expect(docColumn.entries.every((entry) => entry.selected)).toBe(true);
-    expect(setRevisionMarks(diff, true, NOW).columns[1]!.entries[0]?.revision?.oldText).toBe('登录按钮');
+    expect(setRevisionMarks(diff, true, NOW).columns[1]!.entries[0]?.revision?.oldText).toBe(
+      '登录按钮',
+    );
     expect(setRevisionMarks(diff, false, NOW).columns[1]!.entries[0]?.revision).toBeNull();
 
     const first = diff.columns[0]!.entries[0]!;
@@ -474,7 +493,9 @@ describe('T7-04 事务化执行：顺序与四栏 diff', () => {
     expect(toggleColumn(toggled, 'code', false).columns[0]!.selectedCount).toBe(0);
     expect(searchEntries(diff, 'LoginService').length).toBeGreaterThan(0);
     const afterStatus = applyDiffStatus(diff, first.id, 'applied');
-    expect(afterStatus.columns[0]!.entries.find((entry) => entry.id === first.id)?.status).toBe('applied');
+    expect(afterStatus.columns[0]!.entries.find((entry) => entry.id === first.id)?.status).toBe(
+      'applied',
+    );
     expect(projectionTable(diff)).toContain('| component |');
   });
 
@@ -543,7 +564,10 @@ describe('T7-04 事务化执行：E2E-15 级联同步', () => {
     expect(harness.saved).toHaveLength(1);
     expect(harness.saved[0]?.canonicalName).toBe('登录提交');
     expect(harness.saved[0]?.projections.component).toBe('LoginSubmit');
-    expect(harness.saved[0]?.nameHistory.map((history) => history.name)).toEqual(['登录按钮', '登录提交']);
+    expect(harness.saved[0]?.nameHistory.map((history) => history.name)).toEqual([
+      '登录按钮',
+      '登录提交',
+    ]);
     expect(harness.events.list('p1')).toHaveLength(1);
     expect(harness.events.list('p1')[0]?.commitSha).toBe('sha-e2e-0001');
     expect(result.changeset?.commitMessage).toBe('refactor(rename): 登录按钮 → 登录提交');
@@ -801,7 +825,10 @@ describe('T7-04 性能（NFR-P-07：≤200 处变更 ≤5s）', () => {
       const path = `src/generated/Component${file}.tsx`;
       const lines = [
         "import { LoginButton } from '../LoginButton';",
-        ...Array.from({ length: HITS_PER_FILE }, (_unused, index) => `const comp${index} = <LoginButton />;`),
+        ...Array.from(
+          { length: HITS_PER_FILE },
+          (_unused, index) => `const comp${index} = <LoginButton />;`,
+        ),
       ];
       const content = lines.join('\n');
       files.set(path, content);

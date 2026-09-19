@@ -16,11 +16,7 @@ import {
   pruneSnapshots,
   restoreFromSnapshot,
 } from '../backup/snapshot-manager';
-import {
-  advanceCursor,
-  compareIncrementalVolume,
-  isInIncrementalWindow,
-} from '../incremental';
+import { advanceCursor, compareIncrementalVolume, isInIncrementalWindow } from '../incremental';
 import type { ImportReportData } from '../import/import-types';
 
 let workDir: string;
@@ -85,7 +81,9 @@ describe('备份调度（T8-04 / FR-PKG-13：客户端内调度，不依赖系�
     expect(isCatchUpDue(dailyConfig, lastRunToday, sundayMorning)).toBe(false);
 
     // 未启用 → 不漏
-    expect(isCatchUpDue({ ...dailyConfig, enabled: false }, lastRunSaturday, sundayNoon)).toBe(false);
+    expect(isCatchUpDue({ ...dailyConfig, enabled: false }, lastRunSaturday, sundayNoon)).toBe(
+      false,
+    );
   });
 
   it('调度器：启动补偿补跑漏掉的备份并重排下一次', async () => {

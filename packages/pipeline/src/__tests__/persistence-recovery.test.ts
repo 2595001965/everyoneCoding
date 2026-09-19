@@ -63,8 +63,15 @@ describe('崩溃恢复（强杀 → 重启 → 断点续生成）', () => {
       // 重启：新 machine 状态全 pending
       const { PipelineMachine } = await import('../pipeline-machine');
       const { ArtifactStore } = await import('../artifact-store');
-      const restarted = new PipelineMachine({ projectId: 'P1', clock: (() => fx.clockValue.now) as never });
-      const restartedArtifacts = new ArtifactStore({ projectId: 'P1', rootDir: 'pipeline/P1', fs: fx.fs });
+      const restarted = new PipelineMachine({
+        projectId: 'P1',
+        clock: (() => fx.clockValue.now) as never,
+      });
+      const restartedArtifacts = new ArtifactStore({
+        projectId: 'P1',
+        rootDir: 'pipeline/P1',
+        fs: fx.fs,
+      });
       const { PipelineRecovery } = await import('../recovery');
       const recovery2 = new PipelineRecovery({
         projectId: 'P1',
@@ -101,8 +108,15 @@ describe('崩溃恢复（强杀 → 重启 → 断点续生成）', () => {
       const { PipelineMachine } = await import('../pipeline-machine');
       const { ArtifactStore } = await import('../artifact-store');
       const { PipelineRecovery } = await import('../recovery');
-      const restarted = new PipelineMachine({ projectId: 'P1', clock: (() => fx.clockValue.now) as never });
-      const restartedArtifacts = new ArtifactStore({ projectId: 'P1', rootDir: 'pipeline/P1', fs: fx.fs });
+      const restarted = new PipelineMachine({
+        projectId: 'P1',
+        clock: (() => fx.clockValue.now) as never,
+      });
+      const restartedArtifacts = new ArtifactStore({
+        projectId: 'P1',
+        rootDir: 'pipeline/P1',
+        fs: fx.fs,
+      });
       const recovery2 = new PipelineRecovery({
         projectId: 'P1',
         machine: restarted,
@@ -128,8 +142,15 @@ describe('崩溃恢复（强杀 → 重启 → 断点续生成）', () => {
       const { PipelineMachine } = await import('../pipeline-machine');
       const { ArtifactStore } = await import('../artifact-store');
       const { PipelineRecovery } = await import('../recovery');
-      const restarted = new PipelineMachine({ projectId: 'P1', clock: (() => fx.clockValue.now) as never });
-      const restartedArtifacts = new ArtifactStore({ projectId: 'P1', rootDir: 'pipeline/P1', fs: fx.fs });
+      const restarted = new PipelineMachine({
+        projectId: 'P1',
+        clock: (() => fx.clockValue.now) as never,
+      });
+      const restartedArtifacts = new ArtifactStore({
+        projectId: 'P1',
+        rootDir: 'pipeline/P1',
+        fs: fx.fs,
+      });
       const recovery2 = new PipelineRecovery({
         projectId: 'P1',
         machine: restarted,

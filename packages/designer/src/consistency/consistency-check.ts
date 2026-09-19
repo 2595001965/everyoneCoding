@@ -14,7 +14,8 @@ import { walkElements } from '../dsl/traverse';
  * 结果在工作台与功能节点上提示（本模块只产出结构化清单，UI 由 ConsistencyPanel 呈现）。
  */
 
-export type ConsistencyIssueCode = 'MISSING_PLATFORM' | 'MISSING_PAGE' | 'STRUCTURE_DIFF' | 'NAMING_DIFF';
+export type ConsistencyIssueCode =
+  'MISSING_PLATFORM' | 'MISSING_PAGE' | 'STRUCTURE_DIFF' | 'NAMING_DIFF';
 
 export interface ConsistencyIssue {
   code: ConsistencyIssueCode;
@@ -89,7 +90,8 @@ export function checkConsistency({ pages, targetPlatforms }: ConsistencyInput): 
   }
 
   const coveredPlatforms = new Set<Platform>();
-  for (const platform of featurePlatforms.values()) for (const item of platform) coveredPlatforms.add(item);
+  for (const platform of featurePlatforms.values())
+    for (const item of platform) coveredPlatforms.add(item);
 
   const missingPlatforms = targets.filter((platform) => !coveredPlatforms.has(platform));
 
@@ -162,7 +164,9 @@ export function checkConsistency({ pages, targetPlatforms }: ConsistencyInput): 
       }
 
       // 命名差异：同 id 元素显示名不同
-      const baseNames = new Map(walkElements(base.tree).map((entry) => [entry.node.id, entry.node.name ?? '']));
+      const baseNames = new Map(
+        walkElements(base.tree).map((entry) => [entry.node.id, entry.node.name ?? '']),
+      );
       for (const { node } of walkElements(page.tree)) {
         const expected = baseNames.get(node.id);
         if (expected === undefined) continue;
@@ -214,7 +218,9 @@ export function workbenchHint(report: ConsistencyReport): string | null {
 }
 
 /** 按功能分组（功能节点上提示用） */
-export function groupByFeature(report: ConsistencyReport): Array<{ featureId: string | null; issues: ConsistencyIssue[] }> {
+export function groupByFeature(
+  report: ConsistencyReport,
+): Array<{ featureId: string | null; issues: ConsistencyIssue[] }> {
   const map = new Map<string | null, ConsistencyIssue[]>();
   for (const issue of report.issues) {
     const list = map.get(issue.featureId) ?? [];

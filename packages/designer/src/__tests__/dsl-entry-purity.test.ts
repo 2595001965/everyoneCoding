@@ -18,7 +18,17 @@ import { describe, expect, it } from 'vitest';
 const ENTRY = resolve(__dirname, '..', 'dsl-entry.ts');
 
 /** 禁止出现的运行时依赖（type-only import 会被编译期擦除，但仍统一禁掉，避免误判） */
-const BANNED = ['react', 'react-dom', '@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/modifiers', '@dnd-kit/utilities', 'zustand', '@ec/ui', 'immer'];
+const BANNED = [
+  'react',
+  'react-dom',
+  '@dnd-kit/core',
+  '@dnd-kit/sortable',
+  '@dnd-kit/modifiers',
+  '@dnd-kit/utilities',
+  'zustand',
+  '@ec/ui',
+  'immer',
+];
 
 const IMPORT_RE = /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+'([^']+)'/g;
 
@@ -65,7 +75,9 @@ function closure(entry: string): { files: string[]; bare: string[] } {
       } else if (!specifier.startsWith('node:')) {
         // 只保留包名（`zod`、`@scope/pkg/sub` → `@scope/pkg`）
         const parts = specifier.split('/');
-        const pkg = specifier.startsWith('@') ? parts.slice(0, 2).join('/') : (parts[0] ?? specifier);
+        const pkg = specifier.startsWith('@')
+          ? parts.slice(0, 2).join('/')
+          : (parts[0] ?? specifier);
         bare.add(pkg);
       }
     }

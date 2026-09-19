@@ -20,7 +20,14 @@ const FILES = [
   { path: 'src/auth/captcha.service.ts', language: 'ts' },
 ];
 
-const FILE_CONTENT = ['export class AuthController {', '  async login(dto: LoginDto) {', '    return this.service.login(dto);', '  }', '}', ''].join('\n');
+const FILE_CONTENT = [
+  'export class AuthController {',
+  '  async login(dto: LoginDto) {',
+  '    return this.service.login(dto);',
+  '  }',
+  '}',
+  '',
+].join('\n');
 
 function makeApi(): CodeViewApi & { reworkCalls: unknown[]; rework: ReturnType<typeof vi.fn> } {
   const rework = vi.fn<(request: ReworkRequest) => Promise<void>>(async () => undefined);
@@ -32,7 +39,14 @@ function makeApi(): CodeViewApi & { reworkCalls: unknown[]; rework: ReturnType<t
     },
     write: {
       plan: async () => plan(),
-      apply: async () => ({ ok: true, planId: 'plan-1', applied: ['a.ts'], skipped: [], rolledBack: [], error: null }),
+      apply: async () => ({
+        ok: true,
+        planId: 'plan-1',
+        applied: ['a.ts'],
+        skipped: [],
+        rolledBack: [],
+        error: null,
+      }),
       requestRework: async (request) => {
         reworkCalls.push(request);
         await rework(request);
@@ -104,7 +118,9 @@ describe('CodeView 只读（T4-05 要点 2 / E2E-18）', () => {
       </CodeViewProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId('ec-code-surface')).toHaveTextContent('AuthController'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ec-code-surface')).toHaveTextContent('AuthController'),
+    );
     expect(screen.getByTestId('ec-code-surface')).toHaveAttribute('data-readonly', 'true');
     expect(screen.getByTestId('ec-code-surface')).toHaveAttribute('aria-readonly', 'true');
     // 用户可感知的事实：没有可输入的地方
@@ -128,7 +144,9 @@ describe('CodeView 只读（T4-05 要点 2 / E2E-18）', () => {
     fireEvent.keyDown(surface, { key: 'x' });
 
     expect(await screen.findByRole('note')).toHaveTextContent('键盘输入已被拦截（代码视图只读）');
-    expect(screen.getByText('交给 AI 修改', { selector: '[id^="ec-modal-title"]' })).toBeInTheDocument();
+    expect(
+      screen.getByText('交给 AI 修改', { selector: '[id^="ec-modal-title"]' }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '交给 AI 修改' }));
     expect(onRequestAiFix).toHaveBeenCalledWith({
@@ -160,7 +178,9 @@ describe('CodeView 只读（T4-05 要点 2 / E2E-18）', () => {
       </CodeViewProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('src/auth/captcha.service.ts')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('src/auth/captcha.service.ts')).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByText('src/auth/captcha.service.ts'));
     await waitFor(() => expect(screen.getByTestId('ec-code-surface')).toHaveTextContent('captcha'));
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -219,7 +239,9 @@ describe('DiffView（T4-05 要点 4）', () => {
     );
     const onToggleHunk = vi.fn();
     const onRequestRework = vi.fn();
-    render(<DiffView model={model} onToggleHunk={onToggleHunk} onRequestRework={onRequestRework} />);
+    render(
+      <DiffView model={model} onToggleHunk={onToggleHunk} onRequestRework={onRequestRework} />,
+    );
 
     expect(document.querySelector('[data-hunk-key="a.ts#0"]')).not.toBeNull();
     fireEvent.click(screen.getByLabelText('应用 a.ts 第 2 块'));
@@ -256,48 +278,61 @@ describe('DiffView（T4-05 要点 4）', () => {
 describe('ApplyBar（T4-05 要点 1 / 5）', () => {
   it('展示将应用的文件，应用成功后回显结果', async () => {
     const model = toDiffViewModel(plan());
-    const onApply = vi.fn(
-      async (): Promise<WriteResult> => ({
-        ok: true,
-        planId: 'plan-1',
-        applied: ['src/auth/auth.controller.ts', 'src/auth/captcha.service.ts'],
-        skipped: [],
-        rolledBack: [],
-        error: null,
-      }),
-    );
+    const onApply = vi.fn(async (): Promise<WriteResult> => ({
+      ok: true,
+      planId: 'plan-1',
+      applied: ['src/auth/auth.controller.ts', 'src/auth/captcha.service.ts'],
+      skipped: [],
+      rolledBack: [],
+      error: null,
+    }));
     render(<ApplyBar plan={plan()} model={model} onApply={onApply} />);
 
     expect(screen.getByText(/将应用：修改 src\/auth\/auth.controller.ts/)).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('应用变更'));
 
-    await waitFor(() => expect(screen.getByTestId('ec-apply-result')).toHaveAttribute('data-apply-ok', 'true'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ec-apply-result')).toHaveAttribute('data-apply-ok', 'true'),
+    );
     expect(screen.getByTestId('ec-apply-result')).toHaveTextContent('已应用 2 个文件');
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: 'plan-1' }), 'preview');
   });
 
   it('应用失败时展示错误与回滚情况', async () => {
     const model = toDiffViewModel(plan());
-    const onApply = vi.fn(
-      async (): Promise<WriteResult> => ({
-        ok: false,
-        planId: 'plan-1',
-        applied: [],
-        skipped: [],
-        rolledBack: ['src/auth/auth.controller.ts'],
-        error: '磁盘写入失败',
-      }),
-    );
+    const onApply = vi.fn(async (): Promise<WriteResult> => ({
+      ok: false,
+      planId: 'plan-1',
+      applied: [],
+      skipped: [],
+      rolledBack: ['src/auth/auth.controller.ts'],
+      error: '磁盘写入失败',
+    }));
     render(<ApplyBar plan={plan()} model={model} onApply={onApply} />);
     fireEvent.click(screen.getByLabelText('应用变更'));
 
-    await waitFor(() => expect(screen.getByTestId('ec-apply-result')).toHaveAttribute('data-apply-ok', 'false'));
+    await waitFor(() =>
+      expect(screen.getByTestId('ec-apply-result')).toHaveAttribute('data-apply-ok', 'false'),
+    );
     expect(screen.getByTestId('ec-apply-result')).toHaveTextContent('已回滚 1 个文件');
   });
 
   it('列出被拒绝的文件并给出原因', () => {
     const model = toDiffViewModel(plan());
-    render(<ApplyBar plan={plan()} model={model} onApply={vi.fn(async () => ({ ok: true, planId: 'p', applied: [], skipped: [], rolledBack: [], error: null }))} />);
+    render(
+      <ApplyBar
+        plan={plan()}
+        model={model}
+        onApply={vi.fn(async () => ({
+          ok: true,
+          planId: 'p',
+          applied: [],
+          skipped: [],
+          rolledBack: [],
+          error: null,
+        }))}
+      />,
+    );
     const blocked = screen.getByRole('list', { name: '被拒绝的文件' });
     expect(within(blocked).getByText(/src\/broken.ts/)).toBeInTheDocument();
   });
@@ -314,13 +349,20 @@ describe('ApplyBar（T4-05 要点 1 / 5）', () => {
   it('「要求 AI 重改」把选择范围交回 AI', () => {
     const model = toDiffViewModel(plan());
     const onRequestRework = vi.fn();
-    render(<ApplyBar plan={plan()} model={model} onApply={vi.fn()} onRequestRework={onRequestRework} />);
+    render(
+      <ApplyBar plan={plan()} model={model} onApply={vi.fn()} onRequestRework={onRequestRework} />,
+    );
     fireEvent.click(screen.getByLabelText('要求 AI 重改'));
-    expect(onRequestRework).toHaveBeenCalledWith(['src/auth/auth.controller.ts', 'src/auth/captcha.service.ts']);
+    expect(onRequestRework).toHaveBeenCalledWith([
+      'src/auth/auth.controller.ts',
+      'src/auth/captcha.service.ts',
+    ]);
   });
 
   it('未选中任何文件时禁止应用', () => {
-    const model = toDiffViewModel(plan(), { unselectedPaths: ['src/auth/auth.controller.ts', 'src/auth/captcha.service.ts'] });
+    const model = toDiffViewModel(plan(), {
+      unselectedPaths: ['src/auth/auth.controller.ts', 'src/auth/captcha.service.ts'],
+    });
     render(<ApplyBar plan={plan()} model={model} onApply={vi.fn()} />);
     expect(screen.getByLabelText('应用变更')).toBeDisabled();
     expect(screen.getByText(/未选择任何文件/)).toBeInTheDocument();

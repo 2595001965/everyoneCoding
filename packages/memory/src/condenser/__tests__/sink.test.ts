@@ -8,7 +8,12 @@ import { hasStructuralChange } from '../diff';
 import { StructureCondenser } from '../sink';
 
 function withPageId(dsl: PageDsl): PageDsl {
-  return { ...dsl, id: TEST_GRAPH.pageId, projectId: TEST_GRAPH.projectId, featureId: TEST_GRAPH.featureId };
+  return {
+    ...dsl,
+    id: TEST_GRAPH.pageId,
+    projectId: TEST_GRAPH.projectId,
+    featureId: TEST_GRAPH.featureId,
+  };
 }
 
 function findById(node: PageDslElement, id: string): PageDslElement {
@@ -46,7 +51,10 @@ describe('StructureCondenser.sync', () => {
   test('首次同步 diff 为 null，后续改一个元素 diff 仅含该子树', async () => {
     const { db, close } = createEmptyDb();
     seedGraph(db);
-    const condenser = new StructureCondenser({ repo: new MemoryRepo(db), userId: TEST_GRAPH.userId });
+    const condenser = new StructureCondenser({
+      repo: new MemoryRepo(db),
+      userId: TEST_GRAPH.userId,
+    });
 
     const dsl = withPageId(createLoginPageDslFixture());
     const first = await condenser.sync(dsl);

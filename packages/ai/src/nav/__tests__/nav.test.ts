@@ -129,8 +129,20 @@ describe('anchorToTarget 锚点 → 目标映射', () => {
 describe('scoreTarget 相关度打分（未封顶、可解释）', () => {
   it('置信度高 + 命名命中 + 同文件时 raw 分可超过 1.0，且按分值而非字典序排序', () => {
     const base = target({ id: 'base', label: 'alpha', detail: 'x' });
-    const high = scoreTarget({ target: { ...base, id: 'z-zeta' }, keyword: 'alpha', anchorConfidence: 2.4, sameFile: true, sameDir: false });
-    const low = scoreTarget({ target: { ...base, id: 'a-alpha' }, keyword: 'alpha', anchorConfidence: 1.8, sameFile: true, sameDir: false });
+    const high = scoreTarget({
+      target: { ...base, id: 'z-zeta' },
+      keyword: 'alpha',
+      anchorConfidence: 2.4,
+      sameFile: true,
+      sameDir: false,
+    });
+    const low = scoreTarget({
+      target: { ...base, id: 'a-alpha' },
+      keyword: 'alpha',
+      anchorConfidence: 1.8,
+      sameFile: true,
+      sameDir: false,
+    });
     // 两个 raw 都 > 1，证明没有被封顶成 1.0 后用字典序打乱
     expect(high.score).toBeGreaterThan(1);
     expect(low.score).toBeGreaterThan(1);
@@ -141,9 +153,27 @@ describe('scoreTarget 相关度打分（未封顶、可解释）', () => {
 
   it('就近：同目录（不同文件）给出比无就近更小的加分', () => {
     const t = target({ id: 'n', label: 'no', detail: 'x' });
-    const sameFile = scoreTarget({ target: t, keyword: 'x', anchorConfidence: 0, sameFile: true, sameDir: false });
-    const sameDir = scoreTarget({ target: t, keyword: 'x', anchorConfidence: 0, sameFile: false, sameDir: true });
-    const none = scoreTarget({ target: t, keyword: 'x', anchorConfidence: 0, sameFile: false, sameDir: false });
+    const sameFile = scoreTarget({
+      target: t,
+      keyword: 'x',
+      anchorConfidence: 0,
+      sameFile: true,
+      sameDir: false,
+    });
+    const sameDir = scoreTarget({
+      target: t,
+      keyword: 'x',
+      anchorConfidence: 0,
+      sameFile: false,
+      sameDir: true,
+    });
+    const none = scoreTarget({
+      target: t,
+      keyword: 'x',
+      anchorConfidence: 0,
+      sameFile: false,
+      sameDir: false,
+    });
     expect(sameFile.score).toBeGreaterThan(sameDir.score);
     expect(sameDir.score).toBeGreaterThan(none.score);
     expect(sameFile.reasons).toContain('就近 同文件');
@@ -327,11 +357,11 @@ describe('buildRelationGraph 关系图', () => {
   it('5 类节点与 6 类边都出现', () => {
     const graph = buildRelationGraph(makeRelationSource());
     const nodeTypes = new Set(graph.nodes.map((n) => n.type));
-    expect(nodeTypes).toEqual(new Set<RelationNodeType>(['page', 'element', 'api', 'module', 'table']));
-    const edgeTypes = new Set(graph.edges.map((e) => e.type));
-    expect(edgeTypes).toEqual(
-      new Set(['contains', 'binds', 'calls', 'reads', 'writes', 'tests']),
+    expect(nodeTypes).toEqual(
+      new Set<RelationNodeType>(['page', 'element', 'api', 'module', 'table']),
     );
+    const edgeTypes = new Set(graph.edges.map((e) => e.type));
+    expect(edgeTypes).toEqual(new Set(['contains', 'binds', 'calls', 'reads', 'writes', 'tests']));
   });
 
   it('节点度（入 + 出）计算正确', () => {

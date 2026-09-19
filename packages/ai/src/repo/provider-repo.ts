@@ -35,7 +35,9 @@ export class ProviderRepo {
 
   list(userId: string, options: ProviderListOptions = {}): Provider[] {
     const rows = this.repo.findWhere({ user_id: userId }, { orderBy: 'sort_order ASC, name ASC' });
-    return rows.filter((row) => (options.enabledOnly ? row.enabled === 1 : true)).map(providerFromRow);
+    return rows
+      .filter((row) => (options.enabledOnly ? row.enabled === 1 : true))
+      .map(providerFromRow);
   }
 
   findById(id: string): Provider | null {
@@ -93,7 +95,11 @@ export class ProviderRepo {
    * @param expectedVersion 传入即启用乐观锁，版本不符抛 ConflictError
    * @param apiKey undefined 不改；null 删除；字符串写入密钥环
    */
-  async update(id: string, patch: UpdateProviderInput, expectedVersion?: number): Promise<Provider | null> {
+  async update(
+    id: string,
+    patch: UpdateProviderInput,
+    expectedVersion?: number,
+  ): Promise<Provider | null> {
     const current = this.repo.findById(id);
     if (!current) return null;
     const data = parseUpdateProvider(patch);
@@ -107,14 +113,16 @@ export class ProviderRepo {
     if (data.name !== undefined) next['name'] = data.name;
     if (data.protocol !== undefined) next['protocol'] = data.protocol;
     if (data.baseUrl !== undefined) next['base_url'] = data.baseUrl;
-    if (data.headers !== undefined) next['headers_json'] = JSON.stringify(filterSafeHeaders(data.headers));
+    if (data.headers !== undefined)
+      next['headers_json'] = JSON.stringify(filterSafeHeaders(data.headers));
     if (data.timeoutMs !== undefined) next['default_timeout'] = data.timeoutMs;
     if (data.supportsStream !== undefined) next['supports_stream'] = bool(data.supportsStream);
     if (data.supportsTools !== undefined) next['supports_tools'] = bool(data.supportsTools);
     if (data.supportsVision !== undefined) next['supports_vision'] = bool(data.supportsVision);
     if (data.enabled !== undefined) next['enabled'] = bool(data.enabled);
     if (data.order !== undefined) next['sort_order'] = data.order;
-    if (data.manualModels !== undefined) next['manual_models_json'] = JSON.stringify(data.manualModels);
+    if (data.manualModels !== undefined)
+      next['manual_models_json'] = JSON.stringify(data.manualModels);
 
     if (data.keyRef !== undefined && data.keyRef !== null) {
       const plain = await this.requireKeys().getByRef(data.keyRef);

@@ -16,11 +16,7 @@ describe('IconButton', () => {
   });
 
   it('必须提供 aria-label 用于无障碍', () => {
-    render(
-      <IconButton aria-label="更多">
-        ⋯
-      </IconButton>,
-    );
+    render(<IconButton aria-label="更多">⋯</IconButton>);
     expect(screen.getByRole('button', { name: '更多' })).toBeInTheDocument();
   });
 

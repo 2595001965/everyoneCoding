@@ -33,9 +33,29 @@ const CHANGE_LOG: ChangeLogRecord = {
 function seed(): FakeMemoryApi {
   return createFakeMemoryApi({
     items: [
-      makeMemory({ id: 'M-LT', title: '命名规范', scope: 'longterm', tags: ['convention'], importance: 5, pinned: true }),
-      makeMemory({ id: 'M-PJ', title: '商城技术栈', scope: 'project', projectId: 'P1', tags: ['stack'] }),
-      makeMemory({ id: 'M-PG', title: '登录页 /login', scope: 'page', projectId: 'P1', pageId: 'PG1', tags: ['page'] }),
+      makeMemory({
+        id: 'M-LT',
+        title: '命名规范',
+        scope: 'longterm',
+        tags: ['convention'],
+        importance: 5,
+        pinned: true,
+      }),
+      makeMemory({
+        id: 'M-PJ',
+        title: '商城技术栈',
+        scope: 'project',
+        projectId: 'P1',
+        tags: ['stack'],
+      }),
+      makeMemory({
+        id: 'M-PG',
+        title: '登录页 /login',
+        scope: 'page',
+        projectId: 'P1',
+        pageId: 'PG1',
+        tags: ['page'],
+      }),
       makeMemory({
         id: 'M-ELEM',
         title: '提交按钮',
@@ -45,8 +65,22 @@ function seed(): FakeMemoryApi {
         elementId: 'E1',
         tags: ['page'],
       }),
-      makeMemory({ id: 'M-ISSUE', title: '刷新丢 Session', scope: 'issue', projectId: 'P1', pageId: 'PG1', issueId: 'ISSUE-1', tags: ['bug'] }),
-      makeMemory({ id: 'M-OTHER', title: '看板任务列表', scope: 'project', projectId: 'P2', tags: ['stack'] }),
+      makeMemory({
+        id: 'M-ISSUE',
+        title: '刷新丢 Session',
+        scope: 'issue',
+        projectId: 'P1',
+        pageId: 'PG1',
+        issueId: 'ISSUE-1',
+        tags: ['bug'],
+      }),
+      makeMemory({
+        id: 'M-OTHER',
+        title: '看板任务列表',
+        scope: 'project',
+        projectId: 'P2',
+        tags: ['stack'],
+      }),
     ],
     conflicts: {
       'M-PG': [
@@ -130,7 +164,9 @@ describe('记忆中心', () => {
 
     const tree = screen.getByRole('tree', { name: '记忆分层树' });
     // 标签分组默认收起：Tree 的行点击是"选中"，展开要点行首的折叠箭头
-    const groupRow = within(tree).getByText(/^标签（/).closest('[role="treeitem"]');
+    const groupRow = within(tree)
+      .getByText(/^标签（/)
+      .closest('[role="treeitem"]');
     expect(groupRow).not.toBeNull();
     await user.click(groupRow?.querySelector('.ec-tree__twisty') as Element);
     await user.click(await within(tree).findByText('convention'));

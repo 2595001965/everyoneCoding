@@ -128,7 +128,10 @@ export function ConvertToMemoryDialog({
           <Select
             aria-label="记忆层级"
             value={scope}
-            options={DOC_MEMORY_SCOPES.map((value) => ({ value, label: DOC_MEMORY_SCOPE_LABELS[value] }))}
+            options={DOC_MEMORY_SCOPES.map((value) => ({
+              value,
+              label: DOC_MEMORY_SCOPE_LABELS[value],
+            }))}
             onChange={(value) => setScope(value as DocMemoryScope)}
           />
         </label>
@@ -146,7 +149,11 @@ export function ConvertToMemoryDialog({
           <>
             <label className="ec-docs__field">
               <span>标题（可编辑）</span>
-              <Input value={draft.title} onChange={(value) => setDraft({ ...draft, title: value })} aria-label="记忆标题" />
+              <Input
+                value={draft.title}
+                onChange={(value) => setDraft({ ...draft, title: value })}
+                aria-label="记忆标题"
+              />
             </label>
             <label className="ec-docs__field">
               <span>摘要内容（可编辑）</span>

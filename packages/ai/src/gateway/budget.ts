@@ -90,10 +90,16 @@ export class BudgetGuard {
       };
     }
     if (dailyUsd !== null && daily >= dailyUsd * alertRatio) {
-      return { ok: true, warn: { scope: 'daily', ratio: daily / dailyUsd, spent: daily, limit: dailyUsd } };
+      return {
+        ok: true,
+        warn: { scope: 'daily', ratio: daily / dailyUsd, spent: daily, limit: dailyUsd },
+      };
     }
     if (monthlyUsd !== null && monthly >= monthlyUsd * alertRatio) {
-      return { ok: true, warn: { scope: 'monthly', ratio: monthly / monthlyUsd, spent: monthly, limit: monthlyUsd } };
+      return {
+        ok: true,
+        warn: { scope: 'monthly', ratio: monthly / monthlyUsd, spent: monthly, limit: monthlyUsd },
+      };
     }
     return { ok: true };
   }

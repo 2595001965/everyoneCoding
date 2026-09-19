@@ -13,9 +13,19 @@ describe('ArtifactStore 版本化', () => {
     try {
       await saveS1(fx.machine, fx.artifacts, '# v1 需求');
       fx.tick(10);
-      await fx.artifacts.save({ stage: 'S1', artifactType: 'requirement_doc', content: '# v2 需求\n新增风险章节', note: '追加要求' });
+      await fx.artifacts.save({
+        stage: 'S1',
+        artifactType: 'requirement_doc',
+        content: '# v2 需求\n新增风险章节',
+        note: '追加要求',
+      });
       fx.tick(10);
-      await fx.artifacts.save({ stage: 'S1', artifactType: 'requirement_doc', content: '# v3 需求\n新增风险章节\n补充验收标准', note: '重新生成' });
+      await fx.artifacts.save({
+        stage: 'S1',
+        artifactType: 'requirement_doc',
+        content: '# v3 需求\n新增风险章节\n补充验收标准',
+        note: '重新生成',
+      });
 
       expect(fx.artifacts.latestVersion('S1')).toBe(3);
       expect(fx.artifacts.activeVersion('S1')).toBe(3);
@@ -51,9 +61,14 @@ describe('ArtifactStore 版本化', () => {
     const fx = createFixture();
     try {
       await saveS1(fx.machine, fx.artifacts, '# v1');
-      await expect(fx.artifacts.save({ stage: 'S1', artifactType: 'requirement_doc', content: 'x', version: 1 })).rejects.toThrow(
-        /已存在/,
-      );
+      await expect(
+        fx.artifacts.save({
+          stage: 'S1',
+          artifactType: 'requirement_doc',
+          content: 'x',
+          version: 1,
+        }),
+      ).rejects.toThrow(/已存在/);
       expect(() => fx.artifacts.get('S1', 9)).toThrow(ArtifactNotFoundError);
       await expect(fx.artifacts.read('S1', 9)).rejects.toThrow(ArtifactNotFoundError);
     } finally {
@@ -71,7 +86,11 @@ describe('ArtifactStore 版本化', () => {
       await fx.fs.remove(v2.contentRef);
       const problems = await fx.artifacts.verifyIntegrity();
       expect(problems).toHaveLength(1);
-      expect(problems[0]).toMatchObject({ stage: 'S1', version: 2, reason: expect.stringContaining('不存在') });
+      expect(problems[0]).toMatchObject({
+        stage: 'S1',
+        version: 2,
+        reason: expect.stringContaining('不存在'),
+      });
     } finally {
       fx.close();
     }

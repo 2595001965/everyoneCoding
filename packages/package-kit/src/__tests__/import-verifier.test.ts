@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { generateEd25519KeyPair } from '../format/signature';
 import { verifyPackage } from '../import/verifier';
-import { buildEncryptedPackage, buildPackage, makeMemoryItem, tamperPackage } from './import-testkit';
+import {
+  buildEncryptedPackage,
+  buildPackage,
+  makeMemoryItem,
+  tamperPackage,
+} from './import-testkit';
 
 describe('verifyPackage：逐步校验', () => {
   it('合法明文包：全部步骤通过 ok=true', async () => {

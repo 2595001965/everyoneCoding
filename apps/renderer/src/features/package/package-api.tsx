@@ -71,7 +71,8 @@ export interface RedactionFinding {
   preview: string;
 }
 
-export type ExportStage = 'enumerating' | 'excluding' | 'redacting' | 'writing' | 'encrypting' | 'done' | 'failed';
+export type ExportStage =
+  'enumerating' | 'excluding' | 'redacting' | 'writing' | 'encrypting' | 'done' | 'failed';
 
 export interface ExportFailure {
   path: string;
@@ -83,7 +84,14 @@ export interface ExportProgressSnapshot {
   processed: number;
   total: number;
   currentFile: string | null;
-  counts: { projects: number; memoryItems: number; documents: number; pages: number; codeFiles: number; attachments: number };
+  counts: {
+    projects: number;
+    memoryItems: number;
+    documents: number;
+    pages: number;
+    codeFiles: number;
+    attachments: number;
+  };
   failures: ExportFailure[];
   excludeStats: ExcludeStats | null;
   redactionFindings: RedactionFinding[];
@@ -118,7 +126,8 @@ export interface ExportJobRequest {
 
 export type ImportMode = 'full-restore' | 'merge' | 'memory-only' | 'documents-only' | 'code-only';
 
-export type PackageObjectType = 'memory' | 'document' | 'design' | 'registry' | 'code' | 'anchor' | 'pipeline';
+export type PackageObjectType =
+  'memory' | 'document' | 'design' | 'registry' | 'code' | 'anchor' | 'pipeline';
 
 export type PackageDiffClassification = 'added' | 'conflicted' | 'unchanged' | 'missing';
 
@@ -189,7 +198,9 @@ export interface ImportJobRequest {
   signaturePublicKeyPem?: string;
   decisions: ConflictDecision[];
   batchDecisions?: Partial<Record<PackageObjectType, ConflictResolution>>;
-  onProgress?: ((stage: string, processed: number, total: number, currentFile: string | null) => void) | undefined;
+  onProgress?:
+    | ((stage: string, processed: number, total: number, currentFile: string | null) => void)
+    | undefined;
 }
 
 /* ------------------------------ 镜像类型（T8-04） ------------------------------ */
@@ -262,7 +273,11 @@ export interface PackageApi {
   /** 打开系统文件对话框选 .ecpkg 文件（取消为 null） */
   pickPackagePath(): Promise<string | null>;
   /** 导入前校验（版本→完整性→签名→解密），全过才允许进差异预览 */
-  verifyPackage(packagePath: string, password?: string, publicKeyPem?: string): Promise<VerificationReport>;
+  verifyPackage(
+    packagePath: string,
+    password?: string,
+    publicKeyPem?: string,
+  ): Promise<VerificationReport>;
   /** 差异预览（四类统计；conflicted 条目默认不覆盖） */
   previewImport(packagePath: string, password?: string): Promise<PackageDiffPreview>;
   /** 模式影响预览 */
@@ -297,7 +312,13 @@ export function readInjectedPackageApi(): PackageApi | null {
 
 const PackageApiContext = createContext<PackageApi | null>(null);
 
-export function PackageApiProvider({ api, children }: { api: PackageApi | null; children: ReactNode }) {
+export function PackageApiProvider({
+  api,
+  children,
+}: {
+  api: PackageApi | null;
+  children: ReactNode;
+}) {
   return <PackageApiContext.Provider value={api}>{children}</PackageApiContext.Provider>;
 }
 

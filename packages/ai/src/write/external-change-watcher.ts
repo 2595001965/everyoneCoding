@@ -45,29 +45,33 @@ export interface ExternalChange {
   count: number;
 }
 
-/** 默认排除规则（目录名或路径片段命中即忽略） */export const DEFAULT_IGNORE_PATTERNS: readonly string[] = [
-  '.git',
-  '.hg',
-  '.svn',
-  'node_modules',
-  'dist',
-  'build',
-  'out',
-  'target',
-  'coverage',
-  '.next',
-  '.nuxt',
-  '.vite',
-  '.vitest',
-  '.cache',
-  '.ec-tmp',
-  '.idea',
-  '.vscode',
-  '.DS_Store',
-];
+/** 默认排除规则（目录名或路径片段命中即忽略） */ export const DEFAULT_IGNORE_PATTERNS: readonly string[] =
+  [
+    '.git',
+    '.hg',
+    '.svn',
+    'node_modules',
+    'dist',
+    'build',
+    'out',
+    'target',
+    'coverage',
+    '.next',
+    '.nuxt',
+    '.vite',
+    '.vitest',
+    '.cache',
+    '.ec-tmp',
+    '.idea',
+    '.vscode',
+    '.DS_Store',
+  ];
 
 /** 路径是否需要忽略（大小写不敏感；面板分隔符统一成正斜杠） */
-export function shouldIgnorePath(path: string, patterns: readonly string[] = DEFAULT_IGNORE_PATTERNS): boolean {
+export function shouldIgnorePath(
+  path: string,
+  patterns: readonly string[] = DEFAULT_IGNORE_PATTERNS,
+): boolean {
   const normalised = path.replace(/\\/g, '/');
   const segments = normalised.split('/').filter((segment) => segment.length > 0);
   return patterns.some((pattern) => {
@@ -187,6 +191,8 @@ function normalise(path: string): string {
   return path.replace(/\\/g, '/');
 }
 
-export function createExternalChangeWatcher(deps: ExternalChangeWatcherDeps): ExternalChangeWatcher {
+export function createExternalChangeWatcher(
+  deps: ExternalChangeWatcherDeps,
+): ExternalChangeWatcher {
   return new ExternalChangeWatcher(deps);
 }

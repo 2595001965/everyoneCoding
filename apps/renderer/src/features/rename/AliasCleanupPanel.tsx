@@ -109,7 +109,12 @@ export function AliasCleanupPanel(props: AliasCleanupPanelProps): JSX.Element {
 
           <div className="ec-rename-actions">
             <Badge color="neutral">已选 {selectedCount} 项</Badge>
-            <Button variant="primary" disabled={selectedCount === 0} data-testid="alias-clean" onClick={handleClean}>
+            <Button
+              variant="primary"
+              disabled={selectedCount === 0}
+              data-testid="alias-clean"
+              onClick={handleClean}
+            >
               一键清理选中项
             </Button>
           </div>

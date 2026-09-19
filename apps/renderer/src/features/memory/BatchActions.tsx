@@ -50,16 +50,36 @@ export function BatchActions({
   return (
     <div className="ec-memory-batch" role="group" aria-label="批量操作">
       <span className="ec-memory-batch__count">已选 {count} 条</span>
-      <Button size="sm" variant="secondary" disabled={!hasSelection || busy} onClick={() => onExport('json')}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!hasSelection || busy}
+        onClick={() => onExport('json')}
+      >
         导出选中为 JSON
       </Button>
-      <Button size="sm" variant="secondary" disabled={!hasSelection || busy} onClick={() => onExport('markdown')}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!hasSelection || busy}
+        onClick={() => onExport('markdown')}
+      >
         导出选中为 Markdown
       </Button>
-      <Button size="sm" variant="secondary" disabled={!hasSelection || busy} onClick={() => setMovingOpen(true)}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!hasSelection || busy}
+        onClick={() => setMovingOpen(true)}
+      >
         移动层级
       </Button>
-      <Button size="sm" variant="danger" disabled={!hasSelection || busy} onClick={() => setConfirming(true)}>
+      <Button
+        size="sm"
+        variant="danger"
+        disabled={!hasSelection || busy}
+        onClick={() => setConfirming(true)}
+      >
         删除
       </Button>
 
@@ -96,7 +116,8 @@ export function BatchActions({
         }
       >
         <p>
-          将删除 {count} 条记忆。删除后可通过「撤销删除」恢复；删除只影响当前项目，不会改动其他项目。
+          将删除 {count}{' '}
+          条记忆。删除后可通过「撤销删除」恢复；删除只影响当前项目，不会改动其他项目。
         </p>
       </Modal>
 
@@ -123,7 +144,9 @@ export function BatchActions({
           </div>
         }
       >
-        <p>把选中的 {count} 条记忆移动到目标层级；若目标层级与现有条目同标题，将按继承规则产生覆盖。</p>
+        <p>
+          把选中的 {count} 条记忆移动到目标层级；若目标层级与现有条目同标题，将按继承规则产生覆盖。
+        </p>
         <Select
           options={MEMORY_LAYERS.map((layer) => ({ value: layer, label: LAYER_LABELS[layer] }))}
           value={targetLayer}

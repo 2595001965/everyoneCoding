@@ -183,11 +183,14 @@ export function createFakeAuthApi(): FakeAuthEnvironment {
         clock: () => NOW,
         sleep: () => Promise.resolve(),
       });
-      return result.state === 'confirmed' ? { state: 'confirmed', callbackUrl: `everyonecoding://oauth?state=${state}&code=wx-code` } : { state: result.state };
+      return result.state === 'confirmed'
+        ? { state: 'confirmed', callbackUrl: `everyonecoding://oauth?state=${state}&code=wx-code` }
+        : { state: result.state };
     },
     listBindings: () => client.withToken((token) => client.listBindings(token)),
     bind: (provider) => client.withToken((token) => client.bind(provider, token)),
-    unbind: (provider, hasPassword) => client.withToken((token) => client.unbind(provider, token, hasPassword)),
+    unbind: (provider, hasPassword) =>
+      client.withToken((token) => client.unbind(provider, token, hasPassword)),
     requestEmailVerification: (email) => client.requestEmailVerification(email),
     resetPassword: (input) => client.resetPassword(input),
     isOffline: () => offline.isOffline(),

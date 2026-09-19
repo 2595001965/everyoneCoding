@@ -28,7 +28,10 @@ function makeAnchorFactory(): (heading: string) => string {
 }
 
 /** 解析 Markdown 文本为结构化文档 */
-export function parseMarkdown(input: { raw: string | Uint8Array; fileName?: string | undefined }): ParsedDocument {
+export function parseMarkdown(input: {
+  raw: string | Uint8Array;
+  fileName?: string | undefined;
+}): ParsedDocument {
   const text = typeof input.raw === 'string' ? input.raw : new TextDecoder().decode(input.raw);
   const lines = text.split(/\r?\n/);
   const sections: DocSection[] = [];
@@ -76,7 +79,9 @@ export function parseMarkdown(input: { raw: string | Uint8Array; fileName?: stri
   }
   if (!title) {
     const firstHeading = sections.find((section) => section.heading);
-    title = firstHeading ? firstHeading.heading : (lines.find((l) => l.trim()) ?? '未命名文档').slice(0, 60);
+    title = firstHeading
+      ? firstHeading.heading
+      : (lines.find((l) => l.trim()) ?? '未命名文档').slice(0, 60);
   }
 
   return { title: title.trim() || '未命名文档', sections };

@@ -114,7 +114,13 @@ export interface SettingsApi {
 
 const SettingsContext = createContext<SettingsApi | null>(null);
 
-export function SettingsApiProvider({ api, children }: { api: SettingsApi | null; children: ReactNode }): JSX.Element {
+export function SettingsApiProvider({
+  api,
+  children,
+}: {
+  api: SettingsApi | null;
+  children: ReactNode;
+}): JSX.Element {
   return <SettingsContext.Provider value={api}>{children}</SettingsContext.Provider>;
 }
 
@@ -131,7 +137,9 @@ export function useSettings(): SettingsApi {
 export function SettingsUnavailable(): JSX.Element {
   return (
     <div className="ec-settings">
-      <p className="ec-settings__hint">设置尚未连接本地配置。完成初始化后，这里可以调整界面、数据目录、隐私与快捷键。</p>
+      <p className="ec-settings__hint">
+        设置尚未连接本地配置。完成初始化后，这里可以调整界面、数据目录、隐私与快捷键。
+      </p>
     </div>
   );
 }

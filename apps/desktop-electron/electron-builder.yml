@@ -9,7 +9,7 @@ directories:
   buildResources: build
 
 files:
-  - "**/*"
+  - '**/*'
 
 # Apache-2.0 第 4 条要求向接收方随附许可文本；app 目录是 dist，根目录文件需显式带入。
 extraResources:

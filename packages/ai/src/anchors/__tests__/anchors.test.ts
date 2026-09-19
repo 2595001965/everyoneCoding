@@ -10,7 +10,14 @@ import {
   type AnchorDeclaration,
   type CodeAnchorRow,
 } from '../anchor-model';
-import { assertKindCoverage, createHeuristicAstAdapter, defaultAstAdapter, findSymbol, verifyDeclaration, verifyDeclarations } from '../ast-verify';
+import {
+  assertKindCoverage,
+  createHeuristicAstAdapter,
+  defaultAstAdapter,
+  findSymbol,
+  verifyDeclaration,
+  verifyDeclarations,
+} from '../ast-verify';
 import {
   buildAnchorComment,
   commentPrefixFor,
@@ -19,7 +26,14 @@ import {
   parseAnchorComments,
   removeAnchorComments,
 } from '../comment-marker';
-import { editDistance, findCandidates, listMarkedLocations, nameSimilarity, relocate, tokenizeName } from '../reassociate';
+import {
+  editDistance,
+  findCandidates,
+  listMarkedLocations,
+  nameSimilarity,
+  relocate,
+  tokenizeName,
+} from '../reassociate';
 
 /* ------------------------------ 夹具 ------------------------------ */
 
@@ -35,13 +49,34 @@ const TS_CONTENT = [
 ].join('\n');
 
 const PY_FILE = 'src/captcha/captcha_service.py';
-const PY_CONTENT = ['class CaptchaService:', '    def verify(self, token, answer):', '        return True', '', 'def hash_answer(answer):', '    return answer', ''].join('\n');
+const PY_CONTENT = [
+  'class CaptchaService:',
+  '    def verify(self, token, answer):',
+  '        return True',
+  '',
+  'def hash_answer(answer):',
+  '    return answer',
+  '',
+].join('\n');
 
 const SQL_FILE = 'src/db/migration.sql';
-const SQL_CONTENT = ['-- 用户表', 'CREATE TABLE IF NOT EXISTS user_account (', '  id TEXT PRIMARY KEY', ');', ''].join('\n');
+const SQL_CONTENT = [
+  '-- 用户表',
+  'CREATE TABLE IF NOT EXISTS user_account (',
+  '  id TEXT PRIMARY KEY',
+  ');',
+  '',
+].join('\n');
 
 const JAVA_FILE = 'src/main/java/UserService.java';
-const JAVA_CONTENT = ['public class UserService {', '    public User find(String id) {', '        return repo.find(id);', '    }', '}', ''].join('\n');
+const JAVA_CONTENT = [
+  'public class UserService {',
+  '    public User find(String id) {',
+  '        return repo.find(id);',
+  '    }',
+  '}',
+  '',
+].join('\n');
 
 const FILES = new Map<string, string>([
   [TS_FILE, TS_CONTENT],
@@ -50,7 +85,12 @@ const FILES = new Map<string, string>([
   [JAVA_FILE, JAVA_CONTENT],
 ]);
 
-const DECL_LOGIN: AnchorDeclaration = { elementId: 'el-btn', filePath: TS_FILE, symbol: 'AuthController.login', kind: 'controller' };
+const DECL_LOGIN: AnchorDeclaration = {
+  elementId: 'el-btn',
+  filePath: TS_FILE,
+  symbol: 'AuthController.login',
+  kind: 'controller',
+};
 
 function repository(options: { persistence?: AnchorPersistencePort } = {}): AnchorRepository {
   let tick = 1_000;
@@ -86,10 +126,11 @@ describe('多语言符号索引（T4-06 要点 3 的默认适配器）', () => {
   });
 
   it('Java 与 SQL 也能索引', () => {
-    expect(defaultAstAdapter.indexSymbols({ path: JAVA_FILE, content: JAVA_CONTENT }).map((entry) => entry.name)).toEqual([
-      'UserService',
-      'UserService.find',
-    ]);
+    expect(
+      defaultAstAdapter
+        .indexSymbols({ path: JAVA_FILE, content: JAVA_CONTENT })
+        .map((entry) => entry.name),
+    ).toEqual(['UserService', 'UserService.find']);
     const sql = defaultAstAdapter.indexSymbols({ path: SQL_FILE, content: SQL_CONTENT });
     expect(sql[0]?.name).toBe('user_account');
     expect(sql[0]?.form).toBe('table');
@@ -110,10 +151,21 @@ describe('多语言符号索引（T4-06 要点 3 的默认适配器）', () => {
   it('适配器可替换（外壳可注入 ts-morph 实现）', () => {
     const adapter = createHeuristicAstAdapter();
     const custom = {
-      indexSymbols: () => [{ name: 'Anything', form: 'class' as const, startLine: 1, endLine: 1, container: null }],
+      indexSymbols: () => [
+        { name: 'Anything', form: 'class' as const, startLine: 1, endLine: 1, container: null },
+      ],
     };
-    expect(adapter.indexSymbols({ path: 'a.ts', content: 'const a = 1;' }).length).toBeGreaterThan(0);
-    expect(verifyDeclaration({ declaration: { ...DECL_LOGIN, symbol: 'Anything' }, path: 'a.ts', content: 'x', adapter: custom }).status).toBe('ok');
+    expect(adapter.indexSymbols({ path: 'a.ts', content: 'const a = 1;' }).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      verifyDeclaration({
+        declaration: { ...DECL_LOGIN, symbol: 'Anything' },
+        path: 'a.ts',
+        content: 'x',
+        adapter: custom,
+      }).status,
+    ).toBe('ok');
   });
 });
 
@@ -142,15 +194,28 @@ describe('AST 校验识别虚假声明（T4-06 验收：3 个反例）', () => {
   });
 
   it('反例 3：kind 与符号实际形态不匹配（拿 SQL 锚点指向方法）→ drift', () => {
-    const result = verifyDeclaration({ declaration: { ...DECL_LOGIN, kind: 'sql' }, path: TS_FILE, content: TS_CONTENT });
+    const result = verifyDeclaration({
+      declaration: { ...DECL_LOGIN, kind: 'sql' },
+      path: TS_FILE,
+      content: TS_CONTENT,
+    });
     expect(result.status).toBe('drift');
     expect(result.reason).toContain('不匹配');
   });
 
   it('正例：声明与真实符号一致 → ok，并把真实位置写回', () => {
-    const result = verifyDeclaration({ declaration: DECL_LOGIN, path: TS_FILE, content: TS_CONTENT });
+    const result = verifyDeclaration({
+      declaration: DECL_LOGIN,
+      path: TS_FILE,
+      content: TS_CONTENT,
+    });
     expect(result.status).toBe('ok');
-    expect(result.resolved).toEqual({ startLine: 3, endLine: 5, form: 'method', container: 'AuthController' });
+    expect(result.resolved).toEqual({
+      startLine: 3,
+      endLine: 5,
+      form: 'method',
+      container: 'AuthController',
+    });
   });
 
   it('文件不存在时判 missing（不抛错）', () => {
@@ -187,11 +252,18 @@ describe('注释标记（T4-06 要点 2）', () => {
   });
 
   it('生成 / 解析 / 移除标记（往返一致）', () => {
-    const comment = buildAnchorComment({ elementId: 'el-btn', symbol: 'AuthController.login', kind: 'controller', pathOrLanguage: TS_FILE });
+    const comment = buildAnchorComment({
+      elementId: 'el-btn',
+      symbol: 'AuthController.login',
+      kind: 'controller',
+      pathOrLanguage: TS_FILE,
+    });
     expect(comment).toBe('// @everyonecoding:anchor el-btn AuthController.login controller');
 
     const parsed = parseAnchorComments(`\n${comment}\nexport class AuthController {}\n`, TS_FILE);
-    expect(parsed).toEqual([{ elementId: 'el-btn', symbol: 'AuthController.login', kind: 'controller', line: 2 }]);
+    expect(parsed).toEqual([
+      { elementId: 'el-btn', symbol: 'AuthController.login', kind: 'controller', line: 2 },
+    ]);
 
     const withMarker = `${comment}\n${TS_CONTENT}`;
     expect(hasMarker(withMarker, 'el-btn')).toBe(true);
@@ -213,7 +285,14 @@ describe('注释标记（T4-06 要点 2）', () => {
     expect(injected.unmatched).toEqual(['AuthController.ghost']);
     const lines = injected.content.split('\n');
     // 标记插在 `async login` 声明的上一行（index 2），而不是文件头
-    expect(lines[2]).toBe(buildAnchorComment({ elementId: 'el-btn', symbol: 'AuthController.login', kind: 'controller', pathOrLanguage: TS_FILE }));
+    expect(lines[2]).toBe(
+      buildAnchorComment({
+        elementId: 'el-btn',
+        symbol: 'AuthController.login',
+        kind: 'controller',
+        pathOrLanguage: TS_FILE,
+      }),
+    );
     expect(lines[3]).toContain('async login');
     expect(lines[0]).toBe('@Injectable()');
     // 文件行数只增加 1（未匹配的符号没有产生空标记）
@@ -227,7 +306,9 @@ describe('注释标记（T4-06 要点 2）', () => {
       pathOrLanguage: TS_FILE,
     });
     const locations = listMarkedLocations(injected.content, TS_FILE);
-    expect(locations).toEqual([{ elementId: 'el-btn', symbol: 'AuthController.login', startLine: 4, endLine: 6 }]);
+    expect(locations).toEqual([
+      { elementId: 'el-btn', symbol: 'AuthController.login', startLine: 4, endLine: 6 },
+    ]);
   });
 });
 
@@ -237,7 +318,10 @@ describe('AnchorRepository 入库（T4-06 要点 1、2）', () => {
   it('注册锚点后字段与 PRD §6.2 code_anchor 表逐列一致', () => {
     const repo = repository();
     const [registration] = repo.register({
-      declarations: [DECL_LOGIN, { elementId: 'el-captcha', filePath: PY_FILE, symbol: 'verify', kind: 'service' }],
+      declarations: [
+        DECL_LOGIN,
+        { elementId: 'el-captcha', filePath: PY_FILE, symbol: 'verify', kind: 'service' },
+      ],
       readFile: (path) => FILES.get(path) ?? null,
       pageId: 'page-login',
       featureId: 'feat-auth',
@@ -275,7 +359,10 @@ describe('AnchorRepository 入库（T4-06 要点 1、2）', () => {
     files.set(TS_FILE, withMarker);
 
     const repo = repository();
-    const [ok] = repo.register({ declarations: [DECL_LOGIN], readFile: (path) => files.get(path) ?? null });
+    const [ok] = repo.register({
+      declarations: [DECL_LOGIN],
+      readFile: (path) => files.get(path) ?? null,
+    });
     expect(ok?.markerFound).toBe(true);
     expect(ok?.anchor.evidence).toEqual({ declared: true, commentMarker: true, astVerified: true });
     expect(ok?.anchor.syncState).toBe('synced');
@@ -323,7 +410,9 @@ describe('AnchorRepository 入库（T4-06 要点 1、2）', () => {
     expect(stats.total).toBe(3);
     expect(stats.byKind.sql).toBe(1);
     expect(stats.byKind.service).toBe(1);
-    expect(repo.list().map((anchor) => anchor.filePath)).toEqual([TS_FILE, SQL_FILE, JAVA_FILE].sort());
+    expect(repo.list().map((anchor) => anchor.filePath)).toEqual(
+      [TS_FILE, SQL_FILE, JAVA_FILE].sort(),
+    );
   });
 
   it('订阅、删除、移出元素、持久化端口回读', async () => {
@@ -373,14 +462,22 @@ describe('行号漂移重定位（T4-06 要点 5）', () => {
     expect(anchor?.startLine).toBe(3);
 
     const result = relocate({
-      anchor: { elementId: 'el-btn', symbol: 'AuthController.login', filePath: TS_FILE, kind: 'controller' },
+      anchor: {
+        elementId: 'el-btn',
+        symbol: 'AuthController.login',
+        filePath: TS_FILE,
+        kind: 'controller',
+      },
       content: shifted,
     });
     expect(result.status).toBe('ok');
     expect(result.startLine).toBe(5);
     expect(result.reason).toContain('符号名');
 
-    const updated = repo.updateLocation(anchor!.id, { startLine: result.startLine!, endLine: result.endLine! });
+    const updated = repo.updateLocation(anchor!.id, {
+      startLine: result.startLine!,
+      endLine: result.endLine!,
+    });
     expect(updated?.startLine).toBe(5);
     expect(updated?.syncState).toBe('synced');
   });
@@ -394,7 +491,12 @@ describe('行号漂移重定位（T4-06 要点 5）', () => {
     }).content;
 
     const result = relocate({
-      anchor: { elementId: 'el-btn', symbol: 'AuthController.login', filePath: TS_FILE, kind: 'controller' },
+      anchor: {
+        elementId: 'el-btn',
+        symbol: 'AuthController.login',
+        filePath: TS_FILE,
+        kind: 'controller',
+      },
       content: withMarker,
     });
     expect(result.status).toBe('ok');
@@ -405,7 +507,12 @@ describe('行号漂移重定位（T4-06 要点 5）', () => {
   it('符号彻底找不到时给出候选而不是错误地自动改锚点', () => {
     const renamed = TS_CONTENT.replace('async login(', 'async signIn(');
     const result = relocate({
-      anchor: { elementId: 'el-btn', symbol: 'AuthController.login', filePath: TS_FILE, kind: 'controller' },
+      anchor: {
+        elementId: 'el-btn',
+        symbol: 'AuthController.login',
+        filePath: TS_FILE,
+        kind: 'controller',
+      },
       content: renamed,
     });
     expect(result.status).toBe('ambiguous');
@@ -416,7 +523,12 @@ describe('行号漂移重定位（T4-06 要点 5）', () => {
 
   it('文件里完全没有可关联符号时判 missing', () => {
     const result = relocate({
-      anchor: { elementId: 'el-btn', symbol: 'AuthController.login', filePath: TS_FILE, kind: 'controller' },
+      anchor: {
+        elementId: 'el-btn',
+        symbol: 'AuthController.login',
+        filePath: TS_FILE,
+        kind: 'controller',
+      },
       content: '// 空文件\n',
     });
     expect(result.status).toBe('missing');
@@ -430,13 +542,22 @@ describe('候选推荐排序（T4-06 要点 4）', () => {
     contents.set(TS_FILE, TS_CONTENT.replace('async login(', 'async signIn('));
 
     const candidates = findCandidates({
-      anchor: { symbol: 'AuthController.login', kind: 'controller', filePath: TS_FILE, elementId: 'el-btn' },
+      anchor: {
+        symbol: 'AuthController.login',
+        kind: 'controller',
+        filePath: TS_FILE,
+        elementId: 'el-btn',
+      },
       contents,
     });
 
     expect(candidates[0]?.symbol).toBe('AuthController.signIn');
     expect(candidates[0]?.score).toBeGreaterThan(0.5);
-    expect(candidates.every((candidate, index) => index === 0 || candidate.score <= (candidates[index - 1]?.score ?? 0))).toBe(true);
+    expect(
+      candidates.every(
+        (candidate, index) => index === 0 || candidate.score <= (candidates[index - 1]?.score ?? 0),
+      ),
+    ).toBe(true);
   });
 
   it('元素规范名也可作为匹配依据（锚点已彻底丢失时）', () => {
@@ -449,8 +570,21 @@ describe('候选推荐排序（T4-06 要点 4）', () => {
   });
 
   it('limit 生效且低相似度被过滤', () => {
-    expect(findCandidates({ anchor: null, elementName: 'CaptchaService', contents: new Map(FILES), limit: 1 })).toHaveLength(1);
-    expect(findCandidates({ anchor: null, elementName: 'CompletelyDifferentName', contents: new Map(FILES) })).toEqual([]);
+    expect(
+      findCandidates({
+        anchor: null,
+        elementName: 'CaptchaService',
+        contents: new Map(FILES),
+        limit: 1,
+      }),
+    ).toHaveLength(1);
+    expect(
+      findCandidates({
+        anchor: null,
+        elementName: 'CompletelyDifferentName',
+        contents: new Map(FILES),
+      }),
+    ).toEqual([]);
   });
 
   it('名称相似度与切词符合"命名投影"预期', () => {

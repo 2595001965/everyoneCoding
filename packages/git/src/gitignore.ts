@@ -30,7 +30,10 @@ export interface RenderWorkspaceOptions extends RenderOptions {
 }
 
 /** 按技术栈渲染 .gitignore 内容 */
-export function renderWorkspaceGitignore(stacks: readonly StackId[], options: RenderWorkspaceOptions = {}): string {
+export function renderWorkspaceGitignore(
+  stacks: readonly StackId[],
+  options: RenderWorkspaceOptions = {},
+): string {
   const effective = stacks.length > 0 ? [...stacks] : (['node'] as StackId[]);
   return renderGitignore(effective, options);
 }
@@ -57,7 +60,10 @@ export function ensureEcSection(content: string): string {
  * 从项目根目录的文件名清单推测技术栈。
  * 结论用于 .gitignore 与预览项目识别，属于"猜测"，因此返回的所有证据都要能展示给用户。
  */
-export function detectStacksFromFiles(files: readonly string[]): { stacks: StackId[]; evidence: string[] } {
+export function detectStacksFromFiles(files: readonly string[]): {
+  stacks: StackId[];
+  evidence: string[];
+} {
   const lower = files.map((file) => file.toLowerCase());
   const stacks: StackId[] = [];
   const evidence: string[] = [];
@@ -88,7 +94,8 @@ export function detectStacksFromFiles(files: readonly string[]): { stacks: Stack
     stacks.push('node');
     evidence.push('发现 package.json / .ts / .tsx / .js → Node.js');
   }
-  if (stacks.length === 0) evidence.push('未识别出技术栈特征文件，按 Node.js 模板生成（可手动调整）');
+  if (stacks.length === 0)
+    evidence.push('未识别出技术栈特征文件，按 Node.js 模板生成（可手动调整）');
   return { stacks: stacks.length > 0 ? stacks : ['node'], evidence };
 }
 
@@ -102,7 +109,9 @@ export interface WriteGitignoreInput {
 }
 
 /** 生成并（有 filer 时）写入 .gitignore */
-export async function writeWorkspaceGitignore(input: WriteGitignoreInput): Promise<GitignoreInitResult> {
+export async function writeWorkspaceGitignore(
+  input: WriteGitignoreInput,
+): Promise<GitignoreInitResult> {
   const notes: string[] = [];
   const content = renderWorkspaceGitignore(input.stacks, input.options ?? {});
   const path = joinPath(input.repoPath, '.gitignore');
@@ -118,18 +127,39 @@ export async function writeWorkspaceGitignore(input: WriteGitignoreInput): Promi
       const merged = ensureEcSection(existing);
       if (merged === existing) {
         notes.push('工作区已有 .gitignore，且包含 EveryoneCoding 忽略段，保持原样');
-        return { content: existing, stacks: [...input.stacks], written: false, path, notes, error: null };
+        return {
+          content: existing,
+          stacks: [...input.stacks],
+          written: false,
+          path,
+          notes,
+          error: null,
+        };
       }
       await input.filer.writeAtomic(path, merged);
       notes.push('工作区已有 .gitignore，已追加 EveryoneCoding 忽略段（未改动原有规则）');
-      return { content: merged, stacks: [...input.stacks], written: true, path, notes, error: null };
+      return {
+        content: merged,
+        stacks: [...input.stacks],
+        written: true,
+        path,
+        notes,
+        error: null,
+      };
     }
     await input.filer.writeAtomic(path, content);
     notes.push(`已按 ${input.stacks.join(' + ')} 模板生成 .gitignore`);
     return { content, stacks: [...input.stacks], written: true, path, notes, error: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { content, stacks: [...input.stacks], written: false, path: null, notes, error: `写入 .gitignore 失败：${message}` };
+    return {
+      content,
+      stacks: [...input.stacks],
+      written: false,
+      path: null,
+      notes,
+      error: `写入 .gitignore 失败：${message}`,
+    };
   }
 }
 

@@ -28,7 +28,13 @@ export interface ConflictCardProps {
   busy?: boolean;
 }
 
-export function ConflictCard({ open = true, model, onResolve, onCancel, busy = false }: ConflictCardProps): JSX.Element {
+export function ConflictCard({
+  open = true,
+  model,
+  onResolve,
+  onCancel,
+  busy = false,
+}: ConflictCardProps): JSX.Element {
   return (
     <Modal
       open={open}

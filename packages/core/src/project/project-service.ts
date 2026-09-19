@@ -46,8 +46,9 @@ export function rowToSummary(row: ProjectRowSnapshot): ProjectSummary {
   try {
     const parsed: unknown = JSON.parse(row.target_platforms);
     if (Array.isArray(parsed)) {
-      platforms = parsed.filter((p): p is TargetPlatform =>
-        typeof p === 'string' && (TARGET_PLATFORM_KEYS as readonly string[]).includes(p),
+      platforms = parsed.filter(
+        (p): p is TargetPlatform =>
+          typeof p === 'string' && (TARGET_PLATFORM_KEYS as readonly string[]).includes(p),
       );
     }
   } catch {
@@ -236,7 +237,8 @@ export class ProjectService {
     }
     if (patch.description !== undefined) storePatch.description = patch.description;
     if (patch.status !== undefined) storePatch.status = patch.status;
-    if (patch.targetPlatforms !== undefined) storePatch.target_platforms = JSON.stringify(patch.targetPlatforms);
+    if (patch.targetPlatforms !== undefined)
+      storePatch.target_platforms = JSON.stringify(patch.targetPlatforms);
     if (patch.techStackFingerprint !== undefined) {
       storePatch.tech_stack_fingerprint =
         patch.techStackFingerprint === null ? null : JSON.stringify(patch.techStackFingerprint);
@@ -300,7 +302,10 @@ export class ProjectService {
   async duplicateProject(
     id: string,
     options: DuplicateOptions,
-  ): Promise<{ project: ProjectSummary; copied: { design: number; memory: number; docs: number; codeFiles: number } }> {
+  ): Promise<{
+    project: ProjectSummary;
+    copied: { design: number; memory: number; docs: number; codeFiles: number };
+  }> {
     if (!this.deps.duplicate) {
       throw new ProjectDomainError('not_found', '复制端口未装配（DuplicatePort 缺失）');
     }

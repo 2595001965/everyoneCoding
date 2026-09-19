@@ -475,7 +475,8 @@ export function createPythonParser(port?: ExternalAstParserPort): AstParser {
             bind(w, current().level === 0);
             if (current().level === 0) {
               const k = identifierTargets.get(w);
-              if (k !== undefined) emit(k, w, tok.line, tok.col, w.length, 'declaration', 1.0, null);
+              if (k !== undefined)
+                emit(k, w, tok.line, tok.col, w.length, 'declaration', 1.0, null);
             }
           } else {
             const k = identifierTargets.get(w);

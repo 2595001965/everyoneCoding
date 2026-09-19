@@ -2,8 +2,20 @@ import { describe, it, expect } from 'vitest';
 
 import { byteChunks, isDoneSignal, parseSse } from '../../adapters/shared/sse-parser';
 import { firstMessage, mapHttpError, parseRetryAfter } from '../../adapters/shared/error-map';
-import { AuthError, ContentFilterError, ContextLengthError, ProtocolError, ProviderUnavailableError, RateLimitError, TimeoutError } from '../../core/error';
-import { openAiHeaders, buildOpenAiBody, toOpenAiMessages } from '../../adapters/openai/request-map';
+import {
+  AuthError,
+  ContentFilterError,
+  ContextLengthError,
+  ProtocolError,
+  ProviderUnavailableError,
+  RateLimitError,
+  TimeoutError,
+} from '../../core/error';
+import {
+  openAiHeaders,
+  buildOpenAiBody,
+  toOpenAiMessages,
+} from '../../adapters/openai/request-map';
 import { resolveEndpoint, maskApiKey } from '../../domain/provider';
 
 async function* bytes(...parts: Array<Uint8Array | string>): AsyncIterable<Uint8Array> {
@@ -11,7 +23,9 @@ async function* bytes(...parts: Array<Uint8Array | string>): AsyncIterable<Uint8
   for (const part of parts) yield typeof part === 'string' ? encoder.encode(part) : part;
 }
 
-async function eventsOf(input: AsyncIterable<Uint8Array>): Promise<Array<{ event: string | null; data: string }>> {
+async function eventsOf(
+  input: AsyncIterable<Uint8Array>,
+): Promise<Array<{ event: string | null; data: string }>> {
   const out: Array<{ event: string | null; data: string }> = [];
   for await (const event of parseSse(input)) out.push(event);
   return out;
@@ -62,7 +76,9 @@ describe('错误映射', () => {
     expect(mapHttpError(401, '{"error":{"message":"bad key"}}')).toBeInstanceOf(AuthError);
     expect(mapHttpError(403, '')).toBeInstanceOf(AuthError);
     expect(mapHttpError(408, '')).toBeInstanceOf(TimeoutError);
-    expect(mapHttpError(429, '', { headers: { 'retry-after': '2' } })).toBeInstanceOf(RateLimitError);
+    expect(mapHttpError(429, '', { headers: { 'retry-after': '2' } })).toBeInstanceOf(
+      RateLimitError,
+    );
     expect(mapHttpError(500, '')).toBeInstanceOf(ProviderUnavailableError);
     expect(mapHttpError(400, '{}')).toBeInstanceOf(ProtocolError);
   });
@@ -74,8 +90,12 @@ describe('错误映射', () => {
   });
 
   it('响应体关键词优先于状态码：上下文超限与内容过滤', () => {
-    expect(mapHttpError(400, '{"error":{"code":"context_length_exceeded"}}')).toBeInstanceOf(ContextLengthError);
-    expect(mapHttpError(400, '{"error":{"type":"content_filter"}}')).toBeInstanceOf(ContentFilterError);
+    expect(mapHttpError(400, '{"error":{"code":"context_length_exceeded"}}')).toBeInstanceOf(
+      ContextLengthError,
+    );
+    expect(mapHttpError(400, '{"error":{"type":"content_filter"}}')).toBeInstanceOf(
+      ContentFilterError,
+    );
   });
 
   it('Retry-After 支持秒数与 HTTP 日期', () => {
@@ -110,24 +130,40 @@ describe('OpenAI 请求映射与端点拼接', () => {
     expect(messages[0]).toEqual({ role: 'system', content: '你是助手' });
     const assistant = messages[2];
     expect(assistant?.tool_calls?.[0]?.function?.name).toBe('weather');
-    expect(JSON.parse(assistant?.tool_calls?.[0]?.function?.arguments ?? '{}')).toEqual({ city: '上海' });
+    expect(JSON.parse(assistant?.tool_calls?.[0]?.function?.arguments ?? '{}')).toEqual({
+      city: '上海',
+    });
     expect(messages[3]).toEqual({ role: 'tool', tool_call_id: 'call_1', content: '晴 28℃' });
   });
 
   it('BaseUrl 拼接容错：带不带 /v1、尾斜杠都能得到正确端点', () => {
-    expect(resolveEndpoint('https://api.openai.com', 'openai', 'chat')).toBe('https://api.openai.com/v1/chat/completions');
-    expect(resolveEndpoint('https://api.openai.com/v1', 'openai', 'chat')).toBe('https://api.openai.com/v1/chat/completions');
-    expect(resolveEndpoint('https://api.openai.com/v1/', 'openai', 'chat')).toBe('https://api.openai.com/v1/chat/completions');
-    expect(resolveEndpoint('https://relay.example.com/api/v3', 'openai', 'chat')).toBe('https://relay.example.com/api/v3/chat/completions');
+    expect(resolveEndpoint('https://api.openai.com', 'openai', 'chat')).toBe(
+      'https://api.openai.com/v1/chat/completions',
+    );
+    expect(resolveEndpoint('https://api.openai.com/v1', 'openai', 'chat')).toBe(
+      'https://api.openai.com/v1/chat/completions',
+    );
+    expect(resolveEndpoint('https://api.openai.com/v1/', 'openai', 'chat')).toBe(
+      'https://api.openai.com/v1/chat/completions',
+    );
+    expect(resolveEndpoint('https://relay.example.com/api/v3', 'openai', 'chat')).toBe(
+      'https://relay.example.com/api/v3/chat/completions',
+    );
     expect(resolveEndpoint('https://relay.example.com/v1/chat/completions', 'openai', 'chat')).toBe(
       'https://relay.example.com/v1/chat/completions',
     );
-    expect(resolveEndpoint('https://one.example.com', 'openai', 'models')).toBe('https://one.example.com/v1/models');
+    expect(resolveEndpoint('https://one.example.com', 'openai', 'models')).toBe(
+      'https://one.example.com/v1/models',
+    );
   });
 
   it('Anthropic 端点固定为 /messages', () => {
-    expect(resolveEndpoint('https://api.anthropic.com', 'anthropic', 'chat')).toBe('https://api.anthropic.com/v1/messages');
-    expect(resolveEndpoint('https://api.anthropic.com/v1', 'anthropic', 'chat')).toBe('https://api.anthropic.com/v1/messages');
+    expect(resolveEndpoint('https://api.anthropic.com', 'anthropic', 'chat')).toBe(
+      'https://api.anthropic.com/v1/messages',
+    );
+    expect(resolveEndpoint('https://api.anthropic.com/v1', 'anthropic', 'chat')).toBe(
+      'https://api.anthropic.com/v1/messages',
+    );
   });
 
   it('自定义请求头透传，Key 走 Authorization', () => {
@@ -140,7 +176,12 @@ describe('OpenAI 请求映射与端点拼接', () => {
   it('请求体包含流式与用量开关', () => {
     const body = JSON.parse(
       buildOpenAiBody(
-        { provider: providerFixture(), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], maxTokens: 16 },
+        {
+          provider: providerFixture(),
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'hi' }],
+          maxTokens: 16,
+        },
         { stream: true, includeUsage: true },
       ),
     ) as Record<string, unknown>;

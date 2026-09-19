@@ -5,7 +5,11 @@ import { Drawer } from '../index';
 
 describe('Drawer', () => {
   it('打开渲染对话框', () => {
-    render(<Drawer defaultOpen title="详情">面板</Drawer>);
+    render(
+      <Drawer defaultOpen title="详情">
+        面板
+      </Drawer>,
+    );
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
   });
 

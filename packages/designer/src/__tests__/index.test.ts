@@ -48,7 +48,8 @@ describe('@ec/designer 公共入口', () => {
     expect(typeof designer.Canvas).toBe('function');
     expect(typeof designer.createCoordinateSpace).toBe('function');
     expect(typeof designer.DEVICE_PRESETS).toBe('object');
-    expect(designer.LAYOUT_MODES).toEqual(['absolute', 'flow']);    expect(typeof designer.snapToGrid).toBe('function');
+    expect(designer.LAYOUT_MODES).toEqual(['absolute', 'flow']);
+    expect(typeof designer.snapToGrid).toBe('function');
     expect(typeof designer.computeInsertion).toBe('function');
     expect(typeof designer.DndProvider).toBe('function');
     expect(designer.GRID_SIZE).toBe(8);
@@ -92,13 +93,20 @@ describe('@ec/designer 公共入口', () => {
     const first = history.capture({ dsl, reason: 'auto', now: 1 });
     const edited: typeof dsl = {
       ...dsl,
-      tree: designer.replaceNode(dsl.tree, 'el-15', (node) => ({ ...node, props: { ...(node.props ?? {}), text: '立即登录' } })),
+      tree: designer.replaceNode(dsl.tree, 'el-15', (node) => ({
+        ...node,
+        props: { ...(node.props ?? {}), text: '立即登录' },
+      })),
     };
     history.capture({ dsl: edited, reason: 'auto', now: 2 });
 
     expect(history.size()).toBe(2);
-    expect(designer.findById(history.materialize(first.id)!.tree, 'el-15')?.props?.['text']).toBe('登录');
-    expect(designer.findById(history.materialize(history.list()[1]!.id)!.tree, 'el-15')?.props?.['text']).toBe('立即登录');
+    expect(designer.findById(history.materialize(first.id)!.tree, 'el-15')?.props?.['text']).toBe(
+      '登录',
+    );
+    expect(
+      designer.findById(history.materialize(history.list()[1]!.id)!.tree, 'el-15')?.props?.['text'],
+    ).toBe('立即登录');
 
     const routes = designer.generateRouteTable([dsl]);
     expect(routes[0]).toMatchObject({ path: '/login', pageId: 'login' });

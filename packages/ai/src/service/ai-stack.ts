@@ -77,7 +77,8 @@ export function createAiStack(options: AiStackOptions): AiStack {
     ['anthropic', new AnthropicAdapter()],
   ]);
 
-  const proxy = typeof options.proxy === 'string' ? parseProxyUrl(options.proxy) : (options.proxy ?? null);
+  const proxy =
+    typeof options.proxy === 'string' ? parseProxyUrl(options.proxy) : (options.proxy ?? null);
 
   const gateway = new AiGateway({
     providers,

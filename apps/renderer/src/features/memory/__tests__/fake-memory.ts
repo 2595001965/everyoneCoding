@@ -59,7 +59,9 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       const longterm = visible.filter((item) => item.scope === 'longterm');
       return {
         layers: [...byLayer.entries()].map(([layer, total]) => ({ layer: layer as never, total })),
-        activeIssues: visible.filter((item) => item.scope === 'issue' && item.issueStatus === 'unsolved').length,
+        activeIssues: visible.filter(
+          (item) => item.scope === 'issue' && item.issueStatus === 'unsolved',
+        ).length,
         longtermCount: longterm.length,
         longtermLimit: options.longtermLimit ?? 500,
       };
@@ -70,7 +72,8 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       if (query.layers && query.layers.length > 0) {
         rows = rows.filter((item) => query.layers?.includes(layerOf(item)));
       }
-      if (query.scopes && query.scopes.length > 0) rows = rows.filter((item) => query.scopes?.includes(item.scope));
+      if (query.scopes && query.scopes.length > 0)
+        rows = rows.filter((item) => query.scopes?.includes(item.scope));
       if (query.activeIssuesOnly) rows = rows.filter((item) => item.issueStatus === 'unsolved');
       if (query.tags && query.tags.length > 0) {
         rows = rows.filter((item) => query.tags?.every((tag) => item.tags.includes(tag)));
@@ -164,7 +167,11 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
         ...patch,
         tags: patch.tags ? [...patch.tags] : current.tags,
         // patch.embedding 允许 readonly 数组，落库类型要求可变数组
-        embedding: patch.embedding ? [...patch.embedding] : (patch.embedding === null ? null : current.embedding),
+        embedding: patch.embedding
+          ? [...patch.embedding]
+          : patch.embedding === null
+            ? null
+            : current.embedding,
         version: current.version + 1,
         updatedAt: Date.now(),
       };
@@ -226,9 +233,13 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       api.lastExport = request;
       const rows = store.filter((item) => matchesProject(item, request.projectId));
       if (request.format === 'json') {
-        return { files: [{ name: 'memories.json', content: JSON.stringify({ count: rows.length }) }] };
+        return {
+          files: [{ name: 'memories.json', content: JSON.stringify({ count: rows.length }) }],
+        };
       }
-      return { files: rows.map((item) => ({ name: `longterm/${item.title}.md`, content: item.content })) };
+      return {
+        files: rows.map((item) => ({ name: `longterm/${item.title}.md`, content: item.content })),
+      };
     },
 
     async importPreview(): Promise<ImportPreviewModel> {
@@ -258,7 +269,10 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
     },
 
     async importCommit(request): Promise<{ created: number; updated: number; superseded: number }> {
-      api.lastImportDecisions = request.decisions.map((entry) => ({ id: entry.id, resolution: entry.resolution }));
+      api.lastImportDecisions = request.decisions.map((entry) => ({
+        id: entry.id,
+        resolution: entry.resolution,
+      }));
       return { created: request.decisions.length, updated: 0, superseded: 0 };
     },
   };

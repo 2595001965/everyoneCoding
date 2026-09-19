@@ -15,11 +15,7 @@ import { checkFormatCompatibility } from '../format/version';
 import { assertLayoutStructure } from '../format/layout';
 import type { EcpkgManifest } from '../format/manifest';
 import type { IntegrityReport } from '../format/checksum';
-import type {
-  VerificationReport,
-  VerifyFailureCode,
-  VerifyStepResult,
-} from './import-types';
+import type { VerificationReport, VerifyFailureCode, VerifyStepResult } from './import-types';
 
 /** verifyPackage 的可选项 */
 export interface VerifyOptions {
@@ -70,7 +66,10 @@ function placeholderManifest(): EcpkgManifest {
  *
  * @returns 成功 `ok: true`；失败 `ok: false` 且带 `failureCode` / `failureMessage`。
  */
-export async function verifyPackage(packagePath: string, options: VerifyOptions = {}): Promise<VerificationReport> {
+export async function verifyPackage(
+  packagePath: string,
+  options: VerifyOptions = {},
+): Promise<VerificationReport> {
   const steps: VerifyStepResult[] = [];
   let reader: EcpkgReader | null = null;
 
@@ -91,10 +90,17 @@ export async function verifyPackage(packagePath: string, options: VerifyOptions 
         integrity: null,
       });
     }
-    steps.push({ step: 'format-version', ok: true, detail: `已识别包格式版本 ${reader.manifest.formatVersion}` });
+    steps.push({
+      step: 'format-version',
+      ok: true,
+      detail: `已识别包格式版本 ${reader.manifest.formatVersion}`,
+    });
 
     // 格式版本兼容性（requires-upgrade → version 失败码，消息含"需升级"与版本号）
-    const compat = checkFormatCompatibility(reader.manifest.formatVersion, options.clientFormatVersion);
+    const compat = checkFormatCompatibility(
+      reader.manifest.formatVersion,
+      options.clientFormatVersion,
+    );
     if (compat.status === 'requires-upgrade') {
       return makeFailure({
         code: 'version',
@@ -112,7 +118,8 @@ export async function verifyPackage(packagePath: string, options: VerifyOptions 
         ...integrity.corrupted.map((c) => c.path),
         ...integrity.missing.map((m) => m.path),
       ];
-      const shown = names.slice(0, 5).join('、') + (names.length > 5 ? ` 等 ${names.length} 个文件` : '');
+      const shown =
+        names.slice(0, 5).join('、') + (names.length > 5 ? ` 等 ${names.length} 个文件` : '');
       return makeFailure({
         code: 'integrity',
         message: `包完整性校验未通过，损坏/缺失文件：${shown}`,
@@ -121,7 +128,11 @@ export async function verifyPackage(packagePath: string, options: VerifyOptions 
         integrity,
       });
     }
-    steps.push({ step: 'integrity', ok: true, detail: `完整性校验通过（已校验 ${integrity.checked} 个文件）` });
+    steps.push({
+      step: 'integrity',
+      ok: true,
+      detail: `完整性校验通过（已校验 ${integrity.checked} 个文件）`,
+    });
 
     // ③ 签名（包带签名且提供公钥时强制校验；valid===false → signature 失败码）
     const sig = reader.verifySignature(options.signaturePublicKeyPem);

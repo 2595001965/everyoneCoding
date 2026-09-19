@@ -8,7 +8,14 @@ import { upsertMemory, type UpsertOptions, type UpsertOutcome } from './upsert';
  * 一个功能可关联多个页面；功能记忆挂在 feature 上，其下再挂页面记忆与问题记忆。
  */
 
-export const FEATURE_MEMORY_SECTIONS = ['flow', 'io', 'edgeCases', 'apis', 'errors', 'acceptance'] as const;
+export const FEATURE_MEMORY_SECTIONS = [
+  'flow',
+  'io',
+  'edgeCases',
+  'apis',
+  'errors',
+  'acceptance',
+] as const;
 export type FeatureMemorySection = (typeof FEATURE_MEMORY_SECTIONS)[number];
 
 export const FEATURE_SECTION_LABELS: Record<FeatureMemorySection, string> = {
@@ -39,16 +46,14 @@ export class FeatureMemoryService {
     private readonly userId: string,
   ) {}
 
-  upsert(
-    input: {
-      projectId: string;
-      featureId: string;
-      featureName: string;
-      content?: string;
-      structured: Partial<Record<FeatureMemorySection, unknown>>;
-      options?: UpsertOptions;
-    },
-  ): UpsertOutcome {
+  upsert(input: {
+    projectId: string;
+    featureId: string;
+    featureName: string;
+    content?: string;
+    structured: Partial<Record<FeatureMemorySection, unknown>>;
+    options?: UpsertOptions;
+  }): UpsertOutcome {
     const structured: Record<string, unknown> = {};
     for (const section of FEATURE_MEMORY_SECTIONS) {
       const value = input.structured[section];
@@ -75,33 +80,57 @@ export class FeatureMemoryService {
   }
 
   /** 追加错误码（去重，按 code 覆盖旧定义） */
-  upsertErrorCode(projectId: string, featureId: string, entry: ErrorCodeEntry, options: UpsertOptions = {}): UpsertOutcome | null {
+  upsertErrorCode(
+    projectId: string,
+    featureId: string,
+    entry: ErrorCodeEntry,
+    options: UpsertOptions = {},
+  ): UpsertOutcome | null {
     const current = this.findByFeature(featureId);
     if (!current) return null;
     const existing = Array.isArray(current.structured?.['errors'])
-      ? (current.structured?.['errors'] as ErrorCodeEntry[]).filter((item) => item && typeof item.code === 'string')
+      ? (current.structured?.['errors'] as ErrorCodeEntry[]).filter(
+          (item) => item && typeof item.code === 'string',
+        )
       : [];
     const next = [...existing.filter((item) => item.code !== entry.code), entry];
     return this.patchSection(current, 'errors', next, projectId, options);
   }
 
   /** 追加接口清单项（按 method + path 去重） */
-  upsertApi(projectId: string, featureId: string, entry: ApiEntry, options: UpsertOptions = {}): UpsertOutcome | null {
+  upsertApi(
+    projectId: string,
+    featureId: string,
+    entry: ApiEntry,
+    options: UpsertOptions = {},
+  ): UpsertOutcome | null {
     const current = this.findByFeature(featureId);
     if (!current) return null;
     const existing = Array.isArray(current.structured?.['apis'])
-      ? (current.structured?.['apis'] as ApiEntry[]).filter((item) => item && typeof item.path === 'string')
+      ? (current.structured?.['apis'] as ApiEntry[]).filter(
+          (item) => item && typeof item.path === 'string',
+        )
       : [];
-    const next = [...existing.filter((item) => !(item.method === entry.method && item.path === entry.path)), entry];
+    const next = [
+      ...existing.filter((item) => !(item.method === entry.method && item.path === entry.path)),
+      entry,
+    ];
     return this.patchSection(current, 'apis', next, projectId, options);
   }
 
   /** 追加边界条件 */
-  appendEdgeCase(projectId: string, featureId: string, text: string, options: UpsertOptions = {}): UpsertOutcome | null {
+  appendEdgeCase(
+    projectId: string,
+    featureId: string,
+    text: string,
+    options: UpsertOptions = {},
+  ): UpsertOutcome | null {
     const current = this.findByFeature(featureId);
     if (!current) return null;
     const existing = Array.isArray(current.structured?.['edgeCases'])
-      ? (current.structured?.['edgeCases'] as unknown[]).filter((item): item is string => typeof item === 'string')
+      ? (current.structured?.['edgeCases'] as unknown[]).filter(
+          (item): item is string => typeof item === 'string',
+        )
       : [];
     if (existing.includes(text)) return null;
     return this.patchSection(current, 'edgeCases', [...existing, text], projectId, options);

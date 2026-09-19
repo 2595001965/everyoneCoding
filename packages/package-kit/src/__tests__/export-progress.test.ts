@@ -48,7 +48,8 @@ describe('导出进度事件', () => {
     // 让其中一个代码文件读取失败
     const port = makeFakePort({ projects: [proj], attachments: [] });
     const originalRead = port.readCodeFile;
-    port.readCodeFile = (pid: string, rel: string) => (rel === 'src/broken.ts' ? null : originalRead(pid, rel));
+    port.readCodeFile = (pid: string, rel: string) =>
+      rel === 'src/broken.ts' ? null : originalRead(pid, rel);
 
     const snapshots: ExportProgressSnapshot[] = [];
     const onProgress = vi.fn((s: ExportProgressSnapshot) => snapshots.push(s));
@@ -58,7 +59,15 @@ describe('导出进度事件', () => {
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: allFalse(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: allFalse(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: false,
       useDefaultExcludes: false,
@@ -85,7 +94,9 @@ describe('导出进度事件', () => {
       }
     }
     // writing 阶段 total 已确定（取第一个 total > 0 的 writing 快照）
-    const writingWithTotal = snapshots.filter((s) => s.stage === 'writing').find((s) => s.total > 0);
+    const writingWithTotal = snapshots
+      .filter((s) => s.stage === 'writing')
+      .find((s) => s.total > 0);
     expect(writingWithTotal?.total).toBeGreaterThan(0);
 
     // 失败被记录（在进度快照的 failures 中）且整体完成（ok 文件仍写出）
@@ -111,7 +122,15 @@ describe('导出进度事件', () => {
         selection: {
           scope: 'all',
           projectIds: [],
-          content: { memory: fullMem(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+          content: {
+            memory: fullMem(),
+            documents: false,
+            code: true,
+            pipeline: false,
+            anchors: false,
+            registry: false,
+            attachments: false,
+          },
         },
         redact: true,
         useDefaultExcludes: true,
@@ -136,7 +155,15 @@ function projectWithSecret(): FakeProject {
     id: 'proj-ps',
     name: 'PS',
     metaJson: JSON.stringify({ id: 'proj-ps' }),
-    memory: [{ id: 'm', layer: 'project', projectId: 'proj-ps', updatedAt: 1, json: JSON.stringify({ password: 'topsecret-value' }) }],
+    memory: [
+      {
+        id: 'm',
+        layer: 'project',
+        projectId: 'proj-ps',
+        updatedAt: 1,
+        json: JSON.stringify({ password: 'topsecret-value' }),
+      },
+    ],
     documents: [],
     docContents: {},
     codeFiles: { 'src/c.ts': Buffer.from('const password = "topsecret-value";\n') },

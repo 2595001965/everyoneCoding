@@ -140,10 +140,13 @@ export function planApply(
     return { kind: 'update' as const, name: remote.name, config: remote };
   });
 
-  const incomingDefault = payload.providers.find((provider) => provider.defaultModel)?.defaultModel ?? null;
+  const incomingDefault =
+    payload.providers.find((provider) => provider.defaultModel)?.defaultModel ?? null;
   const currentDefault = options.currentDefaultModel ?? null;
   const defaultModelChange =
-    incomingDefault && incomingDefault !== currentDefault ? { before: currentDefault, after: incomingDefault } : null;
+    incomingDefault && incomingDefault !== currentDefault
+      ? { before: currentDefault, after: incomingDefault }
+      : null;
 
   return {
     revision: payload.revision,

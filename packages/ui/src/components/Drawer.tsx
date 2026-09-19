@@ -44,9 +44,7 @@ export function Drawer(props: DrawerProps): React.ReactElement | null {
   if (!isOpen) return null;
 
   const sizeStyle: React.CSSProperties =
-    placement === 'left' || placement === 'right'
-      ? { width: size }
-      : { height: size };
+    placement === 'left' || placement === 'right' ? { width: size } : { height: size };
 
   return (
     <Portal>

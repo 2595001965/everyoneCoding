@@ -68,9 +68,18 @@ export class SplitModel {
   private readonly features = new Map<string, FeatureUnit>();
   private readonly pages = new Map<string, PageUnit>();
 
-  private constructor(graph: DependencyGraph<SplitNodeData>, features: FeatureUnit[], pages: PageUnit[]) {
+  private constructor(
+    graph: DependencyGraph<SplitNodeData>,
+    features: FeatureUnit[],
+    pages: PageUnit[],
+  ) {
     this.graph = graph;
-    for (const feature of features) this.features.set(feature.id, { ...feature, dependsOn: [...feature.dependsOn], pageIds: [...feature.pageIds] });
+    for (const feature of features)
+      this.features.set(feature.id, {
+        ...feature,
+        dependsOn: [...feature.dependsOn],
+        pageIds: [...feature.pageIds],
+      });
     for (const page of pages) this.pages.set(page.id, { ...page, dependsOn: [...page.dependsOn] });
   }
 
@@ -114,7 +123,11 @@ export class SplitModel {
 
   result(): SplitResult {
     return {
-      features: [...this.features.values()].map((f) => ({ ...f, pageIds: [...f.pageIds], dependsOn: [...f.dependsOn] })),
+      features: [...this.features.values()].map((f) => ({
+        ...f,
+        pageIds: [...f.pageIds],
+        dependsOn: [...f.dependsOn],
+      })),
       pages: [...this.pages.values()].map((p) => ({ ...p, dependsOn: [...p.dependsOn] })),
     };
   }
@@ -170,11 +183,21 @@ export class SplitModel {
     const pageIds = original.pageIds;
     const first = parts[0];
     if (first !== undefined) {
-      const feature: FeatureUnit = { id: first.id, name: first.name, pageIds: [...pageIds], dependsOn: original.dependsOn };
+      const feature: FeatureUnit = {
+        id: first.id,
+        name: first.name,
+        pageIds: [...pageIds],
+        dependsOn: original.dependsOn,
+      };
       this.features.set(first.id, feature);
     }
     for (const part of parts.slice(1)) {
-      const feature: FeatureUnit = { id: part.id, name: part.name, pageIds: [], dependsOn: original.dependsOn };
+      const feature: FeatureUnit = {
+        id: part.id,
+        name: part.name,
+        pageIds: [],
+        dependsOn: original.dependsOn,
+      };
       this.features.set(part.id, feature);
     }
     for (const pageId of pageIds) {
@@ -230,7 +253,12 @@ export class SplitModel {
       if (current === undefined) continue;
       if (this.pages.has(current)) {
         const page = this.pages.get(current);
-        if (page?.featureId !== null && page?.featureId !== undefined && this.graph.has(page.featureId) && !seen.has(page.featureId)) {
+        if (
+          page?.featureId !== null &&
+          page?.featureId !== undefined &&
+          this.graph.has(page.featureId) &&
+          !seen.has(page.featureId)
+        ) {
           seen.add(page.featureId);
           direct.push(page.featureId);
           ownershipQueue.push(page.featureId);
@@ -293,8 +321,12 @@ export function parseSplitFromTechDoc(techDoc: string): SplitResult {
   const lines = techDoc.replace(/\r\n?/g, '\n').split('\n');
   for (const raw of lines) {
     const line = raw.trim();
-    const featureMatch = /^##\s*功能[:：]\s*(.+?)\s*（\s*([A-Za-z][A-Za-z0-9_-]*)\s*）\s*$/.exec(line);
-    const pageMatch = /^#{3,4}\s*页面[:：]\s*(.+?)\s*（\s*([A-Za-z][A-Za-z0-9_-]*)\s*）\s*$/.exec(line);
+    const featureMatch = /^##\s*功能[:：]\s*(.+?)\s*（\s*([A-Za-z][A-Za-z0-9_-]*)\s*）\s*$/.exec(
+      line,
+    );
+    const pageMatch = /^#{3,4}\s*页面[:：]\s*(.+?)\s*（\s*([A-Za-z][A-Za-z0-9_-]*)\s*）\s*$/.exec(
+      line,
+    );
     const depMatch = /^-\s*依赖[:：]\s*(.+)$/.exec(line);
 
     if (featureMatch !== null) {
@@ -308,17 +340,24 @@ export function parseSplitFromTechDoc(techDoc: string): SplitResult {
     if (pageMatch !== null) {
       const name = pageMatch[1]?.trim() ?? '';
       const id = pageMatch[2] as string;
-      const page: PageUnit = { id, name, featureId: currentFeature?.id ?? null, dependsOn: [], route: null };
+      const page: PageUnit = {
+        id,
+        name,
+        featureId: currentFeature?.id ?? null,
+        dependsOn: [],
+        route: null,
+      };
       pages.push(page);
       if (currentFeature !== null) currentFeature.pageIds.push(id);
       currentUnitId = id;
       continue;
     }
     if (depMatch !== null && currentUnitId !== null) {
-      const deps = depMatch[1]
-        ?.split(/[,，、\s]+/)
-        .map((part) => part.trim())
-        .filter((part) => /^[A-Za-z][A-Za-z0-9_-]*$/.test(part)) ?? [];
+      const deps =
+        depMatch[1]
+          ?.split(/[,，、\s]+/)
+          .map((part) => part.trim())
+          .filter((part) => /^[A-Za-z][A-Za-z0-9_-]*$/.test(part)) ?? [];
       for (const dep of deps) {
         const feature = features.find((candidate) => candidate.id === currentUnitId);
         if (feature !== undefined) {
@@ -339,7 +378,12 @@ export function createSampleSplit(): SplitResult {
   return {
     features: [
       { id: 'f-auth', name: '认证与账号', pageIds: ['p-login', 'p-register'], dependsOn: [] },
-      { id: 'f-user', name: '用户中心', pageIds: ['p-profile', 'p-settings'], dependsOn: ['f-auth'] },
+      {
+        id: 'f-user',
+        name: '用户中心',
+        pageIds: ['p-profile', 'p-settings'],
+        dependsOn: ['f-auth'],
+      },
       { id: 'f-catalog', name: '商品目录', pageIds: ['p-list', 'p-detail'], dependsOn: [] },
       { id: 'f-cart', name: '购物车', pageIds: ['p-cart'], dependsOn: ['f-user', 'f-catalog'] },
       { id: 'f-order', name: '订单', pageIds: ['p-order'], dependsOn: ['f-cart', 'f-user'] },
@@ -350,7 +394,13 @@ export function createSampleSplit(): SplitResult {
       { id: 'p-profile', name: '个人资料', featureId: 'f-user', dependsOn: [], route: '/profile' },
       { id: 'p-settings', name: '设置页', featureId: 'f-user', dependsOn: [], route: '/settings' },
       { id: 'p-list', name: '商品列表', featureId: 'f-catalog', dependsOn: [], route: '/products' },
-      { id: 'p-detail', name: '商品详情', featureId: 'f-catalog', dependsOn: [], route: '/products/:id' },
+      {
+        id: 'p-detail',
+        name: '商品详情',
+        featureId: 'f-catalog',
+        dependsOn: [],
+        route: '/products/:id',
+      },
       { id: 'p-cart', name: '购物车页', featureId: 'f-cart', dependsOn: [], route: '/cart' },
       { id: 'p-order', name: '订单页', featureId: 'f-order', dependsOn: [], route: '/orders' },
     ],

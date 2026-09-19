@@ -92,7 +92,8 @@ export function apiToTarget(api: NavApiRef): NavTarget {
 
 /** 后端模块 → 跳转目标（层级随角色变化） */
 export function moduleToTarget(mod: NavModuleRef): NavTarget {
-  const layer = mod.role === 'controller' ? 0 : mod.role === 'service' ? 1 : mod.role === 'repo' ? 2 : 4;
+  const layer =
+    mod.role === 'controller' ? 0 : mod.role === 'service' ? 1 : mod.role === 'repo' ? 2 : 4;
   return {
     id: `module:${mod.id}`,
     kind: 'backend-module',
@@ -213,7 +214,8 @@ export function scoreTarget(input: {
 
   const keyword = input.keyword.trim().toLowerCase();
   if (keyword.length > 0) {
-    const haystack = `${input.target.label} ${input.target.detail} ${input.target.symbol ?? ''}`.toLowerCase();
+    const haystack =
+      `${input.target.label} ${input.target.detail} ${input.target.symbol ?? ''}`.toLowerCase();
     // 关键词按空白分词，命中任一词即视为命名匹配（默认关键词为"元素名 + 路由尾"）
     const tokens = keyword.split(/\s+/).filter((token) => token.length > 0);
     if (tokens.some((token) => haystack.includes(token))) {
@@ -275,7 +277,9 @@ export interface HoverTargetsInput {
  * 全部统一打分后按**未封顶 raw 分**降序返回。
  */
 export function resolveHoverTargets(input: HoverTargetsInput): NavTarget[] {
-  const keyword = (input.keyword ?? `${input.element.name} ${lastSegment(input.page.route)}`).trim();
+  const keyword = (
+    input.keyword ?? `${input.element.name} ${lastSegment(input.page.route)}`
+  ).trim();
 
   const targets: NavTarget[] = [];
   for (const anchor of input.anchors) {
@@ -288,7 +292,8 @@ export function resolveHoverTargets(input: HoverTargetsInput): NavTarget[] {
   for (const doc of input.source.listDocSections()) targets.push(docToTarget(doc));
 
   const scored = targets.map((target) => {
-    const anchor = input.anchors.find((candidate) => `anchor:${candidate.id}` === target.id) ?? null;
+    const anchor =
+      input.anchors.find((candidate) => `anchor:${candidate.id}` === target.id) ?? null;
     const confidence = anchor === null ? 0 : anchorConfidenceOf(anchor);
     const { score, reasons } = scoreTarget({
       target,

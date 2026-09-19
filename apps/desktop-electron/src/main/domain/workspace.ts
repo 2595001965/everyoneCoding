@@ -1,4 +1,13 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import type Database from 'better-sqlite3';
 
@@ -35,7 +44,13 @@ import {
   type ElementNode,
   type Platform,
 } from '@ec/designer/dsl';
-import { ShellError, WORKSPACE_IMPORT_PROGRESS_EVENT, type ShellErrorCode, type WorkspaceImportProgressEvent, type WorkspaceImportStage } from '@ec/shell-api';
+import {
+  ShellError,
+  WORKSPACE_IMPORT_PROGRESS_EVENT,
+  type ShellErrorCode,
+  type WorkspaceImportProgressEvent,
+  type WorkspaceImportStage,
+} from '@ec/shell-api';
 
 import { LOCAL_USER_ID } from './db';
 import { resolveCodeRoot, writeCodeRootPointer } from './code-root';
@@ -79,7 +94,15 @@ interface Counts {
 }
 
 /** 七端常量（`@ec/core` 的 `TARGET_PLATFORM_KEYS` 的本地镜像，用于 DSL 平台名校验） */
-const PLATFORM_KEYS: readonly string[] = ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos'];
+const PLATFORM_KEYS: readonly string[] = [
+  'web',
+  'android',
+  'ios',
+  'harmonyos',
+  'windows',
+  'linux',
+  'macos',
+];
 
 function toShellError(error: unknown): never {
   if (error instanceof ProjectDomainError) {
@@ -129,7 +152,9 @@ function buildElementNode(template: TemplateElement, nextId: () => string): Elem
     ...(template.name !== undefined ? { name: template.name } : {}),
     ...(template.props !== undefined ? { props: template.props } : {}),
     ...(template.style !== undefined ? { style: template.style } : {}),
-    ...(children.length > 0 ? { children: children.map((child) => buildElementNode(child, nextId)) } : {}),
+    ...(children.length > 0
+      ? { children: children.map((child) => buildElementNode(child, nextId)) }
+      : {}),
   });
 }
 
@@ -142,7 +167,8 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
   /** 幂等建出工程目录结构（与 WorkspaceLayout 的约定一致） */
   const ensureProjectDirs = (id: string): void => {
     mkdirSync(projectDir(id), { recursive: true });
-    for (const subdir of PROJECT_SUBDIRS) mkdirSync(join(projectDir(id), subdir), { recursive: true });
+    for (const subdir of PROJECT_SUBDIRS)
+      mkdirSync(join(projectDir(id), subdir), { recursive: true });
   };
 
   /**
@@ -152,7 +178,11 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
    * 这是"复制"的语义，与"重新生成"（模板/导入）不同，因此可以直接落库。
    */
   const duplicatePort: ProjectDuplicatePort = {
-    async copyResources(sourceId: string, targetId: string, opts: DuplicateOptions): Promise<Counts> {
+    async copyResources(
+      sourceId: string,
+      targetId: string,
+      opts: DuplicateOptions,
+    ): Promise<Counts> {
       const counts: Counts = { design: 0, memory: 0, docs: 0, codeFiles: 0 };
 
       const tx = db.transaction(() => {
@@ -165,7 +195,15 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
             db.prepare(
               `INSERT INTO page (id, project_id, feature_id, name, route, dsl_ref, created_at, updated_at)
                VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`,
-            ).run(newPageId, targetId, page['name'], page['route'], page['dsl_ref'], Date.now(), Date.now());
+            ).run(
+              newPageId,
+              targetId,
+              page['name'],
+              page['route'],
+              page['dsl_ref'],
+              Date.now(),
+              Date.now(),
+            );
             const elements = db
               .prepare(`SELECT * FROM element WHERE page_id = ? ORDER BY order_index`)
               .all(String(page['id'])) as Array<Record<string, unknown>>;
@@ -193,9 +231,9 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
         }
 
         if (opts.includeMemory) {
-          const items = db.prepare(`SELECT * FROM memory_item WHERE project_id = ?`).all(sourceId) as Array<
-            Record<string, unknown>
-          >;
+          const items = db
+            .prepare(`SELECT * FROM memory_item WHERE project_id = ?`)
+            .all(sourceId) as Array<Record<string, unknown>>;
           for (const item of items) {
             db.prepare(
               `INSERT INTO memory_item (id, user_id, scope, project_id, feature_id, page_id, element_id, issue_id,
@@ -224,9 +262,9 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
         }
 
         if (opts.includeDocs) {
-          const docs = db.prepare(`SELECT * FROM document WHERE project_id = ?`).all(sourceId) as Array<
-            Record<string, unknown>
-          >;
+          const docs = db
+            .prepare(`SELECT * FROM document WHERE project_id = ?`)
+            .all(sourceId) as Array<Record<string, unknown>>;
           for (const doc of docs) {
             db.prepare(
               `INSERT INTO document (id, project_id, kind, title, content_ref, version, created_at, updated_at,
@@ -268,7 +306,10 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
     },
   };
 
-  const service = new ProjectService({ store: createSqliteProjectStore(db), duplicate: duplicatePort });
+  const service = new ProjectService({
+    store: createSqliteProjectStore(db),
+    duplicate: duplicatePort,
+  });
 
   /* ----------------------------- 仪表盘聚合 ----------------------------- */
 
@@ -306,7 +347,9 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
    */
   const projectStage = (projectId: string): ProjectStageInfo | null => {
     const latest = db
-      .prepare(`SELECT stage, status FROM pipeline_run WHERE project_id = ? ORDER BY updated_at DESC LIMIT 1`)
+      .prepare(
+        `SELECT stage, status FROM pipeline_run WHERE project_id = ? ORDER BY updated_at DESC LIMIT 1`,
+      )
       .get(projectId) as { stage: string; status: string } | undefined;
     if (!latest) return null;
     return {
@@ -316,7 +359,10 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
         `SELECT COUNT(DISTINCT stage) AS n FROM pipeline_run WHERE project_id = ? AND status = 'confirmed'`,
         projectId,
       ),
-      total: countRows(`SELECT COUNT(DISTINCT stage) AS n FROM pipeline_run WHERE project_id = ?`, projectId),
+      total: countRows(
+        `SELECT COUNT(DISTINCT stage) AS n FROM pipeline_run WHERE project_id = ?`,
+        projectId,
+      ),
     };
   };
 
@@ -332,7 +378,10 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
     const pageTotal = countRows(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`, projectId);
     const byPlatform = pagesByPlatform(projectId);
 
-    const featureTotal = countRows(`SELECT COUNT(*) AS n FROM feature WHERE project_id = ?`, projectId);
+    const featureTotal = countRows(
+      `SELECT COUNT(*) AS n FROM feature WHERE project_id = ?`,
+      projectId,
+    );
     // 假定完成态标记为 'done'（表默认 'planned'）；写入端装配后需复核该取值
     const featureDone = countRows(
       `SELECT COUNT(*) AS n FROM feature WHERE project_id = ? AND status = 'done'`,
@@ -353,11 +402,16 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
       )
       .all(projectId) as Array<{ model_id: string; tokens: number | null; cost: number | null }>;
     const periodRows = db
-      .prepare(`SELECT COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(cost), 0) AS cost FROM usage_record WHERE project_id = ? AND created_at >= ?`)
+      .prepare(
+        `SELECT COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(cost), 0) AS cost FROM usage_record WHERE project_id = ? AND created_at >= ?`,
+      )
       .get(projectId, periodStartMs) as { tokens: number; cost: number };
 
     return {
-      memory: { total: countRows(`SELECT COUNT(*) AS n FROM memory_item WHERE project_id = ?`, projectId), byScope },
+      memory: {
+        total: countRows(`SELECT COUNT(*) AS n FROM memory_item WHERE project_id = ?`, projectId),
+        byScope,
+      },
       pages: { total: pageTotal, byPlatform },
       features: {
         done: featureDone,
@@ -370,7 +424,11 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
         periodCost: periodRows.cost,
         totalTokens: usageRows.reduce((sum, row) => sum + (row.tokens ?? 0), 0),
         totalCost: usageRows.reduce((sum, row) => sum + (row.cost ?? 0), 0),
-        byModel: usageRows.map((row) => ({ modelId: row.model_id, tokens: row.tokens ?? 0, cost: row.cost ?? 0 })),
+        byModel: usageRows.map((row) => ({
+          modelId: row.model_id,
+          tokens: row.tokens ?? 0,
+          cost: row.cost ?? 0,
+        })),
       },
       // Git 提交记录需要调用 git（克隆/日志能力属 @ec/git，尚未在域内装配），此处如实为空
       git: { recent: [] },
@@ -382,7 +440,9 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
     switch (key) {
       case 'memory': {
         const rows = db
-          .prepare(`SELECT scope, COUNT(*) AS n FROM memory_item WHERE project_id = ? GROUP BY scope ORDER BY n DESC`)
+          .prepare(
+            `SELECT scope, COUNT(*) AS n FROM memory_item WHERE project_id = ? GROUP BY scope ORDER BY n DESC`,
+          )
           .all(projectId) as Array<{ scope: string; n: number }>;
         return {
           key,
@@ -397,12 +457,18 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
         return {
           key,
           title: '页面明细',
-          rows: rows.map((row) => ({ label: row.name, value: row.route ?? '未设置路由', refId: row.id })),
+          rows: rows.map((row) => ({
+            label: row.name,
+            value: row.route ?? '未设置路由',
+            refId: row.id,
+          })),
         };
       }
       case 'features': {
         const rows = db
-          .prepare(`SELECT id, name, status FROM feature WHERE project_id = ? ORDER BY updated_at DESC`)
+          .prepare(
+            `SELECT id, name, status FROM feature WHERE project_id = ? ORDER BY updated_at DESC`,
+          )
           .all(projectId) as Array<{ id: string; name: string; status: string }>;
         return {
           key,
@@ -416,7 +482,11 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
             `SELECT COALESCE(model_id, '未标注') AS model_id, SUM(total_tokens) AS tokens, SUM(COALESCE(cost, 0)) AS cost
                FROM usage_record WHERE project_id = ? GROUP BY COALESCE(model_id, '未标注') ORDER BY tokens DESC`,
           )
-          .all(projectId) as Array<{ model_id: string; tokens: number | null; cost: number | null }>;
+          .all(projectId) as Array<{
+          model_id: string;
+          tokens: number | null;
+          cost: number | null;
+        }>;
         return {
           key,
           title: '用量明细',
@@ -452,7 +522,10 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
         }
 
         case 'updateProject':
-          return await service.updateProject(String(params['id']), (params['patch'] ?? {}) as UpdateProjectPatch);
+          return await service.updateProject(
+            String(params['id']),
+            (params['patch'] ?? {}) as UpdateProjectPatch,
+          );
 
         case 'markOpened':
           await service.markOpened(String(params['id']));
@@ -487,13 +560,20 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
 
         case 'duplicateProject': {
           const id = String(params['id']);
-          const duplicated = await service.duplicateProject(id, (params['options'] ?? {}) as DuplicateOptions);
+          const duplicated = await service.duplicateProject(
+            id,
+            (params['options'] ?? {}) as DuplicateOptions,
+          );
           ensureProjectDirs(duplicated.project.id);
           return duplicated;
         }
 
         case 'createFromTemplate': {
-          const input = params['input'] as { templateId: string; name: string; description?: string | undefined };
+          const input = params['input'] as {
+            templateId: string;
+            name: string;
+            description?: string | undefined;
+          };
           const template = findTemplate(input.templateId);
           if (!template) throw new ShellError('NOT_FOUND', `模板不存在：${input.templateId}`);
 
@@ -593,7 +673,10 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
             );
           }
           if (targetDir.length === 0) {
-            throw new ShellError('INVALID_ARGUMENT', '克隆目录不能为空：请指定一个空目录作为仓库落点。');
+            throw new ShellError(
+              'INVALID_ARGUMENT',
+              '克隆目录不能为空：请指定一个空目录作为仓库落点。',
+            );
           }
 
           const gitPort = createGitImportPort();
@@ -605,7 +688,11 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
           }
 
           // 三阶段进度经域事件通道回渲染层（此前 clone 回调被出口剥掉、界面只能干等）
-          const report = (stage: WorkspaceImportStage, ratio: number | null, message: string): void => {
+          const report = (
+            stage: WorkspaceImportStage,
+            ratio: number | null,
+            message: string,
+          ): void => {
             const progress: WorkspaceImportProgressEvent = {
               type: WORKSPACE_IMPORT_PROGRESS_EVENT,
               stage,
@@ -631,7 +718,9 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
 
           try {
             report('clone', 0, '正在克隆仓库…');
-            await gitPort.clone(url, targetDir, (ratio, message) => report('clone', ratio, message));
+            await gitPort.clone(url, targetDir, (ratio, message) =>
+              report('clone', ratio, message),
+            );
             report('inspect', null, '克隆完成，正在扫描仓库文件…');
             const snapshot = await gitPort.inspect(targetDir);
             report('finalize', null, '正在生成项目与记忆…');
@@ -639,7 +728,9 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
 
             const updated = await service.updateProject(created.id, {
               ...(profile.platforms.length > 0 ? { targetPlatforms: profile.platforms } : {}),
-              ...(Object.keys(profile.techStack).length > 0 ? { techStackFingerprint: profile.techStack } : {}),
+              ...(Object.keys(profile.techStack).length > 0
+                ? { techStackFingerprint: profile.techStack }
+                : {}),
             });
 
             // 推断出的项目记忆草稿（技术栈 / 框架依据）落库，与模板新建同一口径
@@ -753,7 +844,10 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
 }
 
 /** 供测试与诊断：工程目录是否存在且结构完整 */
-export function validateProjectLayout(projectsDir: string, projectId: string): WorkspaceValidateResult {
+export function validateProjectLayout(
+  projectsDir: string,
+  projectId: string,
+): WorkspaceValidateResult {
   const root = join(projectsDir, projectId);
   const missing: string[] = [];
   if (!existsSync(root)) missing.push(root);

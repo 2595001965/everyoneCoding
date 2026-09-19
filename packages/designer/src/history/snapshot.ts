@@ -27,7 +27,11 @@ export type DslOp =
   | { op: 'replaceDsl'; dsl: PageDsl };
 
 /** 生成增量操作；变更过大或包含复杂重排时退化为整树替换 */
-export function diffToOps(previous: PageDsl, next: PageDsl, options: { maxOps?: number } = {}): DslOp[] {
+export function diffToOps(
+  previous: PageDsl,
+  next: PageDsl,
+  options: { maxOps?: number } = {},
+): DslOp[] {
   const maxOps = options.maxOps ?? 40;
   const diff = diffTrees(previous, next);
   if (diffSize(diff) > maxOps) return [{ op: 'replaceDsl', dsl: next }];
@@ -50,7 +54,9 @@ export function diffToOps(previous: PageDsl, next: PageDsl, options: { maxOps?: 
 
   // 删除：深度大的先删，避免父节点被删后子节点找不到
   const depthOf = new Map(walkElements(previous.tree).map((entry) => [entry.node.id, entry.depth]));
-  const removed = [...diff.removed].sort((a, b) => (depthOf.get(b.id) ?? 0) - (depthOf.get(a.id) ?? 0));
+  const removed = [...diff.removed].sort(
+    (a, b) => (depthOf.get(b.id) ?? 0) - (depthOf.get(a.id) ?? 0),
+  );
   for (const entry of removed) ops.push({ op: 'removeNode', id: entry.id });
 
   // 新增：只插入「最上层」的新增节点（整棵子树一起插入），避免子孙重复插入
@@ -58,18 +64,39 @@ export function diffToOps(previous: PageDsl, next: PageDsl, options: { maxOps?: 
   const topAdded = diff.added
     .filter((entry) => entry.parentId === null || !addedIds.has(entry.parentId))
     .sort((a, b) => a.index - b.index);
-  for (const entry of topAdded) ops.push({ op: 'insertNode', parentId: entry.parentId ?? previous.tree.id, index: entry.index, node: entry.node });
+  for (const entry of topAdded)
+    ops.push({
+      op: 'insertNode',
+      parentId: entry.parentId ?? previous.tree.id,
+      index: entry.index,
+      node: entry.node,
+    });
 
   // 移动：两段处理——目标父节点已存在的先做，目标父节点是本次新增的放后面
   const existingIds = new Set(walkElements(previous.tree).map((entry) => entry.node.id));
-  const firstPhase = diff.moved.filter((entry) => entry.parentId !== null && (existingIds.has(entry.parentId) || entry.parentId === previous.tree.id));
+  const firstPhase = diff.moved.filter(
+    (entry) =>
+      entry.parentId !== null &&
+      (existingIds.has(entry.parentId) || entry.parentId === previous.tree.id),
+  );
   const secondPhase = diff.moved.filter((entry) => !firstPhase.includes(entry));
-  const byDepth = (a: { id: string }, b: { id: string }): number => (depthOf.get(a.id) ?? 0) - (depthOf.get(b.id) ?? 0);
+  const byDepth = (a: { id: string }, b: { id: string }): number =>
+    (depthOf.get(a.id) ?? 0) - (depthOf.get(b.id) ?? 0);
   for (const entry of [...firstPhase].sort(byDepth)) {
-    ops.push({ op: 'moveNode', id: entry.id, parentId: entry.parentId ?? previous.tree.id, index: entry.index });
+    ops.push({
+      op: 'moveNode',
+      id: entry.id,
+      parentId: entry.parentId ?? previous.tree.id,
+      index: entry.index,
+    });
   }
   for (const entry of [...secondPhase].sort(byDepth)) {
-    ops.push({ op: 'moveNode', id: entry.id, parentId: entry.parentId ?? previous.tree.id, index: entry.index });
+    ops.push({
+      op: 'moveNode',
+      id: entry.id,
+      parentId: entry.parentId ?? previous.tree.id,
+      index: entry.index,
+    });
   }
 
   // 修改：避免把 type 变更当普通字段（type 变更用整树替换更稳）
@@ -77,7 +104,9 @@ export function diffToOps(previous: PageDsl, next: PageDsl, options: { maxOps?: 
     const fields: Partial<ElementNode> = {};
     for (const key of entry.changedKeys) {
       if (key === 'type') continue;
-      (fields as Record<string, unknown>)[key] = (entry.after as unknown as Record<string, unknown>)[key];
+      (fields as Record<string, unknown>)[key] = (
+        entry.after as unknown as Record<string, unknown>
+      )[key];
     }
     if (Object.keys(fields).length > 0) ops.push({ op: 'updateNode', id: entry.id, fields });
   }
@@ -231,7 +260,8 @@ export class HistoryStore {
       pageId: input.dsl.id,
       createdAt: now,
       reason: input.reason,
-      changedElements: diff.added.length + diff.removed.length + diff.moved.length + diff.modified.length,
+      changedElements:
+        diff.added.length + diff.removed.length + diff.moved.length + diff.modified.length,
       sizeBytes: byteLength(encoded),
       kind: 'delta',
       ...(input.label !== undefined ? { label: input.label } : {}),
@@ -288,7 +318,10 @@ export class HistoryStore {
    * 回滚到指定快照：**回滚前先把当前状态存为快照**（保证回滚本身可再次撤销）。
    * @returns 回滚后的 DSL，快照不存在时返回 null
    */
-  rollback(snapshotId: string, options: { now?: number; currentDsl?: PageDsl } = {}): PageDsl | null {
+  rollback(
+    snapshotId: string,
+    options: { now?: number; currentDsl?: PageDsl } = {},
+  ): PageDsl | null {
     const target = this.materialize(snapshotId);
     if (target === null) return null;
     const current = options.currentDsl ?? this.latestDsl();
@@ -336,7 +369,9 @@ export class HistoryStore {
   private trim(): void {
     while (this.records.length > this.maxSnapshots) {
       this.records.shift();
-      this.deltaCountSinceBaseline = this.records.filter((record) => record.meta.kind === 'delta').length;
+      this.deltaCountSinceBaseline = this.records.filter(
+        (record) => record.meta.kind === 'delta',
+      ).length;
     }
   }
 }

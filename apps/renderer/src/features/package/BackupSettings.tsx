@@ -52,7 +52,10 @@ export function BackupSettings(): JSX.Element {
   useEffect(() => {
     if (api === null) return;
     void (async () => {
-      const [loadedSettings, snapshotList] = await Promise.all([api.getBackupSettings(), api.listSnapshots()]);
+      const [loadedSettings, snapshotList] = await Promise.all([
+        api.getBackupSettings(),
+        api.listSnapshots(),
+      ]);
       setSettings(loadedSettings);
       setSnapshots(snapshotList);
       setLoaded(true);
@@ -135,7 +138,9 @@ export function BackupSettings(): JSX.Element {
             options={FREQUENCY_OPTIONS}
             value={settings.frequency}
             aria-label="备份频率"
-            onChange={(value) => setSettings((prev) => ({ ...prev, frequency: value as BackupFrequency }))}
+            onChange={(value) =>
+              setSettings((prev) => ({ ...prev, frequency: value as BackupFrequency }))
+            }
           />
         </label>
 
@@ -165,7 +170,10 @@ export function BackupSettings(): JSX.Element {
             aria-label="保留份数"
             onChange={(value) => {
               const parsed = Number(value);
-              setSettings((prev) => ({ ...prev, keepCount: Number.isFinite(parsed) ? Math.floor(parsed) : 0 }));
+              setSettings((prev) => ({
+                ...prev,
+                keepCount: Number.isFinite(parsed) ? Math.floor(parsed) : 0,
+              }));
             }}
           />
         </label>
@@ -194,7 +202,8 @@ export function BackupSettings(): JSX.Element {
         <ul aria-label="备份快照">
           {snapshots.map((snapshot) => (
             <li key={snapshot.path}>
-              <code>{snapshot.fileName}</code> · {formatTime(snapshot.createdAt)} · {formatBytes(snapshot.sizeBytes)}
+              <code>{snapshot.fileName}</code> · {formatTime(snapshot.createdAt)} ·{' '}
+              {formatBytes(snapshot.sizeBytes)}
               <Button size="sm" disabled={busy} onClick={() => setPendingRestore(snapshot)}>
                 回滚到此快照
               </Button>

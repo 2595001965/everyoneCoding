@@ -8,12 +8,7 @@ import { ShellError } from './errors';
 import { MockShell, type MockShellOptions } from './mock';
 import type { ShellCapabilities, ShellHost, ShellKind } from './types';
 
-export {
-  AI_RPC_METHODS,
-  aiErrorFromUnknown,
-  createRequestId,
-  isAiRpcMethod,
-} from './ai-control';
+export { AI_RPC_METHODS, aiErrorFromUnknown, createRequestId, isAiRpcMethod } from './ai-control';
 export type { AiControlHost } from './ai-control';
 export {
   DOMAIN_KINDS,
@@ -56,7 +51,14 @@ export type {
 } from './ai-control';
 export * from './types';
 export * from './errors';
-export { MockShell, MockFileSystem, MockProcessApi, createPathApi, createMockAiControlHost, createMockDomainControlHost } from './mock';
+export {
+  MockShell,
+  MockFileSystem,
+  MockProcessApi,
+  createPathApi,
+  createMockAiControlHost,
+  createMockDomainControlHost,
+} from './mock';
 export type {
   MockShellOptions,
   MockProcessHandle,

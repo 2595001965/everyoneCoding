@@ -56,7 +56,12 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
     const adapter = new OpenAiAdapter();
     const result = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], stream: false },
+        {
+          provider: provider(server.url),
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: false,
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
       ),
     );
@@ -85,7 +90,11 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
     const adapter = new OpenAiAdapter();
     const result = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }] },
+        {
+          provider: provider(server.url),
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'hi' }],
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
       ),
     );
@@ -106,7 +115,11 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
                 role: 'assistant',
                 content: null,
                 tool_calls: [
-                  { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"上海"}' } },
+                  {
+                    id: 'call_1',
+                    type: 'function',
+                    function: { name: 'get_weather', arguments: '{"city":"上海"}' },
+                  },
                 ],
               },
               finish_reason: 'tool_calls',
@@ -119,23 +132,42 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
     const adapter = new OpenAiAdapter();
     const result = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: '天气' }], stream: false },
+        {
+          provider: provider(server.url),
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: '天气' }],
+          stream: false,
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
       ),
     );
     expect(result.toolCalls).toHaveLength(1);
-    expect(result.toolCalls[0]).toEqual({ id: 'call_1', name: 'get_weather', arguments: { city: '上海' } });
+    expect(result.toolCalls[0]).toEqual({
+      id: 'call_1',
+      name: 'get_weather',
+      arguments: { city: '上海' },
+    });
   });
 
   it('错误映射：401 / 429 / 超时分别归类', async () => {
     server = await startMockServer([
-      { method: 'POST', path: '/v1/chat/completions', status: 401, body: '{"error":{"message":"bad key"}}' },
+      {
+        method: 'POST',
+        path: '/v1/chat/completions',
+        status: 401,
+        body: '{"error":{"message":"bad key"}}',
+      },
     ]);
     const adapter = new OpenAiAdapter();
     await expect(
       collect(
         adapter.chat(
-          { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], stream: false },
+          {
+            provider: provider(server.url),
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: 'hi' }],
+            stream: false,
+          },
           { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
         ),
       ),
@@ -153,7 +185,12 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
     ]);
     const limited = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], stream: false },
+        {
+          provider: provider(server.url),
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: false,
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
       ),
     ).catch((error: unknown) => error);
@@ -162,12 +199,22 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
 
     await server.close();
     server = await startMockServer([
-      { method: 'POST', path: '/v1/chat/completions', status: 408, body: '{"error":{"message":"timeout"}}' },
+      {
+        method: 'POST',
+        path: '/v1/chat/completions',
+        status: 408,
+        body: '{"error":{"message":"timeout"}}',
+      },
     ]);
     await expect(
       collect(
         adapter.chat(
-          { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], stream: false },
+          {
+            provider: provider(server.url),
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: 'hi' }],
+            stream: false,
+          },
           { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
         ),
       ),
@@ -179,7 +226,9 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
       {
         method: 'GET',
         path: '/v1/models',
-        body: JSON.stringify({ data: [{ id: 'gpt-4o', context_window: 128000 }, { id: 'gpt-4o-mini' }] }),
+        body: JSON.stringify({
+          data: [{ id: 'gpt-4o', context_window: 128000 }, { id: 'gpt-4o-mini' }],
+        }),
       },
     ]);
     const adapter = new OpenAiAdapter();
@@ -197,10 +246,13 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
       { method: 'GET', path: '/v1/models', status: 403, body: '{"error":{"message":"forbidden"}}' },
     ]);
     const adapter = new OpenAiAdapter();
-    const discovery = await adapter.listModels(provider(server.url, { manualModels: ['my-model'] }), {
-      transport: createNodeHttpTransport(),
-      apiKey: 'sk-test',
-    });
+    const discovery = await adapter.listModels(
+      provider(server.url, { manualModels: ['my-model'] }),
+      {
+        transport: createNodeHttpTransport(),
+        apiKey: 'sk-test',
+      },
+    );
     expect(discovery.source).toBe('manual');
     expect(discovery.models.map((model) => model.name)).toEqual(['my-model']);
   });
@@ -211,7 +263,10 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
       {
         method: 'POST',
         path: '/v1/chat/completions',
-        body: JSON.stringify({ choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 1 } }),
+        body: JSON.stringify({
+          choices: [{ message: { content: 'ok' } }],
+          usage: { prompt_tokens: 1 },
+        }),
       },
     ]);
 
@@ -230,7 +285,12 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
   it('连接测试：对话不可用时返回失败与建议', async () => {
     server = await startMockServer([
       { method: 'GET', path: '/v1/models', body: JSON.stringify({ data: [{ id: 'gpt-4o' }] }) },
-      { method: 'POST', path: '/v1/chat/completions', status: 401, body: '{"error":{"message":"bad key"}}' },
+      {
+        method: 'POST',
+        path: '/v1/chat/completions',
+        status: 401,
+        body: '{"error":{"message":"bad key"}}',
+      },
     ]);
     const result = await runConnectionTest(new OpenAiAdapter(), provider(server.url), {
       transport: createNodeHttpTransport(),
@@ -247,13 +307,20 @@ describe('OpenAI 兼容适配器（本地 mock 服务，真实 HTTP）', () => {
       {
         method: 'POST',
         path: '/v1/chat/completions',
-        body: sse(['{"choices":[{"delta":{"content":"A"}}]}', '{"choices":[{"delta":{},"finish_reason":"stop"}]}']),
+        body: sse([
+          '{"choices":[{"delta":{"content":"A"}}]}',
+          '{"choices":[{"delta":{},"finish_reason":"stop"}]}',
+        ]),
       },
     ]);
     const adapter = new OpenAiAdapter();
     const result = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }] },
+        {
+          provider: provider(server.url),
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'hi' }],
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-test' },
       ),
     );

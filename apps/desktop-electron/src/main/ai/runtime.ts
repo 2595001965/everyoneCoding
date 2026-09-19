@@ -3,7 +3,16 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 
-import { aiErrorFromUnknown, AI_RPC_METHODS, isAiRpcMethod, type AiControlServiceHost, type AiRpcRequest, type AiRpcResponse, type AiStreamEvent, type AiStreamRequest } from '@ec/shell-api';
+import {
+  aiErrorFromUnknown,
+  AI_RPC_METHODS,
+  isAiRpcMethod,
+  type AiControlServiceHost,
+  type AiRpcRequest,
+  type AiRpcResponse,
+  type AiStreamEvent,
+  type AiStreamRequest,
+} from '@ec/shell-api';
 import { SecureStore } from '@ec/core';
 import { Migrator } from '@ec/data';
 import type { SecureNamespace } from '@ec/shell-api';
@@ -20,12 +29,24 @@ export interface ElectronAiRuntimeOptions {
 }
 
 const KEY_PATTERN = /^[A-Za-z0-9._-]{1,120}$/;
-const namespaces = new Set<SecureNamespace>(['ai-key', 'oauth-token', 'git-credential', 'app-secret']);
+const namespaces = new Set<SecureNamespace>([
+  'ai-key',
+  'oauth-token',
+  'git-credential',
+  'app-secret',
+]);
 
-export async function createElectronAiRuntime(options: ElectronAiRuntimeOptions): Promise<AiControlServiceHost> {
+export async function createElectronAiRuntime(
+  options: ElectronAiRuntimeOptions,
+): Promise<AiControlServiceHost> {
   if (!options.dataDir || !options.secureDir) throw new Error('AI runtime 目录不能为空');
   if (!options.safeStorage || !options.safeStorage.isEncryptionAvailable()) {
-    throw new Error(JSON.stringify({ code: 'ENCRYPT_FAILED', message: '系统安全存储不可用，AI Key 不会降级为明文存储' }));
+    throw new Error(
+      JSON.stringify({
+        code: 'ENCRYPT_FAILED',
+        message: '系统安全存储不可用，AI Key 不会降级为明文存储',
+      }),
+    );
   }
   await fsp.mkdir(options.dataDir, { recursive: true });
   await fsp.mkdir(options.secureDir, { recursive: true });
@@ -42,8 +63,16 @@ export async function createElectronAiRuntime(options: ElectronAiRuntimeOptions)
   const control = stack.control;
 
   const invoke = async (request: AiRpcRequest): Promise<AiRpcResponse> => {
-    if (!request || typeof request.requestId !== 'string' || !isAiRpcMethod(request.method, AI_RPC_METHODS)) {
-      return { requestId: request?.requestId ?? 'invalid', ok: false, error: { code: 'INVALID_ARGUMENT', message: 'AI RPC 方法不在白名单内' } };
+    if (
+      !request ||
+      typeof request.requestId !== 'string' ||
+      !isAiRpcMethod(request.method, AI_RPC_METHODS)
+    ) {
+      return {
+        requestId: request?.requestId ?? 'invalid',
+        ok: false,
+        error: { code: 'INVALID_ARGUMENT', message: 'AI RPC 方法不在白名单内' },
+      };
     }
     try {
       const params = asRecord(request.params);
@@ -63,7 +92,9 @@ export async function createElectronAiRuntime(options: ElectronAiRuntimeOptions)
         const purpose = request.purpose as Parameters<typeof stack.gateway.chat>[0]['purpose'];
         const messages = request.messages as Parameters<typeof stack.gateway.chat>[0]['messages'];
         for await (const chunk of stack.gateway.chat({
-          userId, purpose, messages,
+          userId,
+          purpose,
+          messages,
           ...(request.projectId !== undefined ? { projectId: request.projectId } : {}),
           ...(request.modelId !== undefined ? { modelId: request.modelId } : {}),
           ...(request.providerId !== undefined ? { providerId: request.providerId } : {}),
@@ -72,8 +103,13 @@ export async function createElectronAiRuntime(options: ElectronAiRuntimeOptions)
           signal: controller.signal,
         })) {
           if (chunk.type === 'done') emit(chunk);
-          else if (chunk.type === 'error') emit({ type: 'error', error: aiErrorFromUnknown(chunk.error) });
-          else emit({ type: 'chunk', payload: chunk as unknown as { type: string; [key: string]: unknown } });
+          else if (chunk.type === 'error')
+            emit({ type: 'error', error: aiErrorFromUnknown(chunk.error) });
+          else
+            emit({
+              type: 'chunk',
+              payload: chunk as unknown as { type: string; [key: string]: unknown },
+            });
         }
       } catch (error) {
         emit({ type: 'error', error: aiErrorFromUnknown(error) });
@@ -110,7 +146,10 @@ export async function createElectronAiRuntime(options: ElectronAiRuntimeOptions)
 function resolveMigrations(preferred: string): string {
   const rel = ['packages', 'data', 'migrations'];
   const starts = [preferred, process.cwd(), dirname(process.execPath)];
-  const candidates: string[] = [preferred, join(dirname(process.execPath), 'resources', 'migrations')];
+  const candidates: string[] = [
+    preferred,
+    join(dirname(process.execPath), 'resources', 'migrations'),
+  ];
   for (const start of starts) {
     let dir = start;
     for (let depth = 0; depth < 8; depth += 1) {
@@ -127,23 +166,37 @@ function resolveMigrations(preferred: string): string {
 
 function ensureUser(db: Database.Database, userId: string): void {
   const now = Date.now();
-  db.prepare(`INSERT OR IGNORE INTO user (id, login, display_name, role, created_at, updated_at) VALUES (?, ?, ?, 'owner', ?, ?)`)
-    .run(userId, userId, '本地用户', now, now);
+  db.prepare(
+    `INSERT OR IGNORE INTO user (id, login, display_name, role, created_at, updated_at) VALUES (?, ?, ?, 'owner', ?, ?)`,
+  ).run(userId, userId, '本地用户', now, now);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
-async function routeInvoke(control: ReturnType<typeof createAiStack>['control'], method: string, params: Record<string, unknown>): Promise<unknown> {
+async function routeInvoke(
+  control: ReturnType<typeof createAiStack>['control'],
+  method: string,
+  params: Record<string, unknown>,
+): Promise<unknown> {
   switch (method) {
-    case 'listProviders': return control.listProviders();
-    case 'createProvider': return control.createProvider(params as never);
-    case 'updateProvider': return control.updateProvider(String(params['id']), params['patch'] ?? params);
-    case 'removeProvider': return control.removeProvider(String(params['id']));
-    case 'setProviderEnabled': return control.setProviderEnabled(String(params['id']), Boolean(params['enabled']));
-    case 'reorderProviders': return control.reorderProviders(params['orderedIds'] as string[]);
-    case 'testConnection': return control.testConnection(String(params['providerId']));
+    case 'listProviders':
+      return control.listProviders();
+    case 'createProvider':
+      return control.createProvider(params as never);
+    case 'updateProvider':
+      return control.updateProvider(String(params['id']), params['patch'] ?? params);
+    case 'removeProvider':
+      return control.removeProvider(String(params['id']));
+    case 'setProviderEnabled':
+      return control.setProviderEnabled(String(params['id']), Boolean(params['enabled']));
+    case 'reorderProviders':
+      return control.reorderProviders(params['orderedIds'] as string[]);
+    case 'testConnection':
+      return control.testConnection(String(params['providerId']));
     case 'testDraftConnection': {
       const raw = (params['input'] ?? {}) as Record<string, unknown>;
       const keyRef = typeof params['keyRef'] === 'string' ? params['keyRef'] : null;
@@ -160,30 +213,54 @@ async function routeInvoke(control: ReturnType<typeof createAiStack>['control'],
       await control.discardTempKey(keyRef);
       return true;
     }
-    case 'listModels': return control.listModels(String(params['providerId']));
-    case 'listAllModels': return control.listAllModels();
-    case 'refreshModels': return control.refreshModels(String(params['providerId']));
-    case 'addManualModel': return control.addManualModel(String(params['providerId']), String(params['name']));
-    case 'updateCapability': return control.updateCapability(String(params['modelId']), params['patch'] as never);
-    case 'getBinding': return control.getBinding();
-    case 'saveBinding': return control.saveBinding(params['binding'] as never);
-    case 'monthlyUsage': return control.monthlyUsage();
-    case 'usageByModel': return control.usageByModel();
-    case 'budgetConfig': return control.budgetConfig();
-    case 'setBudget': return control.setBudget(params as never);
-    case 'setLimits': return control.setLimits(String(params['providerId']), params['limits'] as never);
-    case 'setProxy': return control.setProxy((params['proxy'] ?? null) as never);
-    case 'testProxy': return control.testProxy(params['target'] as never);
-    case 'listRemoteSources': return control.listRemoteSources();
-    case 'createRemoteSource': return control.createRemoteSource(params as never);
-    case 'updateRemoteSource': return control.updateRemoteSource(String(params['id']), params['patch'] as never);
-    case 'removeRemoteSource': return control.removeRemoteSource(String(params['id']));
-    case 'fetchRemoteSource': return control.fetchRemoteSource(String(params['id']));
-    case 'previewRemoteSource': return control.previewRemoteSource(String(params['id']));
-    case 'applyRemoteSource': return control.applyRemoteSource(String(params['id']), params['options'] as never);
-    case 'ackRemoteRevision': return control.ackRemoteRevision(String(params['id']), String(params['revision']));
-    case 'refreshRemoteSourcesOnBoot': return control.refreshRemoteSourcesOnBoot();
-    default: throw new Error(`不支持的 AI 方法：${method}`);
+    case 'listModels':
+      return control.listModels(String(params['providerId']));
+    case 'listAllModels':
+      return control.listAllModels();
+    case 'refreshModels':
+      return control.refreshModels(String(params['providerId']));
+    case 'addManualModel':
+      return control.addManualModel(String(params['providerId']), String(params['name']));
+    case 'updateCapability':
+      return control.updateCapability(String(params['modelId']), params['patch'] as never);
+    case 'getBinding':
+      return control.getBinding();
+    case 'saveBinding':
+      return control.saveBinding(params['binding'] as never);
+    case 'monthlyUsage':
+      return control.monthlyUsage();
+    case 'usageByModel':
+      return control.usageByModel();
+    case 'budgetConfig':
+      return control.budgetConfig();
+    case 'setBudget':
+      return control.setBudget(params as never);
+    case 'setLimits':
+      return control.setLimits(String(params['providerId']), params['limits'] as never);
+    case 'setProxy':
+      return control.setProxy((params['proxy'] ?? null) as never);
+    case 'testProxy':
+      return control.testProxy(params['target'] as never);
+    case 'listRemoteSources':
+      return control.listRemoteSources();
+    case 'createRemoteSource':
+      return control.createRemoteSource(params as never);
+    case 'updateRemoteSource':
+      return control.updateRemoteSource(String(params['id']), params['patch'] as never);
+    case 'removeRemoteSource':
+      return control.removeRemoteSource(String(params['id']));
+    case 'fetchRemoteSource':
+      return control.fetchRemoteSource(String(params['id']));
+    case 'previewRemoteSource':
+      return control.previewRemoteSource(String(params['id']));
+    case 'applyRemoteSource':
+      return control.applyRemoteSource(String(params['id']), params['options'] as never);
+    case 'ackRemoteRevision':
+      return control.ackRemoteRevision(String(params['id']), String(params['revision']));
+    case 'refreshRemoteSourcesOnBoot':
+      return control.refreshRemoteSourcesOnBoot();
+    default:
+      throw new Error(`不支持的 AI 方法：${method}`);
   }
 }
 
@@ -199,12 +276,26 @@ export function createDpapiStore(safeStorage: SafeStorageLike, root: string) {
       await fsp.writeFile(file, safeStorage.encryptString(value));
     },
     async get(namespace: SecureNamespace, key: string): Promise<string | null> {
-      try { return safeStorage.decryptString(await fsp.readFile(fileOf(namespace, key))); } catch { return null; }
+      try {
+        return safeStorage.decryptString(await fsp.readFile(fileOf(namespace, key)));
+      } catch {
+        return null;
+      }
     },
-    async delete(namespace: SecureNamespace, key: string): Promise<void> { await fsp.rm(fileOf(namespace, key), { force: true }); },
-    async has(namespace: SecureNamespace, key: string): Promise<boolean> { return (await this.get(namespace, key)) !== null; },
+    async delete(namespace: SecureNamespace, key: string): Promise<void> {
+      await fsp.rm(fileOf(namespace, key), { force: true });
+    },
+    async has(namespace: SecureNamespace, key: string): Promise<boolean> {
+      return (await this.get(namespace, key)) !== null;
+    },
     async listKeys(namespace: SecureNamespace): Promise<string[]> {
-      try { return (await fsp.readdir(join(root, namespace))).filter((name) => name.endsWith('.dat')).map((name) => name.slice(0, -4)); } catch { return []; }
+      try {
+        return (await fsp.readdir(join(root, namespace)))
+          .filter((name) => name.endsWith('.dat'))
+          .map((name) => name.slice(0, -4));
+      } catch {
+        return [];
+      }
     },
   };
 }

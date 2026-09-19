@@ -1,12 +1,14 @@
 import type { IpcMainLike } from '../types';
 import { CHANNELS } from '../channels';
-import type { AiControlServiceHost, AiRpcRequest, AiStreamEvent, AiStreamRequest } from '@ec/shell-api';
+import type {
+  AiControlServiceHost,
+  AiRpcRequest,
+  AiStreamEvent,
+  AiStreamRequest,
+} from '@ec/shell-api';
 
 /** AI IPC：RPC 白名单由 runtime 再校验；流式仅传 requestId + 可克隆事件。 */
-export function registerAiIpc(
-  ipc: IpcMainLike,
-  host: AiControlServiceHost,
-): void {
+export function registerAiIpc(ipc: IpcMainLike, host: AiControlServiceHost): void {
   ipc.handle(CHANNELS.ai.invoke, (_event, payload) => host.invoke(payload as AiRpcRequest));
   ipc.handle(CHANNELS.ai.abort, async (_event, payload) => {
     const requestId = (payload as { requestId?: unknown })?.requestId;

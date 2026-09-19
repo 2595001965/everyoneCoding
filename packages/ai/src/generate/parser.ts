@@ -223,14 +223,20 @@ export function outputFromCodeBlocks(blocks: readonly ExtractedCodeBlock[]): Gen
     anchors,
     summary: `模型返回了 ${files.length} 个代码块但未给出结构化声明，已按代码块降级提取（请人工确认文件路径与操作类型）。`,
     notes: '',
-    decision: { referencedMemory: [], rationale: '', risks: ['未获得决策说明（解析降级）'], uncovered: [] },
+    decision: {
+      referencedMemory: [],
+      rationale: '',
+      risks: ['未获得决策说明（解析降级）'],
+      uncovered: [],
+    },
   };
 }
 
 /** 解析 `@everyonecoding:anchor <elementId>` 注释（与 T4-06 的注释标记同源） */
 export function extractAnchorComments(blocks: readonly ExtractedCodeBlock[]): AnchorDeclaration[] {
   const declarations: AnchorDeclaration[] = [];
-  const pattern = /@everyonecoding:anchor\s+([\w:.-]+)(?:\s+([\w.$#]+))?(?:\s+(controller|service|dto|repo|sql|test|route))?/;
+  const pattern =
+    /@everyonecoding:anchor\s+([\w:.-]+)(?:\s+([\w.$#]+))?(?:\s+(controller|service|dto|repo|sql|test|route))?/;
   for (const block of blocks) {
     const extension = LANGUAGE_EXTENSIONS[block.language] ?? 'ts';
     for (const line of block.code.split('\n')) {
@@ -252,7 +258,9 @@ export function extractAnchorComments(blocks: readonly ExtractedCodeBlock[]): An
 }
 
 function normalizeKind(value: string | undefined): AnchorKind | null {
-  return value !== undefined && (ANCHOR_KINDS as readonly string[]).includes(value) ? (value as AnchorKind) : null;
+  return value !== undefined && (ANCHOR_KINDS as readonly string[]).includes(value)
+    ? (value as AnchorKind)
+    : null;
 }
 
 function inferKindFromPath(pathHint: string | null): AnchorKind {
@@ -276,7 +284,14 @@ function inferKindFromPath(pathHint: string | null): AnchorKind {
 export function parseModelOutput(raw: string): ParseResult {
   const text = raw ?? '';
   if (text.trim().length === 0) {
-    return { success: false, output: null, mode: 'raw', degraded: true, raw: text, issues: ['模型返回为空'] };
+    return {
+      success: false,
+      output: null,
+      mode: 'raw',
+      degraded: true,
+      raw: text,
+      issues: ['模型返回为空'],
+    };
   }
 
   const extracted = extractJsonValue(text);
@@ -304,7 +319,14 @@ export function parseModelOutput(raw: string): ParseResult {
         issues: validated.issues,
       };
     }
-    return { success: false, output: null, mode: extracted.mode, degraded: true, raw: text, issues: validated.issues };
+    return {
+      success: false,
+      output: null,
+      mode: extracted.mode,
+      degraded: true,
+      raw: text,
+      issues: validated.issues,
+    };
   }
 
   const blocks = extractCodeBlocks(text);
@@ -351,5 +373,12 @@ export function computeParseStats(results: readonly ParseResult[]): ParseStats {
   const strictSuccess = results.filter((result) => result.success && !result.degraded).length;
   const degraded = results.filter((result) => result.degraded).length;
   const ratio = (value: number): number => (total === 0 ? 0 : Number((value / total).toFixed(4)));
-  return { total, success, strictSuccess, degraded, rate: ratio(success), strictRate: ratio(strictSuccess) };
+  return {
+    total,
+    success,
+    strictSuccess,
+    degraded,
+    rate: ratio(success),
+    strictRate: ratio(strictSuccess),
+  };
 }

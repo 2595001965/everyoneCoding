@@ -56,7 +56,18 @@ export function mentionConfidence(haystack: string, needle: string): number {
 }
 
 /** 去掉尾部通用名词，得到"核心词"（如 `用户登录按钮` → `用户登录`） */
-const GENERIC_SUFFIXES = ['按钮', '输入框', '页面', '组件', '容器', '卡片', '弹窗', '列表', '表单项', '控件'];
+const GENERIC_SUFFIXES = [
+  '按钮',
+  '输入框',
+  '页面',
+  '组件',
+  '容器',
+  '卡片',
+  '弹窗',
+  '列表',
+  '表单项',
+  '控件',
+];
 
 export function coreTerm(term: string): string {
   for (const suffix of GENERIC_SUFFIXES) {

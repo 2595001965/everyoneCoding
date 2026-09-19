@@ -88,7 +88,11 @@ export function GitWorkspace(): JSX.Element {
             初始化仓库
           </Button>
           {initError !== null && (
-            <span role="alert" style={{ color: 'var(--ec-color-danger)' }} data-testid="git-init-error">
+            <span
+              role="alert"
+              style={{ color: 'var(--ec-color-danger)' }}
+              data-testid="git-init-error"
+            >
               {initError}
             </span>
           )}
@@ -98,13 +102,19 @@ export function GitWorkspace(): JSX.Element {
   }
 
   return (
-    <section className="ec-git-workspace" aria-label="版本管理" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section
+      className="ec-git-workspace"
+      aria-label="版本管理"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
       <header
         className="ec-git-workspace__head"
         style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
       >
         <strong>{info?.name ?? '仓库'}</strong>
-        {info?.branch !== null && info?.branch !== undefined && <Tag color="primary">{info.branch}</Tag>}
+        {info?.branch !== null && info?.branch !== undefined && (
+          <Tag color="primary">{info.branch}</Tag>
+        )}
         {info !== null && (info.ahead > 0 || info.behind > 0) && (
           <span style={{ color: 'var(--ec-color-text-secondary)' }}>
             {info.ahead > 0 ? `↑${info.ahead} ` : ''}
@@ -125,7 +135,10 @@ export function GitWorkspace(): JSX.Element {
         {(active) => (
           <>
             {active === 'changes' && (
-              <div className="ec-git-workspace__changes" style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 2fr', gap: 12 }}>
+              <div
+                className="ec-git-workspace__changes"
+                style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 2fr', gap: 12 }}
+              >
                 <div>
                   <ChangesPanel onOpenFile={(path) => void openFile(path)} />
                   <div style={{ marginTop: 12 }}>
@@ -133,9 +146,14 @@ export function GitWorkspace(): JSX.Element {
                   </div>
                 </div>
                 <div>
-                  {diffPath !== null && <div style={{ fontFamily: 'monospace', marginBottom: 4 }}>{diffPath}</div>}
+                  {diffPath !== null && (
+                    <div style={{ fontFamily: 'monospace', marginBottom: 4 }}>{diffPath}</div>
+                  )}
                   {diff === null ? (
-                    <EmptyState title="选择一个文件查看差异" description="差异视图支持并排 / 内联切换与折叠未修改区域。" />
+                    <EmptyState
+                      title="选择一个文件查看差异"
+                      description="差异视图支持并排 / 内联切换与折叠未修改区域。"
+                    />
                   ) : (
                     <>
                       <FileDiff diff={diff} />
@@ -147,14 +165,20 @@ export function GitWorkspace(): JSX.Element {
             )}
 
             {active === 'branches' && (
-              <div className="ec-git-workspace__branches" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div
+                className="ec-git-workspace__branches"
+                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}
+              >
                 <BranchTree onSwitched={() => void refreshInfo()} />
                 <BranchGraphPanel />
               </div>
             )}
 
             {active === 'history' && (
-              <div className="ec-git-workspace__history" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div
+                className="ec-git-workspace__history"
+                style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+              >
                 <HistoryFilter value={filter} onChange={setFilter} />
                 <HistoryTimeline
                   filter={filter}
@@ -172,14 +196,19 @@ export function GitWorkspace(): JSX.Element {
                     回滚到此提交
                   </Button>
                   <span style={{ color: 'var(--ec-color-text-secondary)' }}>
-                    {rollbackSha === null ? '先在上方选择一条提交' : `已选择 ${rollbackSha.slice(0, 7)}`}
+                    {rollbackSha === null
+                      ? '先在上方选择一条提交'
+                      : `已选择 ${rollbackSha.slice(0, 7)}`}
                   </span>
                 </div>
               </div>
             )}
 
             {active === 'conflicts' && (
-              <div className="ec-git-workspace__conflicts" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div
+                className="ec-git-workspace__conflicts"
+                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+              >
                 <ConflictEditor onApplied={() => void refreshInfo()} />
                 <MergePanel onFinished={() => void refreshInfo()} />
               </div>

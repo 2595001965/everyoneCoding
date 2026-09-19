@@ -20,9 +20,18 @@ export interface RouteEditorProps {
 
 const PARAM_TYPES: ReadonlyArray<RouteParam['type']> = ['string', 'number', 'boolean'];
 
-export function RouteEditor({ edge, pages, onClose, onSave }: RouteEditorProps): React.ReactElement {
-  const [targetPageId, setTargetPageId] = React.useState<string>(edge.toPageId ?? pages[0]?.id ?? '');
-  const [params, setParams] = React.useState<RouteParam[]>(() => edge.params.map((p) => ({ ...p })));
+export function RouteEditor({
+  edge,
+  pages,
+  onClose,
+  onSave,
+}: RouteEditorProps): React.ReactElement {
+  const [targetPageId, setTargetPageId] = React.useState<string>(
+    edge.toPageId ?? pages[0]?.id ?? '',
+  );
+  const [params, setParams] = React.useState<RouteParam[]>(() =>
+    edge.params.map((p) => ({ ...p })),
+  );
 
   const targetPage = pages.find((p) => p.id === targetPageId) ?? null;
 
@@ -109,7 +118,12 @@ export function RouteEditor({ edge, pages, onClose, onSave }: RouteEditorProps):
                     value={param.defaultValue === undefined ? '' : String(param.defaultValue)}
                     onChange={(value) => updateParam(index, { defaultValue: value })}
                   />
-                  <Button size="sm" variant="danger" onClick={() => removeParam(index)} aria-label="删除参数">
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => removeParam(index)}
+                    aria-label="删除参数"
+                  >
                     删除
                   </Button>
                 </li>

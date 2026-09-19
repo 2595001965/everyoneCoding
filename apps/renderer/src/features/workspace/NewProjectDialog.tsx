@@ -85,7 +85,10 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
         });
       } else if (source === 'doc') {
         if (!digest) throw new Error('请先解析需求文档，确认功能清单后再创建项目');
-        project = await api.createFromDigest({ digest, name: name.trim() || projectNameFromDigest(digest) });
+        project = await api.createFromDigest({
+          digest,
+          name: name.trim() || projectNameFromDigest(digest),
+        });
       } else {
         project = await api.createProject({
           name: name.trim(),
@@ -141,7 +144,12 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
           <Button variant="ghost" onClick={close}>
             取消
           </Button>
-          <Button variant="primary" loading={busy} disabled={!canSubmit} onClick={() => void create()}>
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={!canSubmit}
+            onClick={() => void create()}
+          >
             创建项目
           </Button>
         </>
@@ -163,11 +171,21 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
               <>
                 <label className="ec-ws__field">
                   <span>项目名称</span>
-                  <Input value={name} onChange={setName} aria-label="新项目名称" placeholder="例如：订单管理系统" />
+                  <Input
+                    value={name}
+                    onChange={setName}
+                    aria-label="新项目名称"
+                    placeholder="例如：订单管理系统"
+                  />
                 </label>
                 <label className="ec-ws__field">
                   <span>描述（可选）</span>
-                  <Textarea value={description} onChange={setDescription} rows={2} aria-label="新项目描述" />
+                  <Textarea
+                    value={description}
+                    onChange={setDescription}
+                    rows={2}
+                    aria-label="新项目描述"
+                  />
                 </label>
                 <div className="ec-ws__field">
                   <span>目标端</span>
@@ -181,7 +199,10 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
                 <ul className="ec-ws__templates" aria-label="内置模板">
                   {PROJECT_TEMPLATES.map((template) => (
                     <li key={template.id}>
-                      <label className="ec-ws__template" data-selected={template.id === templateId ? 'true' : 'false'}>
+                      <label
+                        className="ec-ws__template"
+                        data-selected={template.id === templateId ? 'true' : 'false'}
+                      >
                         <input
                           type="radio"
                           name="template"
@@ -207,7 +228,12 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
                 </ul>
                 <label className="ec-ws__field">
                   <span>项目名称（留空则用模板名）</span>
-                  <Input value={name} onChange={setName} aria-label="模板项目名称" placeholder={selectedTemplate.name} />
+                  <Input
+                    value={name}
+                    onChange={setName}
+                    aria-label="模板项目名称"
+                    placeholder={selectedTemplate.name}
+                  />
                 </label>
               </>
             ) : null}
@@ -225,11 +251,21 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
                 </label>
                 <label className="ec-ws__field">
                   <span>克隆到目录</span>
-                  <Input value={targetDir} onChange={setTargetDir} aria-label="克隆目录" placeholder="D:\\projects\\repo" />
+                  <Input
+                    value={targetDir}
+                    onChange={setTargetDir}
+                    aria-label="克隆目录"
+                    placeholder="D:\\projects\\repo"
+                  />
                 </label>
                 <label className="ec-ws__field">
                   <span>项目名称（留空则取仓库名）</span>
-                  <Input value={name} onChange={setName} aria-label="Git 项目名称" placeholder="repo" />
+                  <Input
+                    value={name}
+                    onChange={setName}
+                    aria-label="Git 项目名称"
+                    placeholder="repo"
+                  />
                 </label>
                 {progress ? (
                   <div className="ec-ws__field">
@@ -257,7 +293,9 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
                     onChange={setDocText}
                     rows={8}
                     aria-label="需求文档内容"
-                    placeholder={'# 需求文档\n\n## 功能\n- 登录：支持邮箱与第三方登录\n- 订单创建：支持多商品下单\n\n## 页面清单\n- 首页 /home\n'}
+                    placeholder={
+                      '# 需求文档\n\n## 功能\n- 登录：支持邮箱与第三方登录\n- 订单创建：支持多商品下单\n\n## 页面清单\n- 首页 /home\n'
+                    }
                   />
                 </label>
                 <Button variant="secondary" disabled={!docText.trim()} onClick={parseDoc}>
@@ -283,11 +321,19 @@ export function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogP
                     ))}
                   </div>
                 ) : (
-                  <EmptyState title="尚未解析" description="粘贴文档后点「解析文档」，确认功能清单再创建项目。" />
+                  <EmptyState
+                    title="尚未解析"
+                    description="粘贴文档后点「解析文档」，确认功能清单再创建项目。"
+                  />
                 )}
                 <label className="ec-ws__field">
                   <span>项目名称（留空则取文档标题）</span>
-                  <Input value={name} onChange={setName} aria-label="文档项目名称" placeholder="由文档标题推断" />
+                  <Input
+                    value={name}
+                    onChange={setName}
+                    aria-label="文档项目名称"
+                    placeholder="由文档标题推断"
+                  />
                 </label>
               </>
             ) : null}

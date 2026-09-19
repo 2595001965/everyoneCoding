@@ -154,14 +154,18 @@ export function createFlowRuntime(options: CreateFlowRuntimeOptions): FlowRuntim
           }
           case 'request': {
             if (!requester) {
-              result.error = '请求动作缺少可用的 requester（预览 / 运行时未注入数据流），无法执行请求';
+              result.error =
+                '请求动作缺少可用的 requester（预览 / 运行时未注入数据流），无法执行请求';
               result.status = 'failed';
               break;
             }
             const url = typeof node.target === 'string' ? node.target : '';
             const body = node.params?.['body'];
             const resolvedBody = body !== undefined ? resolveDeep(body, scope) : undefined;
-            const method = typeof node.params?.['method'] === 'string' ? (node.params?.['method'] as string) : 'POST';
+            const method =
+              typeof node.params?.['method'] === 'string'
+                ? (node.params?.['method'] as string)
+                : 'POST';
             const headers = node.params?.['headers'] as Record<string, string> | undefined;
             const response = await requester.request({
               url,
@@ -184,7 +188,12 @@ export function createFlowRuntime(options: CreateFlowRuntimeOptions): FlowRuntim
             const params = node.params?.['params']
               ? (resolveDeep(node.params?.['params'], scope) as Record<string, unknown> | undefined)
               : undefined;
-            ports.navigate?.(...((params !== undefined ? [path, params] : [path]) as [string, Record<string, unknown>?]));
+            ports.navigate?.(
+              ...((params !== undefined ? [path, params] : [path]) as [
+                string,
+                Record<string, unknown>?,
+              ]),
+            );
             result.navigations.push({ path, ...(params !== undefined ? { params } : {}) });
             break;
           }

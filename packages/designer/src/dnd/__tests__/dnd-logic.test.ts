@@ -18,7 +18,12 @@ const target = (over: Partial<CollisionTarget> = {}): CollisionTarget => ({
 describe('T3-03 碰撞与插入位置判定', () => {
   it('指针落在中央 20% 区域且容器接受子节点 → 嵌套插入（inside）', () => {
     const result = computeInsertion({ pointer: { x: 200, y: 150 }, target: target() });
-    expect(result).toEqual({ kind: 'insert', parentId: 'card', index: undefined, position: 'inside' });
+    expect(result).toEqual({
+      kind: 'insert',
+      parentId: 'card',
+      index: undefined,
+      position: 'inside',
+    });
   });
 
   it('指针落在上方 40% 边距带 → 同级前插入（before）', () => {
@@ -32,16 +37,25 @@ describe('T3-03 碰撞与插入位置判定', () => {
   });
 
   it('不接受子节点的组件即使指针在中央也退化为同级插入', () => {
-    const result = computeInsertion({ pointer: { x: 200, y: 150 }, target: target({ acceptsChildren: false }) });
+    const result = computeInsertion({
+      pointer: { x: 200, y: 150 },
+      target: target({ acceptsChildren: false }),
+    });
     expect(result.kind).toBe('insert');
     if (result.kind === 'insert') expect(result.position).not.toBe('inside');
   });
 
   it('横向流容器按 x 轴判定', () => {
     const row = target({ axis: 'x' });
-    expect(computeInsertion({ pointer: { x: 110, y: 150 }, target: row })).toMatchObject({ position: 'before' });
-    expect(computeInsertion({ pointer: { x: 290, y: 150 }, target: row })).toMatchObject({ position: 'after' });
-    expect(computeInsertion({ pointer: { x: 200, y: 150 }, target: row })).toMatchObject({ position: 'inside' });
+    expect(computeInsertion({ pointer: { x: 110, y: 150 }, target: row })).toMatchObject({
+      position: 'before',
+    });
+    expect(computeInsertion({ pointer: { x: 290, y: 150 }, target: row })).toMatchObject({
+      position: 'after',
+    });
+    expect(computeInsertion({ pointer: { x: 200, y: 150 }, target: row })).toMatchObject({
+      position: 'inside',
+    });
   });
 
   it('指针超出画布 → 拖出删除', () => {
@@ -63,19 +77,39 @@ describe('T3-03 碰撞与插入位置判定', () => {
 
     // 自身
     expect(
-      computeInsertion({ pointer: { x: 200, y: 150 }, target: target({ id: 'card' }), draggedId: 'card', isDescendant }),
+      computeInsertion({
+        pointer: { x: 200, y: 150 },
+        target: target({ id: 'card' }),
+        draggedId: 'card',
+        isDescendant,
+      }),
     ).toEqual({ kind: 'none' });
     // 自身子树
     expect(
-      computeInsertion({ pointer: { x: 200, y: 150 }, target: target({ id: 'box' }), draggedId: 'card', isDescendant }),
+      computeInsertion({
+        pointer: { x: 200, y: 150 },
+        target: target({ id: 'box' }),
+        draggedId: 'card',
+        isDescendant,
+      }),
     ).toEqual({ kind: 'none' });
     // 同级插入也不允许把祖先塞进自己的后代里
     expect(
-      computeInsertion({ pointer: { x: 200, y: 110 }, target: target({ id: 'leaf' }), draggedId: 'card', isDescendant }),
+      computeInsertion({
+        pointer: { x: 200, y: 110 },
+        target: target({ id: 'leaf' }),
+        draggedId: 'card',
+        isDescendant,
+      }),
     ).toEqual({ kind: 'none' });
     // 正常拖拽不受影响
     expect(
-      computeInsertion({ pointer: { x: 200, y: 110 }, target: target({ id: 'leaf' }), draggedId: 'other', isDescendant }),
+      computeInsertion({
+        pointer: { x: 200, y: 110 },
+        target: target({ id: 'leaf' }),
+        draggedId: 'other',
+        isDescendant,
+      }),
     ).toMatchObject({ kind: 'insert' });
   });
 
@@ -100,30 +134,44 @@ describe('T3-03 吸附与对齐参考线', () => {
     const peers: Rect[] = [{ x: 100, y: 200, width: 80, height: 40 }];
 
     // 左对齐（候选左边缘 2px 内 → 吸附到 100）
-    const left = computeSnap({ x: 102, y: 0, width: 50, height: 20 }, peers, { snapToGridEnabled: false });
+    const left = computeSnap({ x: 102, y: 0, width: 50, height: 20 }, peers, {
+      snapToGridEnabled: false,
+    });
     expect(left.dx).toBe(-2);
     expect(left.guides).toContainEqual({ axis: 'x', position: 100, kind: 'element' });
 
     // 右对齐（候选右边缘贴近 180）
-    const right = computeSnap({ x: 132, y: 0, width: 50, height: 20 }, peers, { snapToGridEnabled: false });
+    const right = computeSnap({ x: 132, y: 0, width: 50, height: 20 }, peers, {
+      snapToGridEnabled: false,
+    });
     expect(right.x + 50).toBe(180);
 
     // 水平中心对齐（候选中心贴近 140）
-    const centerX = computeSnap({ x: 113, y: 0, width: 50, height: 20 }, peers, { snapToGridEnabled: false });
+    const centerX = computeSnap({ x: 113, y: 0, width: 50, height: 20 }, peers, {
+      snapToGridEnabled: false,
+    });
     expect(centerX.x + 25).toBe(140);
 
     // 顶部对齐 / 底部对齐 / 垂直中心
-    const top = computeSnap({ x: 0, y: 202, width: 20, height: 20 }, peers, { snapToGridEnabled: false });
+    const top = computeSnap({ x: 0, y: 202, width: 20, height: 20 }, peers, {
+      snapToGridEnabled: false,
+    });
     expect(top.y).toBe(200);
-    const bottom = computeSnap({ x: 0, y: 218, width: 20, height: 20 }, peers, { snapToGridEnabled: false });
+    const bottom = computeSnap({ x: 0, y: 218, width: 20, height: 20 }, peers, {
+      snapToGridEnabled: false,
+    });
     expect(bottom.y + 20).toBe(240);
-    const centerY = computeSnap({ x: 0, y: 208, width: 20, height: 20 }, peers, { snapToGridEnabled: false });
+    const centerY = computeSnap({ x: 0, y: 208, width: 20, height: 20 }, peers, {
+      snapToGridEnabled: false,
+    });
     expect(centerY.y + 10).toBe(220);
   });
 
   it('超过阈值不吸附，但栅格吸附仍生效（默认开启）', () => {
     const peers: Rect[] = [{ x: 100, y: 200, width: 80, height: 40 }];
-    const result = computeSnap({ x: 300, y: 17, width: 20, height: 20 }, peers, { snapToGridEnabled: true });
+    const result = computeSnap({ x: 300, y: 17, width: 20, height: 20 }, peers, {
+      snapToGridEnabled: true,
+    });
     expect(result.guides).toHaveLength(0);
     expect(result.x).toBe(304); // 300 → 8px 栅格
     expect(result.y).toBe(16);
@@ -151,8 +199,12 @@ describe('T3-03 布局模式', () => {
   it('支持绝对定位与流式两种模式，可从 style 推断', () => {
     expect(LAYOUT_MODES).toEqual(['absolute', 'flow']);
     expect(layoutModeOf(createElement({ id: 'a', type: 'Container' }))).toBe('absolute');
-    expect(layoutModeOf(createElement({ id: 'b', type: 'Container', style: { display: 'flex' } }))).toBe('flow');
-    expect(layoutModeOf(createElement({ id: 'c', type: 'Container', style: { display: 'grid' } }))).toBe('flow');
+    expect(
+      layoutModeOf(createElement({ id: 'b', type: 'Container', style: { display: 'flex' } })),
+    ).toBe('flow');
+    expect(
+      layoutModeOf(createElement({ id: 'c', type: 'Container', style: { display: 'grid' } })),
+    ).toBe('flow');
   });
 
   it('插入位置 → children 下标换算', () => {
@@ -168,7 +220,13 @@ describe('T3-03 布局模式', () => {
       id: 'box',
       type: 'Container',
       style: { position: 'absolute', left: 10, top: 20 },
-      children: [createElement({ id: 'child', type: 'Text', style: { position: 'absolute', left: 5, top: 6 } })],
+      children: [
+        createElement({
+          id: 'child',
+          type: 'Text',
+          style: { position: 'absolute', left: 5, top: 6 },
+        }),
+      ],
     });
     const converted = convertLayout(node, 'absolute', 'flow');
     expect(converted.style).toMatchObject({ display: 'flex', flexDirection: 'column' });
@@ -193,7 +251,11 @@ describe('T3-03 布局模式', () => {
     const converted = convertLayout(node, 'flow', 'absolute');
     expect(converted.style?.['display']).toBeUndefined();
     expect(converted.style?.['position']).toBe('relative');
-    expect(converted.children?.[0]?.style).toMatchObject({ position: 'absolute', left: 12, top: 8 });
+    expect(converted.children?.[0]?.style).toMatchObject({
+      position: 'absolute',
+      left: 12,
+      top: 8,
+    });
     expect(converted.children?.[1]?.style).toMatchObject({ position: 'absolute', left: 0, top: 0 });
   });
 

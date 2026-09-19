@@ -31,7 +31,10 @@ export function buildDependencyContractBlock(context: BlockBuildContext): Contex
   };
 
   if (context.contracts.length === 0) {
-    return unavailableBlock({ ...base, reason: '本次没有已生成的依赖节点（S5 首个节点无需契约注入）' });
+    return unavailableBlock({
+      ...base,
+      reason: '本次没有已生成的依赖节点（S5 首个节点无需契约注入）',
+    });
   }
 
   const items: ContextBlockItem[] = context.contracts.map((contract) => {

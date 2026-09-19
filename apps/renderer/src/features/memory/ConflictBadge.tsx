@@ -25,7 +25,10 @@ export function conflictBadgeText(annotation: ConflictAnnotation): string {
   return annotation.role === 'loser' ? `已覆盖：${target}` : `覆盖了：${target}`;
 }
 
-export function ConflictBadge({ annotation, defaultExpanded = false }: ConflictBadgeProps): JSX.Element {
+export function ConflictBadge({
+  annotation,
+  defaultExpanded = false,
+}: ConflictBadgeProps): JSX.Element {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const text = conflictBadgeText(annotation);
 

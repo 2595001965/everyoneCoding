@@ -23,7 +23,10 @@ afterAll(async () => {
   }
 });
 
-async function makeRepo(): Promise<{ repo: string; runner: ReturnType<typeof createNodeGitRunner> }> {
+async function makeRepo(): Promise<{
+  repo: string;
+  runner: ReturnType<typeof createNodeGitRunner>;
+}> {
   const root = await mkdtemp(join(tmpdir(), 'ec-e2e07-'));
   tempRoots.push(root);
   const repo = join(root, 'workspace');
@@ -38,7 +41,9 @@ describe('E2E-07 Git 全流程（无命令行）', () => {
     // 远端：本地裸仓库（真实 git 对象库，推送真的发生）
     const bare = join(repo, '..', 'remote.git');
     await mkdir(bare, { recursive: true });
-    const initBare = await runner.run(['git', 'init', '--bare', '--initial-branch=main', bare], { cwd: repo });
+    const initBare = await runner.run(['git', 'init', '--bare', '--initial-branch=main', bare], {
+      cwd: repo,
+    });
     expect(initBare.exitCode).toBe(0);
 
     // 记录所有 argv：断言"业务侧只经封装调用"、且无终端交互所需的高危参数
@@ -47,7 +52,10 @@ describe('E2E-07 Git 全流程（无命令行）', () => {
     const deps = {
       ...inner,
       runner: {
-        async run(args: readonly string[], options: { cwd: string; env?: Record<string, string>; input?: string }) {
+        async run(
+          args: readonly string[],
+          options: { cwd: string; env?: Record<string, string>; input?: string },
+        ) {
           argv.push([...args]);
           return inner.runner.run(args, options);
         },
@@ -83,7 +91,9 @@ describe('E2E-07 Git 全流程（无命令行）', () => {
     const created = await client.createBranch('feat/login', 'main');
     expect(created.ok, `建分支失败：${JSON.stringify(created.error)}`).toBe(true);
     const list = await client.branches();
-    expect(list.data?.map((branch) => branch.name)).toEqual(expect.arrayContaining(['main', 'feat/login']));
+    expect(list.data?.map((branch) => branch.name)).toEqual(
+      expect.arrayContaining(['main', 'feat/login']),
+    );
 
     // ⑤ 配置远程 + 推送（UI「远程」面板；本地裸仓库，真实推送）
     const added = await client.addRemote('origin', bare);

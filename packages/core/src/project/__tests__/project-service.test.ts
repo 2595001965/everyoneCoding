@@ -32,7 +32,9 @@ describe('ProjectService 基本 CRUD', () => {
     const { service } = setup();
     await expect(service.createProject({ name: '   ' })).rejects.toBeInstanceOf(ProjectDomainError);
     await service.createProject({ name: '重复项目' });
-    await expect(service.createProject({ name: '重复项目' })).rejects.toThrowError(/已存在同名项目/);
+    await expect(service.createProject({ name: '重复项目' })).rejects.toThrowError(
+      /已存在同名项目/,
+    );
   });
 
   it('回收站中的同名项目不阻塞新建', async () => {
@@ -52,7 +54,11 @@ describe('ProjectService 基本 CRUD', () => {
       gitRemote: 'https://example.com/repo.git',
     });
     expect(updated?.targetPlatforms).toEqual(['web', 'android', 'harmonyos']);
-    expect(updated?.techStackFingerprint).toEqual({ web: 'react', android: 'flutter', harmonyos: 'arkts' });
+    expect(updated?.techStackFingerprint).toEqual({
+      web: 'react',
+      android: 'flutter',
+      harmonyos: 'arkts',
+    });
     expect(updated?.gitRemote).toBe('https://example.com/repo.git');
     expect(updated?.updatedAt).toBe(clock.now());
 
@@ -66,8 +72,12 @@ describe('ProjectService 基本 CRUD', () => {
     const a = await service.createProject({ name: '项目A' });
     const b = await service.createProject({ name: '项目B' });
     await expect(service.updateProject(a.id, { name: '项目A' })).resolves.toBeTruthy();
-    await expect(service.updateProject(b.id, { name: '项目A' })).rejects.toThrowError(/已存在同名项目/);
-    await expect(service.updateProject('missing', { name: 'x' })).rejects.toThrowError(/项目不存在/);
+    await expect(service.updateProject(b.id, { name: '项目A' })).rejects.toThrowError(
+      /已存在同名项目/,
+    );
+    await expect(service.updateProject('missing', { name: 'x' })).rejects.toThrowError(
+      /项目不存在/,
+    );
   });
 
   it('归档与取消归档', async () => {

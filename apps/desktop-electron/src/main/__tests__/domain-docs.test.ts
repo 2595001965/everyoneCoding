@@ -27,7 +27,9 @@ const projectId = 'p1';
 async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   const response = await runtime.invoke({ requestId: 'test', domain: 'docs', method, params });
   if (!response.ok) {
-    const error = new Error(response.error?.message ?? '域调用失败') as Error & { code?: string | undefined };
+    const error = new Error(response.error?.message ?? '域调用失败') as Error & {
+      code?: string | undefined;
+    };
     error.code = response.error?.code;
     throw error;
   }
@@ -45,7 +47,15 @@ interface DocShape {
   ignoredVersion: number | null;
 }
 
-const MARKDOWN = ['# 登录需求', '', '支持邮箱登录。', '', '## 校验规则', '', '邮箱不区分大小写。'].join('\n');
+const MARKDOWN = [
+  '# 登录需求',
+  '',
+  '支持邮箱登录。',
+  '',
+  '## 校验规则',
+  '',
+  '邮箱不区分大小写。',
+].join('\n');
 
 async function importDoc(title = '登录需求'): Promise<DocShape> {
   return call('importDocument', { input: { projectId, format: 'markdown', raw: MARKDOWN, title } });
@@ -79,7 +89,9 @@ describe('导入与解析', () => {
     expect(doc.sections.map((section) => section.heading)).toContain('登录需求');
     expect(doc.sections.every((section) => section.anchor.length > 0)).toBe(true);
 
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM document WHERE project_id = ?`).get(projectId)).toEqual({ n: 1 });
+    expect(
+      db.prepare(`SELECT COUNT(*) AS n FROM document WHERE project_id = ?`).get(projectId),
+    ).toEqual({ n: 1 });
   });
 
   it('importFromFile 读真实文件导入；文件不存在时如实报 NOT_FOUND 并带上路径', async () => {
@@ -92,7 +104,9 @@ describe('导入与解析', () => {
     expect(doc.title).toBeTruthy();
 
     await expect(
-      call('importFromFile', { input: { projectId, format: 'markdown', filePath: join(root, '不存在.md') } }),
+      call('importFromFile', {
+        input: { projectId, format: 'markdown', filePath: join(root, '不存在.md') },
+      }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
@@ -107,7 +121,9 @@ describe('导入与解析', () => {
 
   it('未知格式导入如实报 NOT_SUPPORTED', async () => {
     await expect(
-      call('importDocument', { input: { projectId, format: 'image', raw: new Uint8Array([1, 2, 3]), title: 'x' } }),
+      call('importDocument', {
+        input: { projectId, format: 'image', raw: new Uint8Array([1, 2, 3]), title: 'x' },
+      }),
     ).rejects.toMatchObject({ code: 'NOT_SUPPORTED' });
   });
 });
@@ -117,7 +133,9 @@ describe('列表、编辑与版本', () => {
     const doc = await importDoc();
     const listed = await call<DocShape[]>('listDocuments', { projectId });
     expect(listed.map((item) => item.id)).toEqual([doc.id]);
-    await expect(call<DocShape>('getDocument', { id: doc.id })).resolves.toMatchObject({ id: doc.id });
+    await expect(call<DocShape>('getDocument', { id: doc.id })).resolves.toMatchObject({
+      id: doc.id,
+    });
     await expect(call('getDocument', { id: 'missing' })).resolves.toBeNull();
   });
 
@@ -133,7 +151,9 @@ describe('列表、编辑与版本', () => {
     });
     expect(updated.version).toBe(2);
 
-    const versions = await call<Array<{ version: number; createdBy: string }>>('listVersions', { id: doc.id });
+    const versions = await call<Array<{ version: number; createdBy: string }>>('listVersions', {
+      id: doc.id,
+    });
     expect(versions.length).toBeGreaterThanOrEqual(1);
 
     expect(await call<{ updated: boolean }>('evaluateUpdateStatus', { id: doc.id })).toMatchObject({
@@ -146,7 +166,9 @@ describe('列表、编辑与版本', () => {
     const doc = await importDoc();
     await call('updateDocument', { input: { id: doc.id, raw: `${MARKDOWN}\n\n## 二\n\nx` } });
     await call('ignoreVersion', { id: doc.id, version: 2 });
-    await expect(call<{ ignored: boolean; updated: boolean }>('evaluateUpdateStatus', { id: doc.id })).resolves.toMatchObject({
+    await expect(
+      call<{ ignored: boolean; updated: boolean }>('evaluateUpdateStatus', { id: doc.id }),
+    ).resolves.toMatchObject({
       ignored: true,
       updated: false,
     });
@@ -158,8 +180,12 @@ describe('回收站与彻底删除', () => {
     const doc = await importDoc();
     await call('deleteDocument', { id: doc.id });
     expect(await call<DocShape[]>('listDocuments', { projectId })).toHaveLength(0);
-    expect(await call<DocShape[]>('listDocuments', { projectId, opts: { includeDeleted: true } })).toHaveLength(1);
-    expect(await call<DocShape>('getDocument', { id: doc.id })).toMatchObject({ deletedAt: expect.any(Number) });
+    expect(
+      await call<DocShape[]>('listDocuments', { projectId, opts: { includeDeleted: true } }),
+    ).toHaveLength(1);
+    expect(await call<DocShape>('getDocument', { id: doc.id })).toMatchObject({
+      deletedAt: expect.any(Number),
+    });
 
     await call('restoreDocument', { id: doc.id });
     expect(await call<DocShape[]>('listDocuments', { projectId })).toHaveLength(1);
@@ -174,7 +200,9 @@ describe('回收站与彻底删除', () => {
       )
       .run(projectId, Date.now(), Date.now());
     expect(memory.changes).toBe(1);
-    await call('linkToMemory', { input: { memoryId: 'm1', documentId: doc.id, linkType: 'related' } });
+    await call('linkToMemory', {
+      input: { memoryId: 'm1', documentId: doc.id, linkType: 'related' },
+    });
     db.prepare(
       `INSERT INTO doc_version (id, document_id, version, title, content_text, sections_json, created_by, created_at)
        VALUES ('v1', ?, 1, '旧版', 'x', NULL, 'user', ?)`,
@@ -183,8 +211,12 @@ describe('回收站与彻底删除', () => {
     await call('purgeDocument', { id: doc.id });
 
     expect(await call('getDocument', { id: doc.id })).toBeNull();
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM memory_doc_link WHERE document_id = ?`).get(doc.id)).toEqual({ n: 0 });
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM doc_version WHERE document_id = ?`).get(doc.id)).toEqual({ n: 0 });
+    expect(
+      db.prepare(`SELECT COUNT(*) AS n FROM memory_doc_link WHERE document_id = ?`).get(doc.id),
+    ).toEqual({ n: 0 });
+    expect(
+      db.prepare(`SELECT COUNT(*) AS n FROM doc_version WHERE document_id = ?`).get(doc.id),
+    ).toEqual({ n: 0 });
   });
 });
 
@@ -208,14 +240,19 @@ describe('记忆关联', () => {
   it('关联双向可查、可批量计数、可删除；删除不存在的关联报 NOT_FOUND', async () => {
     const doc = await importDoc();
     seedMemory('m1');
-    const link = await call<{ id: string; memoryId: string; documentId: string; linkType: string }>('linkToMemory', {
-      input: { memoryId: 'm1', documentId: doc.id, linkType: 'supports' },
-    });
+    const link = await call<{ id: string; memoryId: string; documentId: string; linkType: string }>(
+      'linkToMemory',
+      {
+        input: { memoryId: 'm1', documentId: doc.id, linkType: 'supports' },
+      },
+    );
     expect(link).toMatchObject({ memoryId: 'm1', documentId: doc.id, linkType: 'supports' });
 
     expect(await call<unknown[]>('listDocLinks', { documentId: doc.id })).toHaveLength(1);
     expect(await call<unknown[]>('listMemoryRefs', { memoryId: 'm1' })).toHaveLength(1);
-    await expect(call('countLinksForMemories', { memoryIds: ['m1', 'm2'] })).resolves.toEqual({ m1: 1 });
+    await expect(call('countLinksForMemories', { memoryIds: ['m1', 'm2'] })).resolves.toEqual({
+      m1: 1,
+    });
     await expect(call('countLinksForMemories', { memoryIds: [] })).resolves.toEqual({});
 
     await call('removeLink', { id: link.id });
@@ -227,7 +264,9 @@ describe('记忆关联', () => {
 describe('一键转记忆', () => {
   it('previewConvertToMemory 因未注入 AI 摘要端口而如实报错，并给出可读引导', async () => {
     const doc = await importDoc();
-    await expect(call('previewConvertToMemory', { input: { docId: doc.id, scope: 'project' } })).rejects.toMatchObject({
+    await expect(
+      call('previewConvertToMemory', { input: { docId: doc.id, scope: 'project' } }),
+    ).rejects.toMatchObject({
       code: 'NOT_SUPPORTED',
       message: expect.stringContaining('AI 摘要端口'),
     });
@@ -258,6 +297,14 @@ describe('一键转记忆', () => {
     expect(row.source_ref).toContain(doc.id);
 
     const links = await call<Array<{ linkType: string }>>('listDocLinks', { documentId: doc.id });
-    expect(links).toEqual([{ id: expect.any(String), memoryId: node.id, documentId: doc.id, linkType: 'derived_from', createdAt: expect.any(Number) }]);
+    expect(links).toEqual([
+      {
+        id: expect.any(String),
+        memoryId: node.id,
+        documentId: doc.id,
+        linkType: 'derived_from',
+        createdAt: expect.any(Number),
+      },
+    ]);
   });
 });

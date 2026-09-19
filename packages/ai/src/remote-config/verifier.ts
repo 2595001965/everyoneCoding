@@ -25,7 +25,11 @@ export function normalizePublicKey(input: string): string {
   return `-----BEGIN PUBLIC KEY-----\n${body.join('\n')}\n-----END PUBLIC KEY-----`;
 }
 
-export function verifySignature(raw: string, signature: string | null, publicKey: string | null | undefined): VerifyResult {
+export function verifySignature(
+  raw: string,
+  signature: string | null,
+  publicKey: string | null | undefined,
+): VerifyResult {
   if (!publicKey || publicKey.trim().length === 0) {
     return { outcome: 'skipped', message: '未配置公钥，已跳过签名校验' };
   }
@@ -35,10 +39,18 @@ export function verifySignature(raw: string, signature: string | null, publicKey
 
   try {
     const key = createPublicKey(normalizePublicKey(publicKey));
-    const signatureBytes = Buffer.from(signature, /^[0-9a-f]+$/i.test(signature) ? 'hex' : 'base64');
+    const signatureBytes = Buffer.from(
+      signature,
+      /^[0-9a-f]+$/i.test(signature) ? 'hex' : 'base64',
+    );
     const ok = cryptoVerify(null, Buffer.from(raw, 'utf8'), key, signatureBytes);
-    return ok ? { outcome: 'valid', message: '签名校验通过' } : { outcome: 'invalid', message: '签名校验失败，配置未应用' };
+    return ok
+      ? { outcome: 'valid', message: '签名校验通过' }
+      : { outcome: 'invalid', message: '签名校验失败，配置未应用' };
   } catch (error) {
-    return { outcome: 'invalid', message: `签名校验异常：${error instanceof Error ? error.message : String(error)}` };
+    return {
+      outcome: 'invalid',
+      message: `签名校验异常：${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }

@@ -129,7 +129,8 @@ function createFakeApi(): AiSettingsApi {
     }),
     listModels: (providerId) => state.models.filter((item) => item.providerId === providerId),
     listAllModels: () => state.models,
-    refreshModels: async (providerId) => state.models.filter((item) => item.providerId === providerId),
+    refreshModels: async (providerId) =>
+      state.models.filter((item) => item.providerId === providerId),
     addManualModel: (providerId, name) => {
       const created = model({ id: `M${state.models.length + 1}`, providerId, name });
       state.models = [...state.models, created];
@@ -145,7 +146,14 @@ function createFakeApi(): AiSettingsApi {
       state.binding = binding;
       return binding;
     },
-    monthlyUsage: () => ({ requests: 3, promptTokens: 100, completionTokens: 50, totalTokens: 150, cost: 0.0025, complete: true }),
+    monthlyUsage: () => ({
+      requests: 3,
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
+      cost: 0.0025,
+      complete: true,
+    }),
     listRemoteSources: () => state.sources,
     createRemoteSource: (input) => {
       const created: RemoteConfigSource = {
@@ -189,7 +197,12 @@ function createFakeApi(): AiSettingsApi {
     },
     previewRemoteSource: async () => ({
       items: [
-        { kind: 'added', path: 'providers[0]', label: '新增服务 团队中转', after: 'openai · https://relay.team/v1' },
+        {
+          kind: 'added',
+          path: 'providers[0]',
+          label: '新增服务 团队中转',
+          after: 'openai · https://relay.team/v1',
+        },
       ] as ConfigDiffItem[],
       summary: '新增 1 项 · 修改 0 项 · 移除 0 项',
       revision: '2026.09.01',
@@ -197,7 +210,23 @@ function createFakeApi(): AiSettingsApi {
     applyRemoteSource: async () =>
       ({
         revision: '2026.09.01',
-        items: [{ kind: 'create', name: '团队中转', config: { name: '团队中转', protocol: 'openai', baseUrl: 'https://relay.team/v1', models: [], headers: {}, timeoutMs: 30000, supportsStream: true, supportsTools: false, supportsVision: false } }],
+        items: [
+          {
+            kind: 'create',
+            name: '团队中转',
+            config: {
+              name: '团队中转',
+              protocol: 'openai',
+              baseUrl: 'https://relay.team/v1',
+              models: [],
+              headers: {},
+              timeoutMs: 30000,
+              supportsStream: true,
+              supportsTools: false,
+              supportsVision: false,
+            },
+          },
+        ],
         defaultModel: null,
         defaultModelChange: null,
       }) as unknown as ApplyPlan,
@@ -225,7 +254,13 @@ beforeEach(() => {
     latencyMs: 128,
     models: { models: [model()], source: 'remote' },
   };
-  fetchResult = { ok: true, status: 'success', document: null, latencyMs: 12, message: '拉取成功（未校验签名）' };
+  fetchResult = {
+    ok: true,
+    status: 'success',
+    document: null,
+    latencyMs: 12,
+    message: '拉取成功（未校验签名）',
+  };
 });
 
 describe('Provider 设置页', () => {
@@ -237,7 +272,9 @@ describe('Provider 设置页', () => {
     await user.click(screen.getAllByRole('button', { name: '新增服务' })[0] as HTMLElement);
     const nameInput = screen.getByPlaceholderText('例如：团队中转');
     await user.type(nameInput, '新中转');
-    const urlInput = screen.getByPlaceholderText('https://api.openai.com/v1 或 https://your-relay.com/v1');
+    const urlInput = screen.getByPlaceholderText(
+      'https://api.openai.com/v1 或 https://your-relay.com/v1',
+    );
     await user.type(urlInput, 'https://new.example.com/v1');
 
     await user.click(screen.getByRole('button', { name: '保存' }));
@@ -328,7 +365,10 @@ describe('远程配置页', () => {
 
     await user.click(screen.getAllByRole('button', { name: '新增配置源' })[0] as HTMLElement);
     await user.type(screen.getByPlaceholderText('例如：团队共享配置'), '团队配置');
-    await user.type(screen.getByPlaceholderText('https://example.com/ai-config.json'), 'https://cfg.example.com/ai.json');
+    await user.type(
+      screen.getByPlaceholderText('https://example.com/ai-config.json'),
+      'https://cfg.example.com/ai.json',
+    );
     await user.click(screen.getByRole('button', { name: '保存' }));
 
     await waitFor(() => {
@@ -344,7 +384,13 @@ describe('远程配置页', () => {
 
   it('拉取不可达时展示失败原因且不阻塞页面', async () => {
     const user = userEvent.setup();
-    fetchResult = { ok: false, status: 'unreachable', document: null, latencyMs: 5, message: '连接超时' };
+    fetchResult = {
+      ok: false,
+      status: 'unreachable',
+      document: null,
+      latencyMs: 5,
+      message: '连接超时',
+    };
     const api = createFakeApi();
     state.sources = [
       {

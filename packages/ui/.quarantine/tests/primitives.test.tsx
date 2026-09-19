@@ -1,7 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Badge, Breadcrumb, Button, EmptyState, IconButton, Progress, SearchInput, Spinner, Tag } from '../components/primitives';
+import {
+  Badge,
+  Breadcrumb,
+  Button,
+  EmptyState,
+  IconButton,
+  Progress,
+  SearchInput,
+  Spinner,
+  Tag,
+} from '../components/primitives';
 
 describe('Button', () => {
   it('点击触发 onClick', async () => {
@@ -52,7 +62,11 @@ describe('IconButton / Badge / Tag', () => {
   });
 
   it('Badge 支持 tone 与圆点', () => {
-    render(<Badge tone="success" dot>已连接</Badge>);
+    render(
+      <Badge tone="success" dot>
+        已连接
+      </Badge>,
+    );
     const badge = screen.getByText('已连接');
     expect(badge.className).toContain('ec-badge--success');
     expect(badge.querySelector('.ec-badge__dot')).not.toBeNull();
@@ -60,7 +74,11 @@ describe('IconButton / Badge / Tag', () => {
 
   it('Tag 可关闭且关闭按钮可键盘触达', async () => {
     const onClose = vi.fn();
-    render(<Tag closable onClose={onClose}>React</Tag>);
+    render(
+      <Tag closable onClose={onClose}>
+        React
+      </Tag>,
+    );
     await userEvent.click(screen.getByRole('button', { name: /移除标签/ }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -80,7 +98,11 @@ describe('Progress / Spinner / EmptyState', () => {
 
   it('EmptyState 展示标题与操作', () => {
     render(
-      <EmptyState title="还没有项目" description="点击新建开始" action={<Button>新建项目</Button>} />,
+      <EmptyState
+        title="还没有项目"
+        description="点击新建开始"
+        action={<Button>新建项目</Button>}
+      />,
     );
     expect(screen.getByText('还没有项目')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '新建项目' })).toBeInTheDocument();
@@ -90,14 +112,7 @@ describe('Progress / Spinner / EmptyState', () => {
 describe('Breadcrumb', () => {
   it('末级为当前页，前级可点击', async () => {
     const onHome = vi.fn();
-    render(
-      <Breadcrumb
-        items={[
-          { label: '工作台', onClick: onHome },
-          { label: '演示项目' },
-        ]}
-      />,
-    );
+    render(<Breadcrumb items={[{ label: '工作台', onClick: onHome }, { label: '演示项目' }]} />);
     expect(screen.getByText('演示项目')).toHaveAttribute('aria-current', 'page');
     await userEvent.click(screen.getByRole('button', { name: '工作台' }));
     expect(onHome).toHaveBeenCalledTimes(1);

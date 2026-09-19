@@ -23,7 +23,12 @@ describe('NullEmbedder', () => {
 describe('GatewayEmbedder', () => {
   it('成功路径原样透传向量与维度', async () => {
     const e = new GatewayEmbedder((texts) =>
-      Promise.resolve({ ok: true, vectors: texts.map(() => [0.1, 0.2]), dimensions: 2, model: 'm' }),
+      Promise.resolve({
+        ok: true,
+        vectors: texts.map(() => [0.1, 0.2]),
+        dimensions: 2,
+        model: 'm',
+      }),
     );
     expect(e.available()).toBe(true);
     const out = await e.embed(['a', 'b']);
@@ -58,7 +63,12 @@ describe('GatewayEmbedder', () => {
     const e = new GatewayEmbedder((_texts): Promise<EmbeddingOutcome> => {
       call += 1;
       const dims = call === 1 ? 4 : 8;
-      return Promise.resolve({ ok: true, vectors: [new Array(dims).fill(0)], dimensions: dims, model: 'm' });
+      return Promise.resolve({
+        ok: true,
+        vectors: [new Array(dims).fill(0)],
+        dimensions: dims,
+        model: 'm',
+      });
     });
     expect((await e.embed(['a'])).ok).toBe(true);
     const second = await e.embed(['b']);

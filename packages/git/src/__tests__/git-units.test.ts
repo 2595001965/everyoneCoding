@@ -45,7 +45,13 @@ import {
   summarizeConflicts,
 } from '../conflict-service';
 import { base64Encode, buildAuthEnv, GitCredentialStore } from '../credentials';
-import { detectStacksFromFiles, ensureEcSection, hasEcSection, listGitignoreTemplates, renderWorkspaceGitignore } from '../gitignore';
+import {
+  detectStacksFromFiles,
+  ensureEcSection,
+  hasEcSection,
+  listGitignoreTemplates,
+  renderWorkspaceGitignore,
+} from '../gitignore';
 import { backupBranchName, isBackupBranch } from '../merge-service';
 import { isValidBranchName, changeSourceLabel } from '../git-client';
 import { GitLogger, redactSecrets, BIG_FILE_THRESHOLD_BYTES } from '../models';
@@ -90,19 +96,29 @@ function fakeShell(): ShellHost {
         return store.has(key(namespace, name));
       },
       async listKeys(namespace: SecureNamespace) {
-        return [...store.keys()].filter((entry) => entry.startsWith(`${namespace}/`)).map((entry) => entry.slice(namespace.length + 1));
+        return [...store.keys()]
+          .filter((entry) => entry.startsWith(`${namespace}/`))
+          .map((entry) => entry.slice(namespace.length + 1));
       },
     },
   } as unknown as ShellHost;
 }
 
 /** 记录所有调用的假 runner（用于后端选择测试） */
-function recordingRunner(result: Partial<GitRunResult> = {}): { runner: GitProcessRunner; calls: string[][] } {
+function recordingRunner(result: Partial<GitRunResult> = {}): {
+  runner: GitProcessRunner;
+  calls: string[][];
+} {
   const calls: string[][] = [];
   const runner: GitProcessRunner = {
     async run(args) {
       calls.push([...args]);
-      return { args: [...args], stdout: result.stdout ?? 'git version 2.55.0.windows.5', stderr: result.stderr ?? '', exitCode: result.exitCode ?? 0 };
+      return {
+        args: [...args],
+        stdout: result.stdout ?? 'git version 2.55.0.windows.5',
+        stderr: result.stderr ?? '',
+        exitCode: result.exitCode ?? 0,
+      };
     },
   };
   return { runner, calls };
@@ -124,9 +140,15 @@ describe('git 解析器', () => {
   });
 
   it('porcelain -z 解析多状态：未跟踪 / 已修改 / 已删除 / 冲突', () => {
-    const raw = ['?? 新文件.ts', ' M 已改.ts', 'D  已删.ts', 'UU 冲突.ts'].join('\u0000') + '\u0000';
+    const raw =
+      ['?? 新文件.ts', ' M 已改.ts', 'D  已删.ts', 'UU 冲突.ts'].join('\u0000') + '\u0000';
     const entries = parsePorcelainZ(raw);
-    expect(entries.map((entry) => entry.status)).toEqual(['untracked', 'modified', 'deleted', 'conflicted']);
+    expect(entries.map((entry) => entry.status)).toEqual([
+      'untracked',
+      'modified',
+      'deleted',
+      'conflicted',
+    ]);
     expect(entries.map((entry) => entry.staged)).toEqual([false, false, true, true]);
   });
 
@@ -139,7 +161,8 @@ describe('git 解析器', () => {
   });
 
   it('name-status -z 解析（含相似度后缀与重命名三字段）', () => {
-    const raw = 'R075\u0000my file.txt\u0000改 名.txt\u0000M\u0000src/app.ts\u0000A\u0000新增.md\u0000D\u0000旧.txt\u0000';
+    const raw =
+      'R075\u0000my file.txt\u0000改 名.txt\u0000M\u0000src/app.ts\u0000A\u0000新增.md\u0000D\u0000旧.txt\u0000';
     const entries = parseNameStatusZ(raw);
     expect(entries).toEqual([
       { path: '改 名.txt', oldPath: 'my file.txt', status: 'renamed' },
@@ -153,12 +176,35 @@ describe('git 解析器', () => {
     const sep = '\u001f';
     const raw =
       [
-        ['a'.repeat(40), 'aaaaaaa', 'feat(login): 新增登录页', '说明一\n说明二', '小吴', 'wu@ec.local', '1700000200', `${'b'.repeat(40)} ${'c'.repeat(40)}`, 'HEAD -> main, tag: v1'].join(sep),
-        ['b'.repeat(40), 'bbbbbbb', 'fix: 修复超时', '', '主人', 'zr@ec.local', '1700000100', '', ''].join(sep),
+        [
+          'a'.repeat(40),
+          'aaaaaaa',
+          'feat(login): 新增登录页',
+          '说明一\n说明二',
+          '小吴',
+          'wu@ec.local',
+          '1700000200',
+          `${'b'.repeat(40)} ${'c'.repeat(40)}`,
+          'HEAD -> main, tag: v1',
+        ].join(sep),
+        [
+          'b'.repeat(40),
+          'bbbbbbb',
+          'fix: 修复超时',
+          '',
+          '主人',
+          'zr@ec.local',
+          '1700000100',
+          '',
+          '',
+        ].join(sep),
       ].join('\u001e') + '\u001e';
     const commits = parseLog(raw);
     expect(commits).toHaveLength(2);
-    expect(commits[0]).toMatchObject({ subject: 'feat(login): 新增登录页', parents: ['b'.repeat(40), 'c'.repeat(40)] });
+    expect(commits[0]).toMatchObject({
+      subject: 'feat(login): 新增登录页',
+      parents: ['b'.repeat(40), 'c'.repeat(40)],
+    });
     expect(commits[0]?.refs).toEqual(['HEAD -> main', 'tag: v1']);
     expect(commits[0]?.authoredAt).toBe(1_700_000_200_000);
     expect(commits[1]?.parents).toEqual([]);
@@ -166,7 +212,8 @@ describe('git 解析器', () => {
   });
 
   it('splitRecords 清理记录边界的换行（git 会在每条记录后补 \\n，回归用例）', () => {
-    const raw = 'aaa\u001f \u001f\u001f\u001f\u001fsubject A\u001e\nmain\u001f*\u001f\u001f\u001f\u001fsubject B\u001e\n';
+    const raw =
+      'aaa\u001f \u001f\u001f\u001f\u001fsubject A\u001e\nmain\u001f*\u001f\u001f\u001f\u001fsubject B\u001e\n';
     const records = splitRecords(raw);
     expect(records).toHaveLength(2);
     expect(records[0]?.startsWith('aaa')).toBe(true);
@@ -177,22 +224,41 @@ describe('git 解析器', () => {
     expect(branches[1]?.current).toBe(true);
   });
 
-  it('branch 解析：ahead / behind / gone 三态', () => {    const sep = '\u001f';
+  it('branch 解析：ahead / behind / gone 三态', () => {
+    const sep = '\u001f';
     const raw =
       [
-        ['main', '*', 'origin/main', '[ahead 2, behind 1]', 'f'.repeat(40), 'feat: 主分支'].join(sep),
+        ['main', '*', 'origin/main', '[ahead 2, behind 1]', 'f'.repeat(40), 'feat: 主分支'].join(
+          sep,
+        ),
         ['feat/x', ' ', 'origin/feat/x', '[gone]', 'e'.repeat(40), 'fix: 修复'].join(sep),
         ['local-only', ' ', '', '', 'd'.repeat(40), ''].join(sep),
       ].join('\u001e') + '\u001e';
     const branches = parseBranches(raw);
-    expect(branches[0]).toMatchObject({ name: 'main', current: true, ahead: 2, behind: 1, gone: false });
+    expect(branches[0]).toMatchObject({
+      name: 'main',
+      current: true,
+      ahead: 2,
+      behind: 1,
+      gone: false,
+    });
     expect(branches[1]).toMatchObject({ name: 'feat/x', gone: true, upstream: 'origin/feat/x' });
-    expect(branches[2]).toMatchObject({ name: 'local-only', upstream: null, lastCommitSubject: null });
+    expect(branches[2]).toMatchObject({
+      name: 'local-only',
+      upstream: null,
+      lastCommitSubject: null,
+    });
   });
 
   it('stash subject 两种形态都能拆出分支与说明', () => {
-    expect(parseStashSubject('WIP on main: a1b2c3d feat: x')).toEqual({ branch: 'main', message: 'feat: x' });
-    expect(parseStashSubject('On feat/login: 登录页改到一半')).toEqual({ branch: 'feat/login', message: '登录页改到一半' });
+    expect(parseStashSubject('WIP on main: a1b2c3d feat: x')).toEqual({
+      branch: 'main',
+      message: 'feat: x',
+    });
+    expect(parseStashSubject('On feat/login: 登录页改到一半')).toEqual({
+      branch: 'feat/login',
+      message: '登录页改到一半',
+    });
     expect(parseStashSubject('莫名其妙的说明')).toEqual({ branch: '', message: '莫名其妙的说明' });
   });
 
@@ -325,8 +391,18 @@ describe('diff 解析', () => {
   });
 
   it('hunk 头解析：单行 hunk（无逗号）与 section 文本', () => {
-    expect(parseHunkHeader('@@ -1 +1 @@')).toMatchObject({ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, section: null });
-    expect(parseHunkHeader('@@ -20,3 +21,3 @@ function tail() {')).toMatchObject({ oldStart: 20, oldLines: 3, section: 'function tail() {' });
+    expect(parseHunkHeader('@@ -1 +1 @@')).toMatchObject({
+      oldStart: 1,
+      oldLines: 1,
+      newStart: 1,
+      newLines: 1,
+      section: null,
+    });
+    expect(parseHunkHeader('@@ -20,3 +21,3 @@ function tail() {')).toMatchObject({
+      oldStart: 20,
+      oldLines: 3,
+      section: 'function tail() {',
+    });
   });
 
   it('并排对齐：连续删改配成 replace，数量不等时一侧为 null，行号严格对齐', () => {
@@ -358,7 +434,12 @@ describe('diff 解析', () => {
       newLines: 30,
       section: null,
       lines: [
-        ...Array.from({ length: 20 }, (_, i) => ({ kind: 'context' as const, text: `line ${i}`, oldNumber: i + 1, newNumber: i + 1 })),
+        ...Array.from({ length: 20 }, (_, i) => ({
+          kind: 'context' as const,
+          text: `line ${i}`,
+          oldNumber: i + 1,
+          newNumber: i + 1,
+        })),
         { kind: 'add' as const, text: '新增', oldNumber: null, newNumber: 21 },
       ],
     };
@@ -374,7 +455,9 @@ describe('diff 解析', () => {
   it('brief 摘要与体积格式化文案都是中文', () => {
     const parsed = parseUnifiedDiff(SAMPLE_PATCH);
     expect(summarizeDiff(parsed)).toContain('个文件');
-    expect(summarizeDiff({ files: [], additions: 0, deletions: 0, skippedFiles: 0 })).toBe('没有文件变更');
+    expect(summarizeDiff({ files: [], additions: 0, deletions: 0, skippedFiles: 0 })).toBe(
+      '没有文件变更',
+    );
     expect(formatBytes(2048)).toBe('2.0 KB');
     expect(formatBytes(1024 * 1024 * 3)).toBe('3.0 MB');
   });
@@ -411,8 +494,15 @@ describe('diff 解析', () => {
 
 describe('提交信息（Conventional Commits）', () => {
   it('解析带 scope / breaking / footer 的提交信息', () => {
-    const message = parseCommitMessage('feat(login)!: 新增登录\n\n正文一\n\nBREAKING CHANGE: 接口签名变更\nRefs: #12');
-    expect(message).toMatchObject({ type: 'feat', scope: 'login', subject: '新增登录', breaking: true });
+    const message = parseCommitMessage(
+      'feat(login)!: 新增登录\n\n正文一\n\nBREAKING CHANGE: 接口签名变更\nRefs: #12',
+    );
+    expect(message).toMatchObject({
+      type: 'feat',
+      scope: 'login',
+      subject: '新增登录',
+      breaking: true,
+    });
     expect(message?.body).toBe('正文一');
     expect(message?.footer).toContain('BREAKING CHANGE: 接口签名变更');
   });
@@ -428,14 +518,22 @@ describe('提交信息（Conventional Commits）', () => {
   });
 
   it('格式化与构造：来源标记写进 body', () => {
-    const text = createCommitMessage({ type: 'feat', scope: 'login', subject: '新增登录页', body: '按设计稿实现', sources: ['生成节点 node-7'] });
+    const text = createCommitMessage({
+      type: 'feat',
+      scope: 'login',
+      subject: '新增登录页',
+      body: '按设计稿实现',
+      sources: ['生成节点 node-7'],
+    });
     expect(text.split('\n')[0]).toBe('feat(login): 新增登录页');
     expect(text).toContain('来源：生成节点 node-7');
     expect(formatCommitMessage(parseCommitMessage(text)!)).toBe(text);
   });
 
   it('AI 输出清洗：代码围栏 / 解释文字 / 非法 type / 无头部兜底', () => {
-    const fenced = normalizeAiCommitMessage('好的，这是提交信息：\n```\nfeat(login): 新增登录页\n\n实现了表单校验\n```\n希望有帮助！');
+    const fenced = normalizeAiCommitMessage(
+      '好的，这是提交信息：\n```\nfeat(login): 新增登录页\n\n实现了表单校验\n```\n希望有帮助！',
+    );
     expect(fenced.text.split('\n')[0]).toBe('feat(login): 新增登录页');
     expect(fenced.text).toContain('实现了表单校验');
     expect(fenced.adjustments).toEqual([]);
@@ -444,7 +542,9 @@ describe('提交信息（Conventional Commits）', () => {
     expect(mapped.message.type).toBe('fix');
     expect(mapped.adjustments.join()).toContain('不在白名单');
 
-    const fallback = normalizeAiCommitMessage('随手的说明，没有任何头部', { fallbackSubject: '更新生成产物' });
+    const fallback = normalizeAiCommitMessage('随手的说明，没有任何头部', {
+      fallbackSubject: '更新生成产物',
+    });
     expect(fallback.message.type).toBe('chore');
     expect(fallback.text).toContain('更新生成产物');
     expect(fallback.adjustments.join()).toContain('兜底');
@@ -479,9 +579,36 @@ describe('提交信息（Conventional Commits）', () => {
 
 describe('分支树与提交图', () => {
   const branches = [
-    { name: 'main', current: true, upstream: null, ahead: 0, behind: 0, lastCommitSha: 'm1', lastCommitSubject: 'x', gone: false },
-    { name: 'feat/login', current: false, upstream: null, ahead: 0, behind: 0, lastCommitSha: 'f1', lastCommitSubject: 'y', gone: false },
-    { name: 'feat/pay', current: false, upstream: null, ahead: 0, behind: 0, lastCommitSha: 'p1', lastCommitSubject: 'z', gone: false },
+    {
+      name: 'main',
+      current: true,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      lastCommitSha: 'm1',
+      lastCommitSubject: 'x',
+      gone: false,
+    },
+    {
+      name: 'feat/login',
+      current: false,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      lastCommitSha: 'f1',
+      lastCommitSubject: 'y',
+      gone: false,
+    },
+    {
+      name: 'feat/pay',
+      current: false,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      lastCommitSha: 'p1',
+      lastCommitSubject: 'z',
+      gone: false,
+    },
   ];
 
   it('按 / 分层构建分支树，叶子节点挂真实分支信息', () => {
@@ -515,8 +642,16 @@ describe('分支树与提交图', () => {
   });
 
   it('分支名会挂到对应提交上，tag 也会标记', () => {
-    const commits = [commit({ sha: 'm1', refs: ['HEAD -> main', 'tag: v1.0.0'] }), commit({ sha: 'f1', parents: ['m1'] })];
-    const graph = buildBranchGraph({ commits, branches, tags: [{ name: 'v1.0.0', sha: 'm1' }], headSha: 'm1' });
+    const commits = [
+      commit({ sha: 'm1', refs: ['HEAD -> main', 'tag: v1.0.0'] }),
+      commit({ sha: 'f1', parents: ['m1'] }),
+    ];
+    const graph = buildBranchGraph({
+      commits,
+      branches,
+      tags: [{ name: 'v1.0.0', sha: 'm1' }],
+      headSha: 'm1',
+    });
     expect(graph.nodes.find((node) => node.sha === 'm1')?.branches).toContain('main');
     expect(graph.nodes.find((node) => node.sha === 'm1')?.tags).toContain('v1.0.0');
     expect(graph.nodes.find((node) => node.sha === 'f1')?.branches).toContain('feat/login');
@@ -529,16 +664,33 @@ describe('分支树与提交图', () => {
 
 describe('历史过滤', () => {
   const commits = [
-    commit({ sha: 'a', subject: 'feat: 新增登录页', body: '表单校验', authorName: '小吴', authorEmail: 'wu@ec.local', authoredAt: 1_700_000_200_000 }),
-    commit({ sha: 'b', subject: 'fix: 修复超时', authorName: '主人', authorEmail: 'zr@ec.local', authoredAt: 1_700_000_100_000 }),
+    commit({
+      sha: 'a',
+      subject: 'feat: 新增登录页',
+      body: '表单校验',
+      authorName: '小吴',
+      authorEmail: 'wu@ec.local',
+      authoredAt: 1_700_000_200_000,
+    }),
+    commit({
+      sha: 'b',
+      subject: 'fix: 修复超时',
+      authorName: '主人',
+      authorEmail: 'zr@ec.local',
+      authoredAt: 1_700_000_100_000,
+    }),
   ];
 
   it('按关键词 / 作者 / 时间范围过滤，且能搜 body', () => {
     expect(filterCommits(commits, { keyword: '表单' }).map((item) => item.sha)).toEqual(['a']);
     expect(filterCommits(commits, { author: 'zr@' }).map((item) => item.sha)).toEqual(['b']);
     expect(filterCommits(commits, { keyword: 'FEAT' }).map((item) => item.sha)).toEqual(['a']);
-    expect(filterCommits(commits, { since: 1_700_000_150_000 }).map((item) => item.sha)).toEqual(['a']);
-    expect(filterCommits(commits, { until: 1_700_000_150_000 }).map((item) => item.sha)).toEqual(['b']);
+    expect(filterCommits(commits, { since: 1_700_000_150_000 }).map((item) => item.sha)).toEqual([
+      'a',
+    ]);
+    expect(filterCommits(commits, { until: 1_700_000_150_000 }).map((item) => item.sha)).toEqual([
+      'b',
+    ]);
     expect(matchesQuery(commits[0]!, {})).toBe(true);
   });
 
@@ -552,8 +704,24 @@ describe('历史过滤', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('冲突解析与解决', () => {
-  const MERGE_STYLE = ['before', '<<<<<<< HEAD', 'const a = 1;', '=======', 'const a = 2;', '>>>>>>> feat/x', 'after'].join('\n');
-  const DIFF3_STYLE = ['<<<<<<< HEAD', 'ours', '||||||| base', 'base', '=======', 'theirs', '>>>>>>> feat/x'].join('\n');
+  const MERGE_STYLE = [
+    'before',
+    '<<<<<<< HEAD',
+    'const a = 1;',
+    '=======',
+    'const a = 2;',
+    '>>>>>>> feat/x',
+    'after',
+  ].join('\n');
+  const DIFF3_STYLE = [
+    '<<<<<<< HEAD',
+    'ours',
+    '||||||| base',
+    'base',
+    '=======',
+    'theirs',
+    '>>>>>>> feat/x',
+  ].join('\n');
 
   it('解析 merge 风格冲突块（含 ours/theirs 与起始行）', () => {
     const file = parseConflictFile(MERGE_STYLE, { path: 'a.ts' });
@@ -626,7 +794,11 @@ describe('凭据（DPAPI 密钥环 + 不进 argv）', () => {
   });
 
   it('HTTPS 凭据经环境变量注入（GIT_CONFIG_*），token 不出现在 argv', () => {
-    const auth = buildAuthEnv({ kind: 'https', username: 'x-access-token', token: 'ghp_SECRET_TOKEN_123' });
+    const auth = buildAuthEnv({
+      kind: 'https',
+      username: 'x-access-token',
+      token: 'ghp_SECRET_TOKEN_123',
+    });
     expect(auth.env['GIT_CONFIG_KEY_0']).toBe('http.extraHeader');
     expect(auth.env['GIT_CONFIG_VALUE_0']).toContain('Authorization: Basic ');
     expect(Object.values(auth.env).join(' ')).not.toContain('ghp_SECRET_TOKEN_123');
@@ -635,11 +807,19 @@ describe('凭据（DPAPI 密钥环 + 不进 argv）', () => {
   });
 
   it('SSH 凭据用 GIT_SSH_COMMAND 指定 ed25519 私钥；带口令时提示需要 ssh-agent', () => {
-    const plain = buildAuthEnv({ kind: 'ssh', privateKeyPath: 'C:/keys/id_ed25519', passphrase: null });
+    const plain = buildAuthEnv({
+      kind: 'ssh',
+      privateKeyPath: 'C:/keys/id_ed25519',
+      passphrase: null,
+    });
     expect(plain.env['GIT_SSH_COMMAND']).toContain('id_ed25519');
     expect(plain.env['GIT_SSH_COMMAND']).toContain('BatchMode=yes');
 
-    const withPass = buildAuthEnv({ kind: 'ssh', privateKeyPath: 'C:/keys/id_ed25519', passphrase: 'p@ss' });
+    const withPass = buildAuthEnv({
+      kind: 'ssh',
+      privateKeyPath: 'C:/keys/id_ed25519',
+      passphrase: 'p@ss',
+    });
     expect(withPass.env['GIT_SSH_COMMAND']).not.toContain('BatchMode');
     expect(withPass.notes.join()).toContain('ssh-agent');
     expect(withPass.secrets).toContain('p@ss');
@@ -647,16 +827,28 @@ describe('凭据（DPAPI 密钥环 + 不进 argv）', () => {
 
   it('密钥环读写：listBindings 只返回元信息，绝不返回值', async () => {
     const store = new GitCredentialStore({ shell: fakeShell() });
-    await store.setHttpsCredential({ remoteName: 'origin', username: 'x-access-token', token: 'ghp_SUPER_SECRET_VALUE' });
+    await store.setHttpsCredential({
+      remoteName: 'origin',
+      username: 'x-access-token',
+      token: 'ghp_SUPER_SECRET_VALUE',
+    });
     expect(await store.kindOf('origin')).toBe('https');
     expect(await store.has('origin')).toBe(true);
 
     const credential = await store.get('origin');
-    expect(credential).toEqual({ kind: 'https', username: 'x-access-token', token: 'ghp_SUPER_SECRET_VALUE' });
+    expect(credential).toEqual({
+      kind: 'https',
+      username: 'x-access-token',
+      token: 'ghp_SUPER_SECRET_VALUE',
+    });
 
     const bindings = await store.listBindings();
     expect(bindings).toHaveLength(1);
-    expect(bindings[0]).toMatchObject({ remoteName: 'origin', kind: 'https', username: 'x-access-token' });
+    expect(bindings[0]).toMatchObject({
+      remoteName: 'origin',
+      kind: 'https',
+      username: 'x-access-token',
+    });
     expect(JSON.stringify(bindings)).not.toContain('ghp_SUPER_SECRET_VALUE');
 
     await store.setSshCredential({ remoteName: 'backup', privateKeyPath: 'C:/keys/id_ed25519' });
@@ -770,8 +962,12 @@ describe('回滚快照命名与校验', () => {
   });
 
   it('变更来源标签区分可跳转与不可跳转', () => {
-    expect(changeSourceLabel({ kind: 'ai-task', ref: 'node-1', label: 'AI 生成', jumpable: true })).toBe('AI 生成');
-    expect(changeSourceLabel({ kind: 'external', ref: null, label: '外部改动', jumpable: false })).toContain('不可跳转');
+    expect(
+      changeSourceLabel({ kind: 'ai-task', ref: 'node-1', label: 'AI 生成', jumpable: true }),
+    ).toBe('AI 生成');
+    expect(
+      changeSourceLabel({ kind: 'external', ref: null, label: '外部改动', jumpable: false }),
+    ).toContain('不可跳转');
     expect(changeSourceLabel(null)).toBe('来源未知');
   });
 });
@@ -799,7 +995,10 @@ describe('后端选择与回退（对上层透明）', () => {
     const selection = await selectBackend({
       deps: { runner },
       preferred: 'git2',
-      loadGit2: async () => ({ binding: null, detail: '未安装 libgit2 绑定，将使用系统 Git CLI：Cannot find module nodegit' }),
+      loadGit2: async () => ({
+        binding: null,
+        detail: '未安装 libgit2 绑定，将使用系统 Git CLI：Cannot find module nodegit',
+      }),
     });
     expect(selection.used).toBe('cli');
     expect(selection.notes.join()).toContain('已自动回退系统 Git CLI');
@@ -827,7 +1026,16 @@ describe('后端选择与回退（对上层透明）', () => {
             return null;
           },
           async status() {
-            return [{ path: 'a.ts', oldPath: null, index: '?', worktree: '?', status: 'untracked' as const, staged: false }];
+            return [
+              {
+                path: 'a.ts',
+                oldPath: null,
+                index: '?',
+                worktree: '?',
+                status: 'untracked' as const,
+                staged: false,
+              },
+            ];
           },
           async add() {},
           async commit() {

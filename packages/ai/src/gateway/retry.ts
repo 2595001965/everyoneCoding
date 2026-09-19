@@ -36,9 +36,17 @@ export function shouldRetry(error: unknown): boolean {
  * 计算第 attempt 次（从 1 开始）重试前的等待毫秒数。
  * 含 ±20% 抖动，避免多个请求同时重试造成惊群。
  */
-export function delayFor(attempt: number, policy: RetryPolicy = DEFAULT_RETRY_POLICY, retryAfterMs?: number, random: () => number = Math.random): number {
+export function delayFor(
+  attempt: number,
+  policy: RetryPolicy = DEFAULT_RETRY_POLICY,
+  retryAfterMs?: number,
+  random: () => number = Math.random,
+): number {
   if (retryAfterMs !== undefined && retryAfterMs >= 0) {
-    return Math.min(policy.maxDelayMs, retryAfterMs + Math.round(retryAfterMs * policy.jitterRatio * random()));
+    return Math.min(
+      policy.maxDelayMs,
+      retryAfterMs + Math.round(retryAfterMs * policy.jitterRatio * random()),
+    );
   }
   const base = policy.initialDelayMs * Math.pow(policy.multiplier, Math.max(0, attempt - 1));
   const jitter = base * policy.jitterRatio * (random() * 2 - 1);
@@ -66,7 +74,10 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error;
       if (attempt === policy.maxRetries || !gate(error)) break;
-      const retryAfter = isAiError(error) && 'retryAfterMs' in error ? (error as { retryAfterMs?: number }).retryAfterMs : undefined;
+      const retryAfter =
+        isAiError(error) && 'retryAfterMs' in error
+          ? (error as { retryAfterMs?: number }).retryAfterMs
+          : undefined;
       const delayMs = delayFor(attempt + 1, policy, retryAfter ?? undefined);
       hooks.onRetry?.({
         attempt: attempt + 1,

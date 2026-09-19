@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { UpdateInfo, UpdateProgress } from '@ec/shell-api';
-import { UpdateService, type UpdateFlowEvent, type UpdatePorts, type UpdateRuntimeState } from '@ec/core';
+import {
+  UpdateService,
+  type UpdateFlowEvent,
+  type UpdatePorts,
+  type UpdateRuntimeState,
+} from '@ec/core';
 
 import { createUpdateApi } from '../update-service-host';
 import type { UpdateProgressEvent } from '../update-api';
@@ -11,10 +16,17 @@ import type { UpdateProgressEvent } from '../update-api';
  */
 function createEnv(options: { available?: UpdateInfo | null; failDownload?: boolean } = {}) {
   let now = 1_700_000_000_000;
-  let persisted: UpdateRuntimeState | null = { lastCheckAt: null, reminder: { deferredVersion: null, deferredUntil: null, snoozeCount: 0 }, ledger: { current: null, history: [] } };
+  let persisted: UpdateRuntimeState | null = {
+    lastCheckAt: null,
+    reminder: { deferredVersion: null, deferredUntil: null, snoozeCount: 0 },
+    ledger: { current: null, history: [] },
+  };
   const events: UpdateFlowEvent[] = [];
   let installed = '0.1.0';
-  const available = options.available === undefined ? { version: '0.2.0', notes: '修了几个问题' } : options.available;
+  const available =
+    options.available === undefined
+      ? { version: '0.2.0', notes: '修了几个问题' }
+      : options.available;
 
   const ports: UpdatePorts = {
     updater: {

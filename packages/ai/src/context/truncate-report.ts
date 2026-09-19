@@ -64,16 +64,24 @@ export function buildTruncateReport(input: BuildReportInput): TruncateReport {
     aggressive: input.aggressive,
     byReason,
     summary:
-      input.items.length === 0 ? '上下文完整提交，无省略' : `已省略 ${input.items.length} 项（点击展开）`,
+      input.items.length === 0
+        ? '上下文完整提交，无省略'
+        : `已省略 ${input.items.length} 项（点击展开）`,
   };
 }
 
 /** 按块分组展示（面板展开后的分组列表） */
-export function groupOmittedByBlock(report: TruncateReport): { block: ContextBlockId; blockLabel: string; items: OmittedItem[] }[] {
-  const groups = new Map<string, { block: ContextBlockId; blockLabel: string; items: OmittedItem[] }>();
+export function groupOmittedByBlock(
+  report: TruncateReport,
+): { block: ContextBlockId; blockLabel: string; items: OmittedItem[] }[] {
+  const groups = new Map<
+    string,
+    { block: ContextBlockId; blockLabel: string; items: OmittedItem[] }
+  >();
   for (const item of report.items) {
     const existing = groups.get(item.block);
-    if (existing === undefined) groups.set(item.block, { block: item.block, blockLabel: item.blockLabel, items: [item] });
+    if (existing === undefined)
+      groups.set(item.block, { block: item.block, blockLabel: item.blockLabel, items: [item] });
     else existing.items.push(item);
   }
   return [...groups.values()];
@@ -83,7 +91,8 @@ export function groupOmittedByBlock(report: TruncateReport): { block: ContextBlo
 export function describeReportDetail(report: TruncateReport): string {
   if (report.omittedCount === 0) return '无省略';
   const parts = groupOmittedByBlock(report).map(
-    (group) => `${group.blockLabel} ${group.items.length} 项（${OMIT_REASON_LABELS[group.items[0]?.reason ?? 'block-over-quota']}）`,
+    (group) =>
+      `${group.blockLabel} ${group.items.length} 项（${OMIT_REASON_LABELS[group.items[0]?.reason ?? 'block-over-quota']}）`,
   );
   return `${describeTruncation(report)}：${parts.join('；')}`;
 }

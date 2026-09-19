@@ -13,8 +13,7 @@ export interface WebView2Status {
   guideUrl: string;
 }
 
-const DEFAULT_GUIDE_URL =
-  'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+const DEFAULT_GUIDE_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
 
 /** 调用 Rust 命令探测 WebView2 运行时。失败时（非 Tauri 环境等）保守放行，避免阻塞。 */
 export async function ensureWebView2(): Promise<WebView2Status> {
@@ -31,7 +30,10 @@ export async function ensureWebView2(): Promise<WebView2Status> {
 }
 
 /** 在容器内渲染 WebView2 安装引导（不白屏，始终渲染可见内容）。 */
-export function renderWebView2Guide(container: HTMLElement, guideUrl: string = DEFAULT_GUIDE_URL): void {
+export function renderWebView2Guide(
+  container: HTMLElement,
+  guideUrl: string = DEFAULT_GUIDE_URL,
+): void {
   container.innerHTML = '';
 
   const wrap = document.createElement('div');

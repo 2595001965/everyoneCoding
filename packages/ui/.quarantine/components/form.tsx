@@ -188,7 +188,10 @@ export function RadioGroup({ options, value, onChange, label, name }: RadioGroup
       {options.map((option) => {
         const checked = option.value === value;
         return (
-          <label key={option.value} className={cx('ec-radio', option.disabled && 'ec-radio--disabled')}>
+          <label
+            key={option.value}
+            className={cx('ec-radio', option.disabled && 'ec-radio--disabled')}
+          >
             <input
               type="radio"
               name={groupName}

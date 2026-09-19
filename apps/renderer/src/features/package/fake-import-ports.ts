@@ -53,7 +53,12 @@ export interface FakeImportApi {
   getLastRequest: () => ImportJobRequest | null;
 }
 
-const OK_REPORT: VerificationReport = { ok: true, steps: [], failureCode: null, failureMessage: null };
+const OK_REPORT: VerificationReport = {
+  ok: true,
+  steps: [],
+  failureCode: null,
+  failureMessage: null,
+};
 
 const EMPTY_PREVIEW: PackageDiffPreview = {
   items: [],
@@ -66,14 +71,23 @@ export function createFakeImportApi(opts: FakeImportOptions = {}): FakeImportApi
   const path = opts.packagePath ?? '/fake/pkg.ecpkg';
   const verifyReport = opts.verifyReport ?? OK_REPORT;
   const diffPreview = opts.diffPreview ?? EMPTY_PREVIEW;
-  const modePreview = opts.modePreview ?? { mode: 'full-restore', toApply: 0, toOverwrite: 0, toSkip: 0, summary: '' };
+  const modePreview = opts.modePreview ?? {
+    mode: 'full-restore',
+    toApply: 0,
+    toOverwrite: 0,
+    toSkip: 0,
+    summary: '',
+  };
   let lastRequest: ImportJobRequest | null = null;
 
   const api = {
     pickPackagePath: async (): Promise<string | null> => path,
     verifyPackage: async (): Promise<VerificationReport> => verifyReport,
     previewImport: async (): Promise<PackageDiffPreview> => diffPreview,
-    previewMode: async (_p: string, mode: ImportMode): Promise<ModePreview> => ({ ...modePreview, mode }),
+    previewMode: async (_p: string, mode: ImportMode): Promise<ModePreview> => ({
+      ...modePreview,
+      mode,
+    }),
     importPackage: async (req: ImportJobRequest): Promise<ImportReportData> => {
       lastRequest = req;
       const types = new Set(PARTICIPATING[req.mode]);
@@ -97,7 +111,8 @@ export function createFakeImportApi(opts: FakeImportOptions = {}): FakeImportApi
         const r = batchByType[type];
         if (r === undefined) continue;
         for (const it of applicable) {
-          if (it.incoming.type === type && it.classification === 'conflicted') resolutionById.set(it.incoming.id, r);
+          if (it.incoming.type === type && it.classification === 'conflicted')
+            resolutionById.set(it.incoming.id, r);
         }
       }
 
@@ -105,7 +120,9 @@ export function createFakeImportApi(opts: FakeImportOptions = {}): FakeImportApi
       let takeNew = 0;
       let keepBoth = 0;
       for (const it of applicable) {
-        const res = resolutionById.get(it.incoming.id) ?? (it.classification === 'added' ? 'takeNew' : 'keepLocal');
+        const res =
+          resolutionById.get(it.incoming.id) ??
+          (it.classification === 'added' ? 'takeNew' : 'keepLocal');
         if (res === 'keepLocal') {
           keepLocal += 1;
         } else if (res === 'takeNew') {

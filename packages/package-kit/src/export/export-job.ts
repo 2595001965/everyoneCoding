@@ -37,7 +37,12 @@ import {
 } from '../format/layout';
 import type { ContentKind } from '../format/manifest';
 
-import { computeExcludeStats, matchExclude, parseEcignore, DEFAULT_EXCLUDE_RULES } from './exclude-rules';
+import {
+  computeExcludeStats,
+  matchExclude,
+  parseEcignore,
+  DEFAULT_EXCLUDE_RULES,
+} from './exclude-rules';
 import { deletePlainZip, encryptPackage, encryptionInfo } from './encryptor';
 import { isTextEntry, redactTextIfNeeded, scanForSecrets } from './redactor';
 import { ExportProgressTracker } from './progress';
@@ -78,7 +83,10 @@ function resolveSelectedProjectIds(request: ExportJobRequest): string[] | null {
 }
 
 /** 执行一次导出，返回结果（含统计 / 排除 / 脱敏 / 自检 / 加密信息） */
-export async function runExport(request: ExportJobRequest, port: ExportSourcePort): Promise<ExportJobResult> {
+export async function runExport(
+  request: ExportJobRequest,
+  port: ExportSourcePort,
+): Promise<ExportJobResult> {
   const tracker = new ExportProgressTracker(request.onProgress);
   const startTime = Date.now();
 
@@ -91,11 +99,15 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
   const allProjects = port.listProjects();
   const selectedProjectIds = resolveSelectedProjectIds(request);
   const includedProjects =
-    selectedProjectIds === null ? allProjects : allProjects.filter((p) => selectedProjectIds.includes(p.id));
+    selectedProjectIds === null
+      ? allProjects
+      : allProjects.filter((p) => selectedProjectIds.includes(p.id));
   const includedProjectIds = new Set(includedProjects.map((p) => p.id));
 
   const memoryItems = port.listMemory(selectedProjectIds, content.memory);
-  const memoryLinks = port.listMemoryLinks(selectedProjectIds).filter((l) => includedProjectIds.has(l.projectId));
+  const memoryLinks = port
+    .listMemoryLinks(selectedProjectIds)
+    .filter((l) => includedProjectIds.has(l.projectId));
   const documents = content.documents ? port.listDocuments(selectedProjectIds) : [];
 
   // 规则集合：默认 + 额外 + 项目级 .ecignore
@@ -108,7 +120,10 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
     const text = port.readEcignore(proj.id);
     projectEcignore.set(proj.id, parseEcignore(text));
   }
-  const rulesForCode = (pid: string): typeof globalRules => [...globalRules, ...(projectEcignore.get(pid) ?? [])];
+  const rulesForCode = (pid: string): typeof globalRules => [
+    ...globalRules,
+    ...(projectEcignore.get(pid) ?? []),
+  ];
 
   // 排除统计候选收集（代码 + 附件，读取一次内容）
   tracker.setStage('excluding');
@@ -120,7 +135,10 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
       for (const rel of files) {
         const data = port.readCodeFile(proj.id, rel);
         if (data === null) {
-          tracker.addFailure({ path: `${projectCodeDir(proj.id)}${rel}`, reason: '读取代码文件失败' });
+          tracker.addFailure({
+            path: `${projectCodeDir(proj.id)}${rel}`,
+            reason: '读取代码文件失败',
+          });
           continue;
         }
         const excluded = matchExclude(rel, rules);
@@ -139,14 +157,22 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
         size = 0;
       }
       const excluded = matchExclude(`${attachmentsDir()}${att.hashName}`, globalRules);
-      attachmentCandidates.push({ hashName: att.hashName, sourcePath: att.sourcePath, size, excluded });
+      attachmentCandidates.push({
+        hashName: att.hashName,
+        sourcePath: att.sourcePath,
+        size,
+        excluded,
+      });
     }
   }
 
   const excludeStats = computeExcludeStats(
     [
       ...codeCandidates.map((c) => ({ path: c.rel, bytes: c.size })),
-      ...attachmentCandidates.map((a) => ({ path: `${attachmentsDir()}${a.hashName}`, bytes: a.size })),
+      ...attachmentCandidates.map((a) => ({
+        path: `${attachmentsDir()}${a.hashName}`,
+        bytes: a.size,
+      })),
     ],
     [...globalRules, ...[...projectEcignore.values()].flat()],
   );
@@ -166,7 +192,11 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
   };
 
   const memoryHasLayers =
-    content.memory.longterm || content.memory.project || content.memory.feature || content.memory.page || content.memory.issue;
+    content.memory.longterm ||
+    content.memory.project ||
+    content.memory.feature ||
+    content.memory.page ||
+    content.memory.issue;
 
   // 记忆：长期层
   if (memoryHasLayers) {
@@ -194,20 +224,32 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
 
     // 记忆 ↔ 文档关联
     for (const link of memoryLinks) {
-      ops.push({ kind: 'text', pkgPath: projectMemoryLinksPath(link.projectId), text: link.linksJson });
+      ops.push({
+        kind: 'text',
+        pkgPath: projectMemoryLinksPath(link.projectId),
+        text: link.linksJson,
+      });
     }
   }
 
   // 文档
   if (content.documents) {
     const indexText = JSON.stringify(
-      documents.map((d) => ({ id: d.id, name: d.name, projectId: d.projectId, updatedAt: d.updatedAt })),
+      documents.map((d) => ({
+        id: d.id,
+        name: d.name,
+        projectId: d.projectId,
+        updatedAt: d.updatedAt,
+      })),
     );
     ops.push({ kind: 'text', pkgPath: documentsIndexPath(), text: indexText });
     for (const doc of documents) {
       const file = port.readDocument(doc.id, doc.name);
       if (file === null) {
-        tracker.addFailure({ path: `${documentDir(doc.id)}${doc.name}`, reason: '读取文档内容失败' });
+        tracker.addFailure({
+          path: `${documentDir(doc.id)}${doc.name}`,
+          reason: '读取文档内容失败',
+        });
         continue;
       }
       const docPath = `${documentDir(doc.id)}${doc.name}`;
@@ -229,7 +271,10 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
     for (const fileName of pages) {
       const page = port.readDesignPage(pid, fileName);
       if (page === null) {
-        tracker.addFailure({ path: `${projectPagesDir(pid)}${fileName}`, reason: '读取页面 DSL 失败' });
+        tracker.addFailure({
+          path: `${projectPagesDir(pid)}${fileName}`,
+          reason: '读取页面 DSL 失败',
+        });
         continue;
       }
       ops.push({ kind: 'text', pkgPath: `${projectPagesDir(pid)}${fileName}`, text: page });
@@ -240,20 +285,29 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
     for (const fileName of components) {
       const component = port.readDesignComponent(pid, fileName);
       if (component === null) {
-        tracker.addFailure({ path: `${projectComponentsDir(pid)}${fileName}`, reason: '读取组件失败' });
+        tracker.addFailure({
+          path: `${projectComponentsDir(pid)}${fileName}`,
+          reason: '读取组件失败',
+        });
         continue;
       }
-      ops.push({ kind: 'text', pkgPath: `${projectComponentsDir(pid)}${fileName}`, text: component });
+      ops.push({
+        kind: 'text',
+        pkgPath: `${projectComponentsDir(pid)}${fileName}`,
+        text: component,
+      });
     }
 
     if (content.anchors) {
       const anchors = port.readAnchors(pid);
-      if (anchors !== null) ops.push({ kind: 'text', pkgPath: projectAnchorsPath(pid), text: anchors });
+      if (anchors !== null)
+        ops.push({ kind: 'text', pkgPath: projectAnchorsPath(pid), text: anchors });
     }
 
     if (content.registry) {
       const registry = port.readRegistry(pid);
-      if (registry !== null) ops.push({ kind: 'text', pkgPath: projectRegistryPath(pid), text: registry });
+      if (registry !== null)
+        ops.push({ kind: 'text', pkgPath: projectRegistryPath(pid), text: registry });
     }
 
     if (content.pipeline) {
@@ -261,7 +315,10 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
       for (const rel of pipelineFiles) {
         const data = port.readPipelineFile(pid, rel);
         if (data === null) {
-          tracker.addFailure({ path: `${projectPipelineDir(pid)}${rel}`, reason: '读取流水线产物失败' });
+          tracker.addFailure({
+            path: `${projectPipelineDir(pid)}${rel}`,
+            reason: '读取流水线产物失败',
+          });
           continue;
         }
         const ppath = `${projectPipelineDir(pid)}${rel}`;
@@ -290,14 +347,19 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
   // 附件（排除命中的不写入，二进制流式）
   for (const att of attachmentCandidates) {
     if (att.excluded) continue;
-    ops.push({ kind: 'file', pkgPath: `${attachmentsDir()}${att.hashName}`, sourcePath: att.sourcePath });
+    ops.push({
+      kind: 'file',
+      pkgPath: `${attachmentsDir()}${att.hashName}`,
+      sourcePath: att.sourcePath,
+    });
     counts.attachments += 1;
   }
 
   // 写入
   if (redact) tracker.setStage('redacting');
   tracker.setStage('writing');
-  const plainTmpPath = request.password !== undefined ? `${request.outputPath}.plain.tmp` : request.outputPath;
+  const plainTmpPath =
+    request.password !== undefined ? `${request.outputPath}.plain.tmp` : request.outputPath;
   const writer = EcpkgWriter.create(plainTmpPath);
 
   const total = ops.length;
@@ -319,7 +381,10 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
         await writer.writeFileEntry(op.pkgPath, op.sourcePath);
       }
     } catch (error) {
-      tracker.addFailure({ path: op.pkgPath, reason: error instanceof Error ? error.message : String(error) });
+      tracker.addFailure({
+        path: op.pkgPath,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
     processed += 1;
   }
@@ -357,7 +422,9 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
       },
       redacted: redact,
       ...(request.password !== undefined ? { encryption: encryptionInfo() } : {}),
-      ...(request.signWithPrivateKeyPem !== undefined ? { signWithPrivateKeyPem: request.signWithPrivateKeyPem } : {}),
+      ...(request.signWithPrivateKeyPem !== undefined
+        ? { signWithPrivateKeyPem: request.signWithPrivateKeyPem }
+        : {}),
     });
   } catch (error) {
     tracker.setStage('failed');
@@ -385,10 +452,17 @@ export async function runExport(request: ExportJobRequest, port: ExportSourcePor
 
   // 自检：遍历包内文本条目再扫一遍密钥
   const selfCheckFindings: RedactionFinding[] = [];
-  const reader = EcpkgReader.open(outputPath, request.password !== undefined ? { password: request.password } : {});
+  const reader = EcpkgReader.open(
+    outputPath,
+    request.password !== undefined ? { password: request.password } : {},
+  );
   try {
     for (const entryPath of reader.listEntries()) {
-      if (entryPath === PKG_MANIFEST_PATH || entryPath === PKG_CHECKSUM_PATH || entryPath === PKG_SIGNATURE_PATH) {
+      if (
+        entryPath === PKG_MANIFEST_PATH ||
+        entryPath === PKG_CHECKSUM_PATH ||
+        entryPath === PKG_SIGNATURE_PATH
+      ) {
         continue;
       }
       if (!isTextEntry(entryPath)) continue;

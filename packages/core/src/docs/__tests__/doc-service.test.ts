@@ -7,7 +7,19 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { DocDomainError, type DocLinkType, type DocMemoryLink, type DocMemoryNode, type DocMemoryScope, type DocStore, type DocMemoryPort, type DocVersionRowSnapshot, type MemoryDocLinkRowSnapshot, type DocumentRowSnapshot, type MemoryExtractionPort } from '../doc-types';
+import {
+  DocDomainError,
+  type DocLinkType,
+  type DocMemoryLink,
+  type DocMemoryNode,
+  type DocMemoryScope,
+  type DocStore,
+  type DocMemoryPort,
+  type DocVersionRowSnapshot,
+  type MemoryDocLinkRowSnapshot,
+  type DocumentRowSnapshot,
+  type MemoryExtractionPort,
+} from '../doc-types';
 import { createDefaultParserRegistry } from '../parsers/node-registry';
 import { DocService } from '../doc-service';
 
@@ -16,7 +28,9 @@ class FakeDocStore implements DocStore {
   readonly versions = new Map<string, DocVersionRowSnapshot[]>();
 
   loadAll(projectId: string): Promise<DocumentRowSnapshot[]> {
-    return Promise.resolve([...this.rows.values()].filter((r) => r.project_id === projectId).map((r) => ({ ...r })));
+    return Promise.resolve(
+      [...this.rows.values()].filter((r) => r.project_id === projectId).map((r) => ({ ...r })),
+    );
   }
   loadById(id: string): Promise<DocumentRowSnapshot | null> {
     const row = this.rows.get(id);
@@ -59,13 +73,23 @@ class FakeDocMemoryPort implements DocMemoryPort {
   listMemoryNodes(): Promise<DocMemoryNode[]> {
     return Promise.resolve([...this.nodes.values()]);
   }
-  createMemory(input: { projectId: string; scope: DocMemoryScope; title: string; content: string; sourceRef?: unknown }): Promise<DocMemoryNode> {
+  createMemory(input: {
+    projectId: string;
+    scope: DocMemoryScope;
+    title: string;
+    content: string;
+    sourceRef?: unknown;
+  }): Promise<DocMemoryNode> {
     this.n += 1;
     const node: DocMemoryNode = { id: `mem-${this.n}`, scope: input.scope, title: input.title };
     this.nodes.set(node.id, node);
     return Promise.resolve(node);
   }
-  link(input: { memoryId: string; documentId: string; linkType: DocLinkType }): Promise<DocMemoryLink> {
+  link(input: {
+    memoryId: string;
+    documentId: string;
+    linkType: DocLinkType;
+  }): Promise<DocMemoryLink> {
     this.n += 1;
     const row: MemoryDocLinkRowSnapshot = {
       id: `link-${this.n}`,
@@ -87,14 +111,26 @@ class FakeDocMemoryPort implements DocMemoryPort {
     return Promise.resolve(
       [...this.links.values()]
         .filter((l) => l.document_id === documentId)
-        .map((l) => ({ id: l.id, memoryId: l.memory_id, documentId: l.document_id, linkType: l.link_type as DocLinkType, createdAt: l.created_at })),
+        .map((l) => ({
+          id: l.id,
+          memoryId: l.memory_id,
+          documentId: l.document_id,
+          linkType: l.link_type as DocLinkType,
+          createdAt: l.created_at,
+        })),
     );
   }
   listLinksByMemory(memoryId: string): Promise<DocMemoryLink[]> {
     return Promise.resolve(
       [...this.links.values()]
         .filter((l) => l.memory_id === memoryId)
-        .map((l) => ({ id: l.id, memoryId: l.memory_id, documentId: l.document_id, linkType: l.link_type as DocLinkType, createdAt: l.created_at })),
+        .map((l) => ({
+          id: l.id,
+          memoryId: l.memory_id,
+          documentId: l.document_id,
+          linkType: l.link_type as DocLinkType,
+          createdAt: l.created_at,
+        })),
     );
   }
   removeLink(id: string): Promise<void> {
@@ -103,24 +139,32 @@ class FakeDocMemoryPort implements DocMemoryPort {
   }
 }
 
-function makeExtraction(impl?: (text: string) => { title: string; content: string }): MemoryExtractionPort {
+function makeExtraction(
+  impl?: (text: string) => { title: string; content: string },
+): MemoryExtractionPort {
   return {
     summarize: async (input) => {
       if (impl) return impl(input.text);
-      return { title: `摘要：${input.title}`, content: `【${input.scope}】${input.text.slice(0, 20)}` };
+      return {
+        title: `摘要：${input.title}`,
+        content: `【${input.scope}】${input.text.slice(0, 20)}`,
+      };
     },
   };
 }
 
 const MD = '# 需求文档\n## 功能一\n这是功能一的描述。\n## 功能二\n这是功能二。';
 
-function makeService(opts: { extraction?: MemoryExtractionPort | null; memory?: FakeDocMemoryPort } = {}): {
+function makeService(
+  opts: { extraction?: MemoryExtractionPort | null; memory?: FakeDocMemoryPort } = {},
+): {
   service: DocService;
   store: FakeDocStore;
   memory: FakeDocMemoryPort;
 } {
   const store = new FakeDocStore();
-  const memory = opts.memory ?? new FakeDocMemoryPort([{ id: 'm1', scope: 'project', title: '项目记忆A' }]);
+  const memory =
+    opts.memory ?? new FakeDocMemoryPort([{ id: 'm1', scope: 'project', title: '项目记忆A' }]);
   const service = new DocService({
     store,
     parsers: createDefaultParserRegistry(),
@@ -138,7 +182,12 @@ function makeService(opts: { extraction?: MemoryExtractionPort | null; memory?: 
 describe('文档导入与解析层级', () => {
   it('Markdown 导入后 sections 层级正确并落首版本', async () => {
     const { service } = makeService();
-    const doc = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD, title: '需求文档' });
+    const doc = await service.importDocument({
+      projectId: 'p1',
+      format: 'markdown',
+      raw: MD,
+      title: '需求文档',
+    });
     expect(doc.title).toBe('需求文档');
     expect(doc.sections.map((s) => s.level)).toEqual([1, 2, 2]);
     expect(doc.version).toBe(1);
@@ -149,16 +198,20 @@ describe('文档导入与解析层级', () => {
 
   it('DOCX / PDF / TXT 导入均保留标题层级', async () => {
     const { service } = makeService();
-    const mdDoc = await service.importDocument({ projectId: 'p1', format: 'txt', raw: '第一章 概述\n概述正文。' });
+    const mdDoc = await service.importDocument({
+      projectId: 'p1',
+      format: 'txt',
+      raw: '第一章 概述\n概述正文。',
+    });
     expect(mdDoc.sections[0]!.level).toBe(1);
     expect(mdDoc.format).toBe('txt');
   });
 
   it('图片文档未接入 OCR 时如实报错（不静默入库）', async () => {
     const { service } = makeService();
-    await expect(service.importDocument({ projectId: 'p1', format: 'image', raw: new Uint8Array([1, 2, 3]) })).rejects.toBeInstanceOf(
-      DocDomainError,
-    );
+    await expect(
+      service.importDocument({ projectId: 'p1', format: 'image', raw: new Uint8Array([1, 2, 3]) }),
+    ).rejects.toBeInstanceOf(DocDomainError);
     const all = await service.listDocuments('p1');
     expect(all).toHaveLength(0);
   });
@@ -168,7 +221,11 @@ describe('关联记忆与双向反查', () => {
   it('关联到记忆节点并可反查"被哪些记忆引用"', async () => {
     const { service, memory } = makeService();
     const doc = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
-    const link = await service.linkToMemory({ memoryId: 'm1', documentId: doc.id, linkType: 'supports' });
+    const link = await service.linkToMemory({
+      memoryId: 'm1',
+      documentId: doc.id,
+      linkType: 'supports',
+    });
     expect(link.linkType).toBe('supports');
 
     const byDoc = await service.listDocLinks(doc.id);
@@ -187,7 +244,9 @@ describe('一键转记忆', () => {
   it('端口缺失时如实报错并给引导，不内置模板顶替', async () => {
     const { service } = makeService({ extraction: null });
     const doc = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
-    await expect(service.previewConvertToMemory({ docId: doc.id, scope: 'project' })).rejects.toMatchObject({
+    await expect(
+      service.previewConvertToMemory({ docId: doc.id, scope: 'project' }),
+    ).rejects.toMatchObject({
       code: 'extraction_unavailable',
     });
   });
@@ -216,7 +275,10 @@ describe('版本提示与忽略', () => {
     const doc = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
     await service.linkToMemory({ memoryId: 'm1', documentId: doc.id, linkType: 'related' });
 
-    await service.updateDocument({ id: doc.id, raw: '# 需求文档\n## 功能一\n修改后内容。\n## 新增功能\n新内容。' });
+    await service.updateDocument({
+      id: doc.id,
+      raw: '# 需求文档\n## 功能一\n修改后内容。\n## 新增功能\n新内容。',
+    });
     const updated = await service.getDocument(doc.id);
     expect(updated!.version).toBe(2);
     const status1 = await service.evaluateDocUpdateStatus(doc.id);
@@ -259,10 +321,14 @@ describe('回收站', () => {
     const doc = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
     await service.deleteDocument(doc.id);
     expect((await service.listDocuments('p1')).find((d) => d.id === doc.id)).toBeUndefined();
-    expect((await service.listDocuments('p1', { includeDeleted: true })).some((d) => d.id === doc.id)).toBe(true);
+    expect(
+      (await service.listDocuments('p1', { includeDeleted: true })).some((d) => d.id === doc.id),
+    ).toBe(true);
     await service.restoreDocument(doc.id);
     expect((await service.listDocuments('p1')).some((d) => d.id === doc.id)).toBe(true);
     await service.purgeDocument(doc.id);
-    expect((await service.listDocuments('p1', { includeDeleted: true })).some((d) => d.id === doc.id)).toBe(false);
+    expect(
+      (await service.listDocuments('p1', { includeDeleted: true })).some((d) => d.id === doc.id),
+    ).toBe(false);
   });
 });

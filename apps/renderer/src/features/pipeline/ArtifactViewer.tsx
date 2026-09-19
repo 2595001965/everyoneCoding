@@ -22,7 +22,10 @@ function inlineText(text: string): string {
 }
 
 /** 轻量 Markdown → 行级 HTML（标题/列表/勾选/代码块） */
-export function renderMarkdownLines(markdown: string, options: MarkdownRenderOptions = {}): string[] {
+export function renderMarkdownLines(
+  markdown: string,
+  options: MarkdownRenderOptions = {},
+): string[] {
   void options; // 预留：renderMermaid 关闭时跳过 Mermaid 块（当前总是展示源码，保证零依赖）
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
   const output: string[] = [];
@@ -50,9 +53,12 @@ export function renderMarkdownLines(markdown: string, options: MarkdownRenderOpt
     else if (line.startsWith('## ')) output.push(`<h3>${inlineText(line.slice(3))}</h3>`);
     else if (line.startsWith('# ')) output.push(`<h2>${inlineText(line.slice(2))}</h2>`);
     else if (line.trim() === '') output.push('<div class="ec-md-blank"></div>');
-    else if (line.trim().startsWith('- [ ]')) output.push(`<li class="ec-md-checkbox">☐ ${inlineText(line.trim().slice(5))}</li>`);
-    else if (line.trim().startsWith('- [x]')) output.push(`<li class="ec-md-checkbox">☑ ${inlineText(line.trim().slice(5))}</li>`);
-    else if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) output.push(`<li>${inlineText(line.trim().slice(2))}</li>`);
+    else if (line.trim().startsWith('- [ ]'))
+      output.push(`<li class="ec-md-checkbox">☐ ${inlineText(line.trim().slice(5))}</li>`);
+    else if (line.trim().startsWith('- [x]'))
+      output.push(`<li class="ec-md-checkbox">☑ ${inlineText(line.trim().slice(5))}</li>`);
+    else if (line.trim().startsWith('- ') || line.trim().startsWith('* '))
+      output.push(`<li>${inlineText(line.trim().slice(2))}</li>`);
     else output.push(`<p>${inlineText(line)}</p>`);
   }
   if (inCode) output.push(`<code>${escapeHtml(codeBuffer.join('\n'))}</code></pre>`);
@@ -96,11 +102,16 @@ function DslViewer({ content }: { content: string }): JSX.Element {
   }
 }
 
-export function ArtifactViewer({ content, artifactType, markdownOptions }: ArtifactViewerProps): JSX.Element {
+export function ArtifactViewer({
+  content,
+  artifactType,
+  markdownOptions,
+}: ArtifactViewerProps): JSX.Element {
   const isDsl = artifactType === 'design_dsl';
   if (isDsl) return <DslViewer content={content} />;
 
-  const isMarkdown = artifactType === 'requirement_doc' || artifactType === 'tech_doc' || content.includes('## ');
+  const isMarkdown =
+    artifactType === 'requirement_doc' || artifactType === 'tech_doc' || content.includes('## ');
   if (!isMarkdown) return <pre className="ec-pipe-code">{content}</pre>;
 
   const mermaid = extractMermaidSource(content);
@@ -114,7 +125,9 @@ export function ArtifactViewer({ content, artifactType, markdownOptions }: Artif
         <details className="ec-pipe-mermaid" open>
           <summary>业务流程图（Mermaid 源码）</summary>
           <pre>{mermaid}</pre>
-          <p className="ec-pipe-mermaid__hint">接入 Mermaid 渲染器后此处显示图形（当前展示源码，保证零依赖）</p>
+          <p className="ec-pipe-mermaid__hint">
+            接入 Mermaid 渲染器后此处显示图形（当前展示源码，保证零依赖）
+          </p>
         </details>
       )}
     </div>

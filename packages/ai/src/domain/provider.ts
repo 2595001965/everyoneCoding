@@ -105,7 +105,9 @@ export function isSensitiveHeaderName(name: string): boolean {
 
 /** 读取旧数据时也过滤认证头，避免历史脏数据回显或覆盖安全 Key。 */
 export function filterSafeHeaders(headers: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => !isSensitiveHeaderName(name)));
+  return Object.fromEntries(
+    Object.entries(headers).filter(([name]) => !isSensitiveHeaderName(name)),
+  );
 }
 
 export const providerBaseSchema = z.object({
@@ -114,7 +116,12 @@ export const providerBaseSchema = z.object({
   baseUrl: httpUrlSchema,
   headers: headersSchema.default({}),
   /** 1~600 秒 */
-  timeoutMs: z.number().int().min(1_000, '超时至少 1 秒').max(600_000, '超时最多 600 秒').default(30_000),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(1_000, '超时至少 1 秒')
+    .max(600_000, '超时最多 600 秒')
+    .default(30_000),
   supportsStream: z.boolean().default(true),
   supportsTools: z.boolean().default(false),
   supportsVision: z.boolean().default(false),
@@ -210,7 +217,9 @@ export function parseStringArray(json: string | null): string[] {
   if (!json) return [];
   try {
     const parsed: unknown = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
   } catch {
     return [];
   }

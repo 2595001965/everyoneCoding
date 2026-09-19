@@ -76,17 +76,17 @@ export async function collect(chunks: AsyncIterable<StreamChunk>): Promise<Colle
         partial = true;
         finishReason = 'error';
         break;
-    case 'done':
-      finishReason = chunk.finishReason;
-      partial = chunk.partial;
-      break;
-    default:
-      break;
+      case 'done':
+        finishReason = chunk.finishReason;
+        partial = chunk.partial;
+        break;
+      default:
+        break;
+    }
+    // error / done 之后不再消费：done 是流的终点，后续不应再有内容帧
+    if (chunk.type === 'done') break;
+    if (finishReason === 'error') break;
   }
-  // error / done 之后不再消费：done 是流的终点，后续不应再有内容帧
-  if (chunk.type === 'done') break;
-  if (finishReason === 'error') break;
-}
 
   const toolCalls = accumulateToolCalls(deltas);
   if (toolCalls.length > 0 && finishReason === 'stop') finishReason = 'tool_use';

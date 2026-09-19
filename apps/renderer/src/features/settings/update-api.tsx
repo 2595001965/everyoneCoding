@@ -79,7 +79,13 @@ export interface UpdateApi {
 
 const UpdateContext = createContext<UpdateApi | null>(null);
 
-export function UpdateApiProvider({ api, children }: { api: UpdateApi | null; children: ReactNode }): JSX.Element {
+export function UpdateApiProvider({
+  api,
+  children,
+}: {
+  api: UpdateApi | null;
+  children: ReactNode;
+}): JSX.Element {
   return <UpdateContext.Provider value={api}>{children}</UpdateContext.Provider>;
 }
 
@@ -96,7 +102,9 @@ export function useUpdate(): UpdateApi {
 export function UpdateUnavailable(): JSX.Element {
   return (
     <div className="ec-settings__hint">
-      <p>自动更新尚未连接。由外壳装配更新通道后，这里可以检查新版本、查看下载进度，并在更新失败时回滚到上一版本。</p>
+      <p>
+        自动更新尚未连接。由外壳装配更新通道后，这里可以检查新版本、查看下载进度，并在更新失败时回滚到上一版本。
+      </p>
     </div>
   );
 }

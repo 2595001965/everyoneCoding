@@ -59,20 +59,35 @@ export function ProviderList({
           {providers.map((row, index) => (
             <li
               key={row.id}
-              className={row.id === selectedId ? 'ec-ai__source ec-ai__source--active' : 'ec-ai__source'}
+              className={
+                row.id === selectedId ? 'ec-ai__source ec-ai__source--active' : 'ec-ai__source'
+              }
             >
               <button type="button" className="ec-ai__source-main" onClick={() => onSelect(row)}>
                 <span className="ec-ai__name">
                   {row.name}
                   <Tag color="neutral">{PROTOCOL_LABELS[row.protocol]}</Tag>
-                  {row.keyRef ? <Tag color="neutral">已配置 Key</Tag> : <Tag color="warning">未配置 Key</Tag>}
+                  {row.keyRef ? (
+                    <Tag color="neutral">已配置 Key</Tag>
+                  ) : (
+                    <Tag color="warning">未配置 Key</Tag>
+                  )}
                 </span>
                 <code className="ec-ai__url">{row.baseUrl}</code>
               </button>
 
               <span className="ec-ai__row-actions">
-                <Switch checked={row.enabled} onChange={(checked) => onToggle(row.id, checked)} label="启用" />
-                <Button size="sm" variant="ghost" onClick={() => onMove(row.id, -1)} disabled={index === 0}>
+                <Switch
+                  checked={row.enabled}
+                  onChange={(checked) => onToggle(row.id, checked)}
+                  label="启用"
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onMove(row.id, -1)}
+                  disabled={index === 0}
+                >
                   上移
                 </Button>
                 <Button

@@ -19,7 +19,12 @@ import {
 describe('T3-11 响应式断点（只存差异属性）', () => {
   it('断点集合为 1920 / 1440 / 768 / 375', () => {
     expect([...RESPONSIVE_BREAKPOINTS]).toEqual([1920, 1440, 768, 375]);
-    expect(RESPONSIVE_BREAKPOINTS.map((item) => breakpointKey(item))).toEqual(['1920', '1440', '768', '375']);
+    expect(RESPONSIVE_BREAKPOINTS.map((item) => breakpointKey(item))).toEqual([
+      '1920',
+      '1440',
+      '768',
+      '375',
+    ]);
   });
 
   it('只写入与基线不同的属性', () => {
@@ -40,7 +45,12 @@ describe('T3-11 响应式断点（只存差异属性）', () => {
     const cleared = setBreakpointOverride(one, 'el-5', 375, null);
     expect(findById(cleared.tree, 'el-5')?.responsive).toBeUndefined();
 
-    const two = setBreakpointOverride(setBreakpointOverride(dsl, 'el-5', 375, { width: 300 }), 'el-5', 768, { width: 320 });
+    const two = setBreakpointOverride(
+      setBreakpointOverride(dsl, 'el-5', 375, { width: 300 }),
+      'el-5',
+      768,
+      { width: 320 },
+    );
     expect(Object.keys(nodeOf(two, 'el-5').responsive ?? {})).toEqual(['375', '768']);
     const clearedOne = setBreakpointOverride(two, 'el-5', 375, null);
     expect(Object.keys(nodeOf(clearedOne, 'el-5').responsive ?? {})).toEqual(['768']);
@@ -116,7 +126,13 @@ describe('T3-11 断点切换条', () => {
     const withOverride = setBreakpointOverride(createLoginPageDsl(), 'el-5', 768, { width: 320 });
     const onChangePage = vi.fn();
     const { rerender } = render(
-      <BreakpointBar value={768} onChange={() => undefined} page={withOverride} elementId="el-5" onChangePage={onChangePage} />,
+      <BreakpointBar
+        value={768}
+        onChange={() => undefined}
+        page={withOverride}
+        elementId="el-5"
+        onChangePage={onChangePage}
+      />,
     );
     expect(screen.getByText(/本断点差异 1 项/)).toBeInTheDocument();
     expect(screen.getByTestId('responsive-stats')).toHaveTextContent('差异存储');
@@ -126,12 +142,27 @@ describe('T3-11 断点切换条', () => {
     const next = onChangePage.mock.calls[0]?.[0] as ReturnType<typeof createLoginPageDsl>;
     expect(findById(next.tree, 'el-5')?.responsive).toBeUndefined();
 
-    rerender(<BreakpointBar value={768} onChange={() => undefined} page={next} elementId="el-5" onChangePage={onChangePage} />);
+    rerender(
+      <BreakpointBar
+        value={768}
+        onChange={() => undefined}
+        page={next}
+        elementId="el-5"
+        onChangePage={onChangePage}
+      />,
+    );
     expect(screen.getByText(/本断点差异 0 项/)).toBeInTheDocument();
   });
 
   it('没有选中元素时不显示清除按钮', () => {
-    render(<BreakpointBar value={1920} onChange={() => undefined} page={createLoginPageDsl()} elementId={null} />);
+    render(
+      <BreakpointBar
+        value={1920}
+        onChange={() => undefined}
+        page={createLoginPageDsl()}
+        elementId={null}
+      />,
+    );
     expect(screen.queryByTestId('clear-breakpoint-override')).toBeNull();
   });
 });

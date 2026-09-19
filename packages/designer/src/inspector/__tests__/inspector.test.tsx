@@ -32,20 +32,46 @@ const ALL_TYPES_SCHEMA = defineSchema([
   { key: 'cols', label: '列', type: 'columns', group: '数据' },
   { key: 'img', label: '图片', type: 'image', group: '内容' },
   { key: 'opts', label: '选项', type: 'options', group: '数据' },
-  { key: 'mode', label: '模式', type: 'enum', group: '外观', options: [{ value: 'a', label: '甲' }, { value: 'b', label: '乙' }] },
+  {
+    key: 'mode',
+    label: '模式',
+    type: 'enum',
+    group: '外观',
+    options: [
+      { value: 'a', label: '甲' },
+      { value: 'b', label: '乙' },
+    ],
+  },
 ]);
 
 describe('T3-05 SchemaForm 自动表单', () => {
   it('覆盖全部 14 种控件类型', () => {
-    render(<SchemaForm schema={ALL_TYPES_SCHEMA} values={{ mode: 'a' }} onChange={() => undefined} debounceMs={0} />);
+    render(
+      <SchemaForm
+        schema={ALL_TYPES_SCHEMA}
+        values={{ mode: 'a' }}
+        onChange={() => undefined}
+        debounceMs={0}
+      />,
+    );
     for (const field of ALL_TYPES_SCHEMA.fields) {
-      expect(screen.getByTestId(`prop-field-${field.key}`), `${field.type} 未渲染`).toHaveAttribute('data-field-type', field.type);
+      expect(screen.getByTestId(`prop-field-${field.key}`), `${field.type} 未渲染`).toHaveAttribute(
+        'data-field-type',
+        field.type,
+      );
     }
     expect(screen.getByTestId('schema-form')).toBeInTheDocument();
   });
 
   it('分组折叠：点击分组头收起字段', () => {
-    render(<SchemaForm schema={ALL_TYPES_SCHEMA} values={{}} onChange={() => undefined} debounceMs={0} />);
+    render(
+      <SchemaForm
+        schema={ALL_TYPES_SCHEMA}
+        values={{}}
+        onChange={() => undefined}
+        debounceMs={0}
+      />,
+    );
     const head = screen.getByTestId('schema-group-内容');
     expect(head).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(head);
@@ -55,34 +81,93 @@ describe('T3-05 SchemaForm 自动表单', () => {
 
   it('visibleWhen 条件显隐生效', () => {
     const schema = defineSchema([
-      { key: 'variant', label: '风格', type: 'enum', group: '外观', options: [{ value: 'primary', label: '主' }] },
-      { key: 'block', label: '撑满', type: 'boolean', group: '外观', visibleWhen: { field: 'variant', equals: 'primary' } },
+      {
+        key: 'variant',
+        label: '风格',
+        type: 'enum',
+        group: '外观',
+        options: [{ value: 'primary', label: '主' }],
+      },
+      {
+        key: 'block',
+        label: '撑满',
+        type: 'boolean',
+        group: '外观',
+        visibleWhen: { field: 'variant', equals: 'primary' },
+      },
     ]);
-    const { rerender } = render(<SchemaForm schema={schema} values={{ variant: 'ghost' }} onChange={() => undefined} debounceMs={0} />);
+    const { rerender } = render(
+      <SchemaForm
+        schema={schema}
+        values={{ variant: 'ghost' }}
+        onChange={() => undefined}
+        debounceMs={0}
+      />,
+    );
     expect(screen.queryByTestId('prop-field-block')).toBeNull();
-    rerender(<SchemaForm schema={schema} values={{ variant: 'primary' }} onChange={() => undefined} debounceMs={0} />);
+    rerender(
+      <SchemaForm
+        schema={schema}
+        values={{ variant: 'primary' }}
+        onChange={() => undefined}
+        debounceMs={0}
+      />,
+    );
     expect(screen.getByTestId('prop-field-block')).toBeInTheDocument();
   });
 
   it('各控件类型产出正确类型的值', () => {
     const onChange = vi.fn();
-    const field = (key: string): PropField => ALL_TYPES_SCHEMA.fields.find((item) => item.key === key) as PropField;
+    const field = (key: string): PropField =>
+      ALL_TYPES_SCHEMA.fields.find((item) => item.key === key) as PropField;
 
-    const { rerender } = render(<PropFieldControl field={field('num')} value={1} disabled={false} debounceMs={0} onChange={onChange} />);
+    const { rerender } = render(
+      <PropFieldControl
+        field={field('num')}
+        value={1}
+        disabled={false}
+        debounceMs={0}
+        onChange={onChange}
+      />,
+    );
     fireEvent.change(screen.getByLabelText('数值'), { target: { value: '42' } });
     expect(onChange).toHaveBeenLastCalledWith(42);
 
-    rerender(<PropFieldControl field={field('flag')} value={false} disabled={false} debounceMs={0} onChange={onChange} />);
+    rerender(
+      <PropFieldControl
+        field={field('flag')}
+        value={false}
+        disabled={false}
+        debounceMs={0}
+        onChange={onChange}
+      />,
+    );
     fireEvent.click(screen.getByLabelText('开关'));
     expect(onChange).toHaveBeenLastCalledWith(true);
 
-    rerender(<PropFieldControl field={field('mode')} value="a" disabled={false} debounceMs={0} onChange={onChange} />);
+    rerender(
+      <PropFieldControl
+        field={field('mode')}
+        value="a"
+        disabled={false}
+        debounceMs={0}
+        onChange={onChange}
+      />,
+    );
     fireEvent.click(screen.getByLabelText('模式'));
     fireEvent.click(screen.getByRole('option', { name: '乙' }));
     expect(onChange).toHaveBeenLastCalledWith('b');
 
     // JSON 字段：合法才回写，非法给告警
-    rerender(<PropFieldControl field={field('data')} value={{ a: 1 }} disabled={false} debounceMs={0} onChange={onChange} />);
+    rerender(
+      <PropFieldControl
+        field={field('data')}
+        value={{ a: 1 }}
+        disabled={false}
+        debounceMs={0}
+        onChange={onChange}
+      />,
+    );
     fireEvent.change(screen.getByLabelText('数据'), { target: { value: '{ 坏 JSON' } });
     expect(screen.getByRole('alert')).toHaveTextContent('JSON 格式不正确');
     fireEvent.change(screen.getByLabelText('数据'), { target: { value: '{"b":2}' } });
@@ -269,7 +354,8 @@ describe('T3-05 属性面板：多选批量修改', () => {
     const depthBefore = store.getState().undoState.undoDepth;
     // 布尔字段：FieldShell 是 label，内层 Checkbox 自身也可能是 label，直接按 role 取控件
     fireEvent.click(screen.getByRole('checkbox'));
-    const required = (id: string): unknown => findById(store.getState().dsl.tree, id)?.props?.['required'];
+    const required = (id: string): unknown =>
+      findById(store.getState().dsl.tree, id)?.props?.['required'];
     // 夹具中两者 required 均为 true，点击后同时变为 false
     expect(required('el-10')).toBe(false);
     expect(required('el-11')).toBe(false);
@@ -330,7 +416,10 @@ describe('T3-05 未注册组件的兜底', () => {
         ...dsl,
         tree: {
           ...dsl.tree,
-          children: [...(dsl.tree.children ?? []), { id: 'unknown-1', type: 'Widget', props: { a: 1 } }],
+          children: [
+            ...(dsl.tree.children ?? []),
+            { id: 'unknown-1', type: 'Widget', props: { a: 1 } },
+          ],
         },
       };
       store.getState().loadDsl(next);
@@ -373,7 +462,10 @@ describe('T3-05 未注册组件的兜底', () => {
       const dsl = store.getState().dsl;
       store.getState().loadDsl({
         ...dsl,
-        tree: { ...dsl.tree, children: [...(dsl.tree.children ?? []), { id: 'badge-1', type: 'MyBadge' }] },
+        tree: {
+          ...dsl.tree,
+          children: [...(dsl.tree.children ?? []), { id: 'badge-1', type: 'MyBadge' }],
+        },
       });
       store.getState().select(['badge-1']);
     });

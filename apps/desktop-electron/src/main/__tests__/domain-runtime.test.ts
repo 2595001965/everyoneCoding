@@ -23,7 +23,9 @@ describe('createDomainRuntime 白名单与路由', () => {
     const router: DomainRouter = vi.fn(async (method) => ({ echo: method }));
     const runtime = createDomainRuntime({ routers: { settings: router } });
 
-    const response = await runtime.invoke(request({ method: 'update', params: { patch: { theme: 'dark' } } }));
+    const response = await runtime.invoke(
+      request({ method: 'update', params: { patch: { theme: 'dark' } } }),
+    );
     expect(response).toEqual({ requestId: 'r1', ok: true, result: { echo: 'update' } });
     // 第三参数为请求上下文（requestId + emit），断言前两项即可
     expect(router).toHaveBeenCalledWith('update', { patch: { theme: 'dark' } }, expect.anything());
@@ -98,7 +100,9 @@ describe('createDomainRuntime 白名单与路由', () => {
       return 'ok';
     };
     const runtime = createDomainRuntime({ routers: { workspace: router } });
-    const response = await runtime.invoke(request({ domain: 'workspace', method: 'importFromGit' }));
+    const response = await runtime.invoke(
+      request({ domain: 'workspace', method: 'importFromGit' }),
+    );
     expect(response).toEqual({ requestId: 'r1', ok: true, result: 'ok' });
   });
 });
@@ -111,13 +115,18 @@ describe('createDomainRuntime describe 如实上报', () => {
     });
     const descriptors = await runtime.describe();
     expect(descriptors.map((item) => item.kind)).toEqual([...DOMAIN_KINDS]);
-    expect(descriptors.find((item) => item.kind === 'settings')).toEqual({ kind: 'settings', available: true });
+    expect(descriptors.find((item) => item.kind === 'settings')).toEqual({
+      kind: 'settings',
+      available: true,
+    });
     expect(descriptors.find((item) => item.kind === 'workspace')).toEqual({
       kind: 'workspace',
       available: false,
       reason: '缺 ProjectStore',
     });
-    expect(descriptors.filter((item) => !item.available).every((item) => Boolean(item.reason))).toBe(true);
+    expect(
+      descriptors.filter((item) => !item.available).every((item) => Boolean(item.reason)),
+    ).toBe(true);
   });
 });
 

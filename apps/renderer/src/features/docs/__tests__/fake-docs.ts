@@ -47,7 +47,9 @@ export class FakeDocStore implements DocStore {
 
   loadAll(projectId: string): Promise<DocumentRowSnapshot[]> {
     return Promise.resolve(
-      [...this.docs.values()].filter((row) => row.project_id === projectId).map((row) => ({ ...row })),
+      [...this.docs.values()]
+        .filter((row) => row.project_id === projectId)
+        .map((row) => ({ ...row })),
     );
   }
 
@@ -112,7 +114,11 @@ export class FakeDocMemoryPort implements DocMemoryPort {
     return Promise.resolve(node);
   }
 
-  link(input: { memoryId: string; documentId: string; linkType: DocLinkType }): Promise<DocMemoryLinkModel> {
+  link(input: {
+    memoryId: string;
+    documentId: string;
+    linkType: DocLinkType;
+  }): Promise<DocMemoryLinkModel> {
     const row: MemoryDocLinkRowSnapshot = {
       id: newDocId(),
       memory_id: input.memoryId,
@@ -126,7 +132,9 @@ export class FakeDocMemoryPort implements DocMemoryPort {
 
   listLinksByDoc(documentId: string): Promise<DocMemoryLinkModel[]> {
     return Promise.resolve(
-      [...this.links.values()].filter((row) => row.document_id === documentId).map(linkRowToSummary),
+      [...this.links.values()]
+        .filter((row) => row.document_id === documentId)
+        .map(linkRowToSummary),
     );
   }
 
@@ -201,8 +209,22 @@ export function createFakeDocsApi(
       const sections: DocSection[] =
         input.format === 'pdf'
           ? [
-              { index: 0, level: 1, heading: 'PDF 第一章', anchor: 'sec-0', text: '第一章正文', page: 1 },
-              { index: 1, level: 1, heading: 'PDF 第二章', anchor: 'sec-1', text: '第二章正文', page: 3 },
+              {
+                index: 0,
+                level: 1,
+                heading: 'PDF 第一章',
+                anchor: 'sec-0',
+                text: '第一章正文',
+                page: 1,
+              },
+              {
+                index: 1,
+                level: 1,
+                heading: 'PDF 第二章',
+                anchor: 'sec-1',
+                text: '第二章正文',
+                page: 3,
+              },
             ]
           : [
               { index: 0, level: 1, heading: 'Word 标题一', anchor: 'sec-0', text: '正文一' },

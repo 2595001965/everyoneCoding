@@ -54,9 +54,9 @@ export function useFocusTrap(
     if (!active) return;
     const node = ref.current;
     if (!node) return;
-    const prevFocused = (typeof document !== 'undefined' ? document.activeElement : null) as
-      | HTMLElement
-      | null;
+    const prevFocused = (
+      typeof document !== 'undefined' ? document.activeElement : null
+    ) as HTMLElement | null;
 
     const focusables = () =>
       Array.from(

@@ -9,7 +9,14 @@ import { DesignerProvider } from '../../store/designer-context';
 import type { DesignerPorts, GenerationRequest, GenerationResult } from '../../store/ports';
 import { GeneratePanel } from '../GeneratePanel';
 import { countElements, dslFromAi, dslFromAiText, extractJson } from '../dsl-from-ai';
-import { MAX_SKETCH_BYTES, createSketchFromDataUrl, createSketchFromPath, describeSketch, isVisionSupported, validateSketchFile } from '../sketch-import';
+import {
+  MAX_SKETCH_BYTES,
+  createSketchFromDataUrl,
+  createSketchFromPath,
+  describeSketch,
+  isVisionSupported,
+  validateSketchFile,
+} from '../sketch-import';
 
 function registry(): ComponentRegistry {
   const instance = new ComponentRegistry();
@@ -95,7 +102,10 @@ describe('T3-11 AI 生成结果校验', () => {
   });
 
   it('dslFromAiText 一步完成文本抽取与校验', () => {
-    const result = dslFromAiText(`好的，这是页面：\n\`\`\`json\n${JSON.stringify(validCandidate())}\n\`\`\``, CONTEXT);
+    const result = dslFromAiText(
+      `好的，这是页面：\n\`\`\`json\n${JSON.stringify(validCandidate())}\n\`\`\``,
+      CONTEXT,
+    );
     expect(result.dsl?.route).toBe('/login');
   });
 
@@ -109,10 +119,16 @@ describe('T3-11 AI 生成结果校验', () => {
 
 describe('T3-11 草图导入', () => {
   it('校验图片类型与体积上限', () => {
-    expect(validateSketchFile({ name: 'a.png', size: 1024, type: 'image/png' })).toEqual({ ok: true });
+    expect(validateSketchFile({ name: 'a.png', size: 1024, type: 'image/png' })).toEqual({
+      ok: true,
+    });
     expect(validateSketchFile({ name: 'a.gif', size: 1024, type: 'image/gif' }).ok).toBe(false);
     expect(validateSketchFile({ name: 'a.png', size: 0, type: 'image/png' }).ok).toBe(false);
-    const tooBig = validateSketchFile({ name: 'a.png', size: MAX_SKETCH_BYTES + 1, type: 'image/png' });
+    const tooBig = validateSketchFile({
+      name: 'a.png',
+      size: MAX_SKETCH_BYTES + 1,
+      type: 'image/png',
+    });
     expect(tooBig.ok).toBe(false);
     expect(tooBig.message).toContain('8MB');
   });
@@ -136,7 +152,12 @@ describe('T3-11 草图导入', () => {
 
   it('无设计端口时视觉能力为不支持', () => {
     expect(isVisionSupported(undefined)).toBe(false);
-    expect(isVisionSupported({ supportsVision: true, generatePage: async () => ({ candidate: null, raw: '' }) })).toBe(true);
+    expect(
+      isVisionSupported({
+        supportsVision: true,
+        generatePage: async () => ({ candidate: null, raw: '' }),
+      }),
+    ).toBe(true);
   });
 });
 
@@ -145,7 +166,13 @@ describe('T3-11 生成面板（含降级链与页面记忆写入）', () => {
     const onGenerated = vi.fn();
     render(
       <DesignerProvider ports={{ ...(design ? { design } : {}), ...(memory ? { memory } : {}) }}>
-        <GeneratePanel projectId="P1" pageId="login" platform="web" route="/login" onGenerated={onGenerated} />
+        <GeneratePanel
+          projectId="P1"
+          pageId="login"
+          platform="web"
+          route="/login"
+          onGenerated={onGenerated}
+        />
       </DesignerProvider>,
     );
     return { onGenerated };
@@ -166,7 +193,10 @@ describe('T3-11 生成面板（含降级链与页面记忆写入）', () => {
 
   it('生成成功：落地 DSL、提示元素数、写入页面记忆', async () => {
     const writePageStructure = vi.fn();
-    const generatePage = vi.fn(async (_request: GenerationRequest): Promise<GenerationResult> => ({ candidate: validCandidate(), raw: '' }));
+    const generatePage = vi.fn(async (_request: GenerationRequest): Promise<GenerationResult> => ({
+      candidate: validCandidate(),
+      raw: '',
+    }));
     const { onGenerated } = setup({ supportsVision: false, generatePage }, { writePageStructure });
 
     fireEvent.change(screen.getByLabelText('界面描述'), { target: { value: '做一个登录页' } });
@@ -178,11 +208,16 @@ describe('T3-11 生成面板（含降级链与页面记忆写入）', () => {
     expect(dsl).toBeTruthy();
     expect(meta.attempts).toBe(1);
     // 自动写入页面记忆
-    expect(writePageStructure).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'P1', pageId: 'login' }));
+    expect(writePageStructure).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 'P1', pageId: 'login' }),
+    );
   });
 
   it('解析失败重试 1 次，仍失败则报中文错误', async () => {
-    const generatePage = vi.fn(async (): Promise<GenerationResult> => ({ candidate: { tree: 'bad' }, raw: 'not-json' }));
+    const generatePage = vi.fn(async (): Promise<GenerationResult> => ({
+      candidate: { tree: 'bad' },
+      raw: 'not-json',
+    }));
     const { onGenerated } = setup({ supportsVision: false, generatePage });
 
     fireEvent.change(screen.getByLabelText('界面描述'), { target: { value: '做一个登录页' } });
@@ -201,7 +236,10 @@ describe('T3-11 生成面板（含降级链与页面记忆写入）', () => {
   });
 
   it('支持视觉时可上传草图（选择后展示草图信息）', async () => {
-    setup({ supportsVision: true, generatePage: async () => ({ candidate: validCandidate(), raw: '' }) });
+    setup({
+      supportsVision: true,
+      generatePage: async () => ({ candidate: validCandidate(), raw: '' }),
+    });
     expect(screen.queryByTestId('vision-unsupported')).toBeNull();
     const input = screen.getByLabelText('上传草图') as HTMLInputElement;
     const file = new File(['fake'], 'sketch.png', { type: 'image/png' });

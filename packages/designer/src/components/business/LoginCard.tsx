@@ -6,13 +6,27 @@ import type * as React from 'react';
 import type { ComponentMeta, ComponentRenderProps } from '../../registry/component-registry';
 import { propBoolean, propString, previewString, withNodeStyle } from '../render-utils';
 
-export function LoginCardRenderer({ node, mode, scope, children }: ComponentRenderProps): JSX.Element {
-  const title = mode === 'preview' ? previewString(node, 'title', scope, '欢迎登录') : propString(node, 'title', '欢迎登录');
-  const subtitle = mode === 'preview' ? previewString(node, 'subtitle', scope, '') : propString(node, 'subtitle', '');
+export function LoginCardRenderer({
+  node,
+  mode,
+  scope,
+  children,
+}: ComponentRenderProps): JSX.Element {
+  const title =
+    mode === 'preview'
+      ? previewString(node, 'title', scope, '欢迎登录')
+      : propString(node, 'title', '欢迎登录');
+  const subtitle =
+    mode === 'preview'
+      ? previewString(node, 'subtitle', scope, '')
+      : propString(node, 'subtitle', '');
   const showRemember = propBoolean(node, 'showRemember', true);
   const thirdParty = propBoolean(node, 'thirdParty', false);
   const logo = propString(node, 'logo', '');
-  const style: React.CSSProperties = withNodeStyle({ width: '400px', padding: '32px', borderRadius: '12px' }, node);
+  const style: React.CSSProperties = withNodeStyle(
+    { width: '400px', padding: '32px', borderRadius: '12px' },
+    node,
+  );
   const isEmpty = children === undefined || children === null;
 
   return (
@@ -22,7 +36,9 @@ export function LoginCardRenderer({ node, mode, scope, children }: ComponentRend
         <h2 className="ecd-login-card__title">{title}</h2>
         {subtitle ? <p className="ecd-login-card__subtitle">{subtitle}</p> : null}
       </div>
-      <div className="ecd-login-card__body">{isEmpty ? <span className="ecd-placeholder">拖入登录表单</span> : children}</div>
+      <div className="ecd-login-card__body">
+        {isEmpty ? <span className="ecd-placeholder">拖入登录表单</span> : children}
+      </div>
       {showRemember ? (
         <label className="ecd-login-card__remember">
           <input type="checkbox" disabled={mode === 'design'} />
@@ -44,7 +60,13 @@ export const LoginCardMeta: ComponentMeta = {
   group: '业务组件',
   description: '开箱即用的登录卡片，内含表单与第三方登录',
   icon: 'login-card',
-  defaultProps: { title: '欢迎登录', subtitle: '', showRemember: true, thirdParty: false, logo: '' },
+  defaultProps: {
+    title: '欢迎登录',
+    subtitle: '',
+    showRemember: true,
+    thirdParty: false,
+    logo: '',
+  },
   defaultStyle: { width: '400px', padding: '32px', borderRadius: '12px' },
   acceptsChildren: true,
   propSchema: {

@@ -65,7 +65,10 @@ export interface TemplateConfig {
 }
 
 export function composeTemplate(config: TemplateConfig): PromptTemplate {
-  const constraints = [...OUTPUT_CONTRACT_HARD_RULES.map((rule) => rule.trim()), ...(config.constraints ?? [])];
+  const constraints = [
+    ...OUTPUT_CONTRACT_HARD_RULES.map((rule) => rule.trim()),
+    ...(config.constraints ?? []),
+  ];
   const template: PromptTemplate = {
     id: config.id,
     label: config.label,

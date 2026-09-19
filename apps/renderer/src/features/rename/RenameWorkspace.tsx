@@ -130,7 +130,10 @@ export function RenameWorkspace({ api }: RenameWorkspaceProps): JSX.Element {
       aria-label="统一重命名"
       style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) 2fr', gap: 16 }}
     >
-      <div data-testid="rename-targets" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div
+        data-testid="rename-targets"
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
         <header style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 15 }}>可重命名对象</h2>
           <Tag color="neutral">{targetItems.length}</Tag>
@@ -143,11 +146,27 @@ export function RenameWorkspace({ api }: RenameWorkspaceProps): JSX.Element {
         {targets.error !== null ? (
           <EmptyState title="读取失败" description={targets.error} />
         ) : targetItems.length === 0 ? (
-          <EmptyState title="暂无对象" description="在项目管理或设计器中创建元素、页面或功能后会自动注册" />
+          <EmptyState
+            title="暂无对象"
+            description="在项目管理或设计器中创建元素、页面或功能后会自动注册"
+          />
         ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <ul
+            style={{
+              margin: 0,
+              padding: 0,
+              listStyle: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
             {targetItems.map((item) => (
-              <li key={item.registryId} data-testid="rename-target" data-registry-id={item.registryId}>
+              <li
+                key={item.registryId}
+                data-testid="rename-target"
+                data-registry-id={item.registryId}
+              >
                 <button
                   type="button"
                   onClick={() => openRename(item)}
@@ -171,7 +190,9 @@ export function RenameWorkspace({ api }: RenameWorkspaceProps): JSX.Element {
                     <Tag color="info">{item.entityType}</Tag>
                     {item.syncState !== 'synced' && <Tag color="warning">{item.syncState}</Tag>}
                   </span>
-                  <code style={{ color: 'var(--ec-color-text-secondary)' }}>{item.projections.component}</code>
+                  <code style={{ color: 'var(--ec-color-text-secondary)' }}>
+                    {item.projections.component}
+                  </code>
                 </button>
               </li>
             ))}

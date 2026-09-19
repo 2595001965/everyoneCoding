@@ -45,6 +45,11 @@ export function makeFakeEmbedder(dims: number, name = 'fake'): EmbeddingPort {
 }
 
 /** 永远返回 ok:false 的嵌入器（模拟未配置 / 调用失败） */
-export function makeFailingEmbedder(code: 'unavailable' | 'failed' = 'unavailable', reason = '测试用失败'): EmbeddingPort {
-  return new GatewayEmbedder(() => Promise.resolve({ ok: false, code, reason }), { name: 'failing' });
+export function makeFailingEmbedder(
+  code: 'unavailable' | 'failed' = 'unavailable',
+  reason = '测试用失败',
+): EmbeddingPort {
+  return new GatewayEmbedder(() => Promise.resolve({ ok: false, code, reason }), {
+    name: 'failing',
+  });
 }

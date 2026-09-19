@@ -81,7 +81,9 @@ export interface EcpkgManifest {
 const nonNegativeInt = z.number().int().min(0);
 
 export const ecpkgManifestSchema: z.ZodType<EcpkgManifest> = z.object({
-  formatVersion: z.string().regex(semverPattern, 'formatVersion 必须是 major.minor.patch 语义化版本'),
+  formatVersion: z
+    .string()
+    .regex(semverPattern, 'formatVersion 必须是 major.minor.patch 语义化版本'),
   generator: z.object({
     app: z.string().min(1),
     version: z.string().min(1),
@@ -120,7 +122,9 @@ export function parseManifest(raw: string): EcpkgManifest {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`manifest.json 不是合法 JSON：${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `manifest.json 不是合法 JSON：${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   const result = ecpkgManifestSchema.safeParse(parsed);
   if (!result.success) {
@@ -164,7 +168,9 @@ export function buildManifest(input: {
   };
   const result = ecpkgManifestSchema.safeParse(manifest);
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join('；');
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join('.')} ${issue.message}`)
+      .join('；');
     throw new Error(`构造 manifest 失败：${issues}`);
   }
   return manifest;

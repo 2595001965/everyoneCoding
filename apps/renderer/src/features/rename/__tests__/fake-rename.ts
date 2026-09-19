@@ -193,7 +193,8 @@ export function codeOccurrence(
   let cursor = -1;
   for (let index = 0; index <= occurrenceIndex; index += 1) {
     cursor = content.indexOf(symbol, cursor + 1);
-    if (cursor < 0) throw new Error(`夹具错误：${refPath} 中找不到第 ${occurrenceIndex} 次「${symbol}」`);
+    if (cursor < 0)
+      throw new Error(`夹具错误：${refPath} 中找不到第 ${occurrenceIndex} 次「${symbol}」`);
   }
   const before = content.slice(0, cursor);
   const line = before.split('\n').length;
@@ -241,23 +242,39 @@ export function createFakeRenameState(): FakeRenameState {
 
   const loginOccurrences: Occurrence[] = [
     // 组件名：导入名（index 0）与 JSX 使用处（index 3）；index 2 的同名局部变量**故意不收录**
-    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.component, 'component', 'auto', 0, { role: 'import' }),
-    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.component, 'component', 'auto', 3, { role: 'jsx-tag' }),
+    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.component, 'component', 'auto', 0, {
+      role: 'import',
+    }),
+    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.component, 'component', 'auto', 3, {
+      role: 'jsx-tag',
+    }),
     codeOccurrence('reg-1', 'src/components/LoginButton.tsx', p.component, 'component', 'auto', 0, {
       role: 'declaration',
     }),
-    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.variable, 'variable', 'auto', 0, { role: 'binding' }),
+    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.variable, 'variable', 'auto', 0, {
+      role: 'binding',
+    }),
     codeOccurrence('reg-1', 'src/pages/Login.tsx', p.variable, 'variable', 'auto', 1),
     codeOccurrence('reg-1', 'src/components/LoginButton.tsx', p.cssClass, 'cssClass', 'auto', 0, {
       role: 'string-literal',
     }),
-    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.i18nKey, 'i18nKey', 'auto', 0, { role: 'string-literal' }),
+    codeOccurrence('reg-1', 'src/pages/Login.tsx', p.i18nKey, 'i18nKey', 'auto', 0, {
+      role: 'string-literal',
+    }),
     codeOccurrence('reg-1', 'src/service/LoginService.ts', p.apiField, 'apiField', 'confirm', 0, {
       role: 'string-literal',
     }),
-    codeOccurrence('reg-1', 'src/service/LoginService.ts', p.methodName, 'methodName', 'confirm', 0, {
-      role: 'declaration',
-    }),
+    codeOccurrence(
+      'reg-1',
+      'src/service/LoginService.ts',
+      p.methodName,
+      'methodName',
+      'confirm',
+      0,
+      {
+        role: 'declaration',
+      },
+    ),
     codeOccurrence('reg-1', 'src/__tests__/login.test.tsx', p.testName, 'testName', 'auto', 0, {
       role: 'string-literal',
     }),
@@ -321,9 +338,17 @@ export function createFakeRenameState(): FakeRenameState {
   ];
 
   const registerOccurrences: Occurrence[] = [
-    codeOccurrence('reg-2', 'src/components/RegisterButton.tsx', r.component, 'component', 'auto', 0, {
-      role: 'declaration',
-    }),
+    codeOccurrence(
+      'reg-2',
+      'src/components/RegisterButton.tsx',
+      r.component,
+      'component',
+      'auto',
+      0,
+      {
+        role: 'declaration',
+      },
+    ),
   ];
 
   return {
@@ -383,7 +408,10 @@ export function createFakeRenameState(): FakeRenameState {
 /* ------------------------------- 端口骨架 ------------------------------- */
 
 /** 由内存状态构造执行上下文（execute / undo / batch 复用同一份，避免三处漂移） */
-export function buildFakeContext(state: FakeRenameState, showRevisionMarks = false): ExecutionContext {
+export function buildFakeContext(
+  state: FakeRenameState,
+  showRevisionMarks = false,
+): ExecutionContext {
   return {
     projectId: state.projectId,
     showRevisionMarks,
@@ -428,12 +456,12 @@ export function buildFakeContext(state: FakeRenameState, showRevisionMarks = fal
       },
       rename: (input) => {
         const doc = state.logicDocs.get(input.documentId) as
-          | { nodes?: { id: string; name?: string; identifier?: string }[] }
-          | undefined;
+          { nodes?: { id: string; name?: string; identifier?: string }[] } | undefined;
         const node = doc?.nodes?.find((item) => item.id === input.nodeId);
         if (node === undefined) return;
         if (input.field === 'name' && node.name === input.from) node.name = input.to;
-        if (input.field === 'identifier' && node.identifier === input.from) node.identifier = input.to;
+        if (input.field === 'identifier' && node.identifier === input.from)
+          node.identifier = input.to;
       },
       recalcSummary: () => undefined,
       restore: (id, snapshot) => {
@@ -522,7 +550,12 @@ export function createFakeRenameApi(
     const backend: string[] = [];
     for (const entry of state.entries.values()) {
       const projections = entry.projections;
-      frontend.push(projections.component, projections.variable, projections.cssClass, projections.i18nKey);
+      frontend.push(
+        projections.component,
+        projections.variable,
+        projections.cssClass,
+        projections.i18nKey,
+      );
       backend.push(projections.apiField, projections.methodName);
     }
     return { frontend, backend, database: ['login_button'] };
@@ -582,13 +615,23 @@ export function createFakeRenameApi(
         exclude: Object.values(entryOf(registryId).projections),
       }),
     analyze: async ({ registryId, newName }) => buildReport(registryId, newName),
-    buildDiff: async ({ registryId, newName, selection, showRevisionMarks }): Promise<UnifiedDiff> =>
+    buildDiff: async ({
+      registryId,
+      newName,
+      selection,
+      showRevisionMarks,
+    }): Promise<UnifiedDiff> =>
       buildUnifiedDiff(buildReport(registryId, newName), {
         ...(selection !== undefined ? { selection: new Set(selection) } : {}),
         showRevisionMarks: showRevisionMarks ?? false,
         now: NOW,
       }),
-    execute: async ({ registryId, newName, selection, showRevisionMarks }): Promise<RenameTransactionResult> =>
+    execute: async ({
+      registryId,
+      newName,
+      selection,
+      showRevisionMarks,
+    }): Promise<RenameTransactionResult> =>
       executeRename({
         registry: entryOf(registryId),
         newCanonicalName: newName,
@@ -604,7 +647,9 @@ export function createFakeRenameApi(
       return undoRename({ event, deps: deps() });
     },
     history: async (): Promise<readonly RenameHistoryEntry[]> => state.events.map(toHistoryEntry),
-    planMigration: async (input: MigrationPlanRequest): Promise<MigrationPreview | MigrationPlanError> => {
+    planMigration: async (
+      input: MigrationPlanRequest,
+    ): Promise<MigrationPreview | MigrationPlanError> => {
       const parsed = parseGeneratedMigration(MIGRATION_FIXTURE_OUTPUT);
       if (parsed === null) return { error: '夹具异常：无法解析 SQL', guidance: '请重试' };
       const preview = await buildMigrationPreview({
@@ -703,7 +748,8 @@ export function createFakeRenameApi(
         state.logListeners = state.logListeners.filter((item) => item !== listener);
       };
     },
-    pendingCleanup: async () => pendingCleanupOf([...state.entries.values()], NOW, state.cleanedAliases),
+    pendingCleanup: async () =>
+      pendingCleanupOf([...state.entries.values()], NOW, state.cleanedAliases),
     cleanAliases: async ({ items }) => {
       const result = cleanAliasesOf([...state.entries.values()], items, NOW);
       for (const entry of result.entries) state.entries.set(entry.id, entry);

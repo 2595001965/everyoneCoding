@@ -12,18 +12,60 @@ import { fakeEmbedding, makeFakeEmbedder } from './testkit';
 const DIMS = 16;
 const N = 1000;
 
-function scopeForIndex(i: number): { scope: MemoryScope; projectId: string | null; featureId: string | null; pageId: string | null; issueId: string | null; issueStatus: 'unsolved' | null } {
+function scopeForIndex(i: number): {
+  scope: MemoryScope;
+  projectId: string | null;
+  featureId: string | null;
+  pageId: string | null;
+  issueId: string | null;
+  issueStatus: 'unsolved' | null;
+} {
   switch (i % 5) {
     case 0:
-      return { scope: 'longterm', projectId: null, featureId: null, pageId: null, issueId: null, issueStatus: null };
+      return {
+        scope: 'longterm',
+        projectId: null,
+        featureId: null,
+        pageId: null,
+        issueId: null,
+        issueStatus: null,
+      };
     case 1:
-      return { scope: 'project', projectId: TEST_GRAPH.projectId, featureId: null, pageId: null, issueId: null, issueStatus: null };
+      return {
+        scope: 'project',
+        projectId: TEST_GRAPH.projectId,
+        featureId: null,
+        pageId: null,
+        issueId: null,
+        issueStatus: null,
+      };
     case 2:
-      return { scope: 'feature', projectId: TEST_GRAPH.projectId, featureId: TEST_GRAPH.featureId, pageId: null, issueId: null, issueStatus: null };
+      return {
+        scope: 'feature',
+        projectId: TEST_GRAPH.projectId,
+        featureId: TEST_GRAPH.featureId,
+        pageId: null,
+        issueId: null,
+        issueStatus: null,
+      };
     case 3:
-      return { scope: 'page', projectId: TEST_GRAPH.projectId, featureId: null, pageId: TEST_GRAPH.pageId, issueId: null, issueStatus: null };
+      return {
+        scope: 'page',
+        projectId: TEST_GRAPH.projectId,
+        featureId: null,
+        pageId: TEST_GRAPH.pageId,
+        issueId: null,
+        issueStatus: null,
+      };
     default:
-      return { scope: 'issue', projectId: TEST_GRAPH.projectId, featureId: null, pageId: null, issueId: 'ISS1', issueStatus: 'unsolved' };
+      return {
+        scope: 'issue',
+        projectId: TEST_GRAPH.projectId,
+        featureId: null,
+        pageId: null,
+        issueId: 'ISS1',
+        issueStatus: 'unsolved',
+      };
   }
 }
 
@@ -76,7 +118,12 @@ describe('benchmark —— 1000 条双路召回端到端', () => {
       embedder = new NullEmbedder();
     }
 
-    const hybrid = new HybridSearcher({ db, embedder, ...(vector ? { vector } : {}), dimensions: DIMS });
+    const hybrid = new HybridSearcher({
+      db,
+      embedder,
+      ...(vector ? { vector } : {}),
+      dimensions: DIMS,
+    });
     const query = '登录页面';
 
     const coldStart = Date.now();
@@ -97,7 +144,9 @@ describe('benchmark —— 1000 条双路召回端到端', () => {
       // 这里只要求"给出可读原因"，不绑定具体是哪一种，避免测试过拟合单一环境。
       expect(warmResult.diagnostics.semanticReason).toMatch(/sqlite-vec|向量化/);
       expect(warmResult.hits.length).toBeGreaterThan(0);
-      console.info(`[bench] 语义路不可用（sqlite-vec 缺失），已退化为关键词路，命中 ${warmResult.hits.length} 条`);
+      console.info(
+        `[bench] 语义路不可用（sqlite-vec 缺失），已退化为关键词路，命中 ${warmResult.hits.length} 条`,
+      );
     } else {
       expect(warmResult.diagnostics.semanticAvailable).toBe(true);
       console.info(`[bench] 双路召回命中 ${warmResult.hits.length} 条`);

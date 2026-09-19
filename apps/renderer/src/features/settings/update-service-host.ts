@@ -10,7 +10,12 @@
 import type { UpdateInfo, Unsubscribe } from '@ec/shell-api';
 import type { UpdateFlowEvent, UpdateService } from '@ec/core';
 
-import type { UpdateApi, UpdateProgressEvent, UpdateSettingsPatch, UpdateViewState } from './update-api';
+import type {
+  UpdateApi,
+  UpdateProgressEvent,
+  UpdateSettingsPatch,
+  UpdateViewState,
+} from './update-api';
 
 export interface CreateUpdateApiOptions {
   service: UpdateService;

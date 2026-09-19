@@ -66,7 +66,11 @@ export class LogStream {
     return line;
   }
 
-  lines(filter?: { level?: PreviewLogLevel; keyword?: string; source?: LogStreamSource }): StreamedLogLine[] {
+  lines(filter?: {
+    level?: PreviewLogLevel;
+    keyword?: string;
+    source?: LogStreamSource;
+  }): StreamedLogLine[] {
     let out = this.linesList;
     if (filter?.level !== undefined) out = out.filter((l) => l.level === filter.level);
     if (filter?.source !== undefined) out = out.filter((l) => l.source === filter.source);

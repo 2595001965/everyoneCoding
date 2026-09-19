@@ -13,7 +13,12 @@ export interface ContextMenuProps {
   className?: string;
 }
 
-export function ContextMenu({ items, children, onSelect, className }: ContextMenuProps): React.ReactElement {
+export function ContextMenu({
+  items,
+  children,
+  onSelect,
+  className,
+}: ContextMenuProps): React.ReactElement {
   const [open, setOpen] = React.useState(false);
   const [pos, setPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const panelRef = React.useRef<HTMLDivElement>(null);

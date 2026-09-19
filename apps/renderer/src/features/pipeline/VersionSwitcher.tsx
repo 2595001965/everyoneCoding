@@ -22,7 +22,14 @@ export interface VersionSwitcherProps {
   onSwitch: (version: number) => void;
 }
 
-export function VersionSwitcher({ projectId, stage, versions, activeVersion, viewingVersion, onSwitch }: VersionSwitcherProps): JSX.Element {
+export function VersionSwitcher({
+  projectId,
+  stage,
+  versions,
+  activeVersion,
+  viewingVersion,
+  onSwitch,
+}: VersionSwitcherProps): JSX.Element {
   const api = usePipelineApi();
   const latest = versions.reduce((max, version) => Math.max(max, version.version), 0);
   const isHistorical = viewingVersion > 0 && viewingVersion < latest;
@@ -46,7 +53,11 @@ export function VersionSwitcher({ projectId, stage, versions, activeVersion, vie
           api.switchVersion(projectId, stage, version);
           if (version < latest) {
             // 切换回历史版本：提示"正在查看历史版本"，不强制重建下游
-            api.notifyDownstream(projectId, stage, `已切换到历史版本 v${version}（最新为 v${latest}），下游产物不会自动变更`);
+            api.notifyDownstream(
+              projectId,
+              stage,
+              `已切换到历史版本 v${version}（最新为 v${latest}），下游产物不会自动变更`,
+            );
           }
           onSwitch(version);
         }}

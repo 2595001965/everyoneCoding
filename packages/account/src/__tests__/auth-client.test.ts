@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
 
 import { AuthClient } from '../auth-client';
-import { AuthError, OfflineError, type AccountIdentity, type SecureStorePort, type SystemPort, type TokenPair, type TransportPort } from '../auth-types';
+import {
+  AuthError,
+  OfflineError,
+  type AccountIdentity,
+  type SecureStorePort,
+  type SystemPort,
+  type TokenPair,
+  type TransportPort,
+} from '../auth-types';
 import { canBind, canUnbind } from '../binding';
 import { OfflineController } from '../offline';
 import { createPkcePair, checkPassword, createState } from '../security';
@@ -48,8 +56,17 @@ class FakeSecureStore implements SecureStorePort {
 }
 
 class FakeTransport implements TransportPort {
-  readonly calls: Array<{ method: string; url: string; body?: unknown; headers?: Record<string, string> }> = [];
-  handler: (input: { method: string; url: string; body?: unknown }) => { status: number; json: unknown } | Promise<{ status: number; json: unknown }> = () => ({
+  readonly calls: Array<{
+    method: string;
+    url: string;
+    body?: unknown;
+    headers?: Record<string, string>;
+  }> = [];
+  handler: (input: {
+    method: string;
+    url: string;
+    body?: unknown;
+  }) => { status: number; json: unknown } | Promise<{ status: number; json: unknown }> = () => ({
     status: 200,
     json: { identity: IDENTITY, tokens: tokens() },
   });
@@ -82,7 +99,9 @@ class FakeSystem implements SystemPort {
     this.opened.push(url);
     return Promise.resolve();
   }
-  startLoopback(handler: (callbackUrl: string) => void): Promise<{ redirectUri: string; stop: () => void }> {
+  startLoopback(
+    handler: (callbackUrl: string) => void,
+  ): Promise<{ redirectUri: string; stop: () => void }> {
     if (!this.loopbackAvailable) return Promise.reject(new Error('回环监听不可用'));
     this.handler = handler;
     return Promise.resolve({
@@ -155,21 +174,33 @@ describe('邮箱注册与登录（E2E-01）', () => {
 
   it('弱密码在本地即被拒绝，不发网络请求', async () => {
     const { client, transport } = createClient();
-    await expect(client.register({ email: 'a@b.com', password: '123' })).rejects.toBeInstanceOf(AuthError);
+    await expect(client.register({ email: 'a@b.com', password: '123' })).rejects.toBeInstanceOf(
+      AuthError,
+    );
     expect(transport.calls).toHaveLength(0);
   });
 
   it('登录：服务端错误转成带 code 的 AuthError', async () => {
     const { client, transport } = createClient();
-    transport.handler = () => ({ status: 401, json: { code: 'invalid_credentials', message: '邮箱或密码不正确' } });
-    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toThrowError(/邮箱或密码不正确/);
+    transport.handler = () => ({
+      status: 401,
+      json: { code: 'invalid_credentials', message: '邮箱或密码不正确' },
+    });
+    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toThrowError(
+      /邮箱或密码不正确/,
+    );
   });
 
   it('记住我上限 30 天（FR-ACC-07）', async () => {
     const now = 1_700_000_000_000;
     const clock = (): number => now;
     const { client } = createClient(clock);
-    const session = await client.login({ email: 'a@b.com', password: 'Abcd1234', rememberMe: true, rememberDays: 45 });
+    const session = await client.login({
+      email: 'a@b.com',
+      password: 'Abcd1234',
+      rememberMe: true,
+      rememberDays: 45,
+    });
     expect(session.rememberUntil! - now).toBe(30 * 24 * 60 * 60 * 1000);
     const noRemember = await client.login({ email: 'a@b.com', password: 'Abcd1234' });
     expect(noRemember.rememberUntil).toBeNull();
@@ -197,7 +228,12 @@ describe('会话与令牌刷新（FR-ACC-07）', () => {
 
     transport.handler = () => ({
       status: 200,
-      json: { accessToken: 'access-2', refreshToken: 'refresh-2', expiresAt: now + 900_000, refreshExpiresAt: now + 900_000 },
+      json: {
+        accessToken: 'access-2',
+        refreshToken: 'refresh-2',
+        expiresAt: now + 900_000,
+        refreshExpiresAt: now + 900_000,
+      },
     });
 
     const [a, b, c] = await Promise.all([
@@ -224,7 +260,12 @@ describe('会话与令牌刷新（FR-ACC-07）', () => {
   it('记住我到期后本地会话失效并被清除', async () => {
     let now = 1_700_000_000_000;
     const { client, secure } = createClient(() => now);
-    await client.login({ email: 'a@b.com', password: 'Abcd1234', rememberMe: true, rememberDays: 7 });
+    await client.login({
+      email: 'a@b.com',
+      password: 'Abcd1234',
+      rememberMe: true,
+      rememberDays: 7,
+    });
     expect(await client.session.load()).not.toBeNull();
     now += 8 * 24 * 60 * 60 * 1000;
     expect(await client.session.load()).toBeNull();
@@ -296,7 +337,9 @@ describe('OAuth（PKCE + 双通道）', () => {
     expect(system.stopped).toBe(1);
     // code_verifier 提交给服务端（PKCE 完整链条）
     const callbackCall = transport.calls.find((call) => call.url.includes('/callback'));
-    expect((callbackCall!.body as { codeVerifier: string }).codeVerifier).toBe(handshake.codeVerifier);
+    expect((callbackCall!.body as { codeVerifier: string }).codeVerifier).toBe(
+      handshake.codeVerifier,
+    );
   });
 
   it('回环不可用时回退自定义协议 everyonecoding://oauth', async () => {
@@ -386,7 +429,10 @@ describe('绑定与解绑（FR-ACC-06）', () => {
     const { client, transport } = createClient();
     transport.handler = (input) => {
       if (input.url.endsWith('/api/auth/bindings') && input.method === 'GET') {
-        return { status: 200, json: { bindings: [{ provider: 'github', externalId: 'octocat', boundAt: 1 }] } };
+        return {
+          status: 200,
+          json: { bindings: [{ provider: 'github', externalId: 'octocat', boundAt: 1 }] },
+        };
       }
       return { status: 200, json: { bindings: [] } };
     };
@@ -414,7 +460,9 @@ describe('离线本地模式（FR-ACC-05）', () => {
     transport.handler = () => {
       throw new TypeError('Failed to fetch');
     };
-    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toBeInstanceOf(OfflineError);
+    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toBeInstanceOf(
+      OfflineError,
+    );
     expect(client.offlineController.isOffline()).toBe(true);
   });
 
@@ -423,9 +471,13 @@ describe('离线本地模式（FR-ACC-05）', () => {
     transport.handler = () => {
       throw new TypeError('Failed to fetch');
     };
-    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toBeInstanceOf(OfflineError);
+    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toBeInstanceOf(
+      OfflineError,
+    );
     const before = transport.calls.length;
-    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toBeInstanceOf(OfflineError);
+    await expect(client.login({ email: 'a@b.com', password: 'Abcd1234' })).rejects.toBeInstanceOf(
+      OfflineError,
+    );
     expect(transport.calls.length).toBe(before);
   });
 
@@ -462,9 +514,9 @@ describe('邮箱验证与找回密码（FR-ACC-08）', () => {
 
   it('重置密码同样做强度校验', async () => {
     const { client, transport } = createClient();
-    await expect(client.resetPassword({ email: 'a@b.com', code: '1', newPassword: 'abc' })).rejects.toThrowError(
-      /至少 8 位/,
-    );
+    await expect(
+      client.resetPassword({ email: 'a@b.com', code: '1', newPassword: 'abc' }),
+    ).rejects.toThrowError(/至少 8 位/);
     expect(transport.calls).toHaveLength(0);
   });
 });

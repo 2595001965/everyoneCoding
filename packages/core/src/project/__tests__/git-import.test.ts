@@ -68,7 +68,9 @@ describe('仓库画像推断', () => {
   it('React Native → 移动双端方案 react-native（不被 Web 分支覆盖）', () => {
     const profile = inferProjectProfile(
       snapshot({
-        manifests: { 'package.json': '{"dependencies":{"react-native":"0.74.0","react":"18.2.0"}}' },
+        manifests: {
+          'package.json': '{"dependencies":{"react-native":"0.74.0","react":"18.2.0"}}',
+        },
         files: ['package.json', 'App.tsx'],
       }),
     );
@@ -115,22 +117,32 @@ describe('仓库画像推断', () => {
     expect(vue.techStack['web']).toBe('vue3');
 
     const react = inferProjectProfile(
-      snapshot({ files: ['package.json', 'next.config.js'], manifests: { 'package.json': '{"dependencies":{"react":"18.0.0"}}' } }),
+      snapshot({
+        files: ['package.json', 'next.config.js'],
+        manifests: { 'package.json': '{"dependencies":{"react":"18.0.0"}}' },
+      }),
     );
     expect(react.techStack['web']).toBe('react');
     expect(react.evidence.join()).toContain('Next / Vite');
   });
 
   it('后端与数据库标签写入指纹（Java / Node / Python）', () => {
-    const java = inferProjectProfile(snapshot({ files: ['pom.xml'], manifests: { 'pom.xml': '<project/>' } }));
+    const java = inferProjectProfile(
+      snapshot({ files: ['pom.xml'], manifests: { 'pom.xml': '<project/>' } }),
+    );
     expect(java.techStack['backend']).toBe('java-spring');
 
     const node = inferProjectProfile(
-      snapshot({ files: ['package.json'], manifests: { 'package.json': '{"dependencies":{"fastify":"4.0.0"}}' } }),
+      snapshot({
+        files: ['package.json'],
+        manifests: { 'package.json': '{"dependencies":{"fastify":"4.0.0"}}' },
+      }),
     );
     expect(node.techStack['backend']).toBe('node');
 
-    const py = inferProjectProfile(snapshot({ files: ['requirements.txt'], manifests: { 'requirements.txt': 'fastapi' } }));
+    const py = inferProjectProfile(
+      snapshot({ files: ['requirements.txt'], manifests: { 'requirements.txt': 'fastapi' } }),
+    );
     expect(py.techStack['backend']).toBe('python');
   });
 
@@ -146,7 +158,11 @@ describe('仓库画像推断', () => {
       }),
     );
     expect(profile.platforms).toEqual(expect.arrayContaining(['web', 'windows', 'linux', 'macos']));
-    expect(profile.techStack).toMatchObject({ web: 'react', windows: 'tauri2', backend: 'java-spring' });
+    expect(profile.techStack).toMatchObject({
+      web: 'react',
+      windows: 'tauri2',
+      backend: 'java-spring',
+    });
   });
 
   it('识别不到任何信号时给出空画像与"代码约定"记忆，不臆造技术栈', () => {
@@ -161,14 +177,19 @@ describe('仓库画像推断', () => {
 
   it('深路径中的清单文件同样能被识别（monorepo 子目录）', () => {
     const profile = inferProjectProfile(
-      snapshot({ files: ['apps/mobile/pubspec.yaml'], manifests: { 'apps/mobile/pubspec.yaml': 'name: app' } }),
+      snapshot({
+        files: ['apps/mobile/pubspec.yaml'],
+        manifests: { 'apps/mobile/pubspec.yaml': 'name: app' },
+      }),
     );
     expect(profile.techStack['android']).toBe('flutter');
   });
 });
 
 describe('runGitImport 编排', () => {
-  function createPort(overrides: Partial<GitImportPort> = {}): GitImportPort & { cloned: string[] } {
+  function createPort(
+    overrides: Partial<GitImportPort> = {},
+  ): GitImportPort & { cloned: string[] } {
     const cloned: string[] = [];
     return {
       cloned,
@@ -234,8 +255,10 @@ describe('runGitImport 编排', () => {
         return Promise.resolve();
       },
     });
-    await runGitImport({ url: 'https://example.com/a.git', targetDir: 'D:/p' }, port, (ratio, message) =>
-      steps.push(`${ratio}:${message}`),
+    await runGitImport(
+      { url: 'https://example.com/a.git', targetDir: 'D:/p' },
+      port,
+      (ratio, message) => steps.push(`${ratio}:${message}`),
     );
     expect(steps).toEqual(['0.5:接收对象 50%', '1:完成']);
   });

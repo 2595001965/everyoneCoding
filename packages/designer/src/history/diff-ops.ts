@@ -64,7 +64,8 @@ function flatten(root: ElementNode): Map<string, Flat> {
     // 重复 id 时保留首次出现（与 traverse.locateById 语义一致）
     if (!map.has(node.id)) map.set(node.id, { node, parentId, index, depth });
     const children = node.children ?? [];
-    for (let i = 0; i < children.length; i += 1) walk(children[i] as ElementNode, node.id, i, depth + 1);
+    for (let i = 0; i < children.length; i += 1)
+      walk(children[i] as ElementNode, node.id, i, depth + 1);
   };
   walk(root, null, 0, 0);
   return map;
@@ -102,13 +103,23 @@ export function diffTrees(previous: PageDsl, next: PageDsl): DslTreeDiff {
 
   for (const [id, entry] of after) {
     if (!before.has(id)) {
-      added.push({ id, type: entry.node.type, ...(entry.node.name !== undefined ? { name: entry.node.name } : {}), parentId: entry.parentId, index: entry.index, node: entry.node });
+      added.push({
+        id,
+        type: entry.node.type,
+        ...(entry.node.name !== undefined ? { name: entry.node.name } : {}),
+        parentId: entry.parentId,
+        index: entry.index,
+        node: entry.node,
+      });
     }
   }
 
   // 同级相对顺序：插入 / 删除造成的整体位移不算「移动」，只有相对次序变化才算。
   // 只统计「父节点未变」的公共节点，避免被新增 / 删除 / 跨父移动的节点顶位而误判。
-  const rankWithinSiblings = (source: Map<string, Flat>, other: Map<string, Flat>): Map<string, number> => {
+  const rankWithinSiblings = (
+    source: Map<string, Flat>,
+    other: Map<string, Flat>,
+  ): Map<string, number> => {
     const byParent = new Map<string, string[]>();
     for (const [id, entry] of source) {
       const counterpart = other.get(id);
@@ -128,11 +139,20 @@ export function diffTrees(previous: PageDsl, next: PageDsl): DslTreeDiff {
 
   for (const [id, entry] of before) {
     if (!after.has(id)) {
-      removed.push({ id, type: entry.node.type, ...(entry.node.name !== undefined ? { name: entry.node.name } : {}), parentId: entry.parentId, index: entry.index, node: entry.node });
+      removed.push({
+        id,
+        type: entry.node.type,
+        ...(entry.node.name !== undefined ? { name: entry.node.name } : {}),
+        parentId: entry.parentId,
+        index: entry.index,
+        node: entry.node,
+      });
       continue;
     }
     const now = after.get(id) as Flat;
-    const changedKeys = COMPARABLE_KEYS.filter((key) => stable(entry.node[key]) !== stable(now.node[key]));
+    const changedKeys = COMPARABLE_KEYS.filter(
+      (key) => stable(entry.node[key]) !== stable(now.node[key]),
+    );
     if (changedKeys.length > 0) {
       modified.push({
         id,
@@ -186,7 +206,13 @@ export function diffSize(diff: DslTreeDiff): number {
     diff.moved.length +
     diff.modified.length +
     diff.pageChanged.length +
-    [diff.stateChanged, diff.eventsChanged, diff.apiDepsChanged, diff.anchorsChanged, diff.notesChanged].filter(Boolean).length
+    [
+      diff.stateChanged,
+      diff.eventsChanged,
+      diff.apiDepsChanged,
+      diff.anchorsChanged,
+      diff.notesChanged,
+    ].filter(Boolean).length
   );
 }
 
@@ -212,7 +238,10 @@ export function describeDiff(diff: DslTreeDiff): string {
 }
 
 /** 定位节点在新树中的路径（差异视图点击定位用） */
-export function locateInDsl(dsl: PageDsl, id: string): { parentId: string | null; index: number } | null {
+export function locateInDsl(
+  dsl: PageDsl,
+  id: string,
+): { parentId: string | null; index: number } | null {
   const location = locateById(dsl.tree, id);
   if (location === null) return null;
   return { parentId: location.parent?.id ?? null, index: location.indexInParent };

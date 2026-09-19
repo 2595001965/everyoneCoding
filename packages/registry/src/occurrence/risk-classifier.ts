@@ -80,7 +80,9 @@ export const DEFAULT_RISK_RULES: readonly RiskRule[] = [
     id: 'warn.dynamic-access',
     label: '反射 / 动态调用（warn：字符串承载的方法名无法静态校验）',
     level: 'warn',
-    test: (s) => s.role === 'string-literal' && (s.matchedSymbol === 'methodName' || s.matchedSymbol === 'apiField'),
+    test: (s) =>
+      s.role === 'string-literal' &&
+      (s.matchedSymbol === 'methodName' || s.matchedSymbol === 'apiField'),
   },
   {
     id: 'confirm.api-field',
@@ -171,7 +173,10 @@ export function applyRiskOverrides(
 }
 
 /** 单条信号分级（首个命中的规则生效） */
-export function classifyRisk(signal: RiskSignal, config: RiskConfig = defaultRiskConfig()): RiskClassification {
+export function classifyRisk(
+  signal: RiskSignal,
+  config: RiskConfig = defaultRiskConfig(),
+): RiskClassification {
   for (const rule of config.rules) {
     if (rule.test(signal)) {
       return { level: rule.level, ruleId: rule.id, reason: rule.label };

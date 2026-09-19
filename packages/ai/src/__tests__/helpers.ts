@@ -126,7 +126,11 @@ export async function startMockServer(routes: MockRoute[]): Promise<MockServerHa
 
 function matchPath(pattern: string, url: string): boolean {
   const [path] = url.split('?');
-  return pattern === '*' || pattern === path || (pattern.endsWith('*') && (path ?? '').startsWith(pattern.slice(0, -1)));
+  return (
+    pattern === '*' ||
+    pattern === path ||
+    (pattern.endsWith('*') && (path ?? '').startsWith(pattern.slice(0, -1)))
+  );
 }
 
 /** SSE 文本构造器：把若干事件拼成一条流（可指定分片边界） */

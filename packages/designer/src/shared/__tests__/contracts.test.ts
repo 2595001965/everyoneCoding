@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { createLoginPageDsl } from '../../dsl/factory';
-import { ComponentRegistry, componentRegistry, registerCustomComponent } from '../../registry/component-registry';
-import { defineSchema, fieldVisible, groupFields, schemaDefaults, validatePropSchema } from '../../registry/prop-schema';
+import {
+  ComponentRegistry,
+  componentRegistry,
+  registerCustomComponent,
+} from '../../registry/component-registry';
+import {
+  defineSchema,
+  fieldVisible,
+  groupFields,
+  schemaDefaults,
+  validatePropSchema,
+} from '../../registry/prop-schema';
 import {
   collectConditionPaths,
   createCondition,
@@ -13,7 +23,12 @@ import {
   parseCondition,
   validateCondition,
 } from '../condition';
-import { createDataSourceProvider, findReferencingElements, getDataSources, listDataSourcePaths } from '../data-source';
+import {
+  createDataSourceProvider,
+  findReferencingElements,
+  getDataSources,
+  listDataSourcePaths,
+} from '../data-source';
 import {
   collectExpressionPaths,
   formatPath,
@@ -94,9 +109,13 @@ describe('共享契约：结构化条件', () => {
     expect(evaluateCondition({ op: 'gt', left: 'count', right: 5 }, scope)).toBe(false);
     expect(evaluateCondition({ op: 'truthy', left: 'loading' }, scope)).toBe(false);
     expect(evaluateCondition({ op: 'empty', left: 'list' }, scope)).toBe(true);
-    expect(evaluateCondition({ op: 'in', left: 'user.role', right: ['admin', 'owner'] }, scope)).toBe(true);
+    expect(
+      evaluateCondition({ op: 'in', left: 'user.role', right: ['admin', 'owner'] }, scope),
+    ).toBe(true);
     expect(evaluateCondition({ op: 'contains', left: 'user.name', right: '小' }, scope)).toBe(true);
-    expect(evaluateCondition({ op: 'startsWith', left: 'user.name', right: '小' }, scope)).toBe(true);
+    expect(evaluateCondition({ op: 'startsWith', left: 'user.name', right: '小' }, scope)).toBe(
+      true,
+    );
     expect(evaluateCondition({ op: 'endsWith', left: 'user.name', right: '吴' }, scope)).toBe(true);
     expect(evaluateCondition({ op: 'eq', left: 'user.role', right: 'admin' }, scope)).toBe(true);
   });
@@ -110,7 +129,18 @@ describe('共享契约：结构化条件', () => {
       ],
     };
     expect(evaluateCondition(expr, scope)).toBe(true);
-    expect(evaluateCondition({ op: 'or', items: [{ op: 'truthy', left: 'loading' }, { op: 'eq', left: 'count', right: 3 }] }, scope)).toBe(true);
+    expect(
+      evaluateCondition(
+        {
+          op: 'or',
+          items: [
+            { op: 'truthy', left: 'loading' },
+            { op: 'eq', left: 'count', right: 3 },
+          ],
+        },
+        scope,
+      ),
+    ).toBe(true);
   });
 
   it('空条件视为通过（无限制）', () => {
@@ -143,14 +173,26 @@ describe('共享契约：结构化条件', () => {
   });
 
   it('collectConditionPaths / validateCondition', () => {
-    expect(collectConditionPaths({ op: 'and', items: [{ op: 'eq', left: 'a', right: 1 }, { op: 'truthy', left: 'b' }] })).toEqual(['a', 'b']);
+    expect(
+      collectConditionPaths({
+        op: 'and',
+        items: [
+          { op: 'eq', left: 'a', right: 1 },
+          { op: 'truthy', left: 'b' },
+        ],
+      }),
+    ).toEqual(['a', 'b']);
     expect(validateCondition({ op: 'and', items: [] })).toEqual(['条件：逻辑组至少需要一个子条件']);
     expect(validateCondition({ op: 'eq', left: '  ', right: 1 })).toEqual(['条件：左侧字段未填写']);
     expect(validateCondition({ op: 'eq', left: 'a', right: 1 })).toEqual([]);
   });
 
   it('权限规则：角色 + 条件共同决定', () => {
-    const rule = { mode: 'visible' as const, roles: ['admin'], condition: { op: 'truthy' as const, left: 'loading' } };
+    const rule = {
+      mode: 'visible' as const,
+      roles: ['admin'],
+      condition: { op: 'truthy' as const, left: 'loading' },
+    };
     expect(evaluatePermission(rule, { roles: ['admin'], scope: { loading: 1 } })).toBe(true);
     expect(evaluatePermission(rule, { roles: ['guest'], scope: { loading: 1 } })).toBe(false);
     expect(evaluatePermission(rule, { roles: ['admin'], scope: { loading: 0 } })).toBe(false);
@@ -164,7 +206,13 @@ describe('共享契约：数据源目录', () => {
     const dsl = createLoginPageDsl();
     const catalog = getDataSources(dsl);
     expect(catalog.pageId).toBe('login');
-    expect(catalog.states.map((state) => state.name)).toEqual(['phone', 'password', 'remember', 'loading', 'errorMsg']);
+    expect(catalog.states.map((state) => state.name)).toEqual([
+      'phone',
+      'password',
+      'remember',
+      'loading',
+      'errorMsg',
+    ]);
     expect(catalog.apis.map((api) => api.path)).toEqual(['/api/auth/login']);
     // 无显式方法时按路径推断
     expect(catalog.apis[0]?.method).toBe('POST');
@@ -179,7 +227,14 @@ describe('共享契约：数据源目录', () => {
         path: '/api/auth/login',
         source: 'catalog',
         responseFields: [
-          { name: 'data', type: 'object', children: [{ name: 'token', type: 'string' }, { name: 'user', type: 'object', children: [{ name: 'id', type: 'number' }] }] },
+          {
+            name: 'data',
+            type: 'object',
+            children: [
+              { name: 'token', type: 'string' },
+              { name: 'user', type: 'object', children: [{ name: 'id', type: 'number' }] },
+            ],
+          },
         ],
       },
     ]);
@@ -194,7 +249,9 @@ describe('共享契约：数据源目录', () => {
 
   it('createDataSourceProvider 以 pageId 解析', () => {
     const dsl = createLoginPageDsl();
-    const provider = createDataSourceProvider({ getDsl: (pageId) => (pageId === 'login' ? dsl : null) });
+    const provider = createDataSourceProvider({
+      getDsl: (pageId) => (pageId === 'login' ? dsl : null),
+    });
     expect(provider('login')?.pageId).toBe('login');
     expect(provider('nope')).toBeNull();
   });
@@ -211,8 +268,21 @@ describe('共享契约：数据源目录', () => {
 describe('共享契约：属性 Schema 与组件注册表', () => {
   const schema = defineSchema([
     { key: 'text', label: '文本', type: 'text', group: '内容', default: '按钮' },
-    { key: 'variant', label: '风格', type: 'enum', group: '外观', options: [{ value: 'primary', label: '主按钮' }], default: 'primary' },
-    { key: 'block', label: '撑满宽度', type: 'boolean', group: '外观', visibleWhen: { field: 'variant', equals: 'primary' } },
+    {
+      key: 'variant',
+      label: '风格',
+      type: 'enum',
+      group: '外观',
+      options: [{ value: 'primary', label: '主按钮' }],
+      default: 'primary',
+    },
+    {
+      key: 'block',
+      label: '撑满宽度',
+      type: 'boolean',
+      group: '外观',
+      visibleWhen: { field: 'variant', equals: 'primary' },
+    },
   ]);
 
   it('默认值 / 分组 / 条件显隐', () => {
@@ -239,8 +309,30 @@ describe('共享契约：属性 Schema 与组件注册表', () => {
 
   it('注册表：注册 / 查询 / 分组 / 白名单 / 重复注册防护', () => {
     const registry = new ComponentRegistry();
-    registry.register({ meta: { type: 'Button', displayName: '按钮', group: '基础', icon: 'button', defaultProps: {}, defaultStyle: {}, acceptsChildren: false, propSchema: schema } });
-    registry.register({ meta: { type: 'Container', displayName: '容器', group: '布局', icon: 'container', defaultProps: {}, defaultStyle: {}, acceptsChildren: true, propSchema: { fields: [] } } });
+    registry.register({
+      meta: {
+        type: 'Button',
+        displayName: '按钮',
+        group: '基础',
+        icon: 'button',
+        defaultProps: {},
+        defaultStyle: {},
+        acceptsChildren: false,
+        propSchema: schema,
+      },
+    });
+    registry.register({
+      meta: {
+        type: 'Container',
+        displayName: '容器',
+        group: '布局',
+        icon: 'container',
+        defaultProps: {},
+        defaultStyle: {},
+        acceptsChildren: true,
+        propSchema: { fields: [] },
+      },
+    });
 
     expect(registry.has('Button')).toBe(true);
     expect(registry.get('Button')?.displayName).toBe('按钮');
@@ -250,7 +342,16 @@ describe('共享契约：属性 Schema 与组件注册表', () => {
     expect(registry.types()).toEqual(['Button', 'Container']);
     expect(registry.groups().map((item) => item.group)).toEqual(['基础', '布局']);
     const duplicate = {
-      meta: { type: 'Button', displayName: '按钮2', group: '基础' as const, icon: 'button', defaultProps: {}, defaultStyle: {}, acceptsChildren: false, propSchema: { fields: [] } },
+      meta: {
+        type: 'Button',
+        displayName: '按钮2',
+        group: '基础' as const,
+        icon: 'button',
+        defaultProps: {},
+        defaultStyle: {},
+        acceptsChildren: false,
+        propSchema: { fields: [] },
+      },
     };
     expect(() => registry.register(duplicate)).toThrow(/已注册/);
 
@@ -261,7 +362,18 @@ describe('共享契约：属性 Schema 与组件注册表', () => {
   it('自定义组件注册到自定义分组并可覆盖', () => {
     const registry = new ComponentRegistry();
     const meta = registerCustomComponent(
-      { meta: { type: 'MyCard', displayName: '我的卡片', group: '自定义', icon: 'card', defaultProps: { title: 'x' }, defaultStyle: {}, acceptsChildren: true, propSchema: { fields: [] } } },
+      {
+        meta: {
+          type: 'MyCard',
+          displayName: '我的卡片',
+          group: '自定义',
+          icon: 'card',
+          defaultProps: { title: 'x' },
+          defaultStyle: {},
+          acceptsChildren: true,
+          propSchema: { fields: [] },
+        },
+      },
       registry,
     );
     expect(meta.type).toBe('MyCard');

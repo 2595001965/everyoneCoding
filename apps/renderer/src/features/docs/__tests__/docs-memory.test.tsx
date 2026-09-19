@@ -32,7 +32,11 @@ describe('DocMemoryLink（文档 ↔ 记忆双向关联）', () => {
     env = createFakeDocsApi();
     env.memory.seedNode({ id: 'mem-project', scope: 'project', title: '课程平台技术栈' });
     env.memory.seedNode({ id: 'mem-longterm', scope: 'longterm', title: '所有代码必须有单元测试' });
-    docId = await seedDocument(env.store, { projectId: PROJECT, title: '需求文档', markdown: MARKDOWN });
+    docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '需求文档',
+      markdown: MARKDOWN,
+    });
   });
 
   it('初始无关联，可选择五类记忆节点建立关联并显示关联文档数', async () => {
@@ -71,7 +75,11 @@ describe('DocMemoryLink（文档 ↔ 记忆双向关联）', () => {
       title: '技术文档',
       markdown: '# 技术\n\n## 功能\n- 架构\n',
     });
-    await env.api.linkToMemory({ memoryId: 'mem-project', documentId: secondDoc, linkType: 'supports' });
+    await env.api.linkToMemory({
+      memoryId: 'mem-project',
+      documentId: secondDoc,
+      linkType: 'supports',
+    });
 
     const { onOpenDocument } = renderLinks(env, docId);
     fireEvent.click(await screen.findByRole('button', { name: '查看引用' }));
@@ -84,7 +92,11 @@ describe('DocMemoryLink（文档 ↔ 记忆双向关联）', () => {
   });
 
   it('取消关联后列表回到空态', async () => {
-    await env.api.linkToMemory({ memoryId: 'mem-longterm', documentId: docId, linkType: 'related' });
+    await env.api.linkToMemory({
+      memoryId: 'mem-longterm',
+      documentId: docId,
+      linkType: 'related',
+    });
     renderLinks(env, docId);
     fireEvent.click(await screen.findByRole('button', { name: '取消关联' }));
     await waitFor(() => expect(env.memory.links.size).toBe(0));
@@ -98,7 +110,11 @@ describe('ConvertToMemoryDialog（一键转记忆）', () => {
 
   beforeEach(async () => {
     env = createFakeDocsApi();
-    docId = await seedDocument(env.store, { projectId: PROJECT, title: '需求文档', markdown: MARKDOWN });
+    docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '需求文档',
+      markdown: MARKDOWN,
+    });
   });
 
   it('生成 AI 摘要草稿 → 可编辑 → 提交后创建记忆并保留原文链接', async () => {
@@ -134,12 +150,18 @@ describe('ConvertToMemoryDialog（一键转记忆）', () => {
     expect(created).toBeTruthy();
     expect(created!.scope).toBe('project');
     // derived_from 关联被建立
-    expect([...env.memory.links.values()].some((link) => link.link_type === 'derived_from')).toBe(true);
+    expect([...env.memory.links.values()].some((link) => link.link_type === 'derived_from')).toBe(
+      true,
+    );
   });
 
   it('AI 摘要端口缺失时如实报错并给引导（不内置模板顶替）', async () => {
     const noAi = createFakeDocsApi({ withExtraction: false });
-    const docId2 = await seedDocument(noAi.store, { projectId: PROJECT, title: '文档', markdown: MARKDOWN });
+    const docId2 = await seedDocument(noAi.store, {
+      projectId: PROJECT,
+      title: '文档',
+      markdown: MARKDOWN,
+    });
     const doc = (await noAi.api.getDocument(docId2))!;
 
     render(

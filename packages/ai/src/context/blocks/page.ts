@@ -22,15 +22,19 @@ export async function buildPageBlock(context: BlockBuildContext): Promise<Contex
   });
 
   const pageId = context.request.pageId;
-  const summary = pageId !== null && pageId !== undefined ? context.sources.elements?.getPageSummary?.({ projectId: context.request.projectId, pageId }) ?? null : null;
+  const summary =
+    pageId !== null && pageId !== undefined
+      ? (context.sources.elements?.getPageSummary?.({
+          projectId: context.request.projectId,
+          pageId,
+        }) ?? null)
+      : null;
 
   if (summary === null) return memory;
 
   const lines = [`页面「${summary.name}」路由 ${summary.route}（${summary.platform}）`];
   if (summary.state !== undefined && summary.state.length > 0) {
-    lines.push(
-      `状态变量：${summary.state.map((item) => `${item.name}:${item.type}`).join('、')}`,
-    );
+    lines.push(`状态变量：${summary.state.map((item) => `${item.name}:${item.type}`).join('、')}`);
   }
   if (summary.apiDeps !== undefined && summary.apiDeps.length > 0) {
     lines.push(`依赖接口：${summary.apiDeps.join('、')}`);

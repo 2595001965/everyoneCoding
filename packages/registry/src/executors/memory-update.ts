@@ -14,7 +14,13 @@
  * `impact-analyzer.partitionScope` 阶段被剔除。
  */
 
-import type { ExecutionContext, ExecutorInput, ExecutorResult, RenameExecutor, UndoPatch } from './types';
+import type {
+  ExecutionContext,
+  ExecutorInput,
+  ExecutorResult,
+  RenameExecutor,
+  UndoPatch,
+} from './types';
 import { emptyResult } from './types';
 
 /** 解析记忆 locator：`<itemId>#structured.<jsonPath>` 或 `<itemId>#content` */
@@ -23,7 +29,8 @@ export function parseMemoryLocator(
   locator: string | null,
 ): { field: 'structured' | 'content'; jsonPath: string | null } {
   const prefix = `${itemId}#`;
-  const rest = locator !== null && locator.startsWith(prefix) ? locator.slice(prefix.length) : locator ?? '';
+  const rest =
+    locator !== null && locator.startsWith(prefix) ? locator.slice(prefix.length) : (locator ?? '');
   if (rest.startsWith('structured.')) {
     return { field: 'structured', jsonPath: rest.slice('structured.'.length) };
   }
@@ -77,7 +84,9 @@ export function createMemoryUpdateExecutor(): RenameExecutor {
             contentCounter.set(itemId, index + 1);
           }
         } catch (error) {
-          result.failures.push(`更新记忆 ${itemId}（${change.locator ?? '正文'}）失败：${String(error)}`);
+          result.failures.push(
+            `更新记忆 ${itemId}（${change.locator ?? '正文'}）失败：${String(error)}`,
+          );
           return result;
         }
 
@@ -87,7 +96,8 @@ export function createMemoryUpdateExecutor(): RenameExecutor {
           locator: change.locator,
           from: change.replacement,
           to: change.target,
-          carrier: parsed.field === 'structured' ? `structured.${parsed.jsonPath ?? ''}` : 'content',
+          carrier:
+            parsed.field === 'structured' ? `structured.${parsed.jsonPath ?? ''}` : 'content',
         };
         result.undo.push(undo);
         result.applied += 1;

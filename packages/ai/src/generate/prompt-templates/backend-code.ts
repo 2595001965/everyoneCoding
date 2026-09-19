@@ -1,4 +1,10 @@
-import { composeTemplate, renderTemplate, UNIVERSAL_NEGATIVE_CONSTRAINTS, type PromptTemplate, type PromptTemplateInput } from './shared';
+import {
+  composeTemplate,
+  renderTemplate,
+  UNIVERSAL_NEGATIVE_CONSTRAINTS,
+  type PromptTemplate,
+  type PromptTemplateInput,
+} from './shared';
 
 /**
  * 后端代码模板（FR-AI-03 的主战场）。

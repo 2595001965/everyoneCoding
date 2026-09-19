@@ -9,7 +9,8 @@ export function registerAppInfoIpc(ipc: IpcMainLike, deps: IpcDependencies): voi
     kind: 'electron',
     name: deps.app.getName(),
     version: deps.app.getVersion(),
-    platform: process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux',
+    platform:
+      process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux',
     arch: process.arch === 'arm64' ? 'arm64' : process.arch === 'ia32' ? 'ia32' : 'x64',
     dataDir: deps.dataDir,
     workspaceRoot,

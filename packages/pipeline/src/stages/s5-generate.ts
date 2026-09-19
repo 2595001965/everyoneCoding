@@ -2,7 +2,11 @@ import type { EventBus } from '@ec/core';
 
 import type { ContractInjector } from './contract-injector';
 import type { GenerationQueue, QueueNode } from './generation-queue';
-import type { BuildVerification, MultiPlatformGenerator, PlatformGenerationInput } from './multi-platform-generator';
+import type {
+  BuildVerification,
+  MultiPlatformGenerator,
+  PlatformGenerationInput,
+} from './multi-platform-generator';
 import type { SplitModel, SplitResult } from './s4-split';
 import type { TargetPlatform, TechChoice } from './tech-choice-questionnaire';
 
@@ -82,7 +86,10 @@ export interface TargetProjectResult {
 }
 
 export interface FileWriterPort {
-  writeFiles(projectId: string, files: ReadonlyArray<{ path: string; content: string }>): Promise<void>;
+  writeFiles(
+    projectId: string,
+    files: ReadonlyArray<{ path: string; content: string }>,
+  ): Promise<void>;
   /** 生成前快照（单独回退用）；返回引用 */
   snapshot(projectId: string, nodeId: string): Promise<string>;
   /** 按快照恢复 */
@@ -217,11 +224,23 @@ export class S5GenerateStage {
 
     const progress = JSON.stringify({
       version: 1 as const,
-      nodes: finalState.nodes.map((node) => ({ id: node.id, status: node.status, attempts: node.attempts, error: node.error })),
+      nodes: finalState.nodes.map((node) => ({
+        id: node.id,
+        status: node.status,
+        attempts: node.attempts,
+        error: node.error,
+      })),
     });
 
-    const targets = this.deps.multiTarget === true ? await this.generateTargetProjects(input) : undefined;
-    return { state: finalState, results, progress, commits, ...(targets === undefined ? {} : { targets }) };
+    const targets =
+      this.deps.multiTarget === true ? await this.generateTargetProjects(input) : undefined;
+    return {
+      state: finalState,
+      results,
+      progress,
+      commits,
+      ...(targets === undefined ? {} : { targets }),
+    };
   }
 
   /**
@@ -251,8 +270,18 @@ export class S5GenerateStage {
 
       try {
         const result = await this.deps.generator.generateFor(generationInput);
-        const files = result.files.map((file) => ({ path: `${root}/${file.path.replace(/^\.?\//, '')}`, content: file.content }));
-        out.push({ platform, framework, root, files, build: result.build, degraded: result.degraded });
+        const files = result.files.map((file) => ({
+          path: `${root}/${file.path.replace(/^\.?\//, '')}`,
+          content: file.content,
+        }));
+        out.push({
+          platform,
+          framework,
+          root,
+          files,
+          build: result.build,
+          degraded: result.degraded,
+        });
 
         if (this.deps.fs !== undefined && files.length > 0) {
           // 快照/落盘按端隔离，便于单端回退（gen:<platform>）
@@ -260,12 +289,22 @@ export class S5GenerateStage {
           await this.deps.fs.writeFiles(input.projectId, files);
         }
         if (this.deps.anchors !== undefined && files.length > 0) {
-          await this.deps.anchors.write(input.projectId, files.map((file) => ({ filePath: file.path })));
+          await this.deps.anchors.write(
+            input.projectId,
+            files.map((file) => ({ filePath: file.path })),
+          );
         }
         if (this.deps.preview !== undefined && files.length > 0) {
-          await this.deps.preview.hotReload(input.projectId, files.map((file) => file.path));
+          await this.deps.preview.hotReload(
+            input.projectId,
+            files.map((file) => file.path),
+          );
         }
-        void this.deps.bus?.emit('pipeline:node-generated', { projectId: input.projectId, nodeId: `gen:${platform}`, paths: files.map((file) => file.path) });
+        void this.deps.bus?.emit('pipeline:node-generated', {
+          projectId: input.projectId,
+          nodeId: `gen:${platform}`,
+          paths: files.map((file) => file.path),
+        });
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
         out.push({
@@ -276,7 +315,11 @@ export class S5GenerateStage {
           build: { status: 'failed', output: message, retries: 0, installGuide: null },
           degraded: false,
         });
-        void this.deps.bus?.emit('pipeline:node-failed', { projectId: input.projectId, nodeId: `gen:${platform}`, error: message });
+        void this.deps.bus?.emit('pipeline:node-failed', {
+          projectId: input.projectId,
+          nodeId: `gen:${platform}`,
+          error: message,
+        });
       }
     }
     return out;
@@ -288,7 +331,11 @@ export class S5GenerateStage {
   }
 
   /** 提交信息格式 `<type>(<scope>): <subject>`（FR-GIT-09） */
-  buildCommitMessage(type: 'feat' | 'fix' | 'docs' | 'refactor' | 'chore', scope: string, subject: string): string {
+  buildCommitMessage(
+    type: 'feat' | 'fix' | 'docs' | 'refactor' | 'chore',
+    scope: string,
+    subject: string,
+  ): string {
     const safeScope = scope.replace(/[^\w-]/g, '').toLowerCase();
     const safeSubject = subject.replace(/\s+/g, ' ').trim();
     return `${type}(${safeScope}): ${safeSubject}`;
@@ -303,10 +350,20 @@ export class S5GenerateStage {
   ): (node: QueueNode<S5NodeData>) => Promise<void> {
     const bus = this.deps.bus;
     return async (node) => {
-      const data = node.data ?? { pageIds: [], platform: 'web', framework: 'react', contractsBlock: '', summary: '' };
+      const data = node.data ?? {
+        pageIds: [],
+        platform: 'web',
+        framework: 'react',
+        contractsBlock: '',
+        summary: '',
+      };
       try {
         // 1. 契约注入（依赖的接口摘要）
-        const { block } = await this.deps.contracts.injectForNode(input.projectId, { id: node.id, name: node.name, dependsOn: node.dependsOn });
+        const { block } = await this.deps.contracts.injectForNode(input.projectId, {
+          id: node.id,
+          name: node.name,
+          dependsOn: node.dependsOn,
+        });
         data.contractsBlock = block;
 
         // 2. 多端生成（feature 节点按端生成工程；page 节点生成页面代码）
@@ -331,41 +388,68 @@ export class S5GenerateStage {
 
         // 4. 写回锚点（未装配时跳过）
         if (this.deps.anchors !== undefined) {
-          await this.deps.anchors.write(input.projectId, result.files.map((file) => ({ filePath: file.path })));
+          await this.deps.anchors.write(
+            input.projectId,
+            result.files.map((file) => ({ filePath: file.path })),
+          );
         }
 
         // 5. 预览热更新 + Git 变更事件
-        if (this.deps.preview !== undefined) await this.deps.preview.hotReload(input.projectId, paths);
+        if (this.deps.preview !== undefined)
+          await this.deps.preview.hotReload(input.projectId, paths);
         void bus?.emit('pipeline:git-changed', { projectId: input.projectId, paths });
-        void bus?.emit('pipeline:node-generated', { projectId: input.projectId, nodeId: node.id, paths });
+        void bus?.emit('pipeline:node-generated', {
+          projectId: input.projectId,
+          nodeId: node.id,
+          paths,
+        });
 
         // 6. 自动提交（默认关闭）
         if (this.deps.autoCommit === true && this.deps.git !== undefined) {
           const message = this.buildCommitMessage('feat', this.deps.commitScope ?? 's5', node.name);
           const { sha } = await this.deps.git.commit(input.projectId, message);
           commits.push({ nodeId: node.id, sha, message });
-          void bus?.emit('pipeline:auto-committed', { projectId: input.projectId, nodeId: node.id, sha });
+          void bus?.emit('pipeline:auto-committed', {
+            projectId: input.projectId,
+            nodeId: node.id,
+            sha,
+          });
         }
 
         results[node.id] = { status: 'success', files: result.files.length, summary: data.summary };
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
         results[node.id] = { status: 'failed', files: 0, summary: message };
-        void bus?.emit('pipeline:node-failed', { projectId: input.projectId, nodeId: node.id, error: message });
+        void bus?.emit('pipeline:node-failed', {
+          projectId: input.projectId,
+          nodeId: node.id,
+          error: message,
+        });
         throw cause;
       }
     };
   }
 
-  private resumeNodes(nodes: QueueNode<S5NodeData>[], resumeProgress: string | null | undefined): QueueNode<S5NodeData>[] {
-    if (resumeProgress === null || resumeProgress === undefined || resumeProgress.trim().length === 0) return nodes;
+  private resumeNodes(
+    nodes: QueueNode<S5NodeData>[],
+    resumeProgress: string | null | undefined,
+  ): QueueNode<S5NodeData>[] {
+    if (
+      resumeProgress === null ||
+      resumeProgress === undefined ||
+      resumeProgress.trim().length === 0
+    )
+      return nodes;
     try {
-      const parsed = JSON.parse(resumeProgress) as { nodes?: Array<{ id: string; status: string }> };
+      const parsed = JSON.parse(resumeProgress) as {
+        nodes?: Array<{ id: string; status: string }>;
+      };
       if (!Array.isArray(parsed.nodes)) return nodes;
       const progress = new Map(parsed.nodes.map((node) => [node.id, node.status]));
       return nodes.map((node) => {
         const status = progress.get(node.id);
-        if (status === 'success' || status === 'skipped') return { ...node, status: status as QueueNode<S5NodeData>['status'] };
+        if (status === 'success' || status === 'skipped')
+          return { ...node, status: status as QueueNode<S5NodeData>['status'] };
         return node;
       });
     } catch {
@@ -376,7 +460,12 @@ export class S5GenerateStage {
   private mainPlatform(choice: TechChoice): string {
     if (choice.targets.includes('harmonyos')) return 'harmonyos';
     if (choice.targets.some((target) => target === 'android' || target === 'ios')) return 'android';
-    if (choice.targets.some((target) => target === 'windows' || target === 'linux' || target === 'macos')) return 'windows';
+    if (
+      choice.targets.some(
+        (target) => target === 'windows' || target === 'linux' || target === 'macos',
+      )
+    )
+      return 'windows';
     return 'web';
   }
 

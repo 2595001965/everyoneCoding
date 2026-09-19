@@ -21,7 +21,9 @@ describe('编辑器内核：撤销与重做', () => {
     expect(findById(store.getState().dsl.tree, 'el-7')?.props?.['text']).toBe('标题 A');
 
     store.getState().undo();
-    expect(findById(store.getState().dsl.tree, 'el-8')?.props?.['text']).toBe('使用手机号登录你的账号');
+    expect(findById(store.getState().dsl.tree, 'el-8')?.props?.['text']).toBe(
+      '使用手机号登录你的账号',
+    );
     expect(store.getState().undoState.redoDepth).toBe(1);
 
     store.getState().redo();
@@ -38,7 +40,9 @@ describe('编辑器内核：撤销与重做', () => {
     store.getState().undo();
     expect(store.getState().dsl).not.toBe(afterMove);
     // 撤销后回到 el-9（表单）内
-    expect(findById(store.getState().dsl.tree, 'el-9')?.children?.some((child) => child.id === 'el-15')).toBe(true);
+    expect(
+      findById(store.getState().dsl.tree, 'el-9')?.children?.some((child) => child.id === 'el-15'),
+    ).toBe(true);
   });
 
   it('无实际变更为空操作，不产生撤销步', () => {
@@ -116,16 +120,23 @@ describe('编辑器内核：结构变更', () => {
 
   it('insertElement 到不存在的父节点返回 false', () => {
     const store = setup();
-    expect(store.getState().insertElement('nope', createDefaultElement('Button', () => 'x'))).toBe(false);
+    expect(
+      store.getState().insertElement(
+        'nope',
+        createDefaultElement('Button', () => 'x'),
+      ),
+    ).toBe(false);
     expect(store.getState().undoState.undoDepth).toBe(0);
   });
 
   it('duplicateElement 复制子树并追加到原节点之后', () => {
     const store = setup();
-    const newId = store.getState().duplicateElement('el-13', { idFactory: (() => {
-      let index = 0;
-      return () => `copy-${(index += 1)}`;
-    })() });
+    const newId = store.getState().duplicateElement('el-13', {
+      idFactory: (() => {
+        let index = 0;
+        return () => `copy-${(index += 1)}`;
+      })(),
+    });
     expect(newId).toBe('copy-1');
     const form = findById(store.getState().dsl.tree, 'el-9');
     const ids = form?.children?.map((child) => child.id) ?? [];
@@ -160,7 +171,10 @@ describe('编辑器内核：属性 / 样式 / 绑定 / 元信息', () => {
     store.getState().setBindings('el-15', { disabled: null });
     expect(findById(store.getState().dsl.tree, 'el-15')?.bindings).toBeUndefined();
     store.getState().setBindings('el-15', { disabled: 'loading', loading: 'loading' });
-    expect(findById(store.getState().dsl.tree, 'el-15')?.bindings).toEqual({ disabled: 'loading', loading: 'loading' });
+    expect(findById(store.getState().dsl.tree, 'el-15')?.bindings).toEqual({
+      disabled: 'loading',
+      loading: 'loading',
+    });
   });
 
   it('updateMeta 支持重命名 / 锁定 / 隐藏', () => {
@@ -175,7 +189,9 @@ describe('编辑器内核：属性 / 样式 / 绑定 / 元信息', () => {
   it('setResponsive 写入断点差异属性，传 null 删除', () => {
     const store = setup();
     store.getState().setResponsive('el-5', '768', { width: 320 });
-    expect(findById(store.getState().dsl.tree, 'el-5')?.responsive).toEqual({ '768': { width: 320 } });
+    expect(findById(store.getState().dsl.tree, 'el-5')?.responsive).toEqual({
+      '768': { width: 320 },
+    });
     store.getState().setResponsive('el-5', '768', null);
     expect(findById(store.getState().dsl.tree, 'el-5')?.responsive).toBeUndefined();
   });

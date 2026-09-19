@@ -82,7 +82,12 @@ export function isRelevantTo(item: MemoryItem, ref: ResolveContextRef): boolean 
     case 'project':
       return Boolean(ref.projectId) && item.projectId === ref.projectId;
     case 'feature':
-      return Boolean(ref.projectId) && item.projectId === ref.projectId && Boolean(ref.featureId) && item.featureId === ref.featureId;
+      return (
+        Boolean(ref.projectId) &&
+        item.projectId === ref.projectId &&
+        Boolean(ref.featureId) &&
+        item.featureId === ref.featureId
+      );
     case 'page':
       if (!ref.projectId || item.projectId !== ref.projectId) return false;
       if (ref.pageId && item.pageId !== ref.pageId) return false;
@@ -112,10 +117,14 @@ function sortCandidates(items: readonly MemoryItem[]): MemoryItem[] {
 }
 
 /** 每条记忆"占用"的键：标题键 + 全部结构化叶子路径 */
-function keysOf(item: MemoryItem): Array<{ key: string; field: string; kind: 'title' | 'structured'; value: unknown }> {
-  const keys: Array<{ key: string; field: string; kind: 'title' | 'structured'; value: unknown }> = [];
+function keysOf(
+  item: MemoryItem,
+): Array<{ key: string; field: string; kind: 'title' | 'structured'; value: unknown }> {
+  const keys: Array<{ key: string; field: string; kind: 'title' | 'structured'; value: unknown }> =
+    [];
   const titleKey = normalizeTitleKey(item.title);
-  if (titleKey) keys.push({ key: `title:${titleKey}`, field: 'title', kind: 'title', value: item.title });
+  if (titleKey)
+    keys.push({ key: `title:${titleKey}`, field: 'title', kind: 'title', value: item.title });
   for (const [path, value] of flattenStructured(item.structured)) {
     keys.push({ key: `structured:${path}`, field: path, kind: 'structured', value });
   }
@@ -136,7 +145,10 @@ function beats(a: MemoryItem, b: MemoryItem): boolean {
  * 纯函数版解析：接收候选条目（通常来自 repo 的范围查询），产出继承与冲突结果。
  * 与数据库解耦，便于单测与"假设分析"（例如 UI 预览某页面会带上哪些记忆）。
  */
-export function resolveInheritance(items: readonly MemoryItem[], ref: ResolveContextRef): ResolvedContext {
+export function resolveInheritance(
+  items: readonly MemoryItem[],
+  ref: ResolveContextRef,
+): ResolvedContext {
   const candidates = sortCandidates(items.filter((item) => isRelevantTo(item, ref)));
 
   const traces: ConflictTrace[] = [];
@@ -144,7 +156,10 @@ export function resolveInheritance(items: readonly MemoryItem[], ref: ResolveCon
   const pathOverrides = new Map<string, { paths: string[]; by: string }>();
 
   // 按 key 归组，胜者唯一
-  const byKey = new Map<string, Array<{ item: MemoryItem; field: string; kind: 'title' | 'structured'; value: unknown }>>();
+  const byKey = new Map<
+    string,
+    Array<{ item: MemoryItem; field: string; kind: 'title' | 'structured'; value: unknown }>
+  >();
   for (const item of candidates) {
     for (const entry of keysOf(item)) {
       const bucket = byKey.get(entry.key) ?? [];
@@ -230,7 +245,9 @@ export function resolveInheritance(items: readonly MemoryItem[], ref: ResolveCon
     coverageMap.set(trace.winnerId, mark);
   }
 
-  const layers = [...new Set(candidates.map((item) => layerOf(item)))].sort((a, b) => LAYER_ORDER[a] - LAYER_ORDER[b]);
+  const layers = [...new Set(candidates.map((item) => layerOf(item)))].sort(
+    (a, b) => LAYER_ORDER[a] - LAYER_ORDER[b],
+  );
 
   return {
     ref,

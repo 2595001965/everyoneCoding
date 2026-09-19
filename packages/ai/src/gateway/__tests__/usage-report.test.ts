@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { buildGlobalReport, buildProjectReport, reportToCsv, type UsageReportRow } from '../../gateway/usage-report';
+import {
+  buildGlobalReport,
+  buildProjectReport,
+  reportToCsv,
+  type UsageReportRow,
+} from '../../gateway/usage-report';
 
 function row(overrides: Partial<UsageReportRow>): UsageReportRow {
   return {
@@ -79,7 +84,9 @@ describe('usage-report：CSV 导出', () => {
     const csv = reportToCsv(report);
     expect(csv).toContain('scope,project');
     expect(csv).toContain('project,p1');
-    expect(csv).toContain('group,key,requests,prompt_tokens,completion_tokens,total_tokens,cost_usd,avg_latency_ms');
+    expect(csv).toContain(
+      'group,key,requests,prompt_tokens,completion_tokens,total_tokens,cost_usd,avg_latency_ms',
+    );
     expect(csv).toContain('model,model-a,2,200,100,300,0.030000,1000');
   });
 
@@ -94,6 +101,8 @@ describe('usage-report：CSV 导出', () => {
     const lines = csv.split('\r\n');
     expect(lines).toHaveLength(2); // scope 行 + group 表头行，无数据行
     expect(lines[0]).toBe('scope,global');
-    expect(lines[1]).toBe('group,key,requests,prompt_tokens,completion_tokens,total_tokens,cost_usd,avg_latency_ms');
+    expect(lines[1]).toBe(
+      'group,key,requests,prompt_tokens,completion_tokens,total_tokens,cost_usd,avg_latency_ms',
+    );
   });
 });

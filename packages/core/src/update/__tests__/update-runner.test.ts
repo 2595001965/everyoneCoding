@@ -104,7 +104,11 @@ function createFakeEnv(seed?: Partial<UpdateRuntimeState>): FakeEnv {
   return env;
 }
 
-function createService(env: FakeEnv, patch: Partial<UpdateSettings> = {}, maxBootAttempts?: number) {
+function createService(
+  env: FakeEnv,
+  patch: Partial<UpdateSettings> = {},
+  maxBootAttempts?: number,
+) {
   return new UpdateService({
     ports: env.ports,
     settings: { ...DEFAULT_UPDATE_SETTINGS, ...patch },
@@ -208,7 +212,10 @@ describe('更新安装与备份', () => {
     env.ports.updater = null;
     const service = createService(env);
     expect(await service.install()).toBe(false);
-    expect(env.events.at(-1)).toMatchObject({ type: 'install-failed', error: '当前外壳不支持自动更新' });
+    expect(env.events.at(-1)).toMatchObject({
+      type: 'install-failed',
+      error: '当前外壳不支持自动更新',
+    });
   });
 
   it('安装后下次启动放行 + markHealthy 落定，之后启动不再计数', async () => {

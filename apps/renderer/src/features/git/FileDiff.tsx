@@ -105,7 +105,13 @@ function FileBlock({
     >
       <header
         className="ec-file-diff__file-head"
-        style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 8px', background: 'var(--ec-color-bg-subtle)' }}
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          padding: '4px 8px',
+          background: 'var(--ec-color-bg-subtle)',
+        }}
       >
         <span className="ec-file-diff__path" style={{ fontFamily: 'monospace' }}>
           {file.path}
@@ -139,7 +145,11 @@ function FileBlock({
 
 function SideBySide({ rows }: { rows: (SideBySideRow | UnchangedFold)[] }): JSX.Element {
   return (
-    <div className="ec-file-diff__sbs" data-testid="sbs" style={{ fontFamily: 'monospace', fontSize: 12 }}>
+    <div
+      className="ec-file-diff__sbs"
+      data-testid="sbs"
+      style={{ fontFamily: 'monospace', fontSize: 12 }}
+    >
       {rows.map((row, index) => {
         if (row.kind === 'fold') {
           return (
@@ -162,7 +172,11 @@ function SideBySide({ rows }: { rows: (SideBySideRow | UnchangedFold)[] }): JSX.
           >
             <span
               className="ec-file-diff__sbs-leftnum"
-              style={{ color: 'var(--ec-color-text-secondary)', textAlign: 'right', paddingRight: 4 }}
+              style={{
+                color: 'var(--ec-color-text-secondary)',
+                textAlign: 'right',
+                paddingRight: 4,
+              }}
             >
               {row.left?.number ?? ''}
             </span>
@@ -171,7 +185,11 @@ function SideBySide({ rows }: { rows: (SideBySideRow | UnchangedFold)[] }): JSX.
             </span>
             <span
               className="ec-file-diff__sbs-rightnum"
-              style={{ color: 'var(--ec-color-text-secondary)', textAlign: 'right', paddingRight: 4 }}
+              style={{
+                color: 'var(--ec-color-text-secondary)',
+                textAlign: 'right',
+                paddingRight: 4,
+              }}
             >
               {row.right?.number ?? ''}
             </span>
@@ -187,7 +205,11 @@ function SideBySide({ rows }: { rows: (SideBySideRow | UnchangedFold)[] }): JSX.
 
 function Inline({ file }: { file: GitDiffFile }): JSX.Element {
   return (
-    <div className="ec-file-diff__inline" data-testid="inline" style={{ fontFamily: 'monospace', fontSize: 12 }}>
+    <div
+      className="ec-file-diff__inline"
+      data-testid="inline"
+      style={{ fontFamily: 'monospace', fontSize: 12 }}
+    >
       {file.hunks.map((hunk) =>
         hunk.lines.map((line, index) => (
           <div
@@ -195,12 +217,21 @@ function Inline({ file }: { file: GitDiffFile }): JSX.Element {
             className={`ec-file-diff__inline-line ec-file-diff__inline-${line.kind}`}
             data-testid="inline-line"
             style={cellStyle(
-              line.kind === 'add' ? 'var(--ec-color-success)' : line.kind === 'del' ? 'var(--ec-color-danger)' : '',
+              line.kind === 'add'
+                ? 'var(--ec-color-success)'
+                : line.kind === 'del'
+                  ? 'var(--ec-color-danger)'
+                  : '',
             )}
           >
             <span
               className="ec-file-diff__sign"
-              style={{ display: 'inline-block', width: 16, textAlign: 'center', color: 'var(--ec-color-text-secondary)' }}
+              style={{
+                display: 'inline-block',
+                width: 16,
+                textAlign: 'center',
+                color: 'var(--ec-color-text-secondary)',
+              }}
             >
               {diffLineSign(line.kind)}
             </span>
@@ -215,7 +246,8 @@ function Inline({ file }: { file: GitDiffFile }): JSX.Element {
 /** 并排单元格底色：由行级 kind 决定（replace 左删右增），context 透明 */
 function sideBg(row: SideBySideRow, side: 'left' | 'right'): string {
   if (row.kind === 'context') return '';
-  if (row.kind === 'replace') return side === 'left' ? 'var(--ec-color-danger)' : 'var(--ec-color-success)';
+  if (row.kind === 'replace')
+    return side === 'left' ? 'var(--ec-color-danger)' : 'var(--ec-color-success)';
   if (row.kind === 'add') return side === 'right' ? 'var(--ec-color-success)' : '';
   return side === 'left' ? 'var(--ec-color-danger)' : '';
 }

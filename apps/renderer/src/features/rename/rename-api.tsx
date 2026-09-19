@@ -209,7 +209,9 @@ export function RenameApiProvider({ api, children }: RenameApiProviderProps): JS
     if (api !== undefined) return api;
     return (
       readInjectedRenameApi() ??
-      createUnavailableRenameApi('未检测到重命名服务：请在桌面端外壳中打开本项目（渲染层需安装 __EC_RENAME__ 端口）')
+      createUnavailableRenameApi(
+        '未检测到重命名服务：请在桌面端外壳中打开本项目（渲染层需安装 __EC_RENAME__ 端口）',
+      )
     );
   }, [api]);
   return <RenameApiContext.Provider value={value}>{children}</RenameApiContext.Provider>;
@@ -217,7 +219,10 @@ export function RenameApiProvider({ api, children }: RenameApiProviderProps): JS
 
 /** 读取端口；未注入时返回降级实现（不抛错，便于页面统一展示引导） */
 export function useRenameApi(): RenameApi {
-  return useContext(RenameApiContext) ?? createUnavailableRenameApi('重命名面板必须在 RenameApiProvider 内使用');
+  return (
+    useContext(RenameApiContext) ??
+    createUnavailableRenameApi('重命名面板必须在 RenameApiProvider 内使用')
+  );
 }
 
 export function useRenameApiOptional(): RenameApi | null {

@@ -34,7 +34,11 @@ export interface ReworkRequest {
 
 export interface CodeWriteApi {
   /** 生成写入计划（不落盘；create / patch / preview 三种模式共用） */
-  plan(input: { output: GenerationOutput; mode: WriteMode; noteIds?: readonly string[] }): Promise<WritePlan>;
+  plan(input: {
+    output: GenerationOutput;
+    mode: WriteMode;
+    noteIds?: readonly string[];
+  }): Promise<WritePlan>;
   /** 应用计划（校验后由 AI 侧执行，事务性） */
   apply(plan: WritePlan): Promise<WriteResult>;
   /** 把重改要求交回 AI 对话（预填上下文） */

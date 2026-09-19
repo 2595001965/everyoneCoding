@@ -184,7 +184,10 @@ export interface MemoryApi {
    * 冲突索引（memoryId → 该条目的冲突标注）。
    * 一次调用拿到整批条目的覆盖关系，避免列表逐条查询。
    */
-  conflictIndex(input: { userId: string; projectId: string | null }): Record<string, ConflictAnnotation[]>;
+  conflictIndex(input: {
+    userId: string;
+    projectId: string | null;
+  }): Record<string, ConflictAnnotation[]>;
   context(input: {
     userId: string;
     projectId: string;
@@ -207,7 +210,10 @@ export interface MemoryApi {
   changeLog(input: { userId: string; memoryId?: string; limit?: number }): ChangeLogRecord[];
 
   exportMemories(request: MemoryExportRequest): Promise<MemoryExportResult>;
-  importPreview(input: { userId: string; files: Array<{ name: string; content: string }> }): Promise<ImportPreviewModel>;
+  importPreview(input: {
+    userId: string;
+    files: Array<{ name: string; content: string }>;
+  }): Promise<ImportPreviewModel>;
   importCommit(request: ImportCommitRequest): Promise<ImportCommitResult>;
 }
 

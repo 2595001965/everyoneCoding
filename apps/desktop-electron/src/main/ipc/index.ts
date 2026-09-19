@@ -24,7 +24,10 @@ export interface RegisteredIpc {
 }
 
 export function registerAllIpc(ipc: IpcMainLike, deps: IpcDependencies): RegisteredIpc {
-  const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown> | unknown>();
+  const handlers = new Map<
+    string,
+    (event: unknown, payload: unknown) => Promise<unknown> | unknown
+  >();
   const wrapped: IpcMainLike = {
     handle: (channel, handler) => {
       handlers.set(channel, handler);
@@ -68,7 +71,9 @@ export function registerAllIpc(ipc: IpcMainLike, deps: IpcDependencies): Registe
   wrapped.handle(CHANNELS.openExternal, async (_e, payload) => {
     const url = (payload as { url: string }).url;
     if (!/^https?:\/\//.test(url) && !/^mailto:/.test(url)) {
-      throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: '只允许打开 http(s) 与 mailto 链接' }));
+      throw new Error(
+        JSON.stringify({ code: 'INVALID_ARGUMENT', message: '只允许打开 http(s) 与 mailto 链接' }),
+      );
     }
     await deps.openExternal(url);
     return undefined;

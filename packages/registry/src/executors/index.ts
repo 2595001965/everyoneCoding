@@ -47,6 +47,9 @@ export function createDefaultExecutors(): RenameExecutor[] {
 }
 
 /** 按 id 取名（UI 与测试断言用） */
-export function findExecutor(executors: readonly RenameExecutor[], id: ExecutorId): RenameExecutor | null {
+export function findExecutor(
+  executors: readonly RenameExecutor[],
+  id: ExecutorId,
+): RenameExecutor | null {
   return executors.find((executor) => executor.id === id) ?? null;
 }

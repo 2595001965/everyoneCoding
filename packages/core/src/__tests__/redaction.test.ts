@@ -4,7 +4,10 @@ import { mask, maskObject, registerRedactionRule } from '../redaction';
 /** 20 条脱敏样例：覆盖 Key / Bearer / 密码 / 连接串 / 手机号 / 邮箱 / JWT / 私钥 */
 const SAMPLES: Array<{ input: string; mustNotContain: string[] }> = [
   { input: '调用 OpenAI，key=sk-liveAbc123456789XyZ', mustNotContain: ['sk-liveAbc123456789XyZ'] },
-  { input: 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9xxxxx', mustNotContain: ['eyJhbGciOiJIUzI1NiJ9xxxxx'] },
+  {
+    input: 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9xxxxx',
+    mustNotContain: ['eyJhbGciOiJIUzI1NiJ9xxxxx'],
+  },
   { input: 'password: SuperSecret123!', mustNotContain: ['SuperSecret123!'] },
   { input: '{"password":"P@ssw0rd!"}', mustNotContain: ['P@ssw0rd!'] },
   { input: 'postgres://admin:pa55word@db.internal:5432/ec', mustNotContain: ['pa55word'] },
@@ -16,13 +19,26 @@ const SAMPLES: Array<{ input: string; mustNotContain: string[] }> = [
   { input: 'token=ghp_abcdefghijklmnop123456', mustNotContain: ['ghp_abcdefghijklmnop123456'] },
   { input: 'api_key: AKIA1234567890ABCDEF', mustNotContain: ['AKIA1234567890ABCDEF'] },
   { input: 'xoxb-1234567890-abcdefghijkl', mustNotContain: ['xoxb-1234567890-abcdefghijkl'] },
-  { input: 'jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w', mustNotContain: ['eyJzdWIiOiIxMjM0NTY3ODkwIn0'] },
-  { input: '-----BEGIN RSA PRIVATE KEY-----MIIEow-----END RSA PRIVATE KEY-----', mustNotContain: ['MIIEow'] },
+  {
+    input:
+      'jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w',
+    mustNotContain: ['eyJzdWIiOiIxMjM0NTY3ODkwIn0'],
+  },
+  {
+    input: '-----BEGIN RSA PRIVATE KEY-----MIIEow-----END RSA PRIVATE KEY-----',
+    mustNotContain: ['MIIEow'],
+  },
   { input: 'refresh_token: rtk_9f8e7d6c5b4a3210', mustNotContain: ['rtk_9f8e7d6c5b4a3210'] },
-  { input: 'sk-ant-api03-abcdefghijklmnopqrstuv', mustNotContain: ['sk-ant-api03-abcdefghijklmnopqrstuv'] },
+  {
+    input: 'sk-ant-api03-abcdefghijklmnopqrstuv',
+    mustNotContain: ['sk-ant-api03-abcdefghijklmnopqrstuv'],
+  },
   { input: 'secret = "abc123XYZ"', mustNotContain: ['abc123XYZ'] },
   { input: 'accessToken=ya29.a0AfH6SMBx1234567890', mustNotContain: ['ya29.a0AfH6SMBx1234567890'] },
-  { input: 'privateKey: "0x1234567890abcdef1234567890abcdef"', mustNotContain: ['0x1234567890abcdef1234567890abcdef'] },
+  {
+    input: 'privateKey: "0x1234567890abcdef1234567890abcdef"',
+    mustNotContain: ['0x1234567890abcdef1234567890abcdef'],
+  },
 ];
 
 describe('日志脱敏', () => {
@@ -74,7 +90,11 @@ describe('日志脱敏', () => {
   });
 
   it('支持注册自定义脱敏规则', () => {
-    registerRedactionRule({ id: 'internal-id', pattern: /EC-SECRET-\d{6}/g, replace: () => '[已脱敏]' });
+    registerRedactionRule({
+      id: 'internal-id',
+      pattern: /EC-SECRET-\d{6}/g,
+      replace: () => '[已脱敏]',
+    });
     expect(mask('编号 EC-SECRET-123456')).toContain('[已脱敏]');
   });
 });

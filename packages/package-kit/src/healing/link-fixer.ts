@@ -41,9 +41,12 @@ export function fixLinks(links: readonly HealingLink[], index: LinkTargetIndex):
 
     // ②③ 按名称找候选：先精确（归一化相等），再相似度
     const targetName = link.targetName ?? '';
-    const exact = targetName.length > 0
-      ? [...targets.entries()].filter(([, name]) => normalizeName(name) === normalizeName(targetName))
-      : [];
+    const exact =
+      targetName.length > 0
+        ? [...targets.entries()].filter(
+            ([, name]) => normalizeName(name) === normalizeName(targetName),
+          )
+        : [];
     let candidates = exact;
     if (candidates.length === 0 && targetName.length > 0) {
       candidates = [...targets.entries()].filter(

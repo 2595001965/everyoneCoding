@@ -44,7 +44,11 @@ export class ApiKeyStore {
   }
 
   /** 按「引用名」写入；连接测试与外部预写场景使用。 */
-  async saveRef(ref: string, apiKey: string, namespace: AiKeyNamespace = KEY_NAMESPACE): Promise<string> {
+  async saveRef(
+    ref: string,
+    apiKey: string,
+    namespace: AiKeyNamespace = KEY_NAMESPACE,
+  ): Promise<string> {
     await this.store.set(namespace, ref, apiKey);
     return ref;
   }

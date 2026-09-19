@@ -1,7 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto';
 
-import { fetchRemoteConfig, parseRemoteConfig, pickSignature, REMOTE_CONFIG_TIMEOUT_MS } from '../fetcher';
+import {
+  fetchRemoteConfig,
+  parseRemoteConfig,
+  pickSignature,
+  REMOTE_CONFIG_TIMEOUT_MS,
+} from '../fetcher';
 import { normalizePublicKey, verifySignature } from '../verifier';
 import { diffRemoteConfig, planApply, summarizeDiff } from '../applier';
 import { createNodeHttpTransport } from '../../core/node-transport';
@@ -32,7 +37,10 @@ const PAYLOAD = JSON.stringify({
 describe('远程配置拉取（用户自配 URL，不依赖平台服务端）', () => {
   it('拉取成功：解析出 revision 与 providers', async () => {
     server = await startMockServer([{ method: 'GET', path: '/ai.json', body: PAYLOAD }]);
-    const result = await fetchRemoteConfig({ url: `${server.url}/ai.json` }, createNodeHttpTransport());
+    const result = await fetchRemoteConfig(
+      { url: `${server.url}/ai.json` },
+      createNodeHttpTransport(),
+    );
 
     expect(result.ok).toBe(true);
     expect(result.status).toBe('success');
@@ -43,7 +51,10 @@ describe('远程配置拉取（用户自配 URL，不依赖平台服务端）', 
   });
 
   it('URL 不可达：返回结果对象而不是抛错（不阻塞启动）', async () => {
-    const result = await fetchRemoteConfig({ url: 'http://127.0.0.1:1/ai.json' }, createNodeHttpTransport());
+    const result = await fetchRemoteConfig(
+      { url: 'http://127.0.0.1:1/ai.json' },
+      createNodeHttpTransport(),
+    );
     expect(result.ok).toBe(false);
     expect(result.status).toBe('unreachable');
     expect(result.document).toBeNull();
@@ -100,8 +111,13 @@ describe('远程配置拉取（用户自配 URL，不依赖平台服务端）', 
   });
 
   it('内容非法：归类为 invalid', async () => {
-    server = await startMockServer([{ method: 'GET', path: '/ai.json', body: '{"providers":"oops"}' }]);
-    const result = await fetchRemoteConfig({ url: `${server.url}/ai.json` }, createNodeHttpTransport());
+    server = await startMockServer([
+      { method: 'GET', path: '/ai.json', body: '{"providers":"oops"}' },
+    ]);
+    const result = await fetchRemoteConfig(
+      { url: `${server.url}/ai.json` },
+      createNodeHttpTransport(),
+    );
     expect(result.status).toBe('invalid');
   });
 });
@@ -171,7 +187,10 @@ describe('差异预览与应用（本地 > 远程默认）', () => {
 
   it('远程删除的服务在差异里标为移除', () => {
     const payload = parseRemoteConfig(
-      JSON.stringify({ revision: '2', providers: [{ name: '其他', protocol: 'openai', baseUrl: 'https://x.com/v1' }] }),
+      JSON.stringify({
+        revision: '2',
+        providers: [{ name: '其他', protocol: 'openai', baseUrl: 'https://x.com/v1' }],
+      }),
     ).payload;
     const items = diffRemoteConfig(locals, payload);
     expect(items.some((item) => item.kind === 'removed')).toBe(true);

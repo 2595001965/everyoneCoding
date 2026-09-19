@@ -34,11 +34,19 @@ function makeFakeFetch(): OAuthFetch {
     if (url.includes('api.github.com/user')) {
       return {
         status: 200,
-        body: JSON.stringify({ id: 99, login: 'ghuser', email: 'gh@example.com', name: 'Github 用户' }),
+        body: JSON.stringify({
+          id: 99,
+          login: 'ghuser',
+          email: 'gh@example.com',
+          name: 'Github 用户',
+        }),
       };
     }
     if (url.includes('sns/oauth2/access_token')) {
-      return { status: 200, body: JSON.stringify({ access_token: 'wx-at', openid: 'wx-openid-1' }) };
+      return {
+        status: 200,
+        body: JSON.stringify({ access_token: 'wx-at', openid: 'wx-openid-1' }),
+      };
     }
     if (url.includes('sns/userinfo')) {
       return { status: 200, body: JSON.stringify({ openid: 'wx-openid-1', nickname: '微信用户' }) };
@@ -192,7 +200,7 @@ describe('OAuth（三 provider + 自动建号）', () => {
           code_challenge: challenge2,
         })}`,
       });
-      const state2 = (auth2.json().state) as string;
+      const state2 = auth2.json().state as string;
       const cb2 = await app.inject({
         method: 'GET',
         url: `/api/auth/oauth/${provider}/callback?${q({
@@ -217,7 +225,7 @@ describe('OAuth（三 provider + 自动建号）', () => {
         code_challenge: pkceChallenge(verifier),
       })}`,
     });
-    const state = (auth.json().state) as string;
+    const state = auth.json().state as string;
     const bad = await app.inject({
       method: 'GET',
       url: `/api/auth/oauth/google/callback?${q({
@@ -243,7 +251,7 @@ describe('绑定管理', () => {
       url: '/api/auth/login',
       payload: { email, password },
     });
-    return (login.json().accessToken) as string;
+    return login.json().accessToken as string;
   }
 
   it('列出 / 新增 / 解绑；解绑最后一个登录方式（无密码）应被拒绝', async () => {
@@ -257,7 +265,7 @@ describe('绑定管理', () => {
         code_challenge: pkceChallenge(verifier),
       })}`,
     });
-    const state = (auth.json().state) as string;
+    const state = auth.json().state as string;
     const add = await app.inject({
       method: 'POST',
       url: '/api/auth/bindings',
@@ -265,7 +273,7 @@ describe('绑定管理', () => {
       payload: { provider: 'github', code: 'c', state, code_verifier: verifier },
     });
     expect(add.statusCode).toBe(200);
-    const bindingId = (add.json().id) as string;
+    const bindingId = add.json().id as string;
 
     const list = await app.inject({
       method: 'GET',
@@ -292,7 +300,7 @@ describe('绑定管理', () => {
         code_challenge: pkceChallenge(verifier2),
       })}`,
     });
-    const state2 = (auth2.json().state) as string;
+    const state2 = auth2.json().state as string;
     const cb = await app.inject({
       method: 'GET',
       url: `/api/auth/oauth/google/callback?${q({
@@ -301,13 +309,13 @@ describe('绑定管理', () => {
         code_verifier: verifier2,
       })}`,
     });
-    const oauthToken = (cb.json().accessToken) as string;
+    const oauthToken = cb.json().accessToken as string;
     const oauthList = await app.inject({
       method: 'GET',
       url: '/api/auth/bindings',
       headers: { authorization: `Bearer ${oauthToken}` },
     });
-    const oauthBindingId = ((oauthList.json().items as { id: string }[])[0]?.id) as string;
+    const oauthBindingId = (oauthList.json().items as { id: string }[])[0]?.id as string;
     const delLast = await app.inject({
       method: 'DELETE',
       url: `/api/auth/bindings?bindingId=${oauthBindingId}`,

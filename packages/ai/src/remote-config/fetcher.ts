@@ -60,7 +60,9 @@ export const SIGNATURE_HEADERS = ['x-signature', 'x-ec-signature', 'signature'] 
 
 /** 从响应头里取签名（base64 或 hex），大小写不敏感 */
 export function pickSignature(headers: Record<string, string>): string | null {
-  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
+  const normalized = new Map(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
+  );
   for (const key of SIGNATURE_HEADERS) {
     const value = normalized.get(key.toLowerCase());
     if (value && value.trim().length > 0) return value.trim();
@@ -69,14 +71,20 @@ export function pickSignature(headers: Record<string, string>): string | null {
 }
 
 /** 解析远程配置正文；签名可能在响应头，也可能在 body 的 signature 字段 */
-export function parseRemoteConfig(raw: string, headers: Record<string, string> = {}): RemoteConfigDocument {
+export function parseRemoteConfig(
+  raw: string,
+  headers: Record<string, string> = {},
+): RemoteConfigDocument {
   const parsed: unknown = JSON.parse(raw);
   const record = (parsed ?? {}) as Record<string, unknown>;
   const signature =
-    pickSignature(headers) ?? (typeof record['signature'] === 'string' ? (record['signature'] as string) : null);
+    pickSignature(headers) ??
+    (typeof record['signature'] === 'string' ? (record['signature'] as string) : null);
 
   const payload = remoteConfigPayloadSchema.parse(
-    'payload' in record && record['payload'] && typeof record['payload'] === 'object' ? record['payload'] : record,
+    'payload' in record && record['payload'] && typeof record['payload'] === 'object'
+      ? record['payload']
+      : record,
   );
   return { payload, signature, raw };
 }
@@ -159,7 +167,8 @@ export async function fetchRemoteConfig(
       status: 'success',
       document,
       latencyMs: Date.now() - started,
-      message: verification.outcome === 'skipped' ? '拉取成功（未校验签名）' : '拉取成功，签名校验通过',
+      message:
+        verification.outcome === 'skipped' ? '拉取成功（未校验签名）' : '拉取成功，签名校验通过',
     };
   } catch (error) {
     return {

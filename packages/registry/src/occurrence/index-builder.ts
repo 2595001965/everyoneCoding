@@ -19,7 +19,12 @@ import { createAstDispatcher, isCodeFile, type AstDispatcherOptions } from './as
 import { scanDocs } from './doc-scanner';
 import { scanMemories } from './memory-scanner';
 import { scanLogic } from './logic-scanner';
-import { classifyRisk, defaultRiskConfig, type RiskConfig, type RiskSignal } from './risk-classifier';
+import {
+  classifyRisk,
+  defaultRiskConfig,
+  type RiskConfig,
+  type RiskSignal,
+} from './risk-classifier';
 import { splitLines } from './text-utils';
 import {
   type DocSource,
@@ -120,7 +125,8 @@ export function buildOccurrenceIndex(input: BuildIndexInput): BuildIndexResult {
   const degraded: ParserDegradation[] = [];
 
   const previousByKey = new Map<string, Occurrence>();
-  for (const occurrence of input.previous ?? []) previousByKey.set(occurrenceKey(occurrence), occurrence);
+  for (const occurrence of input.previous ?? [])
+    previousByKey.set(occurrenceKey(occurrence), occurrence);
 
   const projections: Partial<Record<ProjectionKind, string>> = input.registry.projections;
   const symbols = {
@@ -187,7 +193,9 @@ export function buildOccurrenceIndex(input: BuildIndexInput): BuildIndexResult {
   for (const file of input.files ?? []) {
     if (!isCodeFile(file.path)) {
       const language = file.language ?? null;
-      warnings.push(`跳过非代码文件：${file.path}${language === null ? '' : `（声明语言 ${language}）`}`);
+      warnings.push(
+        `跳过非代码文件：${file.path}${language === null ? '' : `（声明语言 ${language}）`}`,
+      );
       continue;
     }
     filesScanned += 1;
@@ -301,7 +309,10 @@ function toTargets(
   projections: Partial<Record<ProjectionKind, string>>,
 ): { kind: ProjectionKind; value: string }[] {
   return (Object.entries(projections) as [ProjectionKind, string | undefined][])
-    .filter((entry): entry is [ProjectionKind, string] => typeof entry[1] === 'string' && entry[1].length > 0)
+    .filter(
+      (entry): entry is [ProjectionKind, string] =>
+        typeof entry[1] === 'string' && entry[1].length > 0,
+    )
     .map(([kind, value]) => ({ kind, value }));
 }
 

@@ -16,7 +16,13 @@ import { mentionConfidence } from './semantic';
 import type { DocSource } from './types';
 
 /** 文档块类型（图表标题 = heading；表头 = table-header） */
-export const DOC_BLOCK_KINDS = ['heading', 'table-header', 'table-row', 'paragraph', 'code-fence'] as const;
+export const DOC_BLOCK_KINDS = [
+  'heading',
+  'table-header',
+  'table-row',
+  'paragraph',
+  'code-fence',
+] as const;
 export type DocBlockKind = (typeof DOC_BLOCK_KINDS)[number];
 
 /** 一条文档命中 */
@@ -72,7 +78,12 @@ export function splitDocBlocks(content: string): Block[] {
 
   const flushFence = (): void => {
     if (fence.length === 0) return;
-    blocks.push({ kind: 'code-fence', anchor: sectionAnchor, text: fence.join('\n'), line: fenceLine });
+    blocks.push({
+      kind: 'code-fence',
+      anchor: sectionAnchor,
+      text: fence.join('\n'),
+      line: fenceLine,
+    });
     fence = [];
   };
 
@@ -141,7 +152,10 @@ const BLOCK_LABELS: Readonly<Record<DocBlockKind, string>> = {
 };
 
 /** 汇总待匹配符号（规范名 + 八类投影，去重） */
-function targetsOf(canonicalName: string, projections: Partial<Record<ProjectionKind, string>>): {
+function targetsOf(
+  canonicalName: string,
+  projections: Partial<Record<ProjectionKind, string>>,
+): {
   symbol: string;
   kind: ProjectionKind | null;
 }[] {
@@ -166,10 +180,13 @@ function targetsOf(canonicalName: string, projections: Partial<Record<Projection
  * 每个块内：所有"精确 / 强包含"命中全部产出（便于逐项勾选）；
  * 若该块没有精确命中，则补一条语义候选（最高相似度那条，confidence 0.5~0.79）。
  */
-export function scanDoc(doc: DocSource, input: {
-  canonicalName: string;
-  projections: Partial<Record<ProjectionKind, string>>;
-}): DocHit[] {
+export function scanDoc(
+  doc: DocSource,
+  input: {
+    canonicalName: string;
+    projections: Partial<Record<ProjectionKind, string>>;
+  },
+): DocHit[] {
   const blocks = splitDocBlocks(doc.content);
   const targets = targetsOf(input.canonicalName, input.projections);
   const hits: DocHit[] = [];
@@ -215,9 +232,12 @@ export function scanDoc(doc: DocSource, input: {
 }
 
 /** 批量扫描文档集合 */
-export function scanDocs(docs: readonly DocSource[], input: {
-  canonicalName: string;
-  projections: Partial<Record<ProjectionKind, string>>;
-}): DocHit[] {
+export function scanDocs(
+  docs: readonly DocSource[],
+  input: {
+    canonicalName: string;
+    projections: Partial<Record<ProjectionKind, string>>;
+  },
+): DocHit[] {
   return docs.flatMap((doc) => scanDoc(doc, input));
 }

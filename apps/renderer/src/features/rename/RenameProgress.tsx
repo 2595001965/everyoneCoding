@@ -27,7 +27,11 @@ export function RenameProgress(props: RenameProgressProps): JSX.Element {
   const state = deriveState(result, running);
 
   return (
-    <div className="ec-rename-root ec-rename-progress" data-testid="rename-progress" data-state={state}>
+    <div
+      className="ec-rename-root ec-rename-progress"
+      data-testid="rename-progress"
+      data-state={state}
+    >
       {running && (
         <div className="ec-rename-inline">
           <Spinner size={18} />

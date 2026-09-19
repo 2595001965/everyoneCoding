@@ -25,19 +25,27 @@ describe('ChangesPanel（T6-02 文件级）', () => {
     const api = createFakeGitApi();
     renderWith(api, <ChangesPanel />);
 
-    await waitFor(() => expect(screen.getByText('src/features/login/LoginPage.tsx')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('src/features/login/LoginPage.tsx')).toBeInTheDocument(),
+    );
 
     // 目录分组：两个不同目录
     expect(screen.getByText('src/features/login')).toBeInTheDocument();
     expect(screen.getByText('server/migrations')).toBeInTheDocument();
 
     // 状态标签：新增（已暂存）/ 修改
-    expect(screen.getByTestId('status-src/features/login/index.ts')).toHaveTextContent('新增（已暂存）');
+    expect(screen.getByTestId('status-src/features/login/index.ts')).toHaveTextContent(
+      '新增（已暂存）',
+    );
     expect(screen.getByTestId('status-src/features/login/LoginPage.tsx')).toHaveTextContent('修改');
 
     // 来源标签（AI 生成 / 迁移执行）
-    expect(screen.getByTestId('source-src/features/login/LoginPage.tsx')).toHaveTextContent('AI 生成');
-    expect(screen.getByTestId('source-server/migrations/0007_add_user.sql')).toHaveTextContent('迁移执行');
+    expect(screen.getByTestId('source-src/features/login/LoginPage.tsx')).toHaveTextContent(
+      'AI 生成',
+    );
+    expect(screen.getByTestId('source-server/migrations/0007_add_user.sql')).toHaveTextContent(
+      '迁移执行',
+    );
   });
 
   it('全选 / 反选 / 暂存所选，暂存调用携带全部路径', async () => {
@@ -72,7 +80,9 @@ describe('ChangesPanel（T6-02 文件级）', () => {
     expect(onOpenFile).toHaveBeenCalledWith('src/features/login/LoginPage.tsx');
 
     await user.click(screen.getByTestId('source-src/features/login/LoginPage.tsx'));
-    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ai-task', jumpable: true }));
+    expect(onOpenSource).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'ai-task', jumpable: true }),
+    );
   });
 });
 
@@ -143,14 +153,17 @@ describe('HunkSelector（T6-02 hunk 级）', () => {
 
     expect(onCommitSelected).toHaveBeenCalledTimes(1);
     const patch = onCommitSelected.mock.calls[0]?.[0] as string;
-    expect(patch).toMatch(/^diff --git a\/src\/features\/login\/LoginPage\.tsx b\/src\/features\/login\/LoginPage\.tsx/);
+    expect(patch).toMatch(
+      /^diff --git a\/src\/features\/login\/LoginPage\.tsx b\/src\/features\/login\/LoginPage\.tsx/,
+    );
     expect(patch).toContain('@@ -20,3 +22,4 @@');
     // 只包含选中的 hunk
     expect(patch).not.toContain('@@ -1,4 +1,6 @@');
   });
 
   it('被跳过的文件不渲染任何 hunk 控件', () => {
-    const api = createFakeGitApi();    const skipped = makeSampleDiff().files[1] as GitDiffFile;
+    const api = createFakeGitApi();
+    const skipped = makeSampleDiff().files[1] as GitDiffFile;
     const { container } = render(
       <GitApiProvider api={api}>
         <HunkSelector file={skipped} />
@@ -183,7 +196,9 @@ describe('CommitBox（T6-02 提交）', () => {
     await waitFor(() => expect(screen.getByTestId('commit-submit')).toBeEnabled());
     await user.click(screen.getByTestId('commit-submit'));
 
-    await waitFor(() => expect(commit).toHaveBeenCalledWith({ subject: 'feat(login): 新增账号登录' }));
+    await waitFor(() =>
+      expect(commit).toHaveBeenCalledWith({ subject: 'feat(login): 新增账号登录' }),
+    );
     await waitFor(() => expect(subject).toHaveValue(''));
   });
 
@@ -196,7 +211,9 @@ describe('CommitBox（T6-02 提交）', () => {
     await user.click(screen.getByTestId('ai-generate'));
 
     await waitFor(() => expect(generate).toHaveBeenCalledWith({ convention: 'angular' }));
-    await waitFor(() => expect(screen.getByTestId('commit-subject')).toHaveValue('新增账号登录表单'));
+    await waitFor(() =>
+      expect(screen.getByTestId('commit-subject')).toHaveValue('新增账号登录表单'),
+    );
   });
 
   it('自动提交策略默认「关闭」，切换为「每阶段提交」后写入策略', async () => {
@@ -205,10 +222,14 @@ describe('CommitBox（T6-02 提交）', () => {
     const setPolicy = vi.spyOn(api, 'setAutoCommitPolicy');
     renderWith(api, <CommitBox />);
 
-    await waitFor(() => expect(screen.getByLabelText('自动提交策略')).toHaveTextContent('关闭（默认）'));
+    await waitFor(() =>
+      expect(screen.getByLabelText('自动提交策略')).toHaveTextContent('关闭（默认）'),
+    );
 
     await user.click(screen.getByLabelText('自动提交策略'));
-    const option = screen.getAllByRole('option').find((item) => item.textContent === '每阶段提交（建议）');
+    const option = screen
+      .getAllByRole('option')
+      .find((item) => item.textContent === '每阶段提交（建议）');
     expect(option).toBeDefined();
     await user.click(option as HTMLElement);
 
@@ -248,5 +269,13 @@ function contextHeavyDiff(): GitDiff {
     size: 1024,
     hunks: [hunk],
   };
-  return { from: 'WORKTREE', to: 'WORKTREE', staged: false, files: [file], additions: 0, deletions: 0, skippedFiles: 0 };
+  return {
+    from: 'WORKTREE',
+    to: 'WORKTREE',
+    staged: false,
+    files: [file],
+    additions: 0,
+    deletions: 0,
+    skippedFiles: 0,
+  };
 }

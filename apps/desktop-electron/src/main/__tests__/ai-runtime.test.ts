@@ -48,7 +48,9 @@ async function startOpenAiMock(): Promise<{ url: string; close: () => Promise<vo
       if (body.stream) {
         res.writeHead(200, { 'content-type': 'text/event-stream' });
         res.write('data: {"choices":[{"delta":{"content":"你好"}}]}\n\n');
-        res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\n');
+        res.write(
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\n',
+        );
         res.end('data: [DONE]\n\n');
         return;
       }
@@ -92,7 +94,11 @@ describe('Electron AI 主进程路由（T1-06 / E2E-10）', () => {
 
   it('persistApiKey 只回传引用名，且明文可经密钥环取回', async () => {
     const { mock, runtime } = await setup();
-    const response = await runtime.invoke({ requestId: 'r1', method: 'persistApiKey', params: { apiKey: 'sk-top-secret-123' } });
+    const response = await runtime.invoke({
+      requestId: 'r1',
+      method: 'persistApiKey',
+      params: { apiKey: 'sk-top-secret-123' },
+    });
     expect(response.ok).toBe(true);
     const keyRef = response.result as string;
     expect(keyRef).not.toContain('sk-top-secret-123');
@@ -112,7 +118,11 @@ describe('Electron AI 主进程路由（T1-06 / E2E-10）', () => {
 
   it('testDraftConnection 路由存在并可用（未保存的 Provider 也能试连）', async () => {
     const { mock, runtime } = await setup();
-    const persisted = await runtime.invoke({ requestId: 'r1', method: 'persistApiKey', params: { apiKey: 'sk-draft' } });
+    const persisted = await runtime.invoke({
+      requestId: 'r1',
+      method: 'persistApiKey',
+      params: { apiKey: 'sk-draft' },
+    });
     const keyRef = persisted.result as string;
 
     const response = await runtime.invoke({
@@ -138,7 +148,11 @@ describe('Electron AI 主进程路由（T1-06 / E2E-10）', () => {
 
   it('保存 Provider 后能列出、能连通，并完成一次流式生成', async () => {
     const { mock, runtime } = await setup();
-    const persisted = await runtime.invoke({ requestId: 'r1', method: 'persistApiKey', params: { apiKey: 'sk-saved' } });
+    const persisted = await runtime.invoke({
+      requestId: 'r1',
+      method: 'persistApiKey',
+      params: { apiKey: 'sk-saved' },
+    });
     const keyRef = persisted.result as string;
 
     const created = await runtime.invoke({
@@ -168,8 +182,9 @@ describe('Electron AI 主进程路由（T1-06 / E2E-10）', () => {
     await waitUntil(() => events.some((event) => event.type === 'done'));
 
     const text = events
-      .filter((event): event is Extract<AiStreamEvent, { type: 'chunk' }> =>
-        event.type === 'chunk' && event.payload['type'] === 'delta',
+      .filter(
+        (event): event is Extract<AiStreamEvent, { type: 'chunk' }> =>
+          event.type === 'chunk' && event.payload['type'] === 'delta',
       )
       .map((event) => String(event.payload['text'] ?? ''))
       .join('');

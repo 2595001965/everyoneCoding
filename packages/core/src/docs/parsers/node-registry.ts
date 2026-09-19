@@ -11,7 +11,9 @@ import { parsePdf } from './pdf';
 import { parseTxt } from './txt';
 
 /** 构造完整解析器注册表（image 未注入 OCR 端口时解析如实报"暂不支持"） */
-export function createDefaultParserRegistry(opts?: { ocr?: OcrPort | null } | undefined): DocParserRegistry {
+export function createDefaultParserRegistry(
+  opts?: { ocr?: OcrPort | null } | undefined,
+): DocParserRegistry {
   const imageParser = makeImageParser(opts?.ocr ?? null);
   const hasOcr = opts?.ocr != null;
   const parsers: DocParser[] = [
@@ -29,6 +31,8 @@ export function createDefaultParserRegistry(opts?: { ocr?: OcrPort | null } | un
      * 因此未注入 OCR 时如实把它排除（`get('image')` 仍返回解析器本身，解析时的报错文案不变）。
      */
     supported: () =>
-      hasOcr ? parsers.map((p) => p.format) : parsers.map((p) => p.format).filter((f) => f !== 'image'),
+      hasOcr
+        ? parsers.map((p) => p.format)
+        : parsers.map((p) => p.format).filter((f) => f !== 'image'),
   };
 }

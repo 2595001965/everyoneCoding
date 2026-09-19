@@ -59,7 +59,11 @@ function atTimeOfDay(day: Date, timeOfDay: string): Date {
  * - weekly：从 now 起往后找到下一个 `weekday`（默认周一）的 timeOfDay
  *   （今天就是目标星期但时间已过 → 下周同一天）。
  */
-export function computeNextRun(config: BackupScheduleConfig, now: Date, _lastRunAt: number | null): Date {
+export function computeNextRun(
+  config: BackupScheduleConfig,
+  now: Date,
+  _lastRunAt: number | null,
+): Date {
   const { hours, minutes } = parseTimeOfDay(config.timeOfDay);
   void hours;
   void minutes;
@@ -89,7 +93,11 @@ export function computeNextRun(config: BackupScheduleConfig, now: Date, _lastRun
  * 是否已漏跑（启动补偿判据）：启用状态下，按 lastRunAt 推算的下一次时间 ≤ now
  * 即为漏跑。lastRunAt 为 null（从未备份）且创建时间晚于当天 timeOfDay 时不算漏。
  */
-export function isCatchUpDue(config: BackupScheduleConfig, lastRunAt: number | null, now: Date): boolean {
+export function isCatchUpDue(
+  config: BackupScheduleConfig,
+  lastRunAt: number | null,
+  now: Date,
+): boolean {
   if (!config.enabled) return false;
   const next = computeNextRun(config, now, lastRunAt);
   if (lastRunAt === null) {
@@ -167,7 +175,9 @@ export class BackupScheduler {
     const lastRunAt = this.optionsRef.getLastRunAt();
     const next = computeNextRun(config, now, lastRunAt);
     const delay = Math.max(next.getTime() - now.getTime(), 1000);
-    this.optionsRef.log?.(`下一次备份：${next.toLocaleString()}（${(delay / 60000).toFixed(1)} 分钟后）`);
+    this.optionsRef.log?.(
+      `下一次备份：${next.toLocaleString()}（${(delay / 60000).toFixed(1)} 分钟后）`,
+    );
     this.timerHandle = this.timer.setTimeout(() => {
       void this.tick();
     }, delay);

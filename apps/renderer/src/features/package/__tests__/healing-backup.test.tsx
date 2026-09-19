@@ -180,7 +180,11 @@ describe('HealingReportView（T8-04）', () => {
     expect(adoptButtons.length).toBe(1);
     fireEvent.click(adoptButtons[0]!);
     await waitFor(() => expect(fake.adoptCalls.length).toBe(1));
-    expect(fake.adoptCalls[0]).toEqual({ anchorId: 'anc-3', filePath: 'src/a.ts', symbol: 'GhostRepo' });
+    expect(fake.adoptCalls[0]).toEqual({
+      anchorId: 'anc-3',
+      filePath: 'src/a.ts',
+      symbol: 'GhostRepo',
+    });
     await waitFor(() => expect(screen.getAllByText('已采纳').length).toBe(1));
   });
 });
@@ -223,7 +227,9 @@ describe('BackupSettings（T8-04 / FR-PKG-13）', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: '立即备份' }));
     await waitFor(() => expect(fake.backupNowCalls.length).toBe(1));
-    await waitFor(() => expect(screen.getAllByText(/ec-backup-20260913-090000/).length).toBeGreaterThanOrEqual(1));
+    await waitFor(() =>
+      expect(screen.getAllByText(/ec-backup-20260913-090000/).length).toBeGreaterThanOrEqual(1),
+    );
     expect(screen.getByText(/已创建快照/)).toBeTruthy();
   });
 

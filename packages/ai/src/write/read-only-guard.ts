@@ -50,9 +50,17 @@ const NAVIGATION_KEYS = new Set([
   'Escape',
 ]);
 
-export function isAllowedKey(event: { key: string; ctrlKey?: boolean; metaKey?: boolean }): boolean {
+export function isAllowedKey(event: {
+  key: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+}): boolean {
   if (NAVIGATION_KEYS.has(event.key)) return true;
-  if ((event.ctrlKey === true || event.metaKey === true) && ALLOWED_KEY_COMBOS.has(event.key.toLowerCase())) return true;
+  if (
+    (event.ctrlKey === true || event.metaKey === true) &&
+    ALLOWED_KEY_COMBOS.has(event.key.toLowerCase())
+  )
+    return true;
   return false;
 }
 
@@ -102,7 +110,11 @@ export function createReadOnlyGuard(options: ReadOnlyGuardOptions = {}): ReadOnl
   let blocked = 0;
   let last: BlockedEditEvent | null = null;
 
-  const notify = (reason: BlockedEditReason, detail: string, event: { preventDefault(): void; stopPropagation(): void }): void => {
+  const notify = (
+    reason: BlockedEditReason,
+    detail: string,
+    event: { preventDefault(): void; stopPropagation(): void },
+  ): void => {
     event.preventDefault();
     event.stopPropagation();
     blocked += 1;
@@ -125,8 +137,10 @@ export function createReadOnlyGuard(options: ReadOnlyGuardOptions = {}): ReadOnl
         }
         if (event.key.length === 1) notify('keydown', event.key, event);
       },
-      onPaste: (event) => notify('paste', event.clipboardData?.getData?.('text')?.slice(0, 60) ?? '', event),
-      onDrop: (event) => notify('drop', (event.dataTransfer?.types ?? []).join(',') || '文件', event),
+      onPaste: (event) =>
+        notify('paste', event.clipboardData?.getData?.('text')?.slice(0, 60) ?? '', event),
+      onDrop: (event) =>
+        notify('drop', (event.dataTransfer?.types ?? []).join(',') || '文件', event),
       onCut: (event) => notify('cut', '', event),
       onBeforeInput: (event) => notify('beforeinput', event.data ?? '', event),
       onInput: (event) => notify('input', event.data ?? '', event),
@@ -179,7 +193,11 @@ export const FORBIDDEN_EDIT_MARKERS: { rule: string; pattern: RegExp; detail: st
     pattern: /readOnly\s*=\s*\{false\}|readOnly\s*:\s*false/,
     detail: '不得把只读显式关闭',
   },
-  { rule: 'designMode', pattern: /designMode|execCommand/, detail: '不得使用 document.designMode / execCommand' },
+  {
+    rule: 'designMode',
+    pattern: /designMode|execCommand/,
+    detail: '不得使用 document.designMode / execCommand',
+  },
 ];
 
 export const READ_ONLY_MARKER_PATTERN = /readOnly|readonly|READONLY/;

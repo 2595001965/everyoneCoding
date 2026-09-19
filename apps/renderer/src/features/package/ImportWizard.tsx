@@ -49,7 +49,12 @@ export function ImportWizard(): JSX.Element {
   const [packagePath, setPackagePath] = useState<string | null>(null);
   const [verifyReport, setVerifyReport] = useState<VerificationReport | null>(null);
   const [mode, setMode] = useState<ImportMode>('full-restore');
-  const [modePreview, setModePreview] = useState<{ toApply: number; toOverwrite: number; toSkip: number; summary: string } | null>(null);
+  const [modePreview, setModePreview] = useState<{
+    toApply: number;
+    toOverwrite: number;
+    toSkip: number;
+    summary: string;
+  } | null>(null);
   const [diff, setDiff] = useState<PackageDiffPreview | null>(null);
   const [decisions, setDecisions] = useState<Record<string, ConflictResolution>>({});
   const [report, setReport] = useState<ImportReportData | null>(null);
@@ -58,16 +63,24 @@ export function ImportWizard(): JSX.Element {
   const participating = useMemo(() => new Set(PARTICIPATING[mode]), [mode]);
 
   const conflictedItems = useMemo(
-    () => (diff?.items ?? []).filter((i) => i.classification === 'conflicted' && participating.has(i.incoming.type)),
+    () =>
+      (diff?.items ?? []).filter(
+        (i) => i.classification === 'conflicted' && participating.has(i.incoming.type),
+      ),
     [diff, participating],
   );
-  const undecidedCount = conflictedItems.filter((i) => decisions[i.incoming.id] === undefined).length;
+  const undecidedCount = conflictedItems.filter(
+    (i) => decisions[i.incoming.id] === undefined,
+  ).length;
   const canImport = verifyReport?.ok === true && undecidedCount === 0;
 
   if (api === null) {
     return (
       <div className="import-wizard import-wizard--unwired">
-        <p>未装配 PackageApi：请由外壳经 globalThis.__EC_PACKAGE__ 注入归档与迁移端口后再使用导入功能。</p>
+        <p>
+          未装配 PackageApi：请由外壳经 globalThis.__EC_PACKAGE__
+          注入归档与迁移端口后再使用导入功能。
+        </p>
       </div>
     );
   }
@@ -100,8 +113,16 @@ export function ImportWizard(): JSX.Element {
   const handleModeChange = async (next: ImportMode): Promise<void> => {
     if (packagePath === null) return;
     setMode(next);
-    const [mp, dp] = await Promise.all([api.previewMode(packagePath, next), api.previewImport(packagePath)]);
-    setModePreview({ toApply: mp.toApply, toOverwrite: mp.toOverwrite, toSkip: mp.toSkip, summary: mp.summary });
+    const [mp, dp] = await Promise.all([
+      api.previewMode(packagePath, next),
+      api.previewImport(packagePath),
+    ]);
+    setModePreview({
+      toApply: mp.toApply,
+      toOverwrite: mp.toOverwrite,
+      toSkip: mp.toSkip,
+      summary: mp.summary,
+    });
     setDiff(dp);
     setStep('diff');
   };
@@ -145,7 +166,10 @@ export function ImportWizard(): JSX.Element {
           {packagePath && <p className="import-wizard__path">已选择：{packagePath}</p>}
           {verifyReport && !verifyReport.ok && (
             <div className="import-wizard__verify-fail" role="alert">
-              <p><strong>校验未通过：</strong>{verifyReport.failureMessage}</p>
+              <p>
+                <strong>校验未通过：</strong>
+                {verifyReport.failureMessage}
+              </p>
               <ul>
                 {verifyReport.steps.map((s) => (
                   <li key={s.step} className={s.ok ? 'ok' : 'fail'}>
@@ -155,7 +179,11 @@ export function ImportWizard(): JSX.Element {
               </ul>
             </div>
           )}
-          {error && verifyReport?.ok && <p className="import-wizard__error" role="alert">{error}</p>}
+          {error && verifyReport?.ok && (
+            <p className="import-wizard__error" role="alert">
+              {error}
+            </p>
+          )}
         </section>
       )}
 
@@ -170,7 +198,10 @@ export function ImportWizard(): JSX.Element {
           />
           {modePreview && (
             <div className="import-wizard__mode-preview" data-testid="mode-preview">
-              <p>将新增 {modePreview.toApply} 个、覆盖 {modePreview.toOverwrite} 个、跳过 {modePreview.toSkip} 个。</p>
+              <p>
+                将新增 {modePreview.toApply} 个、覆盖 {modePreview.toOverwrite} 个、跳过{' '}
+                {modePreview.toSkip} 个。
+              </p>
               <p>{modePreview.summary}</p>
             </div>
           )}
@@ -196,12 +227,22 @@ export function ImportWizard(): JSX.Element {
             />
           )}
           {undecidedCount > 0 && (
-            <p className="import-wizard__undecided" role="alert">还有 {undecidedCount} 个冲突条目未决策，请先解决。</p>
+            <p className="import-wizard__undecided" role="alert">
+              还有 {undecidedCount} 个冲突条目未决策，请先解决。
+            </p>
           )}
-          <Button onClick={() => void handleImport()} disabled={!canImport} data-testid="import-button">
+          <Button
+            onClick={() => void handleImport()}
+            disabled={!canImport}
+            data-testid="import-button"
+          >
             执行导入
           </Button>
-          {error && <p className="import-wizard__error" role="alert">{error}</p>}
+          {error && (
+            <p className="import-wizard__error" role="alert">
+              {error}
+            </p>
+          )}
         </section>
       )}
 
@@ -215,9 +256,7 @@ export function ImportWizard(): JSX.Element {
         />
       )}
 
-      {step !== 'select' && step !== 'report' && (
-        <Button onClick={reset}>重新选择</Button>
-      )}
+      {step !== 'select' && step !== 'report' && <Button onClick={reset}>重新选择</Button>}
     </div>
   );
 }

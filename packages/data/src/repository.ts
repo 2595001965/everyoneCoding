@@ -92,7 +92,10 @@ export class Repository<T extends Row = Row> {
   }
 
   /** 等值条件查询，支持 limit / offset 与排序 */
-  findWhere(where: Partial<T> = {}, options: { limit?: number; offset?: number; orderBy?: string } = {}): T[] {
+  findWhere(
+    where: Partial<T> = {},
+    options: { limit?: number; offset?: number; orderBy?: string } = {},
+  ): T[] {
     const keys = Object.keys(where);
     const clause = keys.length ? ` WHERE ${keys.map((key) => `${key} = ?`).join(' AND ')}` : '';
     const order = options.orderBy ? ` ORDER BY ${options.orderBy}` : '';
@@ -117,8 +120,10 @@ export class Repository<T extends Row = Row> {
     const payload: Row = { ...row };
 
     if (timestamps) {
-      if (this.shape.hasCreatedAt && payload['created_at'] === undefined) payload['created_at'] = now;
-      if (this.shape.hasUpdatedAt && payload['updated_at'] === undefined) payload['updated_at'] = now;
+      if (this.shape.hasCreatedAt && payload['created_at'] === undefined)
+        payload['created_at'] = now;
+      if (this.shape.hasUpdatedAt && payload['updated_at'] === undefined)
+        payload['updated_at'] = now;
     }
     if (this.shape.hasVersion && payload['version'] === undefined) payload['version'] = 1;
 
@@ -144,11 +149,14 @@ export class Repository<T extends Row = Row> {
     const payload: Row = { ...patch };
     if (this.shape.hasUpdatedAt) payload['updated_at'] = nowMs();
     if (this.shape.hasVersion) {
-      const currentVersion = typeof current['version'] === 'number' ? (current['version'] as number) : 0;
+      const currentVersion =
+        typeof current['version'] === 'number' ? (current['version'] as number) : 0;
       payload['version'] = currentVersion + 1;
     }
 
-    const sets = Object.keys(payload).map((column) => `${column} = ?`).join(', ');
+    const sets = Object.keys(payload)
+      .map((column) => `${column} = ?`)
+      .join(', ');
     const params = Object.keys(payload).map((column) => toParam(payload[column]));
 
     let sql = `UPDATE ${this.tableName} SET ${sets} WHERE id = ?`;
@@ -160,7 +168,8 @@ export class Repository<T extends Row = Row> {
 
     const info = this.db.prepare(sql).run(...args);
     if (info.changes === 0) {
-      if (expectedVersion !== undefined) throw new ConflictError(this.tableName, id, expectedVersion);
+      if (expectedVersion !== undefined)
+        throw new ConflictError(this.tableName, id, expectedVersion);
       return null;
     }
     return this.findById(id);

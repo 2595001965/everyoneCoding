@@ -66,7 +66,10 @@ describe('T7-01 命名引擎：八类投影派生', () => {
   });
 
   it('八类投影可逐类重算（一键规范化只对齐漂移项）', () => {
-    const only = reproject('用户登录按钮', ['component', 'apiField'], { entityType: 'element', rule: WEB });
+    const only = reproject('用户登录按钮', ['component', 'apiField'], {
+      entityType: 'element',
+      rule: WEB,
+    });
     expect(Object.keys(only).sort()).toEqual(['apiField', 'component']);
     expect(only.component).toBe('UserLoginButton');
     expect(projectOne('methodName', '用户登录按钮', { entityType: 'element', rule: WEB })).toBe(
@@ -98,12 +101,16 @@ describe('T7-01 命名引擎：中文解析三模式与自定义映射', () => {
   });
 
   it('pinyin 模式强制逐字拼音', () => {
-    expect(toIdentifier('用户登录按钮', { mode: 'pinyin', style: 'pascal' })).toBe('YongHuDengLuAnNiu');
+    expect(toIdentifier('用户登录按钮', { mode: 'pinyin', style: 'pascal' })).toBe(
+      'YongHuDengLuAnNiu',
+    );
     expect(toIdentifier('登录页', { mode: 'pinyin', style: 'camel' })).toBe('dengLuYe');
   });
 
   it('preserve 模式保留原文（仅裁剪非法字符）', () => {
-    expect(toIdentifier('用户登录按钮', { mode: 'preserve', style: 'pascal' })).toBe('用户登录按钮');
+    expect(toIdentifier('用户登录按钮', { mode: 'preserve', style: 'pascal' })).toBe(
+      '用户登录按钮',
+    );
     expect(toIdentifier('提交(按钮)', { mode: 'preserve', style: 'camel' })).toBe('提交按钮');
   });
 
@@ -140,14 +147,20 @@ describe('T7-01 命名引擎：七端预设与项目级覆盖', () => {
 
   it('i18n 前缀与路由风格随端切换', () => {
     const name = '用户登录按钮';
-    const web = deriveProjections(name, { entityType: 'element', rule: resolveNamingRule({ platform: 'web' }) });
+    const web = deriveProjections(name, {
+      entityType: 'element',
+      rule: resolveNamingRule({ platform: 'web' }),
+    });
     const harmonyRule = resolveNamingRule({ platform: 'harmonyos' });
     const harmony = deriveProjections(name, { entityType: 'element', rule: harmonyRule });
     const android = deriveProjections(name, {
       entityType: 'element',
       rule: resolveNamingRule({ platform: 'android' }),
     });
-    const ios = deriveProjections(name, { entityType: 'element', rule: resolveNamingRule({ platform: 'ios' }) });
+    const ios = deriveProjections(name, {
+      entityType: 'element',
+      rule: resolveNamingRule({ platform: 'ios' }),
+    });
 
     expect(web.projections.i18nKey).toBe('page.login.userLoginButton.label');
     expect(web.projections.routeSegment).toBe('/user-login-button');
@@ -157,9 +170,9 @@ describe('T7-01 命名引擎：七端预设与项目级覆盖', () => {
     expect(harmony.projections.component).toBe('UserLoginButton');
     expect(harmony.projections.methodName).toBe('handleUserLoginButton');
     expect(harmony.projections.routeSegment).toBe('pages/UserLoginButton');
-    expect(resourceReferenceOf(harmonyRule.preset.resourceReference, harmony.projections.i18nKey)).toBe(
-      "$r('app.string.login_user_login_button')",
-    );
+    expect(
+      resourceReferenceOf(harmonyRule.preset.resourceReference, harmony.projections.i18nKey),
+    ).toBe("$r('app.string.login_user_login_button')");
 
     // Android：strings.xml snake key + 无前导斜杠的 snake 路由
     expect(android.projections.i18nKey).toBe('login_user_login_button');
@@ -174,9 +187,15 @@ describe('T7-01 命名引擎：七端预设与项目级覆盖', () => {
 
   it('桌面三端与 Web 同风格（PRD FR-UNI-02 括注）', () => {
     const name = '用户登录按钮';
-    const web = deriveProjections(name, { entityType: 'element', rule: resolveNamingRule({ platform: 'web' }) });
+    const web = deriveProjections(name, {
+      entityType: 'element',
+      rule: resolveNamingRule({ platform: 'web' }),
+    });
     for (const platform of ['windows', 'linux', 'macos'] as const) {
-      const desktop = deriveProjections(name, { entityType: 'element', rule: resolveNamingRule({ platform }) });
+      const desktop = deriveProjections(name, {
+        entityType: 'element',
+        rule: resolveNamingRule({ platform }),
+      });
       expect(desktop.projections).toEqual(web.projections);
     }
   });
@@ -197,7 +216,9 @@ describe('T7-01 命名引擎：七端预设与项目级覆盖', () => {
     const derived = deriveProjections('用户登录按钮', { entityType: 'element', rule: overridden });
     expect(derived.projections.component).toBe('UiYongHuDengLuCtrl');
     const issues = validateProjectionFormat(derived.projections, overridden);
-    expect(issues.some((issue) => issue.kind === 'cssClass' && issue.reason === 'too_long')).toBe(true);
+    expect(issues.some((issue) => issue.kind === 'cssClass' && issue.reason === 'too_long')).toBe(
+      true,
+    );
   });
 
   it('预设可按 id / 平台名 / project: 前缀查询，未知 id 回落 Web', () => {
@@ -265,7 +286,9 @@ describe('T7-01 冲突与非法检测（FR-UNI-11）', () => {
       symbols: { database: ['user_login_button'] },
     });
     expect(result.ok).toBe(false);
-    expect(result.violations.some((violation) => violation.detail.includes('数据库列名'))).toBe(true);
+    expect(result.violations.some((violation) => violation.detail.includes('数据库列名'))).toBe(
+      true,
+    );
   });
 
   it('超长阻断并给出按词缩短的建议名（建议名本身合法）', () => {
@@ -281,7 +304,10 @@ describe('T7-01 冲突与非法检测（FR-UNI-11）', () => {
   });
 
   it('非法字符阻断（自定义映射引入空格等非法字符）', () => {
-    const rule = resolveNamingRule({ platform: 'web', override: { dictionary: { 用户: 'us er' } } });
+    const rule = resolveNamingRule({
+      platform: 'web',
+      override: { dictionary: { 用户: 'us er' } },
+    });
     const result = checkName({ canonicalName: '用户登录按钮', entityType: 'element', rule });
     expect(result.ok).toBe(false);
     expect(result.violations.some((violation) => violation.kind === 'illegal_char')).toBe(true);
@@ -320,14 +346,18 @@ describe('T7-01 冲突与非法检测（FR-UNI-11）', () => {
 
 describe('T7-01 投影前后对照表（机器生成，任务卡要求输出）', () => {
   it('「用户登录按钮」→「登录提交」的八类投影逐条对照', () => {
-    const before = deriveProjections('用户登录按钮', { entityType: 'element', rule: WEB }).projections;
+    const before = deriveProjections('用户登录按钮', {
+      entityType: 'element',
+      rule: WEB,
+    }).projections;
     const after = deriveProjections('登录提交', { entityType: 'element', rule: WEB }).projections;
     const changes = diffProjections(before, after);
     const table = [
       '| 投影 | 旧值（用户登录按钮） | 新值（登录提交） | 变更 |',
       '| --- | --- | --- | --- |',
       ...changes.map(
-        (change) => `| ${change.kind} | \`${change.oldValue}\` | \`${change.newValue}\` | ${change.changed ? '是' : '否'} |`,
+        (change) =>
+          `| ${change.kind} | \`${change.oldValue}\` | \`${change.newValue}\` | ${change.changed ? '是' : '否'} |`,
       ),
     ].join('\n');
     process.stdout.write(`\n[T7-01 投影对照表]\n${table}\n`);

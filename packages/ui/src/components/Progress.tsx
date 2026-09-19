@@ -17,9 +17,7 @@ export function Progress({
   indeterminate = false,
   className,
 }: ProgressProps): React.ReactElement {
-  const pct = indeterminate
-    ? undefined
-    : Math.max(0, Math.min(100, ((value ?? 0) / max) * 100));
+  const pct = indeterminate ? undefined : Math.max(0, Math.min(100, ((value ?? 0) / max) * 100));
   return (
     <div
       className={cx('ec-progress', indeterminate && 'ec-progress--indeterminate', className)}

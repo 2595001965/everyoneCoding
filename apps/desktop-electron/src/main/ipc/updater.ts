@@ -25,8 +25,9 @@ export function registerUpdaterIpc(ipc: IpcMainLike, deps: IpcDependencies): voi
   deps.updater?.onProgress((progress) => {
     const win = deps.getWindow();
     if (win && !win.isDestroyed()) {
-      const webContents = (win as unknown as { webContents?: { send: (channel: string, payload: unknown) => void } })
-        .webContents;
+      const webContents = (
+        win as unknown as { webContents?: { send: (channel: string, payload: unknown) => void } }
+      ).webContents;
       webContents?.send(CHANNELS.updater.onProgress, progress);
     }
   });

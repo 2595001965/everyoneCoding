@@ -33,7 +33,13 @@ export interface GridOverlayProps {
  * 栅格覆盖层：以 GRID_SIZE 为步长绘制背景网格。
  * 使用 CSS 背景渐变，不随元素数量增长而变重。
  */
-export function GridOverlay({ visible = true, zoom = 1, width, height, className }: GridOverlayProps): React.ReactElement {
+export function GridOverlay({
+  visible = true,
+  zoom = 1,
+  width,
+  height,
+  className,
+}: GridOverlayProps): React.ReactElement {
   const size = GRID_SIZE * zoom;
   return (
     <div

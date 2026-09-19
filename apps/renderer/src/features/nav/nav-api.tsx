@@ -7,7 +7,15 @@
  *
  * 硬约束：跳转只做「定位 + 高亮」，不修改任何文件；AI 仍是代码唯一写入口（D-04）。
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type {
   JumpOutcome,
   JumpResolution,
@@ -96,7 +104,9 @@ const REQUIRED_METHODS: readonly (keyof NavApi)[] = [
 
 /** 从全局读取外壳注入的实现（用 typeof 校验关键方法） */
 export function readInjectedNavApi(): NavApi | null {
-  const injected = (globalThis as unknown as { [NAV_API_GLOBAL_KEY]?: unknown })[NAV_API_GLOBAL_KEY];
+  const injected = (globalThis as unknown as { [NAV_API_GLOBAL_KEY]?: unknown })[
+    NAV_API_GLOBAL_KEY
+  ];
   if (typeof injected !== 'object' || injected === null) return null;
   const candidate = injected as Record<string, unknown>;
   if (!REQUIRED_METHODS.every((method) => typeof candidate[method] === 'function')) return null;

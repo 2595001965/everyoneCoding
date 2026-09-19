@@ -16,7 +16,8 @@ export class ProxyTunnelError extends Error {
   constructor(message: string, cause?: unknown) {
     super(message);
     this.name = 'ProxyTunnelError';
-    if (cause !== undefined) Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
+    if (cause !== undefined)
+      Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
     Object.setPrototypeOf(this, ProxyTunnelError.prototype);
   }
 }
@@ -103,7 +104,12 @@ function openHttpConnect(
   });
 }
 
-function openSocks5(proxy: ProxyConfig, targetHost: string, targetPort: number, timeoutMs: number): Promise<Socket> {
+function openSocks5(
+  proxy: ProxyConfig,
+  targetHost: string,
+  targetPort: number,
+  timeoutMs: number,
+): Promise<Socket> {
   return new Promise((resolve, reject) => {
     const socket = connect({ host: proxy.host, port: proxy.port });
     let settled = false;

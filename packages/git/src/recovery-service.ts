@@ -32,7 +32,11 @@ export class RecoveryService {
   }
 
   /** 生成回滚计划（只读，不修改仓库）：受影响的提交、文件、安全快照分支名 */
-  async plan(input: { sha: string; mode: RollbackMode; nodeLabel?: string }): Promise<GitResult<RollbackPlan>> {
+  async plan(input: {
+    sha: string;
+    mode: RollbackMode;
+    nodeLabel?: string;
+  }): Promise<GitResult<RollbackPlan>> {
     const logs: GitLogEntry[] = [];
     const commits = await this.client.log({ ref: `${input.sha}..HEAD`, limit: 200 });
     logs.push(...commits.logs);
@@ -76,13 +80,23 @@ export class RecoveryService {
   async execute(
     plan: RollbackPlan,
     options: { confirmed: boolean } = { confirmed: false },
-  ): Promise<GitResult<{ mode: RollbackMode; snapshotBranch: string; newHead: string | null; commitSha: string | null }>> {
+  ): Promise<
+    GitResult<{
+      mode: RollbackMode;
+      snapshotBranch: string;
+      newHead: string | null;
+      commitSha: string | null;
+    }>
+  > {
     if (!options.confirmed) {
       return {
         ok: false,
         data: null,
         logs: [],
-        error: { code: 'INVALID_ARGUMENT', message: '破坏性操作需要二次确认（confirmed: true）后才能执行' },
+        error: {
+          code: 'INVALID_ARGUMENT',
+          message: '破坏性操作需要二次确认（confirmed: true）后才能执行',
+        },
       };
     }
 
@@ -111,7 +125,9 @@ export class RecoveryService {
           body: `由 EveryoneCoding 执行反向提交回滚，模式：${ROLLBACK_MODE_LABELS.revert}。\n安全快照分支：${plan.snapshotBranch}`,
           sources: plan.affectedCommits.slice(0, 5).map((commit) => commit.subject),
         });
-        const committed = await this.client.commit({ subject: message.split('\n')[0] ?? 'revert: 回退生成产物' });
+        const committed = await this.client.commit({
+          subject: message.split('\n')[0] ?? 'revert: 回退生成产物',
+        });
         logs.push(...committed.logs);
         if (!committed.ok) return { ok: false, data: null, logs, error: committed.error };
         commitSha = committed.data;
@@ -124,12 +140,19 @@ export class RecoveryService {
       ok: true,
       error: null,
       logs,
-      data: { mode: plan.mode, snapshotBranch: plan.snapshotBranch, newHead: head.data ?? null, commitSha },
+      data: {
+        mode: plan.mode,
+        snapshotBranch: plan.snapshotBranch,
+        newHead: head.data ?? null,
+        commitSha,
+      },
     };
   }
 
   /** 安全快照分支列表（回滚/合并共用） */
-  async listSnapshots(): Promise<GitResult<{ name: string; sha: string | null; subject: string | null }[]>> {
+  async listSnapshots(): Promise<
+    GitResult<{ name: string; sha: string | null; subject: string | null }[]>
+  > {
     const result = await this.client.branches();
     if (!result.ok || result.data === null) return { ...result, data: null };
     return {
@@ -139,7 +162,11 @@ export class RecoveryService {
       data: result.data
         .filter((branch) => isBackupBranch(branch.name))
         .sort((a, b) => (a.name < b.name ? 1 : -1))
-        .map((branch) => ({ name: branch.name, sha: branch.lastCommitSha, subject: branch.lastCommitSubject })),
+        .map((branch) => ({
+          name: branch.name,
+          sha: branch.lastCommitSha,
+          subject: branch.lastCommitSubject,
+        })),
     };
   }
 }

@@ -14,7 +14,9 @@ export function registerFsIpc(ipc: IpcMainLike): void {
   ipc.handle(CHANNELS.fs.readText, async (_event, payload) => {
     const { filePath, encoding } = payload as { filePath: string; encoding?: string };
     if (encoding !== undefined && encoding !== 'utf8' && encoding !== 'base64') {
-      throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: `不支持的编码: ${encoding}` }));
+      throw new Error(
+        JSON.stringify({ code: 'INVALID_ARGUMENT', message: `不支持的编码: ${encoding}` }),
+      );
     }
     return fsp.readFile(filePath, encoding === 'base64' ? 'base64' : 'utf8');
   });
@@ -32,7 +34,9 @@ export function registerFsIpc(ipc: IpcMainLike): void {
       encoding?: string;
     };
     const buffer =
-      typeof data === 'string' ? Buffer.from(data, encoding === 'base64' ? 'base64' : 'utf8') : Buffer.from(data);
+      typeof data === 'string'
+        ? Buffer.from(data, encoding === 'base64' ? 'base64' : 'utf8')
+        : Buffer.from(data);
     const tmp = `${filePath}.ec-tmp-${process.pid}-${Date.now()}`;
     const handle = await fsp.open(tmp, 'w');
     try {

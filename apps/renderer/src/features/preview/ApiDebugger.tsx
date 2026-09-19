@@ -65,7 +65,11 @@ export function ApiDebugger(): JSX.Element {
             return (
               <li
                 key={log.id}
-                className={failed ? 'ec-api-debugger__row ec-api-debugger__row--failed' : 'ec-api-debugger__row'}
+                className={
+                  failed
+                    ? 'ec-api-debugger__row ec-api-debugger__row--failed'
+                    : 'ec-api-debugger__row'
+                }
                 data-testid="api-row"
               >
                 <button
@@ -76,7 +80,13 @@ export function ApiDebugger(): JSX.Element {
                 >
                   <span className="ec-api-debugger__method">{log.method}</span>
                   <span className="ec-api-debugger__url">{log.url}</span>
-                  <span className={failed ? 'ec-api-debugger__status ec-api-debugger__status--fail' : 'ec-api-debugger__status'}>
+                  <span
+                    className={
+                      failed
+                        ? 'ec-api-debugger__status ec-api-debugger__status--fail'
+                        : 'ec-api-debugger__status'
+                    }
+                  >
                     {log.status}
                   </span>
                   <span className="ec-api-debugger__duration">{log.durationMs}ms</span>
@@ -99,7 +109,11 @@ export function ApiDebugger(): JSX.Element {
                       </p>
                     )}
                     <div className="ec-api-debugger__row-actions">
-                      <Button size="sm" loading={replaying === log.id} onClick={() => handleReplay(log)}>
+                      <Button
+                        size="sm"
+                        loading={replaying === log.id}
+                        onClick={() => handleReplay(log)}
+                      >
                         重放
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => void handleCopy(log)}>

@@ -114,7 +114,10 @@ function routeForPage(name: string, index: number): string {
  * 3. 表格行 | 功能 | 说明 | 在含"功能"表头的表格中同样计入。
  * 4. 无任何功能项时给出 warning，由 UI 提示用户手动补充（不静默产出空项目）。
  */
-export function parseRequirementDocument(text: string, options: { maxFeatures?: number } = {}): RequirementDigest {
+export function parseRequirementDocument(
+  text: string,
+  options: { maxFeatures?: number } = {},
+): RequirementDigest {
   const maxFeatures = options.maxFeatures ?? 100;
   const lines = text.split(/\r?\n/);
   const warnings: string[] = [];
@@ -211,7 +214,9 @@ export function parseRequirementDocument(text: string, options: { maxFeatures?: 
   });
 
   if (dedupedFeatures.length === 0) {
-    warnings.push('未在文档中识别到功能清单（请确认存在"## 功能"等章节与列表项），可在下一步手动补充。');
+    warnings.push(
+      '未在文档中识别到功能清单（请确认存在"## 功能"等章节与列表项），可在下一步手动补充。',
+    );
   }
   if (!title) {
     title = '导入的需求文档';
@@ -228,7 +233,12 @@ export function parseRequirementDocument(text: string, options: { maxFeatures?: 
       scope: 'project',
       title: `${title}：功能范围`,
       content: limited.length
-        ? limited.map((feature) => `- ${feature.name}${feature.description ? `：${feature.description}` : ''}`).join('\n')
+        ? limited
+            .map(
+              (feature) =>
+                `- ${feature.name}${feature.description ? `：${feature.description}` : ''}`,
+            )
+            .join('\n')
         : '（未自动识别功能清单，待补充）',
       tags: ['需求', '范围'],
     },

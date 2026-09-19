@@ -1,4 +1,10 @@
-import { composeTemplate, renderTemplate, UNIVERSAL_NEGATIVE_CONSTRAINTS, type PromptTemplate, type PromptTemplateInput } from './shared';
+import {
+  composeTemplate,
+  renderTemplate,
+  UNIVERSAL_NEGATIVE_CONSTRAINTS,
+  type PromptTemplate,
+  type PromptTemplateInput,
+} from './shared';
 
 /**
  * 桌面端代码模板（FR-AI-13：桌面三端默认 Tauri 2 单代码库）。

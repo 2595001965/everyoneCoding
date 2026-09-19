@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { pinyinTableSize, segmentWords, toIdentifier, toPinyin, uniqueIdentifier } from '../identifier';
+import {
+  pinyinTableSize,
+  segmentWords,
+  toIdentifier,
+  toPinyin,
+  uniqueIdentifier,
+} from '../identifier';
 
 describe('T3-01 标识符投影（D-10）', () => {
   it('中文显示名转 camelCase 标识符', () => {

@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { ContractInjector, buildContractBlock, containsImplementationDetail, summarizeContract } from '../stages/contract-injector';
-import { GenerationQueue, describeQueueStats, deserializeProgress, serializeProgress, type QueueNode } from '../stages/generation-queue';
+import {
+  ContractInjector,
+  buildContractBlock,
+  containsImplementationDetail,
+  summarizeContract,
+} from '../stages/contract-injector';
+import {
+  GenerationQueue,
+  describeQueueStats,
+  deserializeProgress,
+  serializeProgress,
+  type QueueNode,
+} from '../stages/generation-queue';
 import { MultiPlatformGenerator, type ToolchainRunner } from '../stages/multi-platform-generator';
 import { S5GenerateStage, type FileWriterPort, type GitPort } from '../stages/s5-generate';
 import { createSampleSplit, SplitModel } from '../stages/s4-split';
@@ -66,7 +77,11 @@ describe('ContractInjector（FR-PIPE-10：只注入接口摘要）', () => {
         },
       },
     });
-    const { contracts, block } = await injector.injectForNode('P1', { id: 'n1', name: '节点1', dependsOn: ['UserService', 'OrderService'] });
+    const { contracts, block } = await injector.injectForNode('P1', {
+      id: 'n1',
+      name: '节点1',
+      dependsOn: ['UserService', 'OrderService'],
+    });
     expect(nodeCalls).toBe(1);
     expect(contracts.map((contract) => contract.name)).toEqual(['UserService', 'OrderService']);
     expect(block).toContain('UserService');
@@ -74,13 +89,23 @@ describe('ContractInjector（FR-PIPE-10：只注入接口摘要）', () => {
 
   it('未装配端口时返回空契约不阻断', async () => {
     const injector = new ContractInjector();
-    const { contracts, block } = await injector.injectForNode('P1', { id: 'n1', name: '节点1', dependsOn: [] });
+    const { contracts, block } = await injector.injectForNode('P1', {
+      id: 'n1',
+      name: '节点1',
+      dependsOn: [],
+    });
     expect(contracts).toEqual([]);
     expect(block).toContain('依赖接口契约');
   });
 
   it('summarizeContract 渲染单条', () => {
-    const text = summarizeContract({ name: 'A', kind: 'repo', filePath: 'x', summary: 'findAll(): Promise<Row[]>', types: ['Row { id: string }'] });
+    const text = summarizeContract({
+      name: 'A',
+      kind: 'repo',
+      filePath: 'x',
+      summary: 'findAll(): Promise<Row[]>',
+      types: ['Row { id: string }'],
+    });
     expect(text).toContain('repo A');
     expect(text).toContain('findAll');
     expect(text).toContain('Row { id: string }');
@@ -197,7 +222,9 @@ describe('GenerationQueue（拓扑序执行 + 失败隔离 + 重试/跳过/回�
 
   it('断点续生成：序列化/反序列化后跳过已完成节点', async () => {
     const nodes = makeNodes(['a', 'b', 'c'], { c: ['a', 'b'] });
-    const completed = nodes.map((node) => (node.id === 'c' ? { ...node, status: 'success' as const, finishedAt: 123 } : node));
+    const completed = nodes.map((node) =>
+      node.id === 'c' ? { ...node, status: 'success' as const, finishedAt: 123 } : node,
+    );
     const snapshot = serializeProgress({
       nodes: completed,
       currentId: null,
@@ -222,7 +249,12 @@ describe('GenerationQueue（拓扑序执行 + 失败隔离 + 重试/跳过/回�
 describe('MultiPlatformGenerator（FR-AI-12：强制编译校验）', () => {
   const PROJECT_JSON = JSON.stringify({
     files: [
-      { path: 'lib/main.dart', content: 'void main() { runApp(App()); }', action: 'create', language: 'dart' },
+      {
+        path: 'lib/main.dart',
+        content: 'void main() { runApp(App()); }',
+        action: 'create',
+        language: 'dart',
+      },
       { path: 'pubspec.yaml', content: 'name: shop', action: 'create', language: 'yaml' },
     ],
     summary: 'Flutter 工程',
@@ -367,7 +399,14 @@ describe('S5GenerateStage（编排 + 自动提交）', () => {
           async generate() {
             return {
               content: JSON.stringify({
-                files: [{ path: `src/${generated.size}.ts`, content: 'export const x = 1;', action: 'create', language: 'ts' }],
+                files: [
+                  {
+                    path: `src/${generated.size}.ts`,
+                    content: 'export const x = 1;',
+                    action: 'create',
+                    language: 'ts',
+                  },
+                ],
                 summary: '生成',
                 notes: '',
                 decision: { referencedMemory: [], rationale: '', risks: [], uncovered: [] },

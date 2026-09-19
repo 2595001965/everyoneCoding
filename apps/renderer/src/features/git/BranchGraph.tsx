@@ -125,7 +125,11 @@ function CommitMark({
   selected: boolean;
   onSelect?: (sha: string) => void;
 }): JSX.Element {
-  const fill = node.isHead ? 'var(--ec-color-primary)' : node.isMerge ? 'var(--ec-color-warning)' : 'var(--ec-color-info)';
+  const fill = node.isHead
+    ? 'var(--ec-color-primary)'
+    : node.isMerge
+      ? 'var(--ec-color-warning)'
+      : 'var(--ec-color-info)';
   return (
     <g
       className="ec-branch-graph__node"
@@ -186,7 +190,13 @@ function CommitMark({
         </text>
       ))}
 
-      <text x={cx + 120} y={cy + 4} fontSize={11} fill="var(--ec-color-text-secondary)" data-testid="graph-subject">
+      <text
+        x={cx + 120}
+        y={cy + 4}
+        fontSize={11}
+        fill="var(--ec-color-text-secondary)"
+        data-testid="graph-subject"
+      >
         {truncate(node.subject, 32)}
       </text>
     </g>

@@ -51,7 +51,10 @@ const entry = createRegistryEntry({
   random: () => 0.5,
 }).entry;
 
-const symbol = (kind: RiskSignal['matchedSymbol'], extra: Partial<RiskSignal> = {}): RiskSignal => ({
+const symbol = (
+  kind: RiskSignal['matchedSymbol'],
+  extra: Partial<RiskSignal> = {},
+): RiskSignal => ({
   kind: 'code',
   refPath: 'src/x.tsx',
   matchedSymbol: kind,
@@ -65,10 +68,18 @@ describe('T7-02 风险分级（FR-UNI-04）', () => {
   it('9 个样例覆盖三级：auto / confirm / warn 各 3 个', () => {
     const samples: { name: string; signal: RiskSignal; level: 'auto' | 'confirm' | 'warn' }[] = [
       { name: '组件名', signal: symbol('component'), level: 'auto' },
-      { name: '文档提及', signal: symbol(null, { kind: 'doc', role: null, confidence: 0.95 }), level: 'auto' },
+      {
+        name: '文档提及',
+        signal: symbol(null, { kind: 'doc', role: null, confidence: 0.95 }),
+        level: 'auto',
+      },
       { name: '逻辑结构', signal: symbol(null, { kind: 'logic', role: null }), level: 'auto' },
       { name: 'API 字段', signal: symbol('apiField', { role: 'property-key' }), level: 'confirm' },
-      { name: 'Service 方法', signal: symbol('methodName', { role: 'declaration' }), level: 'confirm' },
+      {
+        name: 'Service 方法',
+        signal: symbol('methodName', { role: 'declaration' }),
+        level: 'confirm',
+      },
       {
         name: '低置信语义候选',
         signal: symbol(null, { kind: 'memory', role: null, confidence: 0.6 }),
@@ -161,11 +172,21 @@ describe('T7-02 文档扫描（FR-UNI-09：标题 / 表头 / 正文）', () => {
 
   it('无命中的段落不产出条目，Markdown 结构解析稳定', () => {
     const blocks = splitDocBlocks('# 标题\n\n正文\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n');
-    expect(blocks.map((block) => block.kind)).toEqual(['heading', 'paragraph', 'table-header', 'table-row']);
-    expect(scanDoc({ id: 'd', title: 't', content: '没有任何相关内容的段落。' }, {
-      canonicalName: '用户登录按钮',
-      projections: entry.projections,
-    })).toEqual([]);
+    expect(blocks.map((block) => block.kind)).toEqual([
+      'heading',
+      'paragraph',
+      'table-header',
+      'table-row',
+    ]);
+    expect(
+      scanDoc(
+        { id: 'd', title: 't', content: '没有任何相关内容的段落。' },
+        {
+          canonicalName: '用户登录按钮',
+          projections: entry.projections,
+        },
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -190,12 +211,20 @@ describe('T7-02 记忆扫描（FR-UNI-08：结构化精确 1.0 / 正文语义）
 
   it('正文语义命中带置信度，低置信单列候选', () => {
     const hits = scanMemory(
-      { id: 'mem-2', layer: 'project', title: 'x', structured: {}, content: '点击用户登录按钮提交表单' },
+      {
+        id: 'mem-2',
+        layer: 'project',
+        title: 'x',
+        structured: {},
+        content: '点击用户登录按钮提交表单',
+      },
       { canonicalName: '用户登录按钮', projections: entry.projections },
     );
     const contentHits = hits.filter((hit) => hit.field === 'content');
     expect(contentHits.length).toBeGreaterThan(0);
-    expect(contentHits.every((hit) => hit.confidence >= MIN_CONFIDENCE && hit.confidence <= 1)).toBe(true);
+    expect(
+      contentHits.every((hit) => hit.confidence >= MIN_CONFIDENCE && hit.confidence <= 1),
+    ).toBe(true);
     expect(contentHits[0]?.locator).toBe('mem-2#content');
   });
 });
@@ -324,7 +353,13 @@ describe('T7-02 索引构建：作用域感知与误改反例（E2E-16）', () =
         },
       ],
       logic: [
-        { documentId: 'page-login', id: 'btn-1', type: 'Button', name: '用户登录按钮', identifier: 'userLoginButton' },
+        {
+          documentId: 'page-login',
+          id: 'btn-1',
+          type: 'Button',
+          name: '用户登录按钮',
+          identifier: 'userLoginButton',
+        },
       ],
       now: 1,
       random: () => 0.5,
@@ -390,7 +425,10 @@ describe('T7-02 增量重建与 stale', () => {
   });
 
   it('occurrence 行镜像与落库往返（symbol 需由注册表投影解回）', () => {
-    const occurrence: Occurrence = { ...makeLightOccurrence('src/a.ts', 'confirm'), symbol: 'userLoginButton' };
+    const occurrence: Occurrence = {
+      ...makeLightOccurrence('src/a.ts', 'confirm'),
+      symbol: 'userLoginButton',
+    };
     const record = toOccurrenceRecord(occurrence);
     expect(record.matched_symbol).toBe('variable');
     const restored = fromOccurrenceRecord(record, (matched) =>

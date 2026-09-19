@@ -45,7 +45,10 @@ describe('MemoryRepo CRUD 与乐观锁', () => {
 
     const loaded = repo.findById(item.id);
     expect(loaded).not.toBeNull();
-    expect(loaded?.structured).toEqual({ skeleton: 'Container[Card[Form]]', state: ['phone', 'password'] });
+    expect(loaded?.structured).toEqual({
+      skeleton: 'Container[Card[Form]]',
+      state: ['phone', 'password'],
+    });
     expect(loaded?.tags).toEqual(['page', 'login']);
     expect(loaded?.importance).toBe(4);
     expect(loaded?.confidence).toBeCloseTo(0.88);
@@ -53,7 +56,12 @@ describe('MemoryRepo CRUD 与乐观锁', () => {
   });
 
   it('乐观锁：用过期 version 更新抛 ConflictError，用最新 version 成功', () => {
-    const item = repo.create({ userId: USER, scope: 'longterm', title: '命名规范', content: '小驼峰' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'longterm',
+      title: '命名规范',
+      content: '小驼峰',
+    });
     expect(item.version).toBe(1);
 
     const v2 = repo.update(item.id, { content: '小驼峰（组件用大驼峰）' }, 1);
@@ -69,13 +77,28 @@ describe('MemoryRepo CRUD 与乐观锁', () => {
     expect(() =>
       repo.create({ userId: USER, scope: 'longterm', title: '非法', projectId: 'P1' }),
     ).toThrow(/project_id 必须为空/);
-    expect(() => repo.create({ userId: USER, scope: 'project', title: '缺项目' })).toThrow(/必须指定 project_id/);
+    expect(() => repo.create({ userId: USER, scope: 'project', title: '缺项目' })).toThrow(
+      /必须指定 project_id/,
+    );
   });
 
   it('列表按层级/标签/关键字过滤，count 与 list 一致', () => {
     repo.create({ userId: USER, scope: 'longterm', title: '全局规范', tags: ['convention'] });
-    repo.create({ userId: USER, scope: 'project', projectId: 'P1', title: '路由总表', tags: ['routes'] });
-    repo.create({ userId: USER, scope: 'page', projectId: 'P1', pageId: 'PG1', title: '登录页', tags: ['page'] });
+    repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P1',
+      title: '路由总表',
+      tags: ['routes'],
+    });
+    repo.create({
+      userId: USER,
+      scope: 'page',
+      projectId: 'P1',
+      pageId: 'PG1',
+      title: '登录页',
+      tags: ['page'],
+    });
     repo.create({
       userId: USER,
       scope: 'page',
@@ -105,7 +128,12 @@ describe('MemoryRepo CRUD 与乐观锁', () => {
 
 describe('状态机', () => {
   it('active → archived → active 合法；superseded → archived 被拒绝，显式声明可放行', () => {
-    const item = repo.create({ userId: USER, scope: 'project', projectId: 'P1', title: '架构摘要' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P1',
+      title: '架构摘要',
+    });
     expect(repo.setStatus(item.id, 'archived').status).toBe('archived');
     expect(repo.setStatus(item.id, 'active').status).toBe('active');
     expect(repo.setStatus(item.id, 'superseded').status).toBe('superseded');
@@ -128,11 +156,18 @@ describe('状态机', () => {
     expect(repo.setIssueStatus(issue.id, 'solved').issueStatus).toBe('solved');
     expect(repo.setIssueStatus(issue.id, 'mitigated').issueStatus).toBe('mitigated');
     expect(() => repo.setIssueStatus(issue.id, 'unsolved')).toThrow(MemoryStateError);
-    expect(repo.setIssueStatus(issue.id, 'unsolved', { explicit: true }).issueStatus).toBe('unsolved');
+    expect(repo.setIssueStatus(issue.id, 'unsolved', { explicit: true }).issueStatus).toBe(
+      'unsolved',
+    );
   });
 
   it('非问题记忆不允许设置处置状态', () => {
-    const item = repo.create({ userId: USER, scope: 'project', projectId: 'P1', title: '架构摘要' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P1',
+      title: '架构摘要',
+    });
     expect(() => repo.setIssueStatus(item.id, 'solved')).toThrow(/不是问题记忆/);
   });
 
@@ -154,20 +189,50 @@ describe('状态机', () => {
 describe('上下文解析（结合数据库）', () => {
   it('resolveContext 自动携带上层并过滤其他项目', () => {
     repo.create({ userId: USER, scope: 'longterm', title: '全局规范', content: '统一 ULID 主键' });
-    repo.create({ userId: USER, scope: 'project', projectId: 'P1', title: '项目架构', content: 'React' });
-    repo.create({ userId: USER, scope: 'project', projectId: 'P2', title: '别的项目', content: 'Vue' });
-    repo.create({ userId: USER, scope: 'page', projectId: 'P1', pageId: 'PG1', title: '登录页', content: '卡片' });
+    repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P1',
+      title: '项目架构',
+      content: 'React',
+    });
+    repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P2',
+      title: '别的项目',
+      content: 'Vue',
+    });
+    repo.create({
+      userId: USER,
+      scope: 'page',
+      projectId: 'P1',
+      pageId: 'PG1',
+      title: '登录页',
+      content: '卡片',
+    });
 
     const resolved = repo.resolveContext({ projectId: 'P1', pageId: 'PG1' }, { userId: USER });
-    expect(resolved.effective.map((item) => item.title).sort()).toEqual(['全局规范', '登录页', '项目架构']);
+    expect(resolved.effective.map((item) => item.title).sort()).toEqual([
+      '全局规范',
+      '登录页',
+      '项目架构',
+    ]);
     expect(resolved.effective.some((item) => item.title === '别的项目')).toBe(false);
   });
 
   it('归档条目默认不进入上下文，includeInactive 时可见', () => {
-    const archived = repo.create({ userId: USER, scope: 'longterm', title: '过时规范', content: '旧' });
+    const archived = repo.create({
+      userId: USER,
+      scope: 'longterm',
+      title: '过时规范',
+      content: '旧',
+    });
     repo.setStatus(archived.id, 'archived');
     expect(repo.resolveContext({ projectId: '' }, { userId: USER }).effective).toHaveLength(0);
-    expect(repo.resolveContext({ projectId: '' }, { userId: USER, includeInactive: true }).effective).toHaveLength(1);
+    expect(
+      repo.resolveContext({ projectId: '' }, { userId: USER, includeInactive: true }).effective,
+    ).toHaveLength(1);
   });
 });
 
@@ -181,7 +246,11 @@ describe('分层服务', () => {
       dataModels: ['User'],
       deployment: { target: 'Windows' },
     });
-    service.upsertSection('P1', 'stack', { frontend: 'React 18', backend: 'NestJS', orm: 'Prisma' });
+    service.upsertSection('P1', 'stack', {
+      frontend: 'React 18',
+      backend: 'NestJS',
+      orm: 'Prisma',
+    });
 
     const sections = service.get('P1');
     expect(repo.list({ userId: USER, scopes: ['project'], projectId: 'P1' })).toHaveLength(5);
@@ -245,7 +314,9 @@ describe('分层服务', () => {
     service.appendEdgeCase('P1', 'F1', '连续失败 5 次锁定 10 分钟');
 
     const feature = service.findByFeature('F1');
-    expect(feature?.structured?.['errors']).toEqual([{ code: 'AUTH_1001', msg: '账号或密码错误（已更新文案）' }]);
+    expect(feature?.structured?.['errors']).toEqual([
+      { code: 'AUTH_1001', msg: '账号或密码错误（已更新文案）' },
+    ]);
     expect(feature?.structured?.['apis']).toHaveLength(1);
     expect(feature?.structured?.['edgeCases']).toHaveLength(1);
     expect(feature?.structured?.['errors']).toHaveLength(1);
@@ -282,12 +353,21 @@ describe('分层服务', () => {
     expect(created.item.issueId).toMatch(/^ISSUE-/);
     expect(created.item.structured?.['commitSha']).toBe('abc1234');
 
-    const afterDup = service.appendAttempt(created.item.id, { action: '调整 token 过期时间', result: '无效' });
+    const afterDup = service.appendAttempt(created.item.id, {
+      action: '调整 token 过期时间',
+      result: '无效',
+    });
     expect((afterDup.structured?.['attempts'] as unknown[]).length).toBe(1);
-    const afterNew = service.appendAttempt(created.item.id, { action: '检查 Cookie SameSite', result: '定位到根因' });
+    const afterNew = service.appendAttempt(created.item.id, {
+      action: '检查 Cookie SameSite',
+      result: '定位到根因',
+    });
     expect((afterNew.structured?.['attempts'] as unknown[]).length).toBe(2);
 
-    const solved = service.conclude(created.item.id, '改为 SameSite=Lax + Secure', { status: 'solved', archive: true });
+    const solved = service.conclude(created.item.id, '改为 SameSite=Lax + Secure', {
+      status: 'solved',
+      archive: true,
+    });
     expect(solved.issueStatus).toBe('solved');
     expect(solved.status).toBe('archived');
     expect(service.listActive('P1')).toHaveLength(0);
@@ -296,7 +376,10 @@ describe('分层服务', () => {
     expect(reopened.issueStatus).toBe('unsolved');
     expect(reopened.status).toBe('archived');
 
-    const distilled = service.distill(created.item.id, { scope: 'project', title: '会话 Cookie 约定' });
+    const distilled = service.distill(created.item.id, {
+      scope: 'project',
+      title: '会话 Cookie 约定',
+    });
     expect(distilled.scope).toBe('project');
     expect(distilled.content).toContain('SameSite');
     expect(distilled.structured?.['issueId']).toBe(created.item.issueId);
@@ -320,7 +403,12 @@ describe('分层服务', () => {
 
 describe('层级移动（记忆中心批量"移动层级"）', () => {
   it('长期记忆 → 项目层：写入归属并保持可读', () => {
-    const item = repo.create({ userId: USER, scope: 'longterm', title: '项目架构', content: 'React' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'longterm',
+      title: '项目架构',
+      content: 'React',
+    });
     const moved = repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' });
     expect(moved.scope).toBe('project');
     expect(moved.projectId).toBe('P1');
@@ -328,16 +416,31 @@ describe('层级移动（记忆中心批量"移动层级"）', () => {
   });
 
   it('移动到非法归属组合时被拒绝，且不产生半截变更', () => {
-    const item = repo.create({ userId: USER, scope: 'project', projectId: 'P1', title: '路由总表' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P1',
+      title: '路由总表',
+    });
     // 页面记忆必须带 page_id
-    expect(() => repo.moveLayer(item.id, { scope: 'page', projectId: 'P1' })).toThrow(/必须指定 page_id/);
+    expect(() => repo.moveLayer(item.id, { scope: 'page', projectId: 'P1' })).toThrow(
+      /必须指定 page_id/,
+    );
     // 长期记忆不得带 project_id
-    expect(() => repo.moveLayer(item.id, { scope: 'longterm', projectId: 'P1' })).toThrow(/project_id 必须为空/);
+    expect(() => repo.moveLayer(item.id, { scope: 'longterm', projectId: 'P1' })).toThrow(
+      /project_id 必须为空/,
+    );
     expect(repo.findById(item.id)?.scope).toBe('project');
   });
 
   it('移动到问题层自动补 issueStatus，移出时清空', () => {
-    const item = repo.create({ userId: USER, scope: 'page', projectId: 'P1', pageId: 'PG1', title: '登录页问题' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'page',
+      projectId: 'P1',
+      pageId: 'PG1',
+      title: '登录页问题',
+    });
     const asIssue = repo.moveLayer(item.id, { scope: 'issue', projectId: 'P1', pageId: 'PG1' });
     expect(asIssue.scope).toBe('issue');
     expect(asIssue.issueStatus).toBe('unsolved');
@@ -351,13 +454,20 @@ describe('层级移动（记忆中心批量"移动层级"）', () => {
   it('移动支持乐观锁：过期版本被拒', () => {
     const item = repo.create({ userId: USER, scope: 'longterm', title: '命名规范' });
     repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' }, 1);
-    expect(() => repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' }, 1)).toThrow(ConflictError);
+    expect(() => repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' }, 1)).toThrow(
+      ConflictError,
+    );
   });
 });
 
 describe('层级移动（记忆中心批量"移动层级"）', () => {
   it('长期记忆 → 项目层：写入归属并保持可读', () => {
-    const item = repo.create({ userId: USER, scope: 'longterm', title: '项目架构', content: 'React' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'longterm',
+      title: '项目架构',
+      content: 'React',
+    });
     const moved = repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' });
     expect(moved.scope).toBe('project');
     expect(moved.projectId).toBe('P1');
@@ -365,16 +475,31 @@ describe('层级移动（记忆中心批量"移动层级"）', () => {
   });
 
   it('移动到非法归属组合时被拒绝，且不产生半截变更', () => {
-    const item = repo.create({ userId: USER, scope: 'project', projectId: 'P1', title: '路由总表' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'project',
+      projectId: 'P1',
+      title: '路由总表',
+    });
     // 页面记忆必须带 page_id
-    expect(() => repo.moveLayer(item.id, { scope: 'page', projectId: 'P1' })).toThrow(/必须指定 page_id/);
+    expect(() => repo.moveLayer(item.id, { scope: 'page', projectId: 'P1' })).toThrow(
+      /必须指定 page_id/,
+    );
     // 长期记忆不得带 project_id
-    expect(() => repo.moveLayer(item.id, { scope: 'longterm', projectId: 'P1' })).toThrow(/project_id 必须为空/);
+    expect(() => repo.moveLayer(item.id, { scope: 'longterm', projectId: 'P1' })).toThrow(
+      /project_id 必须为空/,
+    );
     expect(repo.findById(item.id)?.scope).toBe('project');
   });
 
   it('移动到问题层自动补 issueStatus，移出时清空', () => {
-    const item = repo.create({ userId: USER, scope: 'page', projectId: 'P1', pageId: 'PG1', title: '登录页问题' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'page',
+      projectId: 'P1',
+      pageId: 'PG1',
+      title: '登录页问题',
+    });
     const asIssue = repo.moveLayer(item.id, { scope: 'issue', projectId: 'P1', pageId: 'PG1' });
     expect(asIssue.scope).toBe('issue');
     expect(asIssue.issueStatus).toBe('unsolved');
@@ -388,13 +513,20 @@ describe('层级移动（记忆中心批量"移动层级"）', () => {
   it('移动支持乐观锁：过期版本被拒', () => {
     const item = repo.create({ userId: USER, scope: 'longterm', title: '命名规范' });
     repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' }, 1);
-    expect(() => repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' }, 1)).toThrow(ConflictError);
+    expect(() => repo.moveLayer(item.id, { scope: 'project', projectId: 'P1' }, 1)).toThrow(
+      ConflictError,
+    );
   });
 });
 
 describe('变更日志与结构变更历史', () => {
   it('变更日志按时间倒序可查，appendUndo 生成反向记录且保留原记录', () => {
-    const item = repo.create({ userId: USER, scope: 'longterm', title: '命名规范', content: '小驼峰' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'longterm',
+      title: '命名规范',
+      content: '小驼峰',
+    });
     const record = repo.changes.append({
       userId: USER,
       memoryId: item.id,
@@ -416,7 +548,13 @@ describe('变更日志与结构变更历史', () => {
   });
 
   it('结构变更历史只保留最近 5 次，revision 递增', () => {
-    const item = repo.create({ userId: USER, scope: 'page', projectId: 'P1', pageId: 'PG1', title: '登录页' });
+    const item = repo.create({
+      userId: USER,
+      scope: 'page',
+      projectId: 'P1',
+      pageId: 'PG1',
+      title: '登录页',
+    });
     for (let index = 1; index <= 7; index += 1) {
       repo.revisions.append({
         memoryId: item.id,

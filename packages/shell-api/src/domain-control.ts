@@ -258,7 +258,9 @@ export interface WorkspaceImportProgressEvent extends WorkspaceImportProgress {
  * 跨进程载荷守卫。
  * 渲染层不信任主进程来的任意对象：形状不对就丢弃，而不是把脏值塞进 UI。
  */
-export function isWorkspaceImportProgressEvent(value: unknown): value is WorkspaceImportProgressEvent {
+export function isWorkspaceImportProgressEvent(
+  value: unknown,
+): value is WorkspaceImportProgressEvent {
   if (value === null || typeof value !== 'object') return false;
   const event = value as { type?: unknown; stage?: unknown; ratio?: unknown; message?: unknown };
   if (event.type !== WORKSPACE_IMPORT_PROGRESS_EVENT) return false;

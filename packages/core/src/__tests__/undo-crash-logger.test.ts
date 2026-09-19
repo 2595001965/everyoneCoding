@@ -1,6 +1,10 @@
 import { MockShell } from '@ec/shell-api';
 import { describe, expect, it } from 'vitest';
-import { CrashRecovery, DEFAULT_SNAPSHOT_INTERVAL_MS, MAX_RECOVERY_WINDOW_MS } from '../crash-recovery';
+import {
+  CrashRecovery,
+  DEFAULT_SNAPSHOT_INTERVAL_MS,
+  MAX_RECOVERY_WINDOW_MS,
+} from '../crash-recovery';
 import { Logger, memoryTransport } from '../logger';
 import { UndoManager, UndoManagerRegistry } from '../undo-manager';
 
@@ -254,7 +258,10 @@ describe('日志', () => {
   it('结构化 data 同样被脱敏', () => {
     const transport = memoryTransport();
     const logger = new Logger({ level: 'debug', transports: [transport] });
-    logger.error('请求失败', { authorization: 'Bearer abcdef123456', url: 'https://api.example.com' });
+    logger.error('请求失败', {
+      authorization: 'Bearer abcdef123456',
+      url: 'https://api.example.com',
+    });
     expect(JSON.stringify(transport.entries)).not.toContain('abcdef123456');
     expect(JSON.stringify(transport.entries)).toContain('api.example.com');
   });

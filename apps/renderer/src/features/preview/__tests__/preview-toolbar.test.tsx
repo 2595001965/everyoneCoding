@@ -67,8 +67,24 @@ describe('PreviewToolbar（T6-05）', () => {
   it('设备模式且未选择目标端时刷新按钮禁用', async () => {
     const user = userEvent.setup();
     const noSelected: readonly DeviceChannel[] = [
-      { id: 'mobile-1', kind: 'mobile', label: 'Android', available: true, toolchain: 'adb', guide: null, selected: false },
-      { id: 'harmony-1', kind: 'harmony', label: '鸿蒙', available: false, toolchain: null, guide: '安装 hdc', selected: false },
+      {
+        id: 'mobile-1',
+        kind: 'mobile',
+        label: 'Android',
+        available: true,
+        toolchain: 'adb',
+        guide: null,
+        selected: false,
+      },
+      {
+        id: 'harmony-1',
+        kind: 'harmony',
+        label: '鸿蒙',
+        available: false,
+        toolchain: null,
+        guide: '安装 hdc',
+        selected: false,
+      },
     ];
     const api = createFakePreviewApi({ devices: noSelected });
     render(
@@ -95,7 +111,13 @@ describe('PreviewFrame（T6-05）', () => {
   it('接收 preview-request 消息触发 onRequest', async () => {
     const onRequest = vi.fn();
     const onElementClick = vi.fn();
-    render(<PreviewFrame src="http://localhost:4173/login" onRequest={onRequest} onElementClick={onElementClick} />);
+    render(
+      <PreviewFrame
+        src="http://localhost:4173/login"
+        onRequest={onRequest}
+        onElementClick={onElementClick}
+      />,
+    );
 
     const payload: ApiRequestLog = {
       id: 'r1',
@@ -116,7 +138,9 @@ describe('PreviewFrame（T6-05）', () => {
   it('接收 element-click 消息触发 onElementClick', async () => {
     const onRequest = vi.fn();
     const onElementClick = vi.fn();
-    render(<PreviewFrame src="about:blank" onRequest={onRequest} onElementClick={onElementClick} />);
+    render(
+      <PreviewFrame src="about:blank" onRequest={onRequest} onElementClick={onElementClick} />,
+    );
 
     window.postMessage({ type: 'element-click', payload: { elementId: 'E1' } }, '*');
     await waitFor(() => expect(onElementClick).toHaveBeenCalledWith({ elementId: 'E1' }));

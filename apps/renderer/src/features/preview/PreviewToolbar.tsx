@@ -68,7 +68,11 @@ export function PreviewToolbar(): JSX.Element {
             <button
               key={m.key}
               type="button"
-              className={active ? 'ec-preview-toolbar__mode ec-preview-toolbar__mode--active' : 'ec-preview-toolbar__mode'}
+              className={
+                active
+                  ? 'ec-preview-toolbar__mode ec-preview-toolbar__mode--active'
+                  : 'ec-preview-toolbar__mode'
+              }
               aria-pressed={active}
               title={m.description}
               disabled={busy}
@@ -82,7 +86,13 @@ export function PreviewToolbar(): JSX.Element {
       </div>
 
       <div className="ec-preview-toolbar__status">
-        <span className={running ? 'ec-preview-toolbar__dot ec-preview-toolbar__dot--on' : 'ec-preview-toolbar__dot'}>
+        <span
+          className={
+            running
+              ? 'ec-preview-toolbar__dot ec-preview-toolbar__dot--on'
+              : 'ec-preview-toolbar__dot'
+          }
+        >
           {running ? '服务运行中' : '服务未运行'}
         </span>
         {url !== null && (

@@ -30,7 +30,13 @@ const MODE_OPTIONS = [
   { value: 'preview', label: '预览后应用' },
 ];
 
-export function ApplyBar({ plan, model, onApply, onRequestRework, onModeChange }: ApplyBarProps): JSX.Element {
+export function ApplyBar({
+  plan,
+  model,
+  onApply,
+  onRequestRework,
+  onModeChange,
+}: ApplyBarProps): JSX.Element {
   const [mode, setMode] = useState<WriteMode>(plan.mode);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<WriteResult | null>(null);
@@ -95,7 +101,11 @@ export function ApplyBar({ plan, model, onApply, onRequestRework, onModeChange }
       </p>
 
       {blocked.length > 0 && (
-        <ul role="list" aria-label="被拒绝的文件" style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12, color: '#b91c1c' }}>
+        <ul
+          role="list"
+          aria-label="被拒绝的文件"
+          style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12, color: '#b91c1c' }}
+        >
           {blocked.map((file) => (
             <li key={file.path}>{`${file.path}：${file.blockReason ?? '冲突'}`}</li>
           ))}

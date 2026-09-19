@@ -36,7 +36,11 @@ export interface RegistryRepository {
   save(entry: RegistryEntry): RegistryEntry;
   get(id: string): RegistryEntry | null;
   /** 按稳定 ID 定位（`entityId` 永不变更，是引用关系的锚点） */
-  getByEntity(projectId: string, entityType: RegistryEntityType, entityId: string): RegistryEntry | null;
+  getByEntity(
+    projectId: string,
+    entityType: RegistryEntityType,
+    entityId: string,
+  ): RegistryEntry | null;
   getByCanonicalName(projectId: string, canonicalName: string): RegistryEntry | null;
   listByProject(projectId: string): RegistryEntry[];
   remove(id: string): boolean;
@@ -98,7 +102,9 @@ export function createRegistryRepository(store: RegistryRecordStore): RegistryRe
       return record === undefined ? null : fromRegistryRecord(record);
     },
     getByCanonicalName(projectId, canonicalName) {
-      const record = store.listByProject(projectId).find((row) => row.canonical_name === canonicalName);
+      const record = store
+        .listByProject(projectId)
+        .find((row) => row.canonical_name === canonicalName);
       return record === undefined ? null : fromRegistryRecord(record);
     },
     listByProject(projectId) {
@@ -127,7 +133,14 @@ export function createRegistryRepository(store: RegistryRecordStore): RegistryRe
       const backend = new Set<string>();
       for (const entry of this.listByProject(projectId)) {
         const p = entry.projections;
-        for (const value of [p.component, p.variable, p.cssClass, p.i18nKey, p.routeSegment, p.testName]) {
+        for (const value of [
+          p.component,
+          p.variable,
+          p.cssClass,
+          p.i18nKey,
+          p.routeSegment,
+          p.testName,
+        ]) {
           if (value.length > 0) frontend.add(value);
         }
         for (const value of [p.apiField, p.methodName]) {

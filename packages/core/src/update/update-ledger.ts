@@ -50,7 +50,13 @@ export type BootDecision =
   /** 正常启动（未达尝试上限） */
   | { decision: 'allow'; attempts: number }
   /** 判定为启动失败，需要还原 */
-  | { decision: 'rollback'; attempts: number; restoreFrom: string; toVersion: string; fromVersion: string }
+  | {
+      decision: 'rollback';
+      attempts: number;
+      restoreFrom: string;
+      toVersion: string;
+      fromVersion: string;
+    }
   /** 没有待确认的更新，什么都不用做 */
   | { decision: 'none' }
   /** 待确认但**没有备份**——无法自动回滚，如实上报，不假装成功 */
@@ -230,7 +236,9 @@ function normalizeRecord(raw: Record<string, unknown>): UpdateRecord {
     'rolled-back',
     'rollback-failed',
   ];
-  const stage = stages.includes(raw['stage'] as UpdateStage) ? (raw['stage'] as UpdateStage) : 'idle';
+  const stage = stages.includes(raw['stage'] as UpdateStage)
+    ? (raw['stage'] as UpdateStage)
+    : 'idle';
   return {
     toVersion: typeof raw['toVersion'] === 'string' ? raw['toVersion'] : '',
     fromVersion: typeof raw['fromVersion'] === 'string' ? raw['fromVersion'] : '',

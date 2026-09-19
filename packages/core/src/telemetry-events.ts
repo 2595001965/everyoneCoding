@@ -132,7 +132,9 @@ export function buildEvent(
   const payload: TelemetryEventPayload = {
     name,
     result,
-    ...(extra?.durationMs !== undefined ? { durationMs: Math.max(0, Math.round(extra.durationMs)) } : {}),
+    ...(extra?.durationMs !== undefined
+      ? { durationMs: Math.max(0, Math.round(extra.durationMs)) }
+      : {}),
     ...(extra?.errorKind !== undefined ? { errorKind: extra.errorKind } : {}),
     ...(extra?.dims !== undefined ? { dims: extra.dims } : {}),
   };

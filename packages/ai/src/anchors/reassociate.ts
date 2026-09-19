@@ -1,5 +1,10 @@
 import { findMarker, parseAnchorComments } from './comment-marker';
-import { defaultAstAdapter, findSymbol, type AstAdapter, type SymbolIndexEntry } from './ast-verify';
+import {
+  defaultAstAdapter,
+  findSymbol,
+  type AstAdapter,
+  type SymbolIndexEntry,
+} from './ast-verify';
 import type { AnchorKind, CodeAnchor } from './anchor-model';
 
 /**
@@ -29,7 +34,11 @@ export function editDistance(a: string, b: string): number {
     const current = [i];
     for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      current[j] = Math.min((previous[j] ?? 0) + 1, (current[j - 1] ?? 0) + 1, (previous[j - 1] ?? 0) + cost);
+      current[j] = Math.min(
+        (previous[j] ?? 0) + 1,
+        (current[j - 1] ?? 0) + 1,
+        (previous[j - 1] ?? 0) + cost,
+      );
     }
     previous = current;
   }
@@ -114,7 +123,9 @@ export function findCandidates(input: FindCandidatesInput): ReassociateCandidate
     }
     for (const entry of entries) {
       const elementScore =
-        input.elementName !== null && input.elementName !== undefined ? nameSimilarity(input.elementName, entry.name) : 0;
+        input.elementName !== null && input.elementName !== undefined
+          ? nameSimilarity(input.elementName, entry.name)
+          : 0;
       const base = Math.max(nameSimilarity(target, entry.name), elementScore);
       if (base < 0.3) continue;
 
@@ -130,15 +141,18 @@ export function findCandidates(input: FindCandidatesInput): ReassociateCandidate
             : 0;
 
       const raw = base + kindBonus + fileBonus + containerBonus;
-      scored.push({ raw, candidate: {
-        symbol: entry.name,
-        filePath: path,
-        startLine: entry.startLine,
-        endLine: entry.endLine,
-        form: entry.form,
-        score: 0,
-        reason: describeCandidateReason({ entry, target, sameFile }),
-      } });
+      scored.push({
+        raw,
+        candidate: {
+          symbol: entry.name,
+          filePath: path,
+          startLine: entry.startLine,
+          endLine: entry.endLine,
+          form: entry.form,
+          score: 0,
+          reason: describeCandidateReason({ entry, target, sameFile }),
+        },
+      });
     }
   }
 
@@ -146,12 +160,18 @@ export function findCandidates(input: FindCandidatesInput): ReassociateCandidate
   // 先封顶再排序会让「容器内改名」与「容器类本身」并列成 1，
   // 字典序兜底又把类排在前面 —— 一键修复就会把锚点指到错误位置。
   return scored
-    .sort((a, b) => (b.raw === a.raw ? (a.candidate.symbol < b.candidate.symbol ? -1 : 1) : b.raw - a.raw))
+    .sort((a, b) =>
+      b.raw === a.raw ? (a.candidate.symbol < b.candidate.symbol ? -1 : 1) : b.raw - a.raw,
+    )
     .slice(0, input.limit ?? 10)
     .map((item) => ({ ...item.candidate, score: Number(Math.min(1, item.raw).toFixed(4)) }));
 }
 
-function describeCandidateReason(input: { entry: SymbolIndexEntry; target: string; sameFile: boolean }): string {
+function describeCandidateReason(input: {
+  entry: SymbolIndexEntry;
+  target: string;
+  sameFile: boolean;
+}): string {
   const similarity = nameSimilarity(input.target, input.entry.name);
   const parts = [`名称相似度 ${(similarity * 100).toFixed(0)}%`, `形态 ${input.entry.form}`];
   if (input.sameFile) parts.push('同文件');
@@ -180,7 +200,8 @@ export interface RelocateInput {
   /** 当前文件内容 */
   content: string;
   adapter?: AstAdapter | undefined;
-}export type RelocateStatus = 'ok' | 'ambiguous' | 'missing';
+}
+export type RelocateStatus = 'ok' | 'ambiguous' | 'missing';
 
 export interface RelocateResult {
   status: RelocateStatus;
@@ -202,7 +223,8 @@ export function relocate(input: RelocateInput): RelocateResult {
 
   // ① 注释标记：写在代码里的事实，优先级最高
   const elementId = input.anchor.elementId;
-  const marker = elementId === null || elementId.length === 0 ? null : findMarker(input.content, elementId);
+  const marker =
+    elementId === null || elementId.length === 0 ? null : findMarker(input.content, elementId);
   if (marker !== null) {
     const target = findSymbol(entries, marker.symbol) ?? null;
     if (target !== null) {
@@ -232,7 +254,12 @@ export function relocate(input: RelocateInput): RelocateResult {
 
   // ③ 相似度候选：只给建议，不自动改
   const candidates = findCandidates({
-    anchor: { symbol: input.anchor.symbol, kind: input.anchor.kind, filePath: input.anchor.filePath, elementId: input.anchor.elementId },
+    anchor: {
+      symbol: input.anchor.symbol,
+      kind: input.anchor.kind,
+      filePath: input.anchor.filePath,
+      elementId: input.anchor.elementId,
+    },
     contents,
   });
   if (candidates.length > 0) {
@@ -246,18 +273,34 @@ export function relocate(input: RelocateInput): RelocateResult {
     };
   }
 
-  return { status: 'missing', symbol: null, startLine: null, endLine: null, reason: '文件中已不存在可关联的符号', candidates: [] };
+  return {
+    status: 'missing',
+    symbol: null,
+    startLine: null,
+    endLine: null,
+    reason: '文件中已不存在可关联的符号',
+    candidates: [],
+  };
 }
 
 /** 一个文件里所有带锚点标记的位置（批量校准用：外部改动后用它对账） */
-export function listMarkedLocations(content: string, path: string, adapter?: AstAdapter): { elementId: string; symbol: string; startLine: number; endLine: number }[] {
+export function listMarkedLocations(
+  content: string,
+  path: string,
+  adapter?: AstAdapter,
+): { elementId: string; symbol: string; startLine: number; endLine: number }[] {
   const indexer = adapter ?? defaultAstAdapter;
   const entries = indexer.indexSymbols({ path, content });
   const result: { elementId: string; symbol: string; startLine: number; endLine: number }[] = [];
   for (const marker of parseAnchorComments(content, path)) {
     const found = findSymbol(entries, marker.symbol);
     if (found === null) continue;
-    result.push({ elementId: marker.elementId, symbol: found.name, startLine: found.startLine, endLine: found.endLine });
+    result.push({
+      elementId: marker.elementId,
+      symbol: found.name,
+      startLine: found.startLine,
+      endLine: found.endLine,
+    });
   }
   return result;
 }

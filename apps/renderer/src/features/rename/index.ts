@@ -26,7 +26,12 @@ export {
 } from './rename-api';
 
 export { RenameDialog, type RenameDialogProps } from './RenameDialog';
-export { ImpactPanel, defaultImpactSelection, filterGroups, type ImpactPanelProps } from './ImpactPanel';
+export {
+  ImpactPanel,
+  defaultImpactSelection,
+  filterGroups,
+  type ImpactPanelProps,
+} from './ImpactPanel';
 export { RiskGroup, describeLocation, type RiskGroupProps } from './RiskGroup';
 export { ConflictWarning, type ConflictWarningProps } from './ConflictWarning';
 

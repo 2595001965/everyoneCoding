@@ -53,7 +53,11 @@ export function ok<T>(data: T, logs: GitLogEntry[] = []): GitResult<T> {
   return { ok: true, data, logs, error: null };
 }
 
-export function fail<T = never>(code: GitErrorCode, message: string, logs: GitLogEntry[] = []): GitResult<T> {
+export function fail<T = never>(
+  code: GitErrorCode,
+  message: string,
+  logs: GitLogEntry[] = [],
+): GitResult<T> {
   return { ok: false, data: null, logs, error: { code, message } };
 }
 
@@ -153,7 +157,15 @@ export class GitLogger {
 /* 仓库与状态                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export type FileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'conflicted' | 'typechange';
+export type FileStatus =
+  | 'added'
+  | 'modified'
+  | 'deleted'
+  | 'renamed'
+  | 'copied'
+  | 'untracked'
+  | 'conflicted'
+  | 'typechange';
 
 export const FILE_STATUS_LABELS: Record<FileStatus, string> = {
   added: '新增',
@@ -489,7 +501,8 @@ export interface CredentialBinding {
 export function isValidBranchName(name: string): boolean {
   if (name.length === 0 || name.length > 255) return false;
   if (/[\s~^:?*[\\]/.test(name)) return false;
-  if (name.startsWith('-') || name.startsWith('.') || name.endsWith('.') || name.endsWith('/')) return false;
+  if (name.startsWith('-') || name.startsWith('.') || name.endsWith('.') || name.endsWith('/'))
+    return false;
   if (name.includes('..') || name.includes('//') || name.includes('@{')) return false;
   return true;
 }
@@ -497,5 +510,7 @@ export function isValidBranchName(name: string): boolean {
 /** 变更来源 → 展示标签（UI 直接使用） */
 export function changeSourceLabel(source: ChangeSource | null): string {
   if (source === null) return '来源未知';
-  return source.jumpable ? CHANGE_SOURCE_LABELS[source.kind] : `${CHANGE_SOURCE_LABELS[source.kind]}（不可跳转）`;
+  return source.jumpable
+    ? CHANGE_SOURCE_LABELS[source.kind]
+    : `${CHANGE_SOURCE_LABELS[source.kind]}（不可跳转）`;
 }

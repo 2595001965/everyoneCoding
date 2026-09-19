@@ -19,7 +19,13 @@ import { EcpkgReader } from '../reader';
 import { verifyPackage } from './verifier';
 import { buildDiffPreview, resolveConflicts } from './conflict-resolver';
 import { MODE_PARTICIPATING_TYPES, attachmentsAllowed } from './mode-selector';
-import { classifyImport, planMerge, applyMergePlan, type MemoryItem, type MergeDecision } from '@ec/memory';
+import {
+  classifyImport,
+  planMerge,
+  applyMergePlan,
+  type MemoryItem,
+  type MergeDecision,
+} from '@ec/memory';
 import {
   batchDecideByType,
   type ConflictDecision,
@@ -99,7 +105,12 @@ function readUpdatedAt(text: string): number {
   }
 }
 
-function genericObject(reader: EcpkgReader, path: string, projectId: string, type: PackageObjectType): PackageObject {
+function genericObject(
+  reader: EcpkgReader,
+  path: string,
+  projectId: string,
+  type: PackageObjectType,
+): PackageObject {
   const text = reader.readEntryText(path);
   const name = path.split('/').pop() ?? path;
   const id = name.replace(/\.json$/, '');
@@ -113,13 +124,15 @@ export function collectPackageObjects(reader: EcpkgReader): PackageObject[] {
   for (const p of reader.listEntries()) {
     const memLong = /^memory\/longterm\.jsonl$/.exec(p);
     if (memLong) {
-      for (const item of parseJsonlItems(reader.readEntryText(p))) objects.push(memoryObjectFromItem(item, null));
+      for (const item of parseJsonlItems(reader.readEntryText(p)))
+        objects.push(memoryObjectFromItem(item, null));
       continue;
     }
     const memProj = /^memory\/projects\/([^/]+)\/project\.jsonl$/.exec(p);
     if (memProj) {
       const pid = memProj[1] ?? '';
-      for (const item of parseJsonlItems(reader.readEntryText(p))) objects.push(memoryObjectFromItem(item, pid));
+      for (const item of parseJsonlItems(reader.readEntryText(p)))
+        objects.push(memoryObjectFromItem(item, pid));
       continue;
     }
 
@@ -209,7 +222,12 @@ function parseDocIndex(text: string): DocIndexEntry[] {
     if (!Array.isArray(arr)) return [];
     return arr.map((raw) => {
       const d = raw as { id: string; name?: string; projectId?: string | null; updatedAt?: number };
-      return { id: d.id, name: d.name ?? d.id, projectId: d.projectId ?? null, updatedAt: d.updatedAt ?? 0 };
+      return {
+        id: d.id,
+        name: d.name ?? d.id,
+        projectId: d.projectId ?? null,
+        updatedAt: d.updatedAt ?? 0,
+      };
     });
   } catch {
     return [];
@@ -217,7 +235,9 @@ function parseDocIndex(text: string): DocIndexEntry[] {
 }
 
 /** 收集包内原始文件（文档原始文件 + 附件），导入时按 putFile 复制 */
-export function collectPackageFiles(reader: EcpkgReader): Array<{ path: string; kind: 'doc' | 'attachment' }> {
+export function collectPackageFiles(
+  reader: EcpkgReader,
+): Array<{ path: string; kind: 'doc' | 'attachment' }> {
   const files: Array<{ path: string; kind: 'doc' | 'attachment' }> = [];
   for (const p of reader.listEntries()) {
     if (/^documents\/[^/]+\/.+/.test(p)) files.push({ path: p, kind: 'doc' });
@@ -227,7 +247,9 @@ export function collectPackageFiles(reader: EcpkgReader): Array<{ path: string; 
 }
 
 /** 收集包内项目元信息（projects/<id>/meta.json） */
-function collectProjectMetas(reader: EcpkgReader): Array<{ id: string; name: string; metaJson: string }> {
+function collectProjectMetas(
+  reader: EcpkgReader,
+): Array<{ id: string; name: string; metaJson: string }> {
   const metas: Array<{ id: string; name: string; metaJson: string }> = [];
   for (const p of reader.listEntries()) {
     const m = /^projects\/([^/]+)\/meta\.json$/.exec(p);
@@ -333,7 +355,10 @@ export async function runImport(
         processed += 1;
         continue;
       }
-      const obj = outcome.resolution === 'keepBoth' && outcome.created !== null ? outcome.created : outcome.incoming;
+      const obj =
+        outcome.resolution === 'keepBoth' && outcome.created !== null
+          ? outcome.created
+          : outcome.incoming;
       try {
         const result = ports.target.putObject(obj);
         if (result === 'created') {

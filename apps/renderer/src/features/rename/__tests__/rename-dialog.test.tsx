@@ -64,7 +64,9 @@ describe('RenameDialog', () => {
     expect(screen.getByTestId('rename-selection-count')).toHaveTextContent('当前勾选');
 
     const report = await fake.analyze({ registryId: 'reg-1', newName: '登录提交' });
-    expect(screen.getByTestId('impact-execute')).toHaveTextContent(`确认执行 ${report.totals.selected} 处`);
+    expect(screen.getByTestId('impact-execute')).toHaveTextContent(
+      `确认执行 ${report.totals.selected} 处`,
+    );
   });
 
   it('非法名阻断：展示 ConflictWarning 的 3 个建议名，且不出影响面', async () => {
@@ -101,7 +103,9 @@ describe('RenameDialog', () => {
     await user.clear(input);
     await user.type(input, '登录提交');
     await screen.findByTestId('impact-panel');
-    await waitFor(() => expect(screen.getByTestId('impact-panel').getAttribute('data-state')).toBe('ready'));
+    await waitFor(() =>
+      expect(screen.getByTestId('impact-panel').getAttribute('data-state')).toBe('ready'),
+    );
 
     await user.click(screen.getByTestId('rename-execute'));
     const confirm = await screen.findByTestId('rename-confirm');
@@ -109,7 +113,9 @@ describe('RenameDialog', () => {
     expect(fake.state.events).toHaveLength(0); // 二次确认前不执行
 
     await user.click(screen.getByTestId('rename-confirm-execute'));
-    await waitFor(() => expect(screen.getByTestId('rename-dialog-result')).toHaveAttribute('data-ok', 'true'));
+    await waitFor(() =>
+      expect(screen.getByTestId('rename-dialog-result')).toHaveAttribute('data-ok', 'true'),
+    );
 
     // 真实引擎的产物：文件、注册表、事件、提交 sha
     expect(fake.state.files.get('src/pages/Login.tsx')).toContain('<LoginSubmit');
@@ -127,7 +133,9 @@ describe('RenameDialog', () => {
     const input = screen.getByLabelText('新名称');
     await user.clear(input);
     await user.type(input, '登录提交');
-    await waitFor(() => expect(screen.getByTestId('impact-panel').getAttribute('data-state')).toBe('ready'));
+    await waitFor(() =>
+      expect(screen.getByTestId('impact-panel').getAttribute('data-state')).toBe('ready'),
+    );
 
     await user.click(screen.getByTestId('rename-execute'));
     await screen.findByTestId('rename-confirm');
@@ -152,10 +160,17 @@ describe('RenameDialog', () => {
     const targets = await createFakeRenameApi().listTargets();
     render(
       <RenameApiProvider api={fake}>
-        <RenameDialog open target={targets[0] as RenameTarget} onClose={() => undefined} debounceMs={0} />
+        <RenameDialog
+          open
+          target={targets[0] as RenameTarget}
+          onClose={() => undefined}
+          debounceMs={0}
+        />
       </RenameApiProvider>,
     );
     expect(screen.getByTestId('rename-dialog')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('rename-error')).toHaveTextContent('未检测到重命名服务'));
+    await waitFor(() =>
+      expect(screen.getByTestId('rename-error')).toHaveTextContent('未检测到重命名服务'),
+    );
   });
 });

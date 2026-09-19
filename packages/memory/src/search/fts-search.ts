@@ -36,8 +36,7 @@ export interface FtsKeywordSearchOptions {
 
 /* ------------------------------ 分词兜底 ------------------------------ */
 
-const CJK_RUN =
-  /[㐀-䶿一-鿿豈-﫿぀-ヿ가-힯]+/g;
+const CJK_RUN = /[㐀-䶿一-鿿豈-﫿぀-ヿ가-힯]+/g;
 const ASCII_RUN = /[A-Za-z0-9_]+/g;
 
 function isCjkRun(token: string): boolean {
@@ -195,7 +194,8 @@ export class FtsKeywordSearcher {
       this.degradedReason = null;
     } else {
       this.mode = 'like';
-      this.degradedReason = '当前 SQLite 未编译 FTS5，关键词检索已退化为 bigram LIKE（性能下降且不支持分词）';
+      this.degradedReason =
+        '当前 SQLite 未编译 FTS5，关键词检索已退化为 bigram LIKE（性能下降且不支持分词）';
     }
   }
 
@@ -283,7 +283,10 @@ export class FtsKeywordSearcher {
     }));
   }
 
-  private buildFilterClause(filterIds: readonly string[] | undefined): { sql: string; params: unknown[] } {
+  private buildFilterClause(filterIds: readonly string[] | undefined): {
+    sql: string;
+    params: unknown[];
+  } {
     if (filterIds === undefined || filterIds.length === 0) return { sql: '', params: [] };
     const placeholders = filterIds.map(() => '?').join(', ');
     return { sql: ` AND id IN (${placeholders})`, params: [...filterIds] };

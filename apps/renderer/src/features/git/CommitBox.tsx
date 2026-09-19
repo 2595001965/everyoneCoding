@@ -27,7 +27,11 @@ export interface CommitBoxProps {
   initialBody?: string;
 }
 
-export function CommitBox({ onCommitted, initialSubject = '', initialBody = '' }: CommitBoxProps): JSX.Element {
+export function CommitBox({
+  onCommitted,
+  initialSubject = '',
+  initialBody = '',
+}: CommitBoxProps): JSX.Element {
   const api = useGitApi();
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
@@ -42,7 +46,8 @@ export function CommitBox({ onCommitted, initialSubject = '', initialBody = '' }
   }, [api]);
 
   const message = subject.length > 0 ? (body.length > 0 ? `${subject}\n\n${body}` : subject) : '';
-  const validation = message.length > 0 ? validateCommitMessage(message, COMMIT_CONVENTIONS[convention]) : null;
+  const validation =
+    message.length > 0 ? validateCommitMessage(message, COMMIT_CONVENTIONS[convention]) : null;
   const valid = validation === null || validation.valid;
 
   const generate = useCallback(async () => {
@@ -124,12 +129,22 @@ export function CommitBox({ onCommitted, initialSubject = '', initialBody = '' }
       />
 
       {error !== null && (
-        <div className="ec-commit-box__error" role="alert" style={{ color: 'var(--ec-color-danger)' }} data-testid="commit-error">
+        <div
+          className="ec-commit-box__error"
+          role="alert"
+          style={{ color: 'var(--ec-color-danger)' }}
+          data-testid="commit-error"
+        >
           {error}
         </div>
       )}
       {validation !== null && !validation.valid && (
-        <div className="ec-commit-box__invalid" role="alert" style={{ color: 'var(--ec-color-danger)' }} data-testid="commit-invalid">
+        <div
+          className="ec-commit-box__invalid"
+          role="alert"
+          style={{ color: 'var(--ec-color-danger)' }}
+          data-testid="commit-invalid"
+        >
           {validation.errors[0] ?? '提交信息格式不正确'}
         </div>
       )}
@@ -144,7 +159,10 @@ export function CommitBox({ onCommitted, initialSubject = '', initialBody = '' }
         提交
       </Button>
 
-      <div className="ec-commit-box__auto" style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+      <div
+        className="ec-commit-box__auto"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}
+      >
         <span style={{ color: 'var(--ec-color-text-secondary)' }}>自动提交策略</span>
         <Select
           aria-label="自动提交策略"

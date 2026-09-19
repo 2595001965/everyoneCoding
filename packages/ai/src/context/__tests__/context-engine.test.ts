@@ -43,7 +43,17 @@ describe('八类上下文块组装（FR-AI-01）', () => {
     const context = await engine().assemble(BASE_REQUEST);
     const byId = new Map(context.blocks.map((block) => [block.id, block]));
 
-    for (const id of ['longterm', 'project', 'feature', 'page', 'element-chain', 'note', 'issue', 'document', 'code'] as const) {
+    for (const id of [
+      'longterm',
+      'project',
+      'feature',
+      'page',
+      'element-chain',
+      'note',
+      'issue',
+      'document',
+      'code',
+    ] as const) {
       const block = byId.get(id);
       expect(block, `缺少块 ${id}`).toBeDefined();
       expect(block?.tokens ?? 0).toBeGreaterThan(0);
@@ -79,7 +89,17 @@ describe('八类上下文块组装（FR-AI-01）', () => {
     // 空 sources（所有端口未接入）——首次生成前的真实状态
     const context = await engine({}).assemble(BASE_REQUEST);
     const skipped = new Map(context.skipped.map((entry) => [entry.block, entry.reason]));
-    for (const id of ['longterm', 'project', 'feature', 'page', 'element-chain', 'note', 'issue', 'document', 'code'] as const) {
+    for (const id of [
+      'longterm',
+      'project',
+      'feature',
+      'page',
+      'element-chain',
+      'note',
+      'issue',
+      'document',
+      'code',
+    ] as const) {
       expect(skipped.get(id), `块 ${id} 未记录跳过原因`).toBeTruthy();
     }
     expect(context.totalTokens).toBeGreaterThan(0); // 指令块始终存在
@@ -205,7 +225,10 @@ describe('依赖契约注入（T4-02 要点 4，与 T5-06 共用）', () => {
 
 describe('上下文面板（T4-02 要点 3）', () => {
   it('模型暴露 token 分布、省略提示与引用溯源', async () => {
-    const context = await engine(fullSources({ memory: bigMemoryPort(800) })).assemble({ ...BASE_REQUEST, budget: 5_000 });
+    const context = await engine(fullSources({ memory: bigMemoryPort(800) })).assemble({
+      ...BASE_REQUEST,
+      budget: 5_000,
+    });
     const model = toContextPanelModel(context);
 
     expect(model.totalTokens).toBeLessThanOrEqual(5_000);
@@ -226,7 +249,9 @@ describe('上下文面板（T4-02 要点 3）', () => {
     const selection = toggleBlock(emptySelection(), 'document');
     const second = await instance.assemble(applyPanelSelection(request, selection));
     expect(second.blocks.find((block) => block.id === 'document')?.tokens).toBe(0);
-    expect(second.blocks.find((block) => block.id === 'document')?.skipped).toBe('已被手动取消勾选');
+    expect(second.blocks.find((block) => block.id === 'document')?.skipped).toBe(
+      '已被手动取消勾选',
+    );
     expect(second.noteIds).toEqual(first.noteIds);
   });
 
@@ -237,7 +262,12 @@ describe('上下文面板（T4-02 要点 3）', () => {
     const original = first.blocks.find((block) => block.id === 'longterm')?.content ?? '';
     expect(original.length).toBeGreaterThan(0);
 
-    const selection = setBlockOverride(emptySelection(), 'longterm', '仅保留：以后都用 TypeScript', original);
+    const selection = setBlockOverride(
+      emptySelection(),
+      'longterm',
+      '仅保留：以后都用 TypeScript',
+      original,
+    );
     const second = await instance.assemble(applyPanelSelection(request, selection));
     const block = second.blocks.find((item) => item.id === 'longterm');
     expect(block?.content).toBe('仅保留：以后都用 TypeScript');
@@ -286,7 +316,9 @@ describe('超限重试（T4-03 要点 4 联动）', () => {
       .mockRejectedValueOnce(new ContextLengthError('超限', 8192))
       .mockRejectedValueOnce(new ContextLengthError('还是超限', 8192));
 
-    await expect(instance.assembleWithRetry(BASE_REQUEST, run)).rejects.toThrow(/已保留|激进裁剪|缩短指令/);
+    await expect(instance.assembleWithRetry(BASE_REQUEST, run)).rejects.toThrow(
+      /已保留|激进裁剪|缩短指令/,
+    );
     expect(run).toHaveBeenCalledTimes(2);
   });
 });
@@ -322,13 +354,27 @@ describe('提示词渲染（§13.2）', () => {
         source: 'test',
         editable: true,
         items: [
-          { key: 'n1', label: 'a', tokens: 5, weight: 1, text: '[备注 #n1] 禁止事项\n【禁止】不得明文存 Key' },
-          { key: 'n2', label: 'b', tokens: 5, weight: 1, text: '[备注 #n2] 校验要求\n需校验图形验证码' },
+          {
+            key: 'n1',
+            label: 'a',
+            tokens: 5,
+            weight: 1,
+            text: '[备注 #n1] 禁止事项\n【禁止】不得明文存 Key',
+          },
+          {
+            key: 'n2',
+            label: 'b',
+            tokens: 5,
+            weight: 1,
+            text: '[备注 #n2] 校验要求\n需校验图形验证码',
+          },
         ],
       },
     ];
     expect(extractHardConstraints(blocks)).toEqual(['【禁止】不得明文存 Key']);
-    const empty = renderPrompt([], BASE_REQUEST, { hardConstraints: extractHardConstraints(blocks) });
+    const empty = renderPrompt([], BASE_REQUEST, {
+      hardConstraints: extractHardConstraints(blocks),
+    });
     expect(empty.system).toContain('【禁止】不得明文存 Key');
   });
 });

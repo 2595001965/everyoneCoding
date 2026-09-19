@@ -15,7 +15,11 @@
 
 import { z } from 'zod';
 
-import { deriveProjections, validateProjectionFormat, type ProjectionFormatIssue } from './naming/rule-engine';
+import {
+  deriveProjections,
+  validateProjectionFormat,
+  type ProjectionFormatIssue,
+} from './naming/rule-engine';
 import type { ProjectionKind, ResolvedNamingRule } from './naming/presets';
 import { newUlid } from './ids';
 
@@ -263,14 +267,21 @@ export function applyRename(input: {
     namingRuleId: input.rule.ruleId,
     nameHistory: [
       ...input.entry.nameHistory,
-      { name: input.newCanonicalName, at: now, reason: input.reason ?? `${oldName} → ${input.newCanonicalName}` },
+      {
+        name: input.newCanonicalName,
+        at: now,
+        reason: input.reason ?? `${oldName} → ${input.newCanonicalName}`,
+      },
     ],
     syncState: 'synced',
     updatedAt: now,
   };
 }
 
-function pickProjections(source: ProjectionSet, kinds: readonly ProjectionKind[]): Partial<ProjectionSet> {
+function pickProjections(
+  source: ProjectionSet,
+  kinds: readonly ProjectionKind[],
+): Partial<ProjectionSet> {
   const out: Partial<ProjectionSet> = {};
   for (const kind of kinds) out[kind] = source[kind];
   return out;
@@ -311,7 +322,8 @@ export function validateProjections(input: {
   entry: RegistryEntry;
   rule: ResolvedNamingRule;
   /** 代码中实际观测到的符号（按投影类型给出；`null` 表示代码中未找到） */
-  observed?: Partial<Record<ProjectionKind, { value: string; locator?: string | null } | null>> | undefined;
+  observed?:
+    Partial<Record<ProjectionKind, { value: string; locator?: string | null } | null>> | undefined;
 }): ConsistencyReport {
   const formatIssues = validateProjectionFormat(input.entry.projections, input.rule);
   const drift: ProjectionDrift[] = [];
@@ -325,7 +337,8 @@ export function validateProjections(input: {
       drift.push({ kind, expected, actual, locator: observed?.locator ?? null });
     }
   }
-  const state: SyncState = drift.length > 0 ? 'drift_detected' : formatIssues.length > 0 ? 'conflict' : 'synced';
+  const state: SyncState =
+    drift.length > 0 ? 'drift_detected' : formatIssues.length > 0 ? 'conflict' : 'synced';
   return { ok: state === 'synced', state, drift, formatIssues };
 }
 

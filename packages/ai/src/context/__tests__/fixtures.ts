@@ -20,7 +20,9 @@ export const USER_ID = 'USER0000000000000000000000';
 
 const NOW = 1_760_000_000_000;
 
-export function memoryHit(overrides: Partial<ContextMemoryHit> & { id: string; scope: ContextMemoryHit['scope'] }): ContextMemoryHit {
+export function memoryHit(
+  overrides: Partial<ContextMemoryHit> & { id: string; scope: ContextMemoryHit['scope'] },
+): ContextMemoryHit {
   return {
     title: `记忆 ${overrides.id}`,
     content: '内容',
@@ -32,7 +34,9 @@ export function memoryHit(overrides: Partial<ContextMemoryHit> & { id: string; s
 }
 
 /** 按 scope 装桶的假记忆端口；`total` 用于生成大量记忆做基准测试 */
-export function fakeMemoryPort(buckets: Partial<Record<ContextMemoryHit['scope'], ContextMemoryHit[]>>): ContextMemoryPort {
+export function fakeMemoryPort(
+  buckets: Partial<Record<ContextMemoryHit['scope'], ContextMemoryHit[]>>,
+): ContextMemoryPort {
   return {
     search: ({ scope, limit }) => (buckets[scope] ?? []).slice(0, limit),
     listByScope: ({ scope, limit }) => (buckets[scope] ?? []).slice(0, limit),
@@ -47,17 +51,23 @@ export function bigMemoryPort(total = 1000): ContextMemoryPort {
     title: `项目约定 ${index}：命名规范与目录结构`,
     content: '组件名与标识符用英文或拼音，显示文案保留中文；跨包只走单一入口。'.repeat(3),
     importance: (index % 5) + 1,
-    confidence: 0.6 + ((index % 4) * 0.1),
+    confidence: 0.6 + (index % 4) * 0.1,
     updatedAt: NOW - index * 60_000,
   }));
 
   return {
     search: ({ query, limit }) => {
-      const keywords = query.toLowerCase().split(/\s+/).filter((token) => token.length > 0);
+      const keywords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((token) => token.length > 0);
       return [...pool]
         .map((hit) => {
           const text = `${hit.title}${hit.content}`.toLowerCase();
-          const score = keywords.reduce((sum, keyword) => sum + (text.includes(keyword) ? 1 : 0), 0);
+          const score = keywords.reduce(
+            (sum, keyword) => sum + (text.includes(keyword) ? 1 : 0),
+            0,
+          );
           return { hit, score: score * 10 + hit.importance * hit.confidence };
         })
         .sort((a, b) => b.score - a.score)
@@ -70,7 +80,12 @@ export function bigMemoryPort(total = 1000): ContextMemoryPort {
 
 export function fakeElementSource(): NonNullable<ContextSources['elements']> {
   const chain: ContextElementNode[] = [
-    { id: 'el-form', type: 'Form', name: '登录表单', props: { action: '/api/login', method: 'POST' } },
+    {
+      id: 'el-form',
+      type: 'Form',
+      name: '登录表单',
+      props: { action: '/api/login', method: 'POST' },
+    },
     {
       id: 'el-input',
       type: 'Input',
@@ -169,7 +184,8 @@ export function fakeCodePort(): NonNullable<ContextSources['code']> {
       startLine: 12,
       endLine: 30,
       language: 'ts',
-      snippet: 'export class AuthController {\n  async login(dto: LoginDto) { return this.service.login(dto); }\n}',
+      snippet:
+        'export class AuthController {\n  async login(dto: LoginDto) { return this.service.login(dto); }\n}',
       score: 0.9,
     },
     {
@@ -209,8 +225,17 @@ export function fakeContracts(): DependencyContract[] {
 export function fullSources(overrides: Partial<ContextSources> = {}): ContextSources {
   return {
     memory: fakeMemoryPort({
-      longterm: [memoryHit({ id: 'lt-1', scope: 'longterm', title: '以后都用 TypeScript', importance: 5 })],
-      project: [memoryHit({ id: 'pj-1', scope: 'project', title: '技术栈：Tauri 2 + React 18', importance: 5 })],
+      longterm: [
+        memoryHit({ id: 'lt-1', scope: 'longterm', title: '以后都用 TypeScript', importance: 5 }),
+      ],
+      project: [
+        memoryHit({
+          id: 'pj-1',
+          scope: 'project',
+          title: '技术栈：Tauri 2 + React 18',
+          importance: 5,
+        }),
+      ],
       feature: [memoryHit({ id: 'ft-1', scope: 'feature', title: '登录功能职责', importance: 4 })],
       page: [memoryHit({ id: 'pg-1', scope: 'page', title: '登录页交互流程', importance: 4 })],
       issue: [memoryHit({ id: 'is-1', scope: 'issue', title: '验证码过期未处理', importance: 5 })],

@@ -30,14 +30,21 @@ export function ImportReport({ report, onRetry, onExportReport }: ImportReportPr
       </div>
 
       <div className="import-report__applied">
-        <span data-testid="applied-projects">项目 {applied.createdProjects + applied.updatedProjects}</span>
-        <span data-testid="applied-objects">对象 {applied.createdObjects + applied.updatedObjects + applied.keptBothObjects}</span>
-        <span data-testid="applied-memory">记忆 {applied.memoryCreated + applied.memoryUpdated}</span>
+        <span data-testid="applied-projects">
+          项目 {applied.createdProjects + applied.updatedProjects}
+        </span>
+        <span data-testid="applied-objects">
+          对象 {applied.createdObjects + applied.updatedObjects + applied.keptBothObjects}
+        </span>
+        <span data-testid="applied-memory">
+          记忆 {applied.memoryCreated + applied.memoryUpdated}
+        </span>
         <span data-testid="applied-files">文件 {applied.filesWritten}</span>
       </div>
 
       <div className="import-report__resolutions" data-testid="report-resolutions">
-        保留本地 {resolutions.keepLocal} / 采用包内 {resolutions.takeNew} / 两者都保留 {resolutions.keepBoth}
+        保留本地 {resolutions.keepLocal} / 采用包内 {resolutions.takeNew} / 两者都保留{' '}
+        {resolutions.keepBoth}
       </div>
 
       {failures.length > 0 && (

@@ -3,7 +3,14 @@ import { createStore, type StoreApi } from 'zustand';
 
 import { createElement, createEmptyPage, createRandomIdFactory } from '../dsl/factory';
 import { cloneSubtree, findById, locateById } from '../dsl/traverse';
-import type { CodeAnchor, ElementNode, EventDef, PageDsl, PageStateVar, Viewport } from '../dsl/types';
+import type {
+  CodeAnchor,
+  ElementNode,
+  EventDef,
+  PageDsl,
+  PageStateVar,
+  Viewport,
+} from '../dsl/types';
 import { draftInsertChild, draftMoveNode, draftRemoveNode, draftUpdateNode } from './draft-tree';
 
 /**
@@ -77,7 +84,11 @@ export interface EditorStoreActions {
   setHovered(id: string | null): void;
   setEditing(id: string | null): void;
 
-  insertElement(parentId: string, element: ElementNode, options?: { index?: number; label?: string; select?: boolean }): boolean;
+  insertElement(
+    parentId: string,
+    element: ElementNode,
+    options?: { index?: number; label?: string; select?: boolean },
+  ): boolean;
   moveElement(id: string, targetParentId: string, index?: number): boolean;
   removeElements(ids: readonly string[], options?: { label?: string }): number;
   duplicateElement(id: string, options?: { idFactory?: () => string }): string | null;
@@ -90,10 +101,17 @@ export interface EditorStoreActions {
   setBindings(id: string, bindings: Record<string, string | null>, options?: ApplyOptions): void;
   updateMeta(id: string, patch: ElementMetaPatch, options?: ApplyOptions): void;
   /** 断点差异属性（T3-11 响应式） */
-  setResponsive(id: string, breakpoint: string, style: Record<string, unknown> | null, options?: ApplyOptions): void;
+  setResponsive(
+    id: string,
+    breakpoint: string,
+    style: Record<string, unknown> | null,
+    options?: ApplyOptions,
+  ): void;
 
   updatePageMeta(
-    patch: Partial<Pick<PageDsl, 'name' | 'route' | 'platform' | 'featureId'>> & { viewport?: Viewport },
+    patch: Partial<Pick<PageDsl, 'name' | 'route' | 'platform' | 'featureId'>> & {
+      viewport?: Viewport;
+    },
     options?: ApplyOptions,
   ): void;
   setPageStateVars(vars: readonly PageStateVar[], options?: ApplyOptions): void;
@@ -129,7 +147,13 @@ export interface CreateEditorStoreOptions {
 export function createEditorStore(options: CreateEditorStoreOptions = {}): StoreApi<EditorStore> {
   const initialDsl =
     options.dsl ??
-    createEmptyPage({ id: 'untitled', projectId: 'P0', name: '未命名页面', platform: 'web', route: '/untitled' });
+    createEmptyPage({
+      id: 'untitled',
+      projectId: 'P0',
+      name: '未命名页面',
+      platform: 'web',
+      route: '/untitled',
+    });
 
   return createStore<EditorStore>((set, get) => {
     const manager = new UndoManager<{ dsl: PageDsl }>({
@@ -151,7 +175,11 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
     const syncUndo = (): void => set({ undoState: readUndo() });
 
     /** 统一的文档写入：进撤销栈 + 标记脏 + 同步撤销信息 + 清理失效选中 */
-    const write = (label: string, recipe: (draft: PageDsl) => void, applyOptions?: ApplyOptions): void => {
+    const write = (
+      label: string,
+      recipe: (draft: PageDsl) => void,
+      applyOptions?: ApplyOptions,
+    ): void => {
       const before = get().dsl;
       // UndoManager 的 draft 是状态对象 `{ dsl }`，此处把页面草稿透传给业务回调
       const next = manager.apply(
@@ -169,7 +197,8 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         selectedIds: selection,
         hoveredId: hoveredId !== null && elementExists(next.dsl, hoveredId) ? hoveredId : null,
         editingElementId:
-          get().editingElementId !== null && elementExists(next.dsl, get().editingElementId as string)
+          get().editingElementId !== null &&
+          elementExists(next.dsl, get().editingElementId as string)
             ? get().editingElementId
             : null,
       });
@@ -230,7 +259,9 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
           hoveredId: null,
           editingElementId: null,
           dirty: false,
-          ...(loadOptions && 'filePath' in loadOptions ? { filePath: loadOptions.filePath ?? null } : {}),
+          ...(loadOptions && 'filePath' in loadOptions
+            ? { filePath: loadOptions.filePath ?? null }
+            : {}),
         });
         syncUndo();
       },
@@ -281,14 +312,11 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
 
       removeElements: (ids, removeOptions) => {
         let removedCount = 0;
-        write(
-          removeOptions?.label ?? '删除元素',
-          (draft) => {
-            for (const id of ids) {
-              if (draftRemoveNode(draft.tree, id) !== null) removedCount += 1;
-            }
-          },
-        );
+        write(removeOptions?.label ?? '删除元素', (draft) => {
+          for (const id of ids) {
+            if (draftRemoveNode(draft.tree, id) !== null) removedCount += 1;
+          }
+        });
         if (removedCount > 0) {
           set({ selectedIds: pruneSelection(get().dsl, get().selectedIds) });
         }
@@ -435,7 +463,10 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         write(
           '修改事件动作流',
           (draft) => {
-            draft.events = events.map((event) => ({ ...event, actions: event.actions.map((action) => ({ ...action })) }));
+            draft.events = events.map((event) => ({
+              ...event,
+              actions: event.actions.map((action) => ({ ...action })),
+            }));
           },
           applyOptions,
         );
@@ -481,7 +512,10 @@ export function selectedElement(store: StoreApi<EditorStore>): ElementNode | nul
 }
 
 /** 便捷读取：元素在父容器中的位置 */
-export function elementLocation(store: StoreApi<EditorStore>, id: string): ReturnType<typeof locateById> {
+export function elementLocation(
+  store: StoreApi<EditorStore>,
+  id: string,
+): ReturnType<typeof locateById> {
   return locateById(store.getState().dsl.tree, id);
 }
 

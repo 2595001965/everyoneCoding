@@ -1,9 +1,6 @@
 import { createMemoryItem, type MemoryItem } from '../domain/memory-item';
 import { newUlid } from '@ec/data';
-import {
-  mergeMemoryItems,
-  type ConflictStrategy,
-} from '../domain/conflict';
+import { mergeMemoryItems, type ConflictStrategy } from '../domain/conflict';
 import type { ImportPreview, ImportClassification } from './import';
 import type { MemoryRepo } from '../repo/memory-repo';
 
@@ -81,7 +78,10 @@ export function planMerge(
   };
 }
 
-function resolveStrategy(classification: ImportClassification, user?: ImportResolution): ImportResolution {
+function resolveStrategy(
+  classification: ImportClassification,
+  user?: ImportResolution,
+): ImportResolution {
   if (user) return user;
   switch (classification) {
     case 'added':
@@ -120,10 +120,22 @@ function applyStrategy(
     case 'merge': {
       // 无本地（异常分类）退化为 takeNew
       if (!local) {
-        return { id: incoming.id, strategy: 'takeNew', item: incoming, mergedFields: [], sources: [] };
+        return {
+          id: incoming.id,
+          strategy: 'takeNew',
+          item: incoming,
+          mergedFields: [],
+          sources: [],
+        };
       }
       const merged = mergeMemoryItems(local, incoming);
-      return { id: local.id, strategy, item: merged.item, mergedFields: merged.mergedFields, sources: merged.sources };
+      return {
+        id: local.id,
+        strategy,
+        item: merged.item,
+        mergedFields: merged.mergedFields,
+        sources: merged.sources,
+      };
     }
     case 'keepBoth': {
       const created =
@@ -151,7 +163,9 @@ function applyStrategy(
  */
 export function batchDecision(
   preview: ImportPreview,
-  byClassification: Partial<Record<'added' | 'conflicted' | 'unchanged' | 'missing', ImportResolution>>,
+  byClassification: Partial<
+    Record<'added' | 'conflicted' | 'unchanged' | 'missing', ImportResolution>
+  >,
 ): MergeDecision[] {
   const decisions: MergeDecision[] = [];
   for (const diff of preview.items) {
@@ -169,7 +183,11 @@ export function batchDecision(
  * - merge：`toUpdate` 加合并后的本地条目；
  * - keepBoth：`toCreate` 加新建条目（新 id），本地保留。
  */
-export function applyMergePlan(plan: MergePlan): { toCreate: MemoryItem[]; toUpdate: MemoryItem[]; toSupersede: string[] } {
+export function applyMergePlan(plan: MergePlan): {
+  toCreate: MemoryItem[];
+  toUpdate: MemoryItem[];
+  toSupersede: string[];
+} {
   const toCreate: MemoryItem[] = [];
   const toUpdate: MemoryItem[] = [];
   const toSupersede: string[] = [];

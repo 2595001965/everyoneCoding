@@ -15,7 +15,12 @@ import * as React from 'react';
 import { Button, Checkbox, Input, Modal } from '@ec/ui';
 
 import { usePackageApi } from './package-api';
-import type { ExportJobRequest, ExportJobResult, ExportProgressSnapshot, ExportSelection } from './package-api';
+import type {
+  ExportJobRequest,
+  ExportJobResult,
+  ExportProgressSnapshot,
+  ExportSelection,
+} from './package-api';
 import { ScopeSelector } from './ScopeSelector';
 import { ExportProgress } from './ExportProgress';
 
@@ -61,7 +66,8 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
     return (
       <div className="ec-export-wizard" data-testid="export-wizard">
         <div className="ec-export-guidance" data-testid="export-guidance">
-          尚未装配归档端口（PackageApi）。请在 Node 侧外壳中通过 globalThis.__EC_PACKAGE__ 注入后再打开导出向导。
+          尚未装配归档端口（PackageApi）。请在 Node 侧外壳中通过 globalThis.__EC_PACKAGE__
+          注入后再打开导出向导。
         </div>
       </div>
     );
@@ -110,7 +116,13 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
       <ScopeSelector
         selection={selection}
         projects={props.projects ?? []}
-        presets={(props.presets ?? []).map((p) => ({ name: p.name, selection: DEFAULT_SELECTION, useDefaultExcludes: true, redact: true, savedAt: 0 }))}
+        presets={(props.presets ?? []).map((p) => ({
+          name: p.name,
+          selection: DEFAULT_SELECTION,
+          useDefaultExcludes: true,
+          redact: true,
+          savedAt: 0,
+        }))}
         useDefaultExcludes={useDefaultExcludes}
         onChange={setSelection}
         onToggleDefaultExcludes={setUseDefaultExcludes}
@@ -121,7 +133,11 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
 
       <section className="ec-export-wizard__security">
         <h3>安全选项</h3>
-        <Checkbox label="加密导出（需设置口令）" checked={encryptEnabled} onChange={setEncryptEnabled} />
+        <Checkbox
+          label="加密导出（需设置口令）"
+          checked={encryptEnabled}
+          onChange={setEncryptEnabled}
+        />
         {encryptEnabled && (
           <div className="ec-export-wizard__password" data-testid="password-fields">
             <Input
@@ -141,11 +157,19 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
             {!passwordOk && <span className="ec-export-wizard__hint">两次口令不一致</span>}
           </div>
         )}
-        <Checkbox label="导出时脱敏（默认开启，关闭需二次确认）" checked={redact} onChange={handleRedactChange} />
+        <Checkbox
+          label="导出时脱敏（默认开启，关闭需二次确认）"
+          checked={redact}
+          onChange={handleRedactChange}
+        />
       </section>
 
       <div className="ec-export-wizard__actions">
-        <Button data-testid="export-start" disabled={!canExport} onClick={() => void handleExport()}>
+        <Button
+          data-testid="export-start"
+          disabled={!canExport}
+          onClick={() => void handleExport()}
+        >
           {exporting ? '导出中…' : '开始导出'}
         </Button>
       </div>
@@ -170,7 +194,13 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
       <Modal open={redactConfirmOpen} title="确认关闭脱敏？" footer={null}>
         <div data-testid="redact-confirm">
           <p>关闭脱敏后，密钥、连接串等敏感信息将以明文写入 .ecpkg，存在泄露风险。确认关闭吗？</p>
-          <Button data-testid="confirm-disable-redact" onClick={() => { setRedact(false); setRedactConfirmOpen(false); }}>
+          <Button
+            data-testid="confirm-disable-redact"
+            onClick={() => {
+              setRedact(false);
+              setRedactConfirmOpen(false);
+            }}
+          >
             确认关闭
           </Button>
           <Button data-testid="cancel-disable-redact" onClick={() => setRedactConfirmOpen(false)}>

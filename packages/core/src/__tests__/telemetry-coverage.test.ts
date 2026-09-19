@@ -16,7 +16,17 @@ import { KEY_EVENT_NAMES } from '../telemetry-events';
 const KEY_PATHS: Array<{ category: string; paths: string[]; events: string[] }> = [
   {
     category: '项目生命周期',
-    paths: ['新建项目', '打开项目', '删除项目', '归档', '恢复', '复制', 'Git 导入', '文档导入', '模板创建'],
+    paths: [
+      '新建项目',
+      '打开项目',
+      '删除项目',
+      '归档',
+      '恢复',
+      '复制',
+      'Git 导入',
+      '文档导入',
+      '模板创建',
+    ],
     events: [
       'project.create',
       'project.open',
@@ -54,7 +64,14 @@ const KEY_PATHS: Array<{ category: string; paths: string[]; events: string[] }> 
   {
     category: 'Git',
     paths: ['初始化', '提交', '推送', '建分支', '合并', '回滚'],
-    events: ['git.init', 'git.commit', 'git.push', 'git.branch_create', 'git.merge', 'git.rollback'],
+    events: [
+      'git.init',
+      'git.commit',
+      'git.push',
+      'git.branch_create',
+      'git.merge',
+      'git.rollback',
+    ],
   },
   {
     category: '统一重命名',

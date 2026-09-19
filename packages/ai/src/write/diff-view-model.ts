@@ -94,7 +94,10 @@ export interface BuildDiffViewOptions {
   unselectedHunks?: readonly string[] | undefined;
 }
 
-export function toDiffViewModel(plan: WritePlan, options: BuildDiffViewOptions = {}): DiffViewModel {
+export function toDiffViewModel(
+  plan: WritePlan,
+  options: BuildDiffViewOptions = {},
+): DiffViewModel {
   const unselected = new Set(options.unselectedPaths ?? []);
   const unselectedHunks = new Set(options.unselectedHunks ?? []);
 
@@ -166,7 +169,10 @@ export function applySelectionToPlan(plan: WritePlan, selectedPaths: readonly st
   const selected = new Set(selectedPaths);
   return {
     ...plan,
-    entries: plan.entries.map((entry) => ({ ...entry, selected: selected.has(entry.path) && !entry.blocked })),
+    entries: plan.entries.map((entry) => ({
+      ...entry,
+      selected: selected.has(entry.path) && !entry.blocked,
+    })),
   };
 }
 

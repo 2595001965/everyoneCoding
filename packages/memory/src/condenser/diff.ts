@@ -40,7 +40,12 @@ interface FlatEl {
 
 /** 完整展平组件树，记录父关系 */
 function flatten(node: PageDslElement, parentId: string | null, out: FlatEl[] = []): FlatEl[] {
-  const entry: FlatEl = { id: node.id, type: node.type, featureRef: node.featureRef ?? null, parentId };
+  const entry: FlatEl = {
+    id: node.id,
+    type: node.type,
+    featureRef: node.featureRef ?? null,
+    parentId,
+  };
   if (node.bindings) entry.bindings = node.bindings;
   if (node.props) entry.props = node.props;
   out.push(entry);
@@ -65,10 +70,7 @@ function structuralSig(el: FlatEl): string {
 }
 
 /** 计算「需重算的最小子树根」：变更集中不存在已变更祖先者 */
-function computeSubtrees(
-  touched: Set<string>,
-  parentOf: (id: string) => string | null,
-): string[] {
+function computeSubtrees(touched: Set<string>, parentOf: (id: string) => string | null): string[] {
   const subtrees: string[] = [];
   for (const id of touched) {
     let cur = parentOf(id);

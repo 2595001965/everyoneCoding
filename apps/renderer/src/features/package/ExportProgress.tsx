@@ -30,13 +30,19 @@ export function ExportProgress({ snapshot }: ExportProgressProps): React.ReactEl
 
   const pct = snapshot.total > 0 ? Math.round((snapshot.processed / snapshot.total) * 100) : 0;
   const reductionPct =
-    snapshot.excludeStats !== null ? Math.round(snapshot.excludeStats.reductionRatio * 1000) / 10 : 0;
+    snapshot.excludeStats !== null
+      ? Math.round(snapshot.excludeStats.reductionRatio * 1000) / 10
+      : 0;
   const redactionCount = snapshot.redactionFindings.length;
 
   return (
     <div className="ec-export-progress" data-testid="export-progress" data-state={snapshot.stage}>
       <div className="ec-export-progress__stage">阶段：{STAGE_LABELS[snapshot.stage]}</div>
-      <Progress value={snapshot.processed} max={snapshot.total > 0 ? snapshot.total : 100} indeterminate={snapshot.total < 0} />
+      <Progress
+        value={snapshot.processed}
+        max={snapshot.total > 0 ? snapshot.total : 100}
+        indeterminate={snapshot.total < 0}
+      />
       <div className="ec-export-progress__meta">
         进度：{snapshot.processed}/{snapshot.total < 0 ? '?' : snapshot.total}（{pct}%）
       </div>
@@ -45,8 +51,8 @@ export function ExportProgress({ snapshot }: ExportProgressProps): React.ReactEl
       )}
       <div className="ec-export-progress__counts">
         对象计数：项目 {snapshot.counts.projects} · 记忆 {snapshot.counts.memoryItems} · 文档{' '}
-        {snapshot.counts.documents} · 页面 {snapshot.counts.pages} · 代码 {snapshot.counts.codeFiles} · 附件{' '}
-        {snapshot.counts.attachments}
+        {snapshot.counts.documents} · 页面 {snapshot.counts.pages} · 代码{' '}
+        {snapshot.counts.codeFiles} · 附件 {snapshot.counts.attachments}
       </div>
       {snapshot.excludeStats !== null && (
         <div className="ec-export-progress__exclude">体积下降率：{reductionPct}%</div>

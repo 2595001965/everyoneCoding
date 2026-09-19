@@ -38,7 +38,12 @@ export interface BindingPanelProps {
   onUnbind: (property: string) => void;
 }
 
-export function BindingPanel({ element, catalog, onBind, onUnbind }: BindingPanelProps): React.ReactElement {
+export function BindingPanel({
+  element,
+  catalog,
+  onBind,
+  onUnbind,
+}: BindingPanelProps): React.ReactElement {
   const bindableProps = React.useMemo(
     () => Array.from(new Set([...DEFAULT_BINDABLE_PROPS, ...Object.keys(element.bindings ?? {})])),
     [element.bindings],
@@ -47,7 +52,9 @@ export function BindingPanel({ element, catalog, onBind, onUnbind }: BindingPane
   if (catalog === undefined) {
     return (
       <div className="ec-binding-panel" data-testid="binding-panel-empty">
-        <p style={{ fontSize: 12, opacity: 0.6 }}>未提供数据源目录（需先由 T3-08 注入页面状态与接口清单）</p>
+        <p style={{ fontSize: 12, opacity: 0.6 }}>
+          未提供数据源目录（需先由 T3-08 注入页面状态与接口清单）
+        </p>
       </div>
     );
   }
@@ -59,7 +66,11 @@ export function BindingPanel({ element, catalog, onBind, onUnbind }: BindingPane
         <Tag color="info">{`${catalog.states.length} 个状态 / ${catalog.apis.length} 个接口`}</Tag>
       </header>
       {bindableProps.map((property) => (
-        <section key={property} data-testid={`binding-${property}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <section
+          key={property}
+          data-testid={`binding-${property}`}
+          style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
           <BindingPicker
             catalog={catalog}
             property={property}
@@ -74,6 +85,9 @@ export function BindingPanel({ element, catalog, onBind, onUnbind }: BindingPane
 }
 
 /** 便捷构造：由页面 DSL 推导数据源目录（供 Inspector 使用） */
-export function catalogForElement(dsl: Parameters<typeof getDataSources>[0], apiCatalog: readonly ApiDef[] = []): DataSourceCatalog {
+export function catalogForElement(
+  dsl: Parameters<typeof getDataSources>[0],
+  apiCatalog: readonly ApiDef[] = [],
+): DataSourceCatalog {
   return getDataSources(dsl, apiCatalog);
 }

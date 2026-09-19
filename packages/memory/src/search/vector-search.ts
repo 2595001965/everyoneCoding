@@ -67,10 +67,7 @@ export class VecSearcher {
   private readonly dimensions: number;
   private readonly db: Database;
 
-  constructor(
-    db: Database,
-    options: VecSearchOptions = {},
-  ) {
+  constructor(db: Database, options: VecSearchOptions = {}) {
     this.db = db;
     this.table = options.table ?? 'memory_item_vec';
     this.dimensions = options.dimensions ?? 8;
@@ -109,7 +106,10 @@ export class VecSearcher {
     }
   }
 
-  search(vector: readonly number[], options: { limit?: number; filterIds?: readonly string[] } = {}): VectorHitEx[] {
+  search(
+    vector: readonly number[],
+    options: { limit?: number; filterIds?: readonly string[] } = {},
+  ): VectorHitEx[] {
     if (!this.available) return [];
     const limit = options.limit ?? 20;
     if (vector.length !== this.dimensions) return [];
@@ -135,7 +135,10 @@ export class VecSearcher {
     }
   }
 
-  private buildFilterClause(filterIds: readonly string[] | undefined): { sql: string; params: unknown[] } {
+  private buildFilterClause(filterIds: readonly string[] | undefined): {
+    sql: string;
+    params: unknown[];
+  } {
     if (filterIds === undefined || filterIds.length === 0) return { sql: '', params: [] };
     const placeholders = filterIds.map(() => '?').join(', ');
     return { sql: ` AND id IN (${placeholders})`, params: [...filterIds] };

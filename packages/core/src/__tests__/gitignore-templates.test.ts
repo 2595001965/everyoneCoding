@@ -33,7 +33,10 @@ describe('.gitignore 模板', () => {
   });
 
   it('可关闭 EC 固定段并追加自定义规则', () => {
-    const content = renderGitignore(['go'], { includeEcSection: false, extra: ['my-ignored-dir/'] });
+    const content = renderGitignore(['go'], {
+      includeEcSection: false,
+      extra: ['my-ignored-dir/'],
+    });
     expect(content).not.toContain('.ecpkg');
     expect(content).toContain('my-ignored-dir/');
     expect(content).toContain('# ---- Go ----');

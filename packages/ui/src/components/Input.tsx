@@ -5,11 +5,10 @@ import * as React from 'react';
 import { cx } from '../cx';
 import { useControllableState } from '../_internal';
 
-export interface InputProps
-  extends Omit<
-    React.InputHTMLAttributes<HTMLInputElement>,
-    'value' | 'defaultValue' | 'onChange' | 'prefix' | 'suffix'
-  > {
+export interface InputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'value' | 'defaultValue' | 'onChange' | 'prefix' | 'suffix'
+> {
   value?: string | undefined;
   defaultValue?: string | undefined;
   onChange?: ((value: string) => void) | undefined;
@@ -46,7 +45,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
 
   return (
     <div
-      className={cx('ec-input', invalid && 'ec-input--invalid', disabled && 'ec-input--disabled', className)}
+      className={cx(
+        'ec-input',
+        invalid && 'ec-input--invalid',
+        disabled && 'ec-input--disabled',
+        className,
+      )}
     >
       {prefix && (
         <span className="ec-input__prefix" aria-hidden="true">

@@ -43,7 +43,10 @@ const TYPE_COLORS: Record<RelationNodeType, string> = {
   table: 'var(--ec-color-danger)',
 };
 
-export function RelationGraphView({ width = 800, height = 600 }: RelationGraphViewProps): JSX.Element {
+export function RelationGraphView({
+  width = 800,
+  height = 600,
+}: RelationGraphViewProps): JSX.Element {
   const api = useNavApi();
   const [graph, setGraph] = useState<RelationGraph | null>(null);
   const [types, setTypes] = useState<RelationNodeType[]>([...ALL_TYPES]);
@@ -59,7 +62,10 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
   }, [load]);
 
   /** 筛选后的图（边两端都要在） */
-  const filtered = useMemo(() => (graph === null ? null : filterGraph(graph, types)), [graph, types]);
+  const filtered = useMemo(
+    () => (graph === null ? null : filterGraph(graph, types)),
+    [graph, types],
+  );
   const layout = useMemo(
     () => (filtered === null ? null : layoutGraph(filtered, { width, height })),
     [filtered, width, height],
@@ -70,11 +76,19 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
   );
 
   const toggleType = useCallback((type: RelationNodeType) => {
-    setTypes((prev) => (prev.includes(type) ? prev.filter((item) => item !== type) : [...prev, type]));
+    setTypes((prev) =>
+      prev.includes(type) ? prev.filter((item) => item !== type) : [...prev, type],
+    );
   }, []);
 
-  const zoomIn = useCallback(() => setZoom((value) => Math.min(3, Number((value + 0.25).toFixed(2)))), []);
-  const zoomOut = useCallback(() => setZoom((value) => Math.max(0.5, Number((value - 0.25).toFixed(2)))), []);
+  const zoomIn = useCallback(
+    () => setZoom((value) => Math.min(3, Number((value + 0.25).toFixed(2)))),
+    [],
+  );
+  const zoomOut = useCallback(
+    () => setZoom((value) => Math.max(0.5, Number((value - 0.25).toFixed(2)))),
+    [],
+  );
 
   if (graph === null) return <span role="status">加载关系图谱…</span>;
 
@@ -83,10 +97,21 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
   const viewBox = `${(width - viewW) / 2} ${(height - viewH) / 2} ${viewW} ${viewH}`;
 
   return (
-    <div className="ec-relation-graph" data-testid="relation-graph-view" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="ec-relation-graph__toolbar" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div
+      className="ec-relation-graph"
+      data-testid="relation-graph-view"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
+      <div
+        className="ec-relation-graph__toolbar"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+      >
         {ALL_TYPES.map((type) => (
-          <label key={type} className="ec-relation-graph__filter" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <label
+            key={type}
+            className="ec-relation-graph__filter"
+            style={{ display: 'flex', gap: 4, alignItems: 'center' }}
+          >
             <input
               type="checkbox"
               checked={types.includes(type)}
@@ -98,11 +123,23 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
           </label>
         ))}
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={zoomOut} aria-label="缩小" data-testid="graph-zoom-out" style={btnStyle}>
+        <button
+          type="button"
+          onClick={zoomOut}
+          aria-label="缩小"
+          data-testid="graph-zoom-out"
+          style={btnStyle}
+        >
           −
         </button>
         <span data-testid="graph-zoom-value">{zoom.toFixed(2)}</span>
-        <button type="button" onClick={zoomIn} aria-label="放大" data-testid="graph-zoom-in" style={btnStyle}>
+        <button
+          type="button"
+          onClick={zoomIn}
+          aria-label="放大"
+          data-testid="graph-zoom-in"
+          style={btnStyle}
+        >
           ＋
         </button>
         <span style={{ color: 'var(--ec-color-text-secondary)' }} data-testid="graph-counts">
@@ -121,7 +158,11 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
           width={width}
           height={height}
           viewBox={viewBox}
-          style={{ border: '1px solid var(--ec-color-border)', borderRadius: 6, background: 'var(--ec-color-surface)' }}
+          style={{
+            border: '1px solid var(--ec-color-border)',
+            borderRadius: 6,
+            background: 'var(--ec-color-surface)',
+          }}
         >
           {filtered?.edges.map((edge) => {
             const from = layout.nodes.find((node) => node.id === edge.from);
@@ -133,7 +174,11 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
                 key={edge.id}
                 data-testid="relation-edge"
                 data-edge={edge.id}
-                className={isHi ? 'ec-relation-graph__edge ec-relation-graph__edge--hl' : 'ec-relation-graph__edge'}
+                className={
+                  isHi
+                    ? 'ec-relation-graph__edge ec-relation-graph__edge--hl'
+                    : 'ec-relation-graph__edge'
+                }
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
@@ -149,7 +194,11 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
             return (
               <g
                 key={node.id}
-                className={isHi ? 'ec-relation-graph__node ec-relation-graph__node--hl' : 'ec-relation-graph__node'}
+                className={
+                  isHi
+                    ? 'ec-relation-graph__node ec-relation-graph__node--hl'
+                    : 'ec-relation-graph__node'
+                }
                 data-testid="relation-node"
                 data-node={node.id}
                 data-type={node.type}
@@ -169,9 +218,13 @@ export function RelationGraphView({ width = 800, height = 600 }: RelationGraphVi
       )}
 
       {highlight !== null && (
-        <div role="status" data-testid="graph-highlight" style={{ color: 'var(--ec-color-text-secondary)' }}>
-          已高亮 {highlight.nodes.length} 个节点 / {highlight.edges.length} 条边：上游 {highlight.upstream.length} 个，下游{' '}
-          {highlight.downstream.length} 个
+        <div
+          role="status"
+          data-testid="graph-highlight"
+          style={{ color: 'var(--ec-color-text-secondary)' }}
+        >
+          已高亮 {highlight.nodes.length} 个节点 / {highlight.edges.length} 条边：上游{' '}
+          {highlight.upstream.length} 个，下游 {highlight.downstream.length} 个
         </div>
       )}
     </div>

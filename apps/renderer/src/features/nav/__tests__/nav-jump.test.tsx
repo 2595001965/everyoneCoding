@@ -53,7 +53,10 @@ describe('JumpOverlay（T6-07 跳转浮层）', () => {
 
   it('悬停时把当前文件一起交给端口（就近优先）', async () => {
     const api = createFakeNavApi();
-    renderWith(api, <JumpOverlay pageId="p1" element={SAMPLE_ELEMENT} currentFile="src/login.tsx" />);
+    renderWith(
+      api,
+      <JumpOverlay pageId="p1" element={SAMPLE_ELEMENT} currentFile="src/login.tsx" />,
+    );
 
     fireEvent.mouseEnter(anchor());
     await waitFor(() => expect(api.calls.hoverTargets).toHaveLength(1));
@@ -86,7 +89,9 @@ describe('JumpOverlay（T6-07 跳转浮层）', () => {
     expect(menu).toBeInTheDocument();
     await waitFor(() => expect(api.calls.resolveJump).toHaveLength(1));
 
-    const labels = [0, 1, 2, 3].map((layer) => screen.getByTestId(`jump-layer-${layer}`).textContent ?? '');
+    const labels = [0, 1, 2, 3].map(
+      (layer) => screen.getByTestId(`jump-layer-${layer}`).textContent ?? '',
+    );
     expect(labels[0]).toContain('Controller');
     expect(labels[1]).toContain('Service');
     expect(labels[2]).toContain('数据访问');
@@ -162,7 +167,14 @@ describe('DataFlowOverlay（T6-07 数据流）', () => {
 
     const steps = await screen.findAllByTestId(/^dataflow-step-/);
     expect(steps).toHaveLength(6);
-    expect(steps.map((step) => step.getAttribute('data-order'))).toEqual(['0', '1', '2', '3', '4', '5']);
+    expect(steps.map((step) => step.getAttribute('data-order'))).toEqual([
+      '0',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+    ]);
     expect(steps.map((step) => step.getAttribute('data-testid'))).toEqual([
       'dataflow-step-element',
       'dataflow-step-event',
@@ -187,7 +199,10 @@ describe('DataFlowOverlay（T6-07 数据流）', () => {
 
   it('未打开时不渲染任何内容', () => {
     const api = createFakeNavApi();
-    renderWith(api, <DataFlowOverlay elementId="e-login" open={false} onOpenChange={() => undefined} />);
+    renderWith(
+      api,
+      <DataFlowOverlay elementId="e-login" open={false} onOpenChange={() => undefined} />,
+    );
     expect(screen.queryByTestId('dataflow-overlay')).not.toBeInTheDocument();
   });
 });

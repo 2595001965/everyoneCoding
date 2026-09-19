@@ -24,7 +24,11 @@ export interface NavWorkspaceProps {
   currentFile?: string | null | undefined;
 }
 
-export function NavWorkspace({ pageId = '', elements = [], currentFile }: NavWorkspaceProps): JSX.Element {
+export function NavWorkspace({
+  pageId = '',
+  elements = [],
+  currentFile,
+}: NavWorkspaceProps): JSX.Element {
   const api = useNavApi();
   const [stats, setStats] = useState<JumpStats | null>(null);
   const [flowElement, setFlowElement] = useState<string | null>(null);
@@ -40,29 +44,51 @@ export function NavWorkspace({ pageId = '', elements = [], currentFile }: NavWor
   }, []);
 
   return (
-    <section className="ec-nav-workspace" aria-label="导航与跳转" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <header className="ec-nav-workspace__head" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+    <section
+      className="ec-nav-workspace"
+      aria-label="导航与跳转"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
+      <header
+        className="ec-nav-workspace__head"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+      >
         <strong>导航与跳转</strong>
         {stats !== null && (
           <span data-testid="jump-stats" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <Tag color={stats.forward.rate >= 0.95 ? 'success' : 'warning'}>
-              正跳成功率 {Math.round(stats.forward.rate * 100)}%（{stats.forward.success}/{stats.forward.total}）
+              正跳成功率 {Math.round(stats.forward.rate * 100)}%（{stats.forward.success}/
+              {stats.forward.total}）
             </Tag>
             <Tag color={stats.reverse.rate >= 0.95 ? 'success' : 'warning'}>
-              反跳成功率 {Math.round(stats.reverse.rate * 100)}%（{stats.reverse.success}/{stats.reverse.total}）
+              反跳成功率 {Math.round(stats.reverse.rate * 100)}%（{stats.reverse.success}/
+              {stats.reverse.total}）
             </Tag>
           </span>
         )}
       </header>
 
-      <div className="ec-nav-workspace__body" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+      <div
+        className="ec-nav-workspace__body"
+        style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}
+      >
         <RelationGraphView />
 
-        <aside className="ec-nav-workspace__side" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <aside
+          className="ec-nav-workspace__side"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+        >
           {elements.length === 0 ? (
-            <EmptyState title="没有可跳转的元素" description="在设计器里选中页面后，这里会列出元素并提供悬停 / Ctrl 点击跳转。" />
+            <EmptyState
+              title="没有可跳转的元素"
+              description="在设计器里选中页面后，这里会列出元素并提供悬停 / Ctrl 点击跳转。"
+            />
           ) : (
-            <ul className="ec-nav-workspace__elements" data-testid="nav-element-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ul
+              className="ec-nav-workspace__elements"
+              data-testid="nav-element-list"
+              style={{ listStyle: 'none', padding: 0, margin: 0 }}
+            >
               {elements.map((element) => (
                 <li
                   key={element.elementId}
@@ -77,7 +103,11 @@ export function NavWorkspace({ pageId = '', elements = [], currentFile }: NavWor
                   />
                   <span style={{ color: 'var(--ec-color-text-secondary)' }}>{element.type}</span>
                   <span style={{ flex: 1 }} />
-                  <Button size="sm" onClick={() => openFlow(element.elementId)} data-testid={`open-flow-${element.elementId}`}>
+                  <Button
+                    size="sm"
+                    onClick={() => openFlow(element.elementId)}
+                    data-testid={`open-flow-${element.elementId}`}
+                  >
                     数据流
                   </Button>
                 </li>

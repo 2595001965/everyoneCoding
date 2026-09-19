@@ -35,13 +35,17 @@ async function bootstrap(): Promise<void> {
     const handshake = await negotiate(shell);
     shellKind = handshake.kind;
     degraded = handshake.degraded;
-    (globalThis as unknown as { __EC_SHELL__?: unknown; __EC_AI_SETTINGS__?: unknown }).__EC_SHELL__ = shell;
+    (
+      globalThis as unknown as { __EC_SHELL__?: unknown; __EC_AI_SETTINGS__?: unknown }
+    ).__EC_SHELL__ = shell;
     if (handshake.capabilities.ai) {
       try {
         const api = await createRendererAiSettings(shell.ai);
         (globalThis as unknown as { __EC_AI_SETTINGS__?: unknown }).__EC_AI_SETTINGS__ = api;
       } catch (error) {
-        console.warn(`[bootstrap] AI 设置初始化失败：${error instanceof Error ? error.message : ''}`);
+        console.warn(
+          `[bootstrap] AI 设置初始化失败：${error instanceof Error ? error.message : ''}`,
+        );
       }
     }
     if (handshake.capabilities.domain) {
@@ -63,7 +67,9 @@ async function bootstrap(): Promise<void> {
     }
   } catch (error) {
     // 无外壳环境（纯浏览器开发）自动回退 mock
-    console.warn(`[bootstrap] 外壳创建失败，回退 mock：${error instanceof Error ? error.message : ''}`);
+    console.warn(
+      `[bootstrap] 外壳创建失败，回退 mock：${error instanceof Error ? error.message : ''}`,
+    );
   }
 
   useAppStore.getState().setShellReady(shellKind, degraded);

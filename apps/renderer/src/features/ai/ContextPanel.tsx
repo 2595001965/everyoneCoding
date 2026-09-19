@@ -59,7 +59,9 @@ export function ContextPanel({
   height = 480,
 }: ContextPanelProps): JSX.Element {
   const api = useContextPanelOptional();
-  const [selection, setSelection] = useState<ContextPanelSelection>(controlledSelection ?? emptySelection());
+  const [selection, setSelection] = useState<ContextPanelSelection>(
+    controlledSelection ?? emptySelection(),
+  );
   const [assembled, setAssembled] = useState<AssembledContext | null>(context);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +107,10 @@ export function ContextPanel({
   }, [api, context, requestKey, runAssemble]);
 
   const model: ContextPanelModel | null = useMemo(
-    () => (activeContext === null ? null : withPlaceholders(toContextPanelModel(activeContext, activeSelection))),
+    () =>
+      activeContext === null
+        ? null
+        : withPlaceholders(toContextPanelModel(activeContext, activeSelection)),
     [activeContext, activeSelection],
   );
 
@@ -132,8 +137,14 @@ export function ContextPanel({
   }
 
   return (
-    <section className="ec-context-panel" aria-label="上下文面板" data-total-tokens={model?.totalTokens ?? 0}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+    <section
+      className="ec-context-panel"
+      aria-label="上下文面板"
+      data-total-tokens={model?.totalTokens ?? 0}
+    >
+      <header
+        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}
+      >
         <strong style={{ fontSize: 13 }}>本次将提交的上下文</strong>
         {model !== null && <Tag color="info">{`${model.totalTokens} / ${model.budget} token`}</Tag>}
         {model !== null && <Tag color="neutral">{`利用率 ${model.usagePercent}%`}</Tag>}
@@ -164,11 +175,18 @@ export function ContextPanel({
       )}
 
       {model === null ? (
-        <EmptyState title={loading ? '正在组装上下文…' : '尚未组装'} description="选择元素并生成时会自动组装，也可手动触发。" />
+        <EmptyState
+          title={loading ? '正在组装上下文…' : '尚未组装'}
+          description="选择元素并生成时会自动组装，也可手动触发。"
+        />
       ) : (
         <div className="ec-context-panel__body" style={{ maxHeight: height, overflow: 'auto' }}>
           {model.warnings.length > 0 && (
-            <ul className="ec-context-panel__warnings" data-testid="ec-context-warnings" style={{ margin: '0 0 8px', paddingLeft: 18, fontSize: 12 }}>
+            <ul
+              className="ec-context-panel__warnings"
+              data-testid="ec-context-warnings"
+              style={{ margin: '0 0 8px', paddingLeft: 18, fontSize: 12 }}
+            >
               {model.warnings.map((warning) => (
                 <li key={warning} style={{ color: '#b45309' }}>
                   {warning}
@@ -178,7 +196,10 @@ export function ContextPanel({
           )}
 
           {model.blocks.length === 0 && (
-            <EmptyState title="没有可提交的上下文" description="所有块都被取消勾选或没有数据；生成质量会明显下降。" />
+            <EmptyState
+              title="没有可提交的上下文"
+              description="所有块都被取消勾选或没有数据；生成质量会明显下降。"
+            />
           )}
 
           {model.allBlocks.map((block) => (
@@ -186,7 +207,9 @@ export function ContextPanel({
               key={block.id}
               block={block}
               onToggle={(id: ContextBlockId) => updateSelection(toggleBlock(activeSelection, id))}
-              onEdit={(id, text, original) => updateSelection(setBlockOverride(activeSelection, id, text, original))}
+              onEdit={(id, text, original) =>
+                updateSelection(setBlockOverride(activeSelection, id, text, original))
+              }
               {...(onOpenNote !== undefined ? { onOpenNote } : {})}
             />
           ))}
@@ -209,7 +232,11 @@ export function ContextPanel({
           )}
 
           {(model.noteIds.length > 0 || model.memoryIds.length > 0) && (
-            <footer className="ec-context-panel__refs" data-testid="ec-context-refs" style={{ marginTop: 8, fontSize: 12 }}>
+            <footer
+              className="ec-context-panel__refs"
+              data-testid="ec-context-refs"
+              style={{ marginTop: 8, fontSize: 12 }}
+            >
               {model.noteIds.length > 0 && (
                 <div>
                   <span>已注入备注：</span>
@@ -231,7 +258,10 @@ export function ContextPanel({
               {tokenDistributionRows(model)
                 .filter((row) => row.tokens > 0)
                 .map((row) => (
-                  <div key={row.id} data-row-tokens={row.tokens}>{`${row.label}：${row.tokens} token（${row.percent}%）`}</div>
+                  <div
+                    key={row.id}
+                    data-row-tokens={row.tokens}
+                  >{`${row.label}：${row.tokens} token（${row.percent}%）`}</div>
                 ))}
             </div>
           )}

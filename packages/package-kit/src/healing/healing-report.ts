@@ -26,23 +26,31 @@ export function buildHealingReport(inputs: HealingInputs): HealingReport {
   const fixedLinks = inputs.links.filter((l) => l.status === 'fixed').length;
   const unresolvableLinks = inputs.links.filter((l) => l.status === 'unresolvable').length;
   const missingAttachments = inputs.attachmentIssues.filter((i) => i.status === 'missing').length;
-  const corruptedAttachments = inputs.attachmentIssues.filter((i) => i.status === 'corrupted').length;
+  const corruptedAttachments = inputs.attachmentIssues.filter(
+    (i) => i.status === 'corrupted',
+  ).length;
 
   const suggestions: string[] = [];
   if (anchorsAmbiguous > 0) {
     suggestions.push(`有 ${anchorsAmbiguous} 个锚点存在多个疑似位置，请在锚点面板逐一确认候选`);
   }
   if (anchorsMissing > 0) {
-    suggestions.push(`有 ${anchorsMissing} 个锚点彻底丢失（符号与注释标记都不在），建议重新生成对应代码或删除失效锚点`);
+    suggestions.push(
+      `有 ${anchorsMissing} 个锚点彻底丢失（符号与注释标记都不在），建议重新生成对应代码或删除失效锚点`,
+    );
   }
   if (unresolvableLinks > 0) {
     suggestions.push(`有 ${unresolvableLinks} 条关联无法自动修复，请在记忆中心手动重新关联`);
   }
   if (missingAttachments > 0) {
-    suggestions.push(`有 ${missingAttachments} 个附件缺失，可从原设备导出包或本地其他位置补齐后重新校验`);
+    suggestions.push(
+      `有 ${missingAttachments} 个附件缺失，可从原设备导出包或本地其他位置补齐后重新校验`,
+    );
   }
   if (corruptedAttachments > 0) {
-    suggestions.push(`有 ${corruptedAttachments} 个附件内容校验失败（哈希不符），建议删除后从可靠副本重新导入`);
+    suggestions.push(
+      `有 ${corruptedAttachments} 个附件内容校验失败（哈希不符），建议删除后从可靠副本重新导入`,
+    );
   }
   if (suggestions.length === 0) {
     suggestions.push('自愈完成：未发现需要人工处理的问题');
@@ -102,22 +110,32 @@ export function healingReportToMarkdown(report: HealingReport): string {
       outcome.status === 'relocated' && outcome.newFilePath !== null
         ? `${outcome.oldFilePath} → ${outcome.newFilePath}:${outcome.newStartLine ?? '?'}`
         : outcome.oldFilePath;
-    lines.push(`- [${STATUS_LABELS[outcome.status]}] ${outcome.symbol ?? '(无符号)'} @ ${location} — ${outcome.reason}`);
+    lines.push(
+      `- [${STATUS_LABELS[outcome.status]}] ${outcome.symbol ?? '(无符号)'} @ ${location} — ${outcome.reason}`,
+    );
   }
   lines.push('');
   lines.push('## 关联修复');
   lines.push('');
-  lines.push(`- 自动修复 ${report.links.fixedCount} 条，无法自动修复 ${report.links.unresolvableCount} 条`);
+  lines.push(
+    `- 自动修复 ${report.links.fixedCount} 条，无法自动修复 ${report.links.unresolvableCount} 条`,
+  );
   for (const outcome of report.links.outcomes) {
     if (outcome.status === 'ok') continue;
-    lines.push(`- [${LINK_STATUS_LABELS[outcome.status]}] ${outcome.sourceType}/${outcome.sourceId} → ${outcome.targetType}/${outcome.targetId}：${outcome.detail}`);
+    lines.push(
+      `- [${LINK_STATUS_LABELS[outcome.status]}] ${outcome.sourceType}/${outcome.sourceId} → ${outcome.targetType}/${outcome.targetId}：${outcome.detail}`,
+    );
   }
   lines.push('');
   lines.push('## 附件清点');
   lines.push('');
-  lines.push(`- 检查 ${report.attachments.checked} 个，问题 ${report.attachments.issues.length} 个`);
+  lines.push(
+    `- 检查 ${report.attachments.checked} 个，问题 ${report.attachments.issues.length} 个`,
+  );
   for (const issue of report.attachments.issues) {
-    lines.push(`- [${issue.status === 'missing' ? '缺失' : '损坏'}] ${issue.hashName}：${issue.detail}`);
+    lines.push(
+      `- [${issue.status === 'missing' ? '缺失' : '损坏'}] ${issue.hashName}：${issue.detail}`,
+    );
   }
   lines.push('');
   lines.push('## 建议操作');

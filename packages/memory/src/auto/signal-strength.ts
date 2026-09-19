@@ -100,7 +100,9 @@ export function assessSignal(input: {
   const hasImperative = matched.length > 0;
   const base = clamp01(input.baseConfidence ?? 0.5);
   const occurrences = Math.max(1, Math.floor(input.occurrences));
-  const confidence = clamp01(base + 0.4 * Math.max(0, occurrences - 1) + 0.4 * (hasImperative ? 1 : 0));
+  const confidence = clamp01(
+    base + 0.4 * Math.max(0, occurrences - 1) + 0.4 * (hasImperative ? 1 : 0),
+  );
   return {
     confidence,
     level: levelOf(confidence),

@@ -105,14 +105,12 @@ export function RegisterForm({ onRegistered, onSwitchToLogin }: RegisterFormProp
         />
       </label>
 
-      <Checkbox
-        checked={rememberMe}
-        onChange={setRememberMe}
-        label="记住我（最多 30 天）"
-      />
+      <Checkbox checked={rememberMe} onChange={setRememberMe} label="记住我（最多 30 天）" />
 
       {error ? <p className="ec-auth__error">{error}</p> : null}
-      {verificationSent ? <p className="ec-auth__hint">验证邮件已发送，未验证也可直接使用。</p> : null}
+      {verificationSent ? (
+        <p className="ec-auth__hint">验证邮件已发送，未验证也可直接使用。</p>
+      ) : null}
 
       <Button type="submit" variant="primary" fullWidth loading={busy} disabled={!canSubmit}>
         注册并进入工作台

@@ -115,7 +115,12 @@ export function enforceTokenBudget(
     const info = work.elementIndex[id];
     if (!info) continue;
     if ((depths.get(id) ?? 0) >= 3) {
-      work.elementIndex[id] = { type: info.type, parentId: info.parentId, boundProps: [], featureRef: info.featureRef };
+      work.elementIndex[id] = {
+        type: info.type,
+        parentId: info.parentId,
+        boundProps: [],
+        featureRef: info.featureRef,
+      };
     }
   }
   reestimate();
@@ -134,7 +139,10 @@ export function enforceTokenBudget(
 
   // ④ 最后截断 blocks
   if (tokens.tokens > budget) {
-    work = { ...work, blocks: work.blocks.slice(0, Math.max(1, Math.floor(work.blocks.length / 2))) };
+    work = {
+      ...work,
+      blocks: work.blocks.slice(0, Math.max(1, Math.floor(work.blocks.length / 2))),
+    };
     reestimate();
   }
 

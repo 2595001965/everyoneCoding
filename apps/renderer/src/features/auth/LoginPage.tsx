@@ -6,7 +6,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Checkbox, Input, Tabs } from '@ec/ui';
-import { AUTH_PROVIDER_LABELS, OfflineError, type AuthSession, type OAuthProvider } from '@ec/account';
+import {
+  AUTH_PROVIDER_LABELS,
+  OfflineError,
+  type AuthSession,
+  type OAuthProvider,
+} from '@ec/account';
 
 import { OfflineBanner } from './OfflineBanner';
 import { RegisterForm } from './RegisterForm';
@@ -87,7 +92,13 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
                 <h2 className="ec-auth__form-title">登录账号</h2>
                 <label className="ec-auth__field">
                   <span>邮箱</span>
-                  <Input value={email} onChange={setEmail} placeholder="you@example.com" aria-label="登录邮箱" disabled={offline} />
+                  <Input
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="you@example.com"
+                    aria-label="登录邮箱"
+                    disabled={offline}
+                  />
                 </label>
                 <label className="ec-auth__field">
                   <span>密码</span>
@@ -100,28 +111,54 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
                     disabled={offline}
                   />
                 </label>
-                <Checkbox checked={rememberMe} onChange={setRememberMe} label="记住我（最多 30 天）" disabled={offline} />
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={setRememberMe}
+                  label="记住我（最多 30 天）"
+                  disabled={offline}
+                />
                 {error ? <p className="ec-auth__error">{error}</p> : null}
-                <Button type="submit" variant="primary" fullWidth loading={busy} disabled={offline || !email || !password}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  fullWidth
+                  loading={busy}
+                  disabled={offline || !email || !password}
+                >
                   登录
                 </Button>
 
                 <div className="ec-auth__divider">其它登录方式</div>
                 <div className="ec-auth__providers">
-                  <Button variant="secondary" disabled={offline} onClick={() => setQrOpen((prev) => !prev)}>
+                  <Button
+                    variant="secondary"
+                    disabled={offline}
+                    onClick={() => setQrOpen((prev) => !prev)}
+                  >
                     {AUTH_PROVIDER_LABELS.wechat}扫码
                   </Button>
-                  <Button variant="secondary" disabled={offline} onClick={() => void startOAuth('google')}>
+                  <Button
+                    variant="secondary"
+                    disabled={offline}
+                    onClick={() => void startOAuth('google')}
+                  >
                     {AUTH_PROVIDER_LABELS.google} 登录
                   </Button>
-                  <Button variant="secondary" disabled={offline} onClick={() => void startOAuth('github')}>
+                  <Button
+                    variant="secondary"
+                    disabled={offline}
+                    onClick={() => void startOAuth('github')}
+                  >
                     {AUTH_PROVIDER_LABELS.github} 登录
                   </Button>
                 </div>
                 {qrOpen ? <WechatQR onConfirmed={() => undefined} /> : null}
               </form>
             ) : (
-              <RegisterForm onRegistered={onAuthenticated} onSwitchToLogin={() => setTab('login')} />
+              <RegisterForm
+                onRegistered={onAuthenticated}
+                onSwitchToLogin={() => setTab('login')}
+              />
             )
           }
         />

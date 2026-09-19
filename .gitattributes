@@ -13,3 +13,18 @@
 
 # 锁定文件一律不参与 diff 与语言统计
 pnpm-lock.yaml -diff linguist-generated
+
+# 源码与文档：检出时强制 LF
+#
+# prettier 配置的 endOfLine 为 "lf"，CI 的 `pnpm format:check` 会逐个文件比对。
+# 这些扩展名若不钉住，Windows 上 core.autocrlf=true 会把检出内容改成 CRLF，
+# 于是**每个文件**都被判为"格式不合规"——与代码无关的假红。
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mts text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

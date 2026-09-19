@@ -30,8 +30,9 @@ export function useFocusTrap(active: boolean, initialFocusSelector?: string) {
 
     const focusables = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
     const initial =
-      (initialFocusSelector !== undefined ? container.querySelector<HTMLElement>(initialFocusSelector) : null) ??
-      focusables()[0];
+      (initialFocusSelector !== undefined
+        ? container.querySelector<HTMLElement>(initialFocusSelector)
+        : null) ?? focusables()[0];
     initial?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -55,7 +56,14 @@ export function useFocusTrap(active: boolean, initialFocusSelector?: string) {
   return containerRef;
 }
 
-export function Modal({ open, title, onClose, children, footer, initialFocusSelector }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  initialFocusSelector,
+}: ModalProps) {
   const titleId = useId();
   const trapRef = useFocusTrap(open, initialFocusSelector);
 
@@ -73,13 +81,27 @@ export function Modal({ open, title, onClose, children, footer, initialFocusSele
   if (host === null) return null;
 
   return createPortal(
-    <div className="ec-modal__backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="ec-modal">
+    <div
+      className="ec-modal__backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="ec-modal"
+      >
         <header className="ec-modal__header">
           <h2 id={titleId} className="ec-modal__title">
             {title}
           </h2>
-          <button type="button" className="ec-modal__close" aria-label="关闭对话框" onClick={onClose}>
+          <button
+            type="button"
+            className="ec-modal__close"
+            aria-label="关闭对话框"
+            onClick={onClose}
+          >
             ×
           </button>
         </header>
@@ -121,7 +143,10 @@ export function Drawer({ open, title, onClose, children, side = 'right' }: Drawe
   if (host === null) return null;
 
   return createPortal(
-    <div className="ec-drawer__backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div
+      className="ec-drawer__backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
       <aside
         ref={trapRef}
         role="dialog"
@@ -133,7 +158,12 @@ export function Drawer({ open, title, onClose, children, side = 'right' }: Drawe
           <h2 id={titleId} className="ec-drawer__title">
             {title}
           </h2>
-          <button type="button" className="ec-drawer__close" aria-label="关闭侧栏" onClick={onClose}>
+          <button
+            type="button"
+            className="ec-drawer__close"
+            aria-label="关闭侧栏"
+            onClick={onClose}
+          >
             ×
           </button>
         </header>
@@ -250,14 +280,22 @@ export function Menu({
   return (
     <ul role="menu" className={cx('ec-menu', className)}>
       {items.map((item, index) => (
-        <li key={item.key} role="none" className={item.separatorBefore ? 'ec-menu__sep' : undefined}>
+        <li
+          key={item.key}
+          role="none"
+          className={item.separatorBefore ? 'ec-menu__sep' : undefined}
+        >
           {item.separatorBefore ? null : null}
           <button
             type="button"
             role="menuitem"
             disabled={item.disabled}
             aria-disabled={item.disabled}
-            className={cx('ec-menu__item', activeIndex === index && 'ec-menu__item--active', item.danger && 'ec-menu__item--danger')}
+            className={cx(
+              'ec-menu__item',
+              activeIndex === index && 'ec-menu__item--active',
+              item.danger && 'ec-menu__item--danger',
+            )}
             onMouseEnter={() => onHover(index)}
             onClick={() => !item.disabled && item.onSelect?.()}
           >
@@ -275,7 +313,9 @@ export function useMenuKeyboard(items: MenuItem[], onClose: () => void) {
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      const selectable = items.map((item, index) => (item.disabled ? -1 : index)).filter((index) => index >= 0);
+      const selectable = items
+        .map((item, index) => (item.disabled ? -1 : index))
+        .filter((index) => index >= 0);
       const position = selectable.indexOf(activeIndex);
       if (event.key === 'ArrowDown') {
         event.preventDefault();
@@ -283,7 +323,8 @@ export function useMenuKeyboard(items: MenuItem[], onClose: () => void) {
         setActiveIndex(next);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        const prev = selectable[(Math.max(0, position) - 1 + selectable.length) % selectable.length] ?? 0;
+        const prev =
+          selectable[(Math.max(0, position) - 1 + selectable.length) % selectable.length] ?? 0;
         setActiveIndex(prev);
       } else if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
@@ -304,7 +345,11 @@ export function useMenuKeyboard(items: MenuItem[], onClose: () => void) {
 }
 
 export interface DropdownMenuProps {
-  trigger: (props: { ref: React.RefObject<HTMLButtonElement | null>; onClick: () => void; 'aria-expanded': boolean }) => React.ReactElement;
+  trigger: (props: {
+    ref: React.RefObject<HTMLButtonElement | null>;
+    onClick: () => void;
+    'aria-expanded': boolean;
+  }) => React.ReactElement;
   items: MenuItem[];
 }
 
@@ -322,11 +367,7 @@ export function DropdownMenu({ trigger, items }: DropdownMenuProps) {
       })}
       {open ? (
         <div onKeyDown={onKeyDown} className="ec-dropdown" style={{ position: 'relative' }}>
-          <Menu
-            items={items}
-            activeIndex={activeIndex}
-            onHover={setActiveIndex}
-          />
+          <Menu items={items} activeIndex={activeIndex} onHover={setActiveIndex} />
         </div>
       ) : null}
     </>
@@ -354,7 +395,12 @@ export function ContextMenu({ at, items, onClose }: ContextMenuProps) {
   return (
     <div
       className="ec-contextmenu"
-      style={{ position: 'fixed', left: at.x, top: at.y, zIndex: 'var(--ec-z-popover)' as unknown as number }}
+      style={{
+        position: 'fixed',
+        left: at.x,
+        top: at.y,
+        zIndex: 'var(--ec-z-popover)' as unknown as number,
+      }}
       onKeyDown={onKeyDown}
     >
       <Menu items={items} activeIndex={activeIndex} onHover={setActiveIndex} />
@@ -413,7 +459,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         ? createPortal(
             <div className="ec-toast-region" aria-live="polite" aria-atomic="false">
               {items.map((item) => (
-                <div key={item.id} role="status" className={cx('ec-toast', `ec-toast--${item.tone}`)}>
+                <div
+                  key={item.id}
+                  role="status"
+                  className={cx('ec-toast', `ec-toast--${item.tone}`)}
+                >
                   <span className="ec-toast__message">{item.message}</span>
                   <button
                     type="button"
@@ -463,7 +513,12 @@ export interface CommandPaletteProps {
   placeholder?: string;
 }
 
-export function CommandPalette({ open, onClose, commands, placeholder = '搜索命令…' }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onClose,
+  commands,
+  placeholder = '搜索命令…',
+}: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -474,7 +529,10 @@ export function CommandPalette({ open, onClose, commands, placeholder = '搜索�
     return commands
       .map((command) => ({
         command,
-        s: Math.max(score(q, command.title.toLowerCase()), (command.group ?? '').toLowerCase().includes(q) ? 40 : 0),
+        s: Math.max(
+          score(q, command.title.toLowerCase()),
+          (command.group ?? '').toLowerCase().includes(q) ? 40 : 0,
+        ),
       }))
       .filter((item) => item.s > 0)
       .sort((a, b) => b.s - a.s)
@@ -499,7 +557,10 @@ export function CommandPalette({ open, onClose, commands, placeholder = '搜索�
   if (host === null) return null;
 
   return createPortal(
-    <div className="ec-cmdk__backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div
+      className="ec-cmdk__backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
       <div
         role="dialog"
         aria-modal="true"
@@ -549,7 +610,10 @@ export function CommandPalette({ open, onClose, commands, placeholder = '搜索�
                   id={`ec-cmdk-option-${index}`}
                   role="option"
                   aria-selected={index === activeIndex}
-                  className={cx('ec-cmdk__option', index === activeIndex && 'ec-cmdk__option--active')}
+                  className={cx(
+                    'ec-cmdk__option',
+                    index === activeIndex && 'ec-cmdk__option--active',
+                  )}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => {
                     item.run();
@@ -557,8 +621,12 @@ export function CommandPalette({ open, onClose, commands, placeholder = '搜索�
                   }}
                 >
                   <span className="ec-cmdk__title">{item.title}</span>
-                  {item.group !== undefined ? <span className="ec-cmdk__group">{item.group}</span> : null}
-                  {item.shortcut !== undefined ? <kbd className="ec-cmdk__kbd">{item.shortcut}</kbd> : null}
+                  {item.group !== undefined ? (
+                    <span className="ec-cmdk__group">{item.group}</span>
+                  ) : null}
+                  {item.shortcut !== undefined ? (
+                    <kbd className="ec-cmdk__kbd">{item.shortcut}</kbd>
+                  ) : null}
                 </div>
               );
             })}

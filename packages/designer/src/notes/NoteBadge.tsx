@@ -37,7 +37,12 @@ export function describeNoteBadge(info: NoteBadgeInfo): string {
   return `备注 ${info.count} 条（${labels}）${info.hasMustFollow ? '，含禁止事项' : ''}`;
 }
 
-export function NoteBadge({ info, size = 'sm', onClick, className }: NoteBadgeProps): React.ReactElement {
+export function NoteBadge({
+  info,
+  size = 'sm',
+  onClick,
+  className,
+}: NoteBadgeProps): React.ReactElement {
   const meta = NOTE_TYPE_META[dominantType(info.types)];
   const interactive = onClick !== undefined;
   const dimension = size === 'sm' ? 16 : 20;
@@ -63,7 +68,9 @@ export function NoteBadge({ info, size = 'sm', onClick, className }: NoteBadgePr
 
   return (
     <span
-      className={['ec-note-badge', `ec-note-badge--${metaColorKey(meta.label)}`, className].filter(Boolean).join(' ')}
+      className={['ec-note-badge', `ec-note-badge--${metaColorKey(meta.label)}`, className]
+        .filter(Boolean)
+        .join(' ')}
       data-note-badge={info.count}
       data-note-must-follow={info.hasMustFollow ? 'true' : 'false'}
       style={style}

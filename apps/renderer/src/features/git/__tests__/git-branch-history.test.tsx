@@ -26,11 +26,69 @@ function sampleGraph(): BranchGraphModel {
     forks: ['c'],
     merges: ['c'],
     nodes: [
-      { sha: 'a', subject: 'head commit', authorName: '小吴', authoredAt: 3, lane: 0, parents: [{ sha: 'c', lane: 0 }], branches: ['main'], tags: [], isHead: true, isMerge: false },
-      { sha: 'b', subject: 'side commit', authorName: '小吴', authoredAt: 2, lane: 1, parents: [{ sha: 'c', lane: 0 }], branches: ['feat/login'], tags: ['v0.1.0'], isHead: false, isMerge: false },
-      { sha: 'c', subject: 'merge commit', authorName: '主人', authoredAt: 1, lane: 0, parents: [{ sha: 'd', lane: 0 }, { sha: 'e', lane: 1 }], branches: [], tags: [], isHead: false, isMerge: true },
-      { sha: 'd', subject: 'base one', authorName: '主人', authoredAt: 0, lane: 0, parents: [], branches: [], tags: [], isHead: false, isMerge: false },
-      { sha: 'e', subject: 'base two', authorName: '主人', authoredAt: 0, lane: 1, parents: [], branches: [], tags: [], isHead: false, isMerge: false },
+      {
+        sha: 'a',
+        subject: 'head commit',
+        authorName: '小吴',
+        authoredAt: 3,
+        lane: 0,
+        parents: [{ sha: 'c', lane: 0 }],
+        branches: ['main'],
+        tags: [],
+        isHead: true,
+        isMerge: false,
+      },
+      {
+        sha: 'b',
+        subject: 'side commit',
+        authorName: '小吴',
+        authoredAt: 2,
+        lane: 1,
+        parents: [{ sha: 'c', lane: 0 }],
+        branches: ['feat/login'],
+        tags: ['v0.1.0'],
+        isHead: false,
+        isMerge: false,
+      },
+      {
+        sha: 'c',
+        subject: 'merge commit',
+        authorName: '主人',
+        authoredAt: 1,
+        lane: 0,
+        parents: [
+          { sha: 'd', lane: 0 },
+          { sha: 'e', lane: 1 },
+        ],
+        branches: [],
+        tags: [],
+        isHead: false,
+        isMerge: true,
+      },
+      {
+        sha: 'd',
+        subject: 'base one',
+        authorName: '主人',
+        authoredAt: 0,
+        lane: 0,
+        parents: [],
+        branches: [],
+        tags: [],
+        isHead: false,
+        isMerge: false,
+      },
+      {
+        sha: 'e',
+        subject: 'base two',
+        authorName: '主人',
+        authoredAt: 0,
+        lane: 1,
+        parents: [],
+        branches: [],
+        tags: [],
+        isHead: false,
+        isMerge: false,
+      },
     ],
   };
 }
@@ -105,8 +163,8 @@ describe('BranchGraph（T6-03 提交图）', () => {
     const svg = screen.getByTestId('branch-graph');
     expect(svg.tagName.toLowerCase()).toBe('svg');
 
-    const nodeXs = [...container.querySelectorAll('[data-testid="graph-node"] circle[r="5"]')].map((circle) =>
-      circle.getAttribute('cx'),
+    const nodeXs = [...container.querySelectorAll('[data-testid="graph-node"] circle[r="5"]')].map(
+      (circle) => circle.getAttribute('cx'),
     );
     expect(nodeXs.length).toBe(5);
     expect(new Set(nodeXs).size).toBeGreaterThanOrEqual(2);
@@ -227,14 +285,18 @@ describe('HistoryFilter + HistoryTimeline（T6-03 历史）', () => {
       </GitApiProvider>,
     );
 
-    await waitFor(() => expect(container.querySelectorAll('[data-testid="history-row"]').length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(container.querySelectorAll('[data-testid="history-row"]').length).toBeGreaterThan(0),
+    );
 
     const rows = container.querySelectorAll('[data-testid="history-row"]').length;
     expect(rows).toBeLessThan(100);
     expect(rows).toBeGreaterThan(0);
 
     await waitFor(() => {
-      const measured = info.mock.calls.map((call) => String(call[0])).find((line) => line.includes('[T6-03]'));
+      const measured = info.mock.calls
+        .map((call) => String(call[0]))
+        .find((line) => line.includes('[T6-03]'));
       expect(measured).toBeDefined();
       expect(measured).toMatch(/\d+\.\d ms|\d ms|\d+\.\dms/);
       // 把实测口径写进测试输出，便于验收时直接取证

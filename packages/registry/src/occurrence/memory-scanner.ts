@@ -64,7 +64,10 @@ export function collectStructuredLeaves(value: unknown, prefix = ''): Structured
 }
 
 /** 符号集合（规范名 + 八类投影 → 投影类型） */
-function symbolIndex(canonicalName: string, projections: Partial<Record<ProjectionKind, string>>): Map<string, ProjectionKind | null> {
+function symbolIndex(
+  canonicalName: string,
+  projections: Partial<Record<ProjectionKind, string>>,
+): Map<string, ProjectionKind | null> {
   const map = new Map<string, ProjectionKind | null>();
   if (canonicalName.length > 0) map.set(canonicalName, null);
   for (const kind of PROJECTION_KINDS) {

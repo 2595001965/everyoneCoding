@@ -7,7 +7,10 @@ import { layerOf } from '../domain/scope';
 /** 固定时间戳，保证裁决稳定可复现 */
 const T0 = 1_700_000_000_000;
 
-function make(input: Partial<CreateMemoryInput> & Pick<CreateMemoryInput, 'scope' | 'title'>, offset = 0): MemoryItem {
+function make(
+  input: Partial<CreateMemoryInput> & Pick<CreateMemoryInput, 'scope' | 'title'>,
+  offset = 0,
+): MemoryItem {
   return createMemoryItem({
     userId: 'U1',
     createdAt: T0 + offset,
@@ -22,10 +25,37 @@ describe('resolveContext 继承链', () => {
     const items: MemoryItem[] = [
       make({ scope: 'longterm', title: '全局命名规范', content: '小驼峰' }, 1),
       make({ scope: 'project', projectId: 'P1', title: '项目架构', content: 'React + NestJS' }, 2),
-      make({ scope: 'feature', projectId: 'P1', featureId: 'F1', title: '用户登录', content: '手机号 + 密码' }, 3),
-      make({ scope: 'page', projectId: 'P1', featureId: 'F1', pageId: 'PG1', title: '登录页 /login', content: '卡片式' }, 4),
       make(
-        { scope: 'page', projectId: 'P1', featureId: 'F1', pageId: 'PG1', elementId: 'E1', title: '提交按钮', content: 'loading 防重复提交' },
+        {
+          scope: 'feature',
+          projectId: 'P1',
+          featureId: 'F1',
+          title: '用户登录',
+          content: '手机号 + 密码',
+        },
+        3,
+      ),
+      make(
+        {
+          scope: 'page',
+          projectId: 'P1',
+          featureId: 'F1',
+          pageId: 'PG1',
+          title: '登录页 /login',
+          content: '卡片式',
+        },
+        4,
+      ),
+      make(
+        {
+          scope: 'page',
+          projectId: 'P1',
+          featureId: 'F1',
+          pageId: 'PG1',
+          elementId: 'E1',
+          title: '提交按钮',
+          content: 'loading 防重复提交',
+        },
         5,
       ),
     ];
@@ -46,8 +76,21 @@ describe('resolveContext 继承链', () => {
   it('范围外的条目（其他项目 / 其他页面 / 其他元素）被排除', () => {
     const other: MemoryItem[] = [
       make({ scope: 'project', projectId: 'P2', title: '别的项目' }, 1),
-      make({ scope: 'page', projectId: 'P1', featureId: 'F1', pageId: 'PG9', title: '别的页面' }, 2),
-      make({ scope: 'page', projectId: 'P1', featureId: 'F1', pageId: 'PG1', elementId: 'E9', title: '别的元素' }, 3),
+      make(
+        { scope: 'page', projectId: 'P1', featureId: 'F1', pageId: 'PG9', title: '别的页面' },
+        2,
+      ),
+      make(
+        {
+          scope: 'page',
+          projectId: 'P1',
+          featureId: 'F1',
+          pageId: 'PG1',
+          elementId: 'E9',
+          title: '别的元素',
+        },
+        3,
+      ),
     ];
     for (const item of other) expect(isRelevantTo(item, REF)).toBe(false);
     expect(resolveInheritance(other, REF).candidates).toHaveLength(0);
@@ -60,9 +103,31 @@ describe('同名/同键冲突：下层覆盖上层且可溯源', () => {
   it('长期 + 项目 + 功能 + 页面 四层同时命中同标题时，仅最下层生效并给出三条溯源', () => {
     const items: MemoryItem[] = [
       make({ scope: 'longterm', title: '命名规范', content: '长期：小驼峰' }, 1),
-      make({ scope: 'project', projectId: 'P1', title: '命名规范', content: '项目：大驼峰组件' }, 2),
-      make({ scope: 'feature', projectId: 'P1', featureId: 'F1', title: '命名规范', content: '功能：接口用 kebab' }, 3),
-      make({ scope: 'page', projectId: 'P1', featureId: 'F1', pageId: 'PG1', title: '命名规范', content: '页面：按钮用 btn 前缀' }, 4),
+      make(
+        { scope: 'project', projectId: 'P1', title: '命名规范', content: '项目：大驼峰组件' },
+        2,
+      ),
+      make(
+        {
+          scope: 'feature',
+          projectId: 'P1',
+          featureId: 'F1',
+          title: '命名规范',
+          content: '功能：接口用 kebab',
+        },
+        3,
+      ),
+      make(
+        {
+          scope: 'page',
+          projectId: 'P1',
+          featureId: 'F1',
+          pageId: 'PG1',
+          title: '命名规范',
+          content: '页面：按钮用 btn 前缀',
+        },
+        4,
+      ),
     ];
 
     const resolved = resolveInheritance(items, REF);
@@ -84,7 +149,11 @@ describe('同名/同键冲突：下层覆盖上层且可溯源', () => {
       expect(trace.loserTitle).toBe('命名规范');
       expect(trace.sameLayer).toBe(false);
     }
-    expect(resolved.conflicts.map((trace) => trace.loserLayer).sort()).toEqual(['feature', 'longterm', 'project']);
+    expect(resolved.conflicts.map((trace) => trace.loserLayer).sort()).toEqual([
+      'feature',
+      'longterm',
+      'project',
+    ]);
     expect(resolved.conflicts.map((trace) => trace.loserValue).sort()).toEqual([
       '功能：接口用 kebab',
       '长期：小驼峰',
@@ -128,7 +197,11 @@ describe('同名/同键冲突：下层覆盖上层且可溯源', () => {
     expect(resolved.conflicts[0]?.winnerValue).toBe(4);
     expect(resolved.conflicts[0]?.loserValue).toBe(2);
     expect(resolved.pathOverrides).toEqual([
-      { itemId: resolved.conflicts[0]!.loserId, paths: ['indent'], by: resolved.conflicts[0]!.winnerId },
+      {
+        itemId: resolved.conflicts[0]!.loserId,
+        paths: ['indent'],
+        by: resolved.conflicts[0]!.winnerId,
+      },
     ]);
   });
 
@@ -163,7 +236,9 @@ describe('同名/同键冲突：下层覆盖上层且可溯源', () => {
     const first = resolveInheritance(items, REF);
     const second = resolveInheritance([...items].reverse(), REF);
     expect(first.effective.map((item) => item.id)).toEqual(second.effective.map((item) => item.id));
-    expect(first.conflicts.map((trace) => trace.winnerId)).toEqual(second.conflicts.map((trace) => trace.winnerId));
+    expect(first.conflicts.map((trace) => trace.winnerId)).toEqual(
+      second.conflicts.map((trace) => trace.winnerId),
+    );
   });
 });
 

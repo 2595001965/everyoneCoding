@@ -62,10 +62,14 @@ describe('请求体与响应解析（纯函数）', () => {
     expect(without.dimensions).toBeUndefined();
     expect(without.encoding_format).toBe('float');
 
-    const withDims = JSON.parse(buildOpenAiEmbeddingBody('text-embed', ['a'], 128)) as { dimensions?: number };
+    const withDims = JSON.parse(buildOpenAiEmbeddingBody('text-embed', ['a'], 128)) as {
+      dimensions?: number;
+    };
     expect(withDims.dimensions).toBe(128);
     // null 与 undefined 同样省略（exactOptionalPropertyTypes 口径）
-    expect(JSON.parse(buildOpenAiEmbeddingBody('m', ['a'], null))as { dimensions?: number }).not.toHaveProperty('dimensions');
+    expect(
+      JSON.parse(buildOpenAiEmbeddingBody('m', ['a'], null)) as { dimensions?: number },
+    ).not.toHaveProperty('dimensions');
   });
 
   it('parseOpenAiEmbeddingResponse：合法/缺 data/非 JSON', () => {
@@ -82,7 +86,10 @@ describe('请求体与响应解析（纯函数）', () => {
         { embedding: [1, 1], index: 0 },
       ],
     };
-    expect(vectorsFromEmbeddingResponse(response, 2)).toEqual([[1, 1], [2, 2]]);
+    expect(vectorsFromEmbeddingResponse(response, 2)).toEqual([
+      [1, 1],
+      [2, 2],
+    ]);
     // 条数不一致
     expect(vectorsFromEmbeddingResponse(response, 3)).toBeNull();
     // 空向量
@@ -108,13 +115,22 @@ describe('embedWithOpenAi（本地 mock 服务，真实 HTTP）', () => {
     ]);
     const result = await embedWithOpenAi({
       provider: provider(server.url),
-      model: { id: 'm1', providerId: 'p-openai', name: 'text-embed', createdAt: 0, updatedAt: 0 } as never,
+      model: {
+        id: 'm1',
+        providerId: 'p-openai',
+        name: 'text-embed',
+        createdAt: 0,
+        updatedAt: 0,
+      } as never,
       inputs: ['你好', '世界'],
       context: context(server.url),
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.vectors).toEqual([[0.1, 0.2], [0.3, 0.4]]);
+      expect(result.vectors).toEqual([
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ]);
       expect(result.dimensions).toBe(2);
       expect(result.usage?.totalTokens).toBe(6);
       expect(result.model).toBe('text-embed');
@@ -133,7 +149,9 @@ describe('embedWithOpenAi（本地 mock 服务，真实 HTTP）', () => {
   });
 
   it('HTTP 404：归类为"该中转不提供 embeddings"（unsupported-model 而非 failed）', async () => {
-    server = await startMockServer([{ method: 'POST', path: '/v1/embeddings', status: 404, body: 'not found' }]);
+    server = await startMockServer([
+      { method: 'POST', path: '/v1/embeddings', status: 404, body: 'not found' },
+    ]);
     const result = await embedWithOpenAi({
       provider: provider(server.url),
       model: { id: 'm1', providerId: 'p', name: 'text-embed', createdAt: 0, updatedAt: 0 } as never,
@@ -148,7 +166,9 @@ describe('embedWithOpenAi（本地 mock 服务，真实 HTTP）', () => {
   });
 
   it('HTTP 401：failed 且带映射后的错误信息', async () => {
-    server = await startMockServer([{ method: 'POST', path: '/v1/embeddings', status: 401, body: 'unauthorized' }]);
+    server = await startMockServer([
+      { method: 'POST', path: '/v1/embeddings', status: 401, body: 'unauthorized' },
+    ]);
     const result = await embedWithOpenAi({
       provider: provider(server.url),
       model: { id: 'm1', providerId: 'p', name: 'text-embed', createdAt: 0, updatedAt: 0 } as never,
@@ -160,7 +180,9 @@ describe('embedWithOpenAi（本地 mock 服务，真实 HTTP）', () => {
   });
 
   it('非法 JSON 响应：failed 且不抛错（映射为协议错误文案）', async () => {
-    server = await startMockServer([{ method: 'POST', path: '/v1/embeddings', body: 'not-json-at-all' }]);
+    server = await startMockServer([
+      { method: 'POST', path: '/v1/embeddings', body: 'not-json-at-all' },
+    ]);
     const result = await embedWithOpenAi({
       provider: provider(server.url),
       model: { id: 'm1', providerId: 'p', name: 'text-embed', createdAt: 0, updatedAt: 0 } as never,
@@ -176,7 +198,11 @@ describe('embedWithOpenAi（本地 mock 服务，真实 HTTP）', () => {
 
   it('响应条数与输入不一致：忽略本次结果', async () => {
     server = await startMockServer([
-      { method: 'POST', path: '/v1/embeddings', body: JSON.stringify({ data: [{ embedding: [1], index: 0 }] }) },
+      {
+        method: 'POST',
+        path: '/v1/embeddings',
+        body: JSON.stringify({ data: [{ embedding: [1], index: 0 }] }),
+      },
     ]);
     const result = await embedWithOpenAi({
       provider: provider(server.url),

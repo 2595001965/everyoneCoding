@@ -13,7 +13,13 @@
  * 撤销：`stateSnapshots` 保存每个锚点的旧符号，`revert` 时逐个还原。
  */
 
-import type { ExecutionContext, ExecutorInput, ExecutorResult, RenameExecutor, UndoPatch } from './types';
+import type {
+  ExecutionContext,
+  ExecutorInput,
+  ExecutorResult,
+  RenameExecutor,
+  UndoPatch,
+} from './types';
 import { emptyResult } from './types';
 
 export function createAnchorSyncExecutor(): RenameExecutor {

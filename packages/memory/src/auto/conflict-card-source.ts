@@ -74,7 +74,11 @@ export class ConflictCardSource {
    */
   inspect(candidate: MemoryCandidate, ctx: { userId: string }): ConflictCardModel | null {
     const incoming = this.toItem(candidate);
-    const existingList = this.repo.list({ userId: ctx.userId, scopes: ['longterm'], status: 'active' });
+    const existingList = this.repo.list({
+      userId: ctx.userId,
+      scopes: ['longterm'],
+      status: 'active',
+    });
     const local = existingList.find((e) => hasConflict(e, incoming));
     if (!local) return null;
 
@@ -86,10 +90,12 @@ export class ConflictCardSource {
       localValue: c.localValue,
       incomingValue: c.incomingValue,
     }));
-    const options = (Object.keys(CONFLICT_STRATEGY_LABELS) as ConflictStrategy[]).map((strategy) => ({
-      strategy,
-      label: CONFLICT_STRATEGY_LABELS[strategy],
-    }));
+    const options = (Object.keys(CONFLICT_STRATEGY_LABELS) as ConflictStrategy[]).map(
+      (strategy) => ({
+        strategy,
+        label: CONFLICT_STRATEGY_LABELS[strategy],
+      }),
+    );
 
     return {
       memoryId: local.id,
@@ -153,11 +159,20 @@ export class ConflictCardSource {
       importance: merged.item.importance,
     });
     this.recordConflict(ctx, updated, strategy, merged.mergedFields, merged.sources);
-    return { item: updated, action: 'merged', mergedFields: merged.mergedFields, sources: merged.sources };
+    return {
+      item: updated,
+      action: 'merged',
+      mergedFields: merged.mergedFields,
+      sources: merged.sources,
+    };
   }
 
   /** 长期记忆总量与上限提示。 */
-  longtermStatus(ctx: { userId: string }): { count: number; limit: number; shouldArchive: boolean } {
+  longtermStatus(ctx: { userId: string }): {
+    count: number;
+    limit: number;
+    shouldArchive: boolean;
+  } {
     const count = this.repo.count({ userId: ctx.userId, scopes: ['longterm'], status: 'active' });
     return { count, limit: this.maxLongterm, shouldArchive: count >= this.maxLongterm };
   }
@@ -205,6 +220,7 @@ export class ConflictCardSource {
 }
 
 function collectSources(local: MemoryItem, incoming: MemoryItem): string[] {
-  return [local.sourceRef, incoming.sourceRef]
-    .filter((ref): ref is string => typeof ref === 'string' && ref.length > 0);
+  return [local.sourceRef, incoming.sourceRef].filter(
+    (ref): ref is string => typeof ref === 'string' && ref.length > 0,
+  );
 }

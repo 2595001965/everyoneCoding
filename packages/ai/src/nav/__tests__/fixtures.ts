@@ -103,7 +103,13 @@ export function makeBidirectionalSource(): NavSourcePort {
     const elementId = `el-g${i}`;
     const lost = i === 13 || i === 17;
     const filePath = lost ? `src/lost/group${i}.ts` : `src/app/groups/group${i}.ts`;
-    elements.push({ elementId, name: `按钮${i}`, type: 'Button', pageId: 'p-login', pageName: '登录页' });
+    elements.push({
+      elementId,
+      name: `按钮${i}`,
+      type: 'Button',
+      pageId: 'p-login',
+      pageName: '登录页',
+    });
     anchors.push(
       makeAnchor({
         id: `anc-g${i}`,
@@ -123,7 +129,9 @@ export function makeBidirectionalSource(): NavSourcePort {
     if (!lost) {
       files.set(
         filePath,
-        [`export class Group${i}Service {`, `  handle() {`, `    return ${i};`, `  }`, `}`].join('\n'),
+        [`export class Group${i}Service {`, `  handle() {`, `    return ${i};`, `  }`, `}`].join(
+          '\n',
+        ),
       );
     }
     markerLines.push(`// @everyonecoding:anchor ${elementId} Group${i}Service.handle service`);
@@ -151,17 +159,46 @@ export function makeRelationSource(): NavSourcePort {
     route: '/order',
     featureId: 'feat-order',
     elements: [
-      { elementId: 'el-order-btn', name: '提交按钮', type: 'Button', pageId: 'p-order', pageName: '订单页' },
-      { elementId: 'el-order-list', name: '订单列表', type: 'List', pageId: 'p-order', pageName: '订单页' },
+      {
+        elementId: 'el-order-btn',
+        name: '提交按钮',
+        type: 'Button',
+        pageId: 'p-order',
+        pageName: '订单页',
+      },
+      {
+        elementId: 'el-order-list',
+        name: '订单列表',
+        type: 'List',
+        pageId: 'p-order',
+        pageName: '订单页',
+      },
     ],
     apiDeps: ['api-create-order', 'api-list-order'],
   };
   const apis: NavApiRef[] = [
-    { id: 'api-create-order', name: 'createOrder', method: 'POST', path: '/api/orders', module: 'order-service' },
-    { id: 'api-list-order', name: 'listOrder', method: 'GET', path: '/api/orders', module: 'order-service' },
+    {
+      id: 'api-create-order',
+      name: 'createOrder',
+      method: 'POST',
+      path: '/api/orders',
+      module: 'order-service',
+    },
+    {
+      id: 'api-list-order',
+      name: 'listOrder',
+      method: 'GET',
+      path: '/api/orders',
+      module: 'order-service',
+    },
   ];
   const modules: NavModuleRef[] = [
-    { id: 'mod-order-svc', name: 'order-service', filePath: 'src/order/order.service.ts', role: 'service' },
+    {
+      id: 'mod-order-svc',
+      name: 'order-service',
+      filePath: 'src/order/order.service.ts',
+      role: 'service',
+    },
     { id: 'mod-order-repo', name: 'order-repo', filePath: 'src/order/order.repo.ts', role: 'repo' },
   ];
   const tables: NavTableRef[] = [
@@ -169,9 +206,23 @@ export function makeRelationSource(): NavSourcePort {
     { id: 'tbl-order-item', name: 'order_item', module: 'order-service' },
   ];
   const tests: NavTestRef[] = [
-    { id: 'test-order', name: 'OrderServiceTest', filePath: 'src/order/order.service.spec.ts', coversApi: 'api-create-order' },
+    {
+      id: 'test-order',
+      name: 'OrderServiceTest',
+      filePath: 'src/order/order.service.spec.ts',
+      coversApi: 'api-create-order',
+    },
   ];
-  return makeSource({ anchors: [], pages: [page], apis, modules, tables, tests, docSections: [], files: new Map() });
+  return makeSource({
+    anchors: [],
+    pages: [page],
+    apis,
+    modules,
+    tables,
+    tests,
+    docSections: [],
+    files: new Map(),
+  });
 }
 
 /** 悬停解析夹具：单元素 + 该元素的 controller 锚点 + 四类清单各一条 */
@@ -181,7 +232,15 @@ export function makeHoverSource(): NavSourcePort {
     name: '登录页',
     route: '/auth/login',
     featureId: 'feat-auth',
-    elements: [{ elementId: 'el-login-btn', name: '登录按钮', type: 'Button', pageId: 'p-login', pageName: '登录页' }],
+    elements: [
+      {
+        elementId: 'el-login-btn',
+        name: '登录按钮',
+        type: 'Button',
+        pageId: 'p-login',
+        pageName: '登录页',
+      },
+    ],
     apiDeps: [],
   };
   const anchors: CodeAnchor[] = [
@@ -199,13 +258,26 @@ export function makeHoverSource(): NavSourcePort {
       astVerified: true,
     }),
   ];
-  const apis: NavApiRef[] = [{ id: 'api-login', name: 'login', method: 'POST', path: '/api/login', module: 'auth-service' }];
+  const apis: NavApiRef[] = [
+    { id: 'api-login', name: 'login', method: 'POST', path: '/api/login', module: 'auth-service' },
+  ];
   const tables: NavTableRef[] = [{ id: 'tbl-user', name: 'user_account', module: 'auth-repo' }];
   const tests: NavTestRef[] = [
-    { id: 'test-login', name: 'AuthLoginTest', filePath: 'src/auth/auth.spec.ts', coversApi: 'api-login' },
+    {
+      id: 'test-login',
+      name: 'AuthLoginTest',
+      filePath: 'src/auth/auth.spec.ts',
+      coversApi: 'api-login',
+    },
   ];
   const docSections: NavDocSectionRef[] = [
-    { id: 'doc-login', title: '登录流程', documentId: 'doc-auth', documentTitle: '认证技术文档', anchor: 'login' },
+    {
+      id: 'doc-login',
+      title: '登录流程',
+      documentId: 'doc-auth',
+      documentTitle: '认证技术文档',
+      anchor: 'login',
+    },
   ];
   return makeSource({ anchors, pages: [page], apis, tables, tests, docSections, files: new Map() });
 }
@@ -217,14 +289,64 @@ export function makeLayeredSource(): NavSourcePort {
     name: 'X 页',
     route: '/x',
     featureId: null,
-    elements: [{ elementId: 'el-x', name: 'X 按钮', type: 'Button', pageId: 'p-x', pageName: 'X 页' }],
+    elements: [
+      { elementId: 'el-x', name: 'X 按钮', type: 'Button', pageId: 'p-x', pageName: 'X 页' },
+    ],
     apiDeps: [],
   };
   const anchors: CodeAnchor[] = [
-    makeAnchor({ id: 'a0', projectId: 'P1', elementId: 'el-x', pageId: 'p-x', filePath: 'c.ts', symbol: 'Ctrl.m', kind: 'controller', startLine: 1, endLine: 2, commentMarker: true, astVerified: true }),
-    makeAnchor({ id: 'a1', projectId: 'P1', elementId: 'el-x', pageId: 'p-x', filePath: 's.ts', symbol: 'Svc.m', kind: 'service', startLine: 1, endLine: 2, commentMarker: true, astVerified: true }),
-    makeAnchor({ id: 'a2', projectId: 'P1', elementId: 'el-x', pageId: 'p-x', filePath: 'r.ts', symbol: 'Repo.m', kind: 'repo', startLine: 1, endLine: 2, commentMarker: true, astVerified: true }),
-    makeAnchor({ id: 'a3', projectId: 'P1', elementId: 'el-x', pageId: 'p-x', filePath: 't.ts', symbol: 'SvcTest.m', kind: 'test', startLine: 1, endLine: 2, commentMarker: true, astVerified: true }),
+    makeAnchor({
+      id: 'a0',
+      projectId: 'P1',
+      elementId: 'el-x',
+      pageId: 'p-x',
+      filePath: 'c.ts',
+      symbol: 'Ctrl.m',
+      kind: 'controller',
+      startLine: 1,
+      endLine: 2,
+      commentMarker: true,
+      astVerified: true,
+    }),
+    makeAnchor({
+      id: 'a1',
+      projectId: 'P1',
+      elementId: 'el-x',
+      pageId: 'p-x',
+      filePath: 's.ts',
+      symbol: 'Svc.m',
+      kind: 'service',
+      startLine: 1,
+      endLine: 2,
+      commentMarker: true,
+      astVerified: true,
+    }),
+    makeAnchor({
+      id: 'a2',
+      projectId: 'P1',
+      elementId: 'el-x',
+      pageId: 'p-x',
+      filePath: 'r.ts',
+      symbol: 'Repo.m',
+      kind: 'repo',
+      startLine: 1,
+      endLine: 2,
+      commentMarker: true,
+      astVerified: true,
+    }),
+    makeAnchor({
+      id: 'a3',
+      projectId: 'P1',
+      elementId: 'el-x',
+      pageId: 'p-x',
+      filePath: 't.ts',
+      symbol: 'SvcTest.m',
+      kind: 'test',
+      startLine: 1,
+      endLine: 2,
+      commentMarker: true,
+      astVerified: true,
+    }),
   ];
   return makeSource({ anchors, pages: [page], files: new Map() });
 }

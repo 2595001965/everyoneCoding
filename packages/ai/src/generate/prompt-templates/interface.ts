@@ -1,4 +1,10 @@
-import { composeTemplate, renderTemplate, UNIVERSAL_NEGATIVE_CONSTRAINTS, type PromptTemplate, type PromptTemplateInput } from './shared';
+import {
+  composeTemplate,
+  renderTemplate,
+  UNIVERSAL_NEGATIVE_CONSTRAINTS,
+  type PromptTemplate,
+  type PromptTemplateInput,
+} from './shared';
 
 /** 界面 DSL 模板（生成 PageDSL，供设计器直接载入，FR-DSG-11） */
 export const interfaceTemplate: PromptTemplate = composeTemplate({

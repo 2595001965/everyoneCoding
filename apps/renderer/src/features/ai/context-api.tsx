@@ -48,7 +48,8 @@ export function useContextPanelApi(): ContextPanelApi {
 
 /** 从全局读取外壳注入的实现（页面用） */
 export function readInjectedContextApi(): ContextPanelApi | null {
-  const injected = (globalThis as unknown as { __EC_AI_CONTEXT__?: ContextPanelApi }).__EC_AI_CONTEXT__;
+  const injected = (globalThis as unknown as { __EC_AI_CONTEXT__?: ContextPanelApi })
+    .__EC_AI_CONTEXT__;
   if (typeof injected !== 'object' || injected === null) return null;
   return typeof injected.assemble === 'function' ? injected : null;
 }

@@ -42,7 +42,8 @@ export function parseGithubCallback(callbackUrl: string, expectedState: string):
     throw new Error(`GitHub 授权被拒绝：${error}${description ? `（${description}）` : ''}`);
   }
   const state = url.searchParams.get('state');
-  if (!state || state !== expectedState) throw new Error('GitHub 回调 state 校验失败（可能是 CSRF）');
+  if (!state || state !== expectedState)
+    throw new Error('GitHub 回调 state 校验失败（可能是 CSRF）');
   const code = url.searchParams.get('code');
   if (!code) throw new Error('GitHub 回调缺少授权码');
   return { code };

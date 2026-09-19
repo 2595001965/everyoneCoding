@@ -100,7 +100,9 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
   return (
     <section className="ec-settings__panel" aria-label="导出与备份">
       <h2>导出与备份</h2>
-      <p className="ec-settings__hint">归档包为本地文件（`.ecpkg`）；本产品不提供云端同步与分享链接。</p>
+      <p className="ec-settings__hint">
+        归档包为本地文件（`.ecpkg`）；本产品不提供云端同步与分享链接。
+      </p>
 
       <label className="ec-settings__field">
         <span>导出范围</span>
@@ -148,7 +150,12 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
 
       <label className="ec-settings__field">
         <span>导入归档包（.ecpkg）</span>
-        <Input value={importPath} onChange={setImportPath} aria-label="归档包路径" placeholder="D:\\backup\\ec-2026.ecpkg" />
+        <Input
+          value={importPath}
+          onChange={setImportPath}
+          aria-label="归档包路径"
+          placeholder="D:\\backup\\ec-2026.ecpkg"
+        />
       </label>
       <label className="ec-settings__field">
         <span>归档口令（加密包才需要）</span>
@@ -160,7 +167,12 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
           placeholder="未加密的归档可留空"
         />
       </label>
-      <Button variant="secondary" loading={busy} disabled={!importPath.trim()} onClick={() => void importNow()}>
+      <Button
+        variant="secondary"
+        loading={busy}
+        disabled={!importPath.trim()}
+        onClick={() => void importNow()}
+      >
         导入归档
       </Button>
       {importResult ? (
@@ -176,14 +188,21 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
       </label>
       <label className="ec-settings__field">
         <span>备份目录</span>
-        <Input value={backupDir} onChange={setBackupDir} aria-label="备份目录" placeholder="D:\\EveryOneCoding\\backup" />
+        <Input
+          value={backupDir}
+          onChange={setBackupDir}
+          aria-label="备份目录"
+          placeholder="D:\\EveryOneCoding\\backup"
+        />
       </label>
       <div className="ec-settings__actions">
         <Button variant="secondary" loading={busy} onClick={() => void saveSchedule()}>
           保存备份计划
         </Button>
         <span className="ec-settings__hint">
-          {lastRunAt ? `上次备份：${new Date(lastRunAt).toLocaleString('zh-CN')}` : '尚未执行过备份'}
+          {lastRunAt
+            ? `上次备份：${new Date(lastRunAt).toLocaleString('zh-CN')}`
+            : '尚未执行过备份'}
         </span>
       </div>
 

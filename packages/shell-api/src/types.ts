@@ -226,7 +226,8 @@ export interface UpdateInfo {
   releaseDate?: string;
 }
 
-export type UpdatePhase = 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error';
+export type UpdatePhase =
+  'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error';
 
 export interface UpdateProgress {
   phase: UpdatePhase;

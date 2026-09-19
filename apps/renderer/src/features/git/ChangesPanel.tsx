@@ -33,7 +33,9 @@ interface Group {
 function groupByDir(changes: readonly GitFileChange[]): Group[] {
   const map = new Map<string, GitFileChange[]>();
   for (const change of changes) {
-    const dir = change.path.includes('/') ? change.path.slice(0, change.path.lastIndexOf('/')) : '（根目录）';
+    const dir = change.path.includes('/')
+      ? change.path.slice(0, change.path.lastIndexOf('/'))
+      : '（根目录）';
     const list = map.get(dir) ?? [];
     list.push(change);
     map.set(dir, list);
@@ -106,8 +108,16 @@ export function ChangesPanel({ onOpenFile, onOpenSource }: ChangesPanelProps): J
 
   return (
     <div className="ec-git-changes" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="ec-git-changes__toolbar" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button size="sm" onClick={selectAll} disabled={allPaths.length === 0} data-testid="select-all">
+      <div
+        className="ec-git-changes__toolbar"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <Button
+          size="sm"
+          onClick={selectAll}
+          disabled={allPaths.length === 0}
+          data-testid="select-all"
+        >
           全选
         </Button>
         <Button size="sm" onClick={invert} disabled={allPaths.length === 0} data-testid="invert">
@@ -124,14 +134,23 @@ export function ChangesPanel({ onOpenFile, onOpenSource }: ChangesPanelProps): J
         </Button>
         <Button
           size="sm"
-          onClick={() => runStage([...selected].filter((p) => isStaged(status, p)), true)}
+          onClick={() =>
+            runStage(
+              [...selected].filter((p) => isStaged(status, p)),
+              true,
+            )
+          }
           disabled={selected.size === 0}
           data-testid="unstage-selected"
         >
           取消暂存所选
         </Button>
         {notice !== null && (
-          <span className="ec-git-changes__notice" role="status" style={{ color: 'var(--ec-color-text-secondary)' }}>
+          <span
+            className="ec-git-changes__notice"
+            role="status"
+            style={{ color: 'var(--ec-color-text-secondary)' }}
+          >
             {notice}
           </span>
         )}
@@ -141,11 +160,18 @@ export function ChangesPanel({ onOpenFile, onOpenSource }: ChangesPanelProps): J
 
       {groups.map((group) => (
         <div key={group.dir} className="ec-git-changes__group">
-          <div className="ec-git-changes__dir" style={{ fontWeight: 600, color: 'var(--ec-color-text-secondary)' }}>
+          <div
+            className="ec-git-changes__dir"
+            style={{ fontWeight: 600, color: 'var(--ec-color-text-secondary)' }}
+          >
             {group.dir}
           </div>
           {group.files.map((change) => (
-            <div key={change.path} className="ec-git-changes__file" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              key={change.path}
+              className="ec-git-changes__file"
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
               <Checkbox
                 checked={selected.has(change.path)}
                 onChange={(checked) => toggle(change.path, checked)}
@@ -155,13 +181,24 @@ export function ChangesPanel({ onOpenFile, onOpenSource }: ChangesPanelProps): J
               <span
                 className="ec-git-changes__status-dot"
                 aria-hidden="true"
-                style={{ width: 8, height: 8, borderRadius: '50%', background: FILE_STATUS_COLORS[change.status] }}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: FILE_STATUS_COLORS[change.status],
+                }}
               />
               <button
                 type="button"
                 className="ec-git-changes__filename"
                 onClick={() => onOpenFile?.(change.path)}
-                style={{ background: 'none', border: 'none', color: 'var(--ec-color-text)', cursor: 'pointer', padding: 0 }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--ec-color-text)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
                 data-testid={`open-${change.path}`}
               >
                 {change.path}
@@ -175,7 +212,13 @@ export function ChangesPanel({ onOpenFile, onOpenSource }: ChangesPanelProps): J
                   type="button"
                   className="ec-git-changes__source"
                   onClick={() => onOpenSource?.(change.source as ChangeSource)}
-                  style={{ background: 'none', border: 'none', color: 'var(--ec-color-info)', cursor: 'pointer', padding: 0 }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--ec-color-info)',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
                   data-testid={`source-${change.path}`}
                 >
                   {changeSourceLabel(change.source)}

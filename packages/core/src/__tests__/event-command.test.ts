@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EventBus } from '../event-bus';
-import {
-  CommandRegistry,
-  formatAccelerator,
-  parseAccelerator,
-} from '../command-registry';
+import { CommandRegistry, formatAccelerator, parseAccelerator } from '../command-registry';
 
 interface TestEvents {
   'project:opened': { id: string };
@@ -153,7 +149,13 @@ describe('命令系统', () => {
   it('注册期检测快捷键冲突', () => {
     const registry = buildRegistry();
     expect(() =>
-      registry.register({ id: 'app.other', title: '其它', group: '文件', shortcut: 'Ctrl+S', execute: vi.fn() }),
+      registry.register({
+        id: 'app.other',
+        title: '其它',
+        group: '文件',
+        shortcut: 'Ctrl+S',
+        execute: vi.fn(),
+      }),
     ).toThrow(/快捷键冲突/);
   });
 
@@ -161,7 +163,9 @@ describe('命令系统', () => {
     const registry = buildRegistry();
     await registry.execute('app.save', { projectOpen: true });
     await expect(registry.execute('nope', { projectOpen: true })).rejects.toThrow(/未注册/);
-    await expect(registry.execute('designer.delete', { projectOpen: false })).rejects.toThrow(/不可用/);
+    await expect(registry.execute('designer.delete', { projectOpen: false })).rejects.toThrow(
+      /不可用/,
+    );
   });
 
   it('按快捷键反查命令', () => {
@@ -186,12 +190,24 @@ describe('命令系统', () => {
   it('命令面板检索：按标题与分组模糊匹配', () => {
     const registry = buildRegistry();
     expect(registry.search('保存').map((c) => c.id)).toEqual(['app.save']);
-    expect(registry.search('文件').map((c) => c.id).sort()).toEqual(['app.open', 'app.save']);
-    expect(registry.search('元素').map((c) => c.id).sort()).toEqual(['designer.align', 'designer.delete']);
+    expect(
+      registry
+        .search('文件')
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual(['app.open', 'app.save']);
+    expect(
+      registry
+        .search('元素')
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual(['designer.align', 'designer.delete']);
   });
 
   it('检索可按上下文过滤不可用命令', () => {
     const registry = buildRegistry();
-    expect(registry.search('元素', { projectOpen: false }).map((c) => c.id)).toEqual(['designer.align']);
+    expect(registry.search('元素', { projectOpen: false }).map((c) => c.id)).toEqual([
+      'designer.align',
+    ]);
   });
 });

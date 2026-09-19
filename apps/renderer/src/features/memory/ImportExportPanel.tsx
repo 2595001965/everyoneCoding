@@ -27,7 +27,10 @@ const CLASSIFICATION_LABELS: Record<ImportClassification, string> = {
   missing: '缺失',
 };
 
-const CLASSIFICATION_COLORS: Record<ImportClassification, 'success' | 'warning' | 'neutral' | 'danger'> = {
+const CLASSIFICATION_COLORS: Record<
+  ImportClassification,
+  'success' | 'warning' | 'neutral' | 'danger'
+> = {
   added: 'success',
   conflicted: 'warning',
   unchanged: 'neutral',
@@ -46,7 +49,9 @@ export interface ImportExportPanelProps {
   onPreviewImport: (
     files: Array<{ name: string; content: string }>,
   ) => Promise<ImportPreviewModel> | ImportPreviewModel;
-  onCommitImport: (decisions: Array<{ id: string; resolution: ImportResolution }>) => Promise<void> | void;
+  onCommitImport: (
+    decisions: Array<{ id: string; resolution: ImportResolution }>,
+  ) => Promise<void> | void;
   /** 导出结果摘要（由外壳回传：文件名列表） */
   lastExportNames?: readonly string[];
 }
@@ -92,7 +97,10 @@ export function ImportExportPanel({
       await onCommitImport(
         preview.rows
           .filter((row) => row.classification !== 'unchanged')
-          .map((row) => ({ id: row.id, resolution: decisions[row.id] ?? defaultResolution(row.classification) })),
+          .map((row) => ({
+            id: row.id,
+            resolution: decisions[row.id] ?? defaultResolution(row.classification),
+          })),
       );
       setPreview(null);
       setPasteText('');
@@ -107,7 +115,7 @@ export function ImportExportPanel({
       title: '条目',
       render: (row) => (
         <span className="ec-import__title">
-          {row.classification === 'missing' ? row.localTitle : row.incomingTitle ?? row.title}
+          {row.classification === 'missing' ? row.localTitle : (row.incomingTitle ?? row.title)}
         </span>
       ),
     },
@@ -116,7 +124,9 @@ export function ImportExportPanel({
       title: '差异',
       width: 90,
       render: (row) => (
-        <Tag color={CLASSIFICATION_COLORS[row.classification]}>{CLASSIFICATION_LABELS[row.classification]}</Tag>
+        <Tag color={CLASSIFICATION_COLORS[row.classification]}>
+          {CLASSIFICATION_LABELS[row.classification]}
+        </Tag>
       ),
     },
     {
@@ -127,7 +137,9 @@ export function ImportExportPanel({
         <Select
           options={RESOLUTION_OPTIONS}
           value={decisions[row.id] ?? defaultResolution(row.classification)}
-          onChange={(value) => setDecisions((prev) => ({ ...prev, [row.id]: value as ImportResolution }))}
+          onChange={(value) =>
+            setDecisions((prev) => ({ ...prev, [row.id]: value as ImportResolution }))
+          }
           aria-label={`「${row.title}」的处理方式`}
           size="sm"
         />
@@ -145,10 +157,18 @@ export function ImportExportPanel({
       </header>
 
       <div className="ec-import__row">
-        <Button size="sm" variant="secondary" onClick={() => void onExport('json', includeArchived)}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => void onExport('json', includeArchived)}
+        >
           导出 JSON
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => void onExport('markdown', includeArchived)}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => void onExport('markdown', includeArchived)}
+        >
           导出 Markdown
         </Button>
         <Switch checked={includeArchived} onChange={setIncludeArchived} label="包含已归档条目" />
@@ -206,8 +226,9 @@ export function ImportExportPanel({
         {preview && (
           <div className="ec-import__preview">
             <p className="ec-import__summary">
-              新增 {preview.counts.added} / 冲突 {preview.counts.conflicted} / 无变化 {preview.counts.unchanged} / 缺失{' '}
-              {preview.counts.missing}；默认不覆盖本地，请在下方逐条确认。
+              新增 {preview.counts.added} / 冲突 {preview.counts.conflicted} / 无变化{' '}
+              {preview.counts.unchanged} / 缺失 {preview.counts.missing}
+              ；默认不覆盖本地，请在下方逐条确认。
             </p>
             <div className="ec-import__batch">
               <Button
@@ -217,13 +238,25 @@ export function ImportExportPanel({
               >
                 冲突全部保留本地
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setBulk(preview, setDecisions, 'conflicted', 'merge')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setBulk(preview, setDecisions, 'conflicted', 'merge')}
+              >
                 冲突全部合并
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setBulk(preview, setDecisions, 'conflicted', 'keepBoth')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setBulk(preview, setDecisions, 'conflicted', 'keepBoth')}
+              >
                 冲突全部两者保留
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setBulk(preview, setDecisions, 'added', 'takeNew')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setBulk(preview, setDecisions, 'added', 'takeNew')}
+              >
                 新增全部导入
               </Button>
             </div>
@@ -250,7 +283,9 @@ function defaultResolution(classification: ImportClassification): ImportResoluti
 
 function setBulk(
   preview: ImportPreviewModel,
-  setDecisions: (update: (prev: Record<string, ImportResolution>) => Record<string, ImportResolution>) => void,
+  setDecisions: (
+    update: (prev: Record<string, ImportResolution>) => Record<string, ImportResolution>,
+  ) => void,
   classification: ImportClassification,
   resolution: ImportResolution,
 ): void {

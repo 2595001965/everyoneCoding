@@ -169,14 +169,20 @@ export class DslValidationError extends Error {
 
 function formatPath(path: readonly (string | number)[]): string {
   if (path.length === 0) return '<root>';
-  return path.map((segment) => (typeof segment === 'number' ? `[${segment}]` : `.${segment}`)).join('');
+  return path
+    .map((segment) => (typeof segment === 'number' ? `[${segment}]` : `.${segment}`))
+    .join('');
 }
 
 /** 形状校验：不抛异常，返回判定结果 */
-export function validatePageDsl(input: unknown): { ok: true; value: PageDsl } | { ok: false; issues: string[] } {
+export function validatePageDsl(
+  input: unknown,
+): { ok: true; value: PageDsl } | { ok: false; issues: string[] } {
   const parsed = pageDslSchema.safeParse(input);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((issue) => `${formatPath(issue.path)}: ${issue.message}`);
+    const issues = parsed.error.issues.map(
+      (issue) => `${formatPath(issue.path)}: ${issue.message}`,
+    );
     return { ok: false, issues };
   }
   const value = parsed.data as unknown as PageDsl;
@@ -228,7 +234,11 @@ export function checkDslInvariants(dsl: PageDsl): DslIssue[] {
         elementId: node.id,
       });
     }
-    if (node.noteId !== undefined && node.noteId !== null && !dsl.notes.some((note) => note.id === node.noteId)) {
+    if (
+      node.noteId !== undefined &&
+      node.noteId !== null &&
+      !dsl.notes.some((note) => note.id === node.noteId)
+    ) {
       issues.push({
         code: 'DANGLING_NOTE',
         message: `元素 ${node.id} 引用了不存在的备注 ${node.noteId}`,
@@ -249,13 +259,23 @@ export function checkDslInvariants(dsl: PageDsl): DslIssue[] {
 
   const elementIds = new Set(seen.keys());
   for (const event of dsl.events) {
-    if (event.elementId !== undefined && event.elementId !== null && !elementIds.has(event.elementId)) {
-      issues.push({ code: 'DANGLING_EVENT_TARGET', message: `事件 ${event.id} 绑定到不存在的元素 ${event.elementId}` });
+    if (
+      event.elementId !== undefined &&
+      event.elementId !== null &&
+      !elementIds.has(event.elementId)
+    ) {
+      issues.push({
+        code: 'DANGLING_EVENT_TARGET',
+        message: `事件 ${event.id} 绑定到不存在的元素 ${event.elementId}`,
+      });
     }
     const actionIds = new Set(event.actions.map((action) => action.id));
     const entry = event.entry ?? event.actions[0]?.id;
     if (entry !== undefined && entry !== null && !actionIds.has(entry)) {
-      issues.push({ code: 'DANGLING_FLOW_ENTRY', message: `事件 ${event.id} 的入口节点 ${entry} 不存在` });
+      issues.push({
+        code: 'DANGLING_FLOW_ENTRY',
+        message: `事件 ${event.id} 的入口节点 ${entry} 不存在`,
+      });
     }
     for (const action of event.actions) {
       for (const link of [action.next, action.branchTrue, action.branchFalse]) {

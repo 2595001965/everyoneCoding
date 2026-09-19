@@ -25,7 +25,12 @@ export interface ConflictResolverProps {
   onBatchChange: (type: PackageObjectType, resolution: ConflictResolution) => void;
 }
 
-export function ConflictResolver({ items, decisions, onChange, onBatchChange }: ConflictResolverProps): JSX.Element {
+export function ConflictResolver({
+  items,
+  decisions,
+  onChange,
+  onBatchChange,
+}: ConflictResolverProps): JSX.Element {
   const undecided = items.filter((i) => decisions[i.incoming.id] === undefined);
   const types = [...new Set(items.map((i) => i.incoming.type))];
 
@@ -61,13 +66,18 @@ export function ConflictResolver({ items, decisions, onChange, onBatchChange }: 
         {items.map((item) => {
           const current = decisions[item.incoming.id];
           return (
-            <li key={item.incoming.id} data-testid={`conflict-${item.incoming.id}`} className="conflict-resolver__item">
+            <li
+              key={item.incoming.id}
+              data-testid={`conflict-${item.incoming.id}`}
+              className="conflict-resolver__item"
+            >
               <div className="conflict-resolver__item-head">
                 <span className="conflict-resolver__name">{item.incoming.name}</span>
                 <span className="conflict-resolver__type">{item.incoming.type}</span>
               </div>
               <div className="conflict-resolver__meta">
-                包内 updatedAt {item.incoming.updatedAt} / 本地 {item.local ? `updatedAt ${item.local.updatedAt}` : '无'}
+                包内 updatedAt {item.incoming.updatedAt} / 本地{' '}
+                {item.local ? `updatedAt ${item.local.updatedAt}` : '无'}
               </div>
               <div className="conflict-resolver__actions">
                 {RESOLUTIONS.map((r) => (

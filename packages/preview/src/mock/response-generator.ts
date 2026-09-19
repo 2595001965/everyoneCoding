@@ -32,10 +32,12 @@ function genUuid(rng: () => number): string {
 function genString(schema: JsonSchemaLike, rng: () => number): string {
   const fmt = schema.format;
   if (fmt === 'date-time') {
-    const t = Date.parse('2023-01-01') + rng() * (Date.parse('2025-01-01') - Date.parse('2023-01-01'));
+    const t =
+      Date.parse('2023-01-01') + rng() * (Date.parse('2025-01-01') - Date.parse('2023-01-01'));
     return new Date(t).toISOString();
   }
-  if (fmt === 'date') return new Date(Date.parse('2023-01-01') + rng() * 86400000 * 30).toISOString().slice(0, 10);
+  if (fmt === 'date')
+    return new Date(Date.parse('2023-01-01') + rng() * 86400000 * 30).toISOString().slice(0, 10);
   if (fmt === 'email') return `user${Math.floor(rng() * 100000)}@example.com`;
   if (fmt === 'uuid') return genUuid(rng);
   const len = typeof schema.maxLength === 'number' ? schema.maxLength : 8;
@@ -67,16 +69,19 @@ export function generateFromSchema(
   if (type === 'object' || (schema.properties && !type)) {
     const out: Record<string, unknown> = {};
     const props = schema.properties ?? {};
-    for (const [k, v] of Object.entries(props)) out[k] = generateFromSchema(v, rng, _refs, depth + 1);
+    for (const [k, v] of Object.entries(props))
+      out[k] = generateFromSchema(v, rng, _refs, depth + 1);
     return out;
   }
   if (type === 'array' || schema.items) {
     const arr: unknown[] = [];
-    for (let i = 0; i < 2; i++) arr.push(generateFromSchema(schema.items ?? {}, rng, _refs, depth + 1));
+    for (let i = 0; i < 2; i++)
+      arr.push(generateFromSchema(schema.items ?? {}, rng, _refs, depth + 1));
     return arr;
   }
   if (type === 'string') return genString(schema, rng);
-  if (type === 'number' || type === 'integer' || schema.integer === true) return genNumber(schema, rng);
+  if (type === 'number' || type === 'integer' || schema.integer === true)
+    return genNumber(schema, rng);
   if (type === 'boolean') return rng() > 0.5;
   if (schema.nullable === true && rng() < 0.3) return null;
   return null;
@@ -87,7 +92,12 @@ export class MockResponseGenerator {
   private readonly rng: () => number;
 
   constructor(opts?: { settings?: MockSettings; clock?: () => number; rng?: () => number }) {
-    this.settingsValue = opts?.settings ?? { rules: [], delayMs: 0, errorRate: 0, errorStatus: 500 };
+    this.settingsValue = opts?.settings ?? {
+      rules: [],
+      delayMs: 0,
+      errorRate: 0,
+      errorStatus: 500,
+    };
     this.rng = opts?.rng ?? Math.random;
   }
 

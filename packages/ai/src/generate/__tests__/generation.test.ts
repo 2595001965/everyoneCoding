@@ -5,14 +5,34 @@ import { streamOf, type StreamChunk } from '../../core/stream';
 import { toDecisionCard, auditDecisionMemory, describeDecisionCard } from '../decision-card';
 import { Generator, createGenerator, type GenerationRunner } from '../generator';
 import type { GenerationOutput } from '../output-schema';
-import { buildPromptFor, PROMPT_TEMPLATES, GENERATION_TARGETS, COMMON_CONSTRAINTS, DEFAULT_STACKS } from '../prompt-templates';
+import {
+  buildPromptFor,
+  PROMPT_TEMPLATES,
+  GENERATION_TARGETS,
+  COMMON_CONSTRAINTS,
+  DEFAULT_STACKS,
+} from '../prompt-templates';
 import { RevisionStore, computeLineDelta, summarizeFileDiff } from '../revision';
 
 /* ------------------------------ 夹具 ------------------------------ */
 
 const VALID_OUTPUT: GenerationOutput = {
-  files: [{ path: 'src/auth/auth.controller.ts', content: 'export class AuthController {\n  login() { return true; }\n}', action: 'create', language: 'ts' }],
-  anchors: [{ elementId: 'el-btn', filePath: 'src/auth/auth.controller.ts', symbol: 'AuthController.login', kind: 'controller' }],
+  files: [
+    {
+      path: 'src/auth/auth.controller.ts',
+      content: 'export class AuthController {\n  login() { return true; }\n}',
+      action: 'create',
+      language: 'ts',
+    },
+  ],
+  anchors: [
+    {
+      elementId: 'el-btn',
+      filePath: 'src/auth/auth.controller.ts',
+      symbol: 'AuthController.login',
+      kind: 'controller',
+    },
+  ],
   summary: '新增登录接口并落地图形验证码校验',
   notes: '',
   decision: {
@@ -25,21 +45,29 @@ const VALID_OUTPUT: GenerationOutput = {
 
 const VALID_JSON = JSON.stringify(VALID_OUTPUT);
 
-function runnerOf(...responses: string[]): { run: GenerationRunner; calls: { messages: unknown }[] } {
+function runnerOf(...responses: string[]): {
+  run: GenerationRunner;
+  calls: { messages: unknown }[];
+} {
   const calls: { messages: unknown }[] = [];
   let index = 0;
   const run: GenerationRunner = (request) => {
     calls.push({ messages: request.messages });
     const text = responses[Math.min(index, responses.length - 1)] ?? '';
     index += 1;
-    return streamOf([...deltas(text), { type: 'usage', usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 } }, { type: 'done', finishReason: 'stop', partial: false }]);
+    return streamOf([
+      ...deltas(text),
+      { type: 'usage', usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 } },
+      { type: 'done', finishReason: 'stop', partial: false },
+    ]);
   };
   return { run, calls };
 }
 
 function deltas(text: string, size = 12): StreamChunk[] {
   const chunks: StreamChunk[] = [];
-  for (let i = 0; i < text.length; i += size) chunks.push({ type: 'delta', text: text.slice(i, i + size) });
+  for (let i = 0; i < text.length; i += size)
+    chunks.push({ type: 'delta', text: text.slice(i, i + size) });
   return chunks;
 }
 
@@ -53,7 +81,9 @@ describe('九类提示词模板（T4-04 要点 2）', () => {
       expect(template.label.length).toBeGreaterThan(0);
       expect(template.systemRole.length).toBeGreaterThan(10);
       for (const rule of COMMON_CONSTRAINTS) {
-        expect(template.constraints.join('\n'), `${target} 缺少公共约束`).toContain(rule.slice(0, 12));
+        expect(template.constraints.join('\n'), `${target} 缺少公共约束`).toContain(
+          rule.slice(0, 12),
+        );
       }
       expect(template.outputContract).toContain('输出契约');
     }
@@ -71,7 +101,9 @@ describe('九类提示词模板（T4-04 要点 2）', () => {
     expect(PROMPT_TEMPLATES.requirement.requiresAnchors).toBe(false);
     expect(PROMPT_TEMPLATES.techdoc.requiresAnchors).toBe(false);
     expect(PROMPT_TEMPLATES['commit-msg'].requiresAnchors).toBe(false);
-    expect(PROMPT_TEMPLATES['commit-msg'].outputContract).toContain('files 与 anchors 必须为空数组');
+    expect(PROMPT_TEMPLATES['commit-msg'].outputContract).toContain(
+      'files 与 anchors 必须为空数组',
+    );
     expect(PROMPT_TEMPLATES['backend-code'].requiresAnchors).toBe(true);
   });
 
@@ -82,7 +114,9 @@ describe('九类提示词模板（T4-04 要点 2）', () => {
       extraConstraints: ['组件名与标识符用英文或拼音'],
       instruction: '只生成登录接口，不要动注册',
     });
-    expect(rendered.user).toContain(`技术选型（来自项目记忆，必须遵守）：${DEFAULT_STACKS['backend-code']}`);
+    expect(rendered.user).toContain(
+      `技术选型（来自项目记忆，必须遵守）：${DEFAULT_STACKS['backend-code']}`,
+    );
     expect(rendered.user).toContain('组件名与标识符用英文或拼音');
     expect(rendered.user).toContain('用户补充指令（优先级最高）：只生成登录接口，不要动注册');
     expect(rendered.system.indexOf('输出契约')).toBeLessThan(rendered.system.indexOf('硬约束'));
@@ -185,11 +219,21 @@ describe('Generator（T4-04 要点 3）', () => {
     const messagesSeen: Array<{ role: string; content: unknown }>[] = [];
     const second: GenerationRunner = (request) => {
       messagesSeen.push(request.messages as Array<{ role: string; content: unknown }>);
-      return streamOf([...deltas(VALID_JSON), { type: 'done', finishReason: 'stop', partial: false }]);
+      return streamOf([
+        ...deltas(VALID_JSON),
+        { type: 'done', finishReason: 'stop', partial: false },
+      ]);
     };
-    const continued = await new Generator({ run: second }).continueGeneration(partial, { instruction: '只补文件清单' });
+    const continued = await new Generator({ run: second }).continueGeneration(partial, {
+      instruction: '只补文件清单',
+    });
 
-    expect(messagesSeen[0]?.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(messagesSeen[0]?.map((message) => message.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'user',
+    ]);
     expect(String(messagesSeen[0]?.[2]?.content)).toBe(partial.raw);
     expect(String(messagesSeen[0]?.[3]?.content)).toContain('从中断处继续');
     expect(messagesSeen[0]?.[3]?.content).toContain('只补文件清单');
@@ -268,14 +312,30 @@ describe('多轮修正与回退（T4-04 要点 4）', () => {
   function store(): RevisionStore {
     let clock = 1_000;
     let counter = 0;
-    return new RevisionStore({ clock: () => (clock += 10), idFactory: (index) => `rev-${index}-${(counter += 1)}` });
+    return new RevisionStore({
+      clock: () => (clock += 10),
+      idFactory: (index) => `rev-${index}-${(counter += 1)}`,
+    });
   }
 
   it('每轮都记录 diff / 指令 / 模型，且可单独回退', () => {
     const revisions = store();
-    const first = revisions.add({ instruction: '实现登录', target: 'backend-code', output: round1, model: 'gpt-x' });
-    const second = revisions.add({ instruction: '加一个 b.ts', target: 'backend-code', output: round2 });
-    const third = revisions.add({ instruction: '把常量改成 3', target: 'backend-code', output: round3 });
+    const first = revisions.add({
+      instruction: '实现登录',
+      target: 'backend-code',
+      output: round1,
+      model: 'gpt-x',
+    });
+    const second = revisions.add({
+      instruction: '加一个 b.ts',
+      target: 'backend-code',
+      output: round2,
+    });
+    const third = revisions.add({
+      instruction: '把常量改成 3',
+      target: 'backend-code',
+      output: round3,
+    });
 
     expect(revisions.list().map((record) => record.index)).toEqual([1, 2, 3]);
     expect(second.parentId).toBe(first.id);
@@ -308,13 +368,21 @@ describe('多轮修正与回退（T4-04 要点 4）', () => {
     });
     expect(unchanged.diff[0]?.unchanged).toBe(true);
 
-    const deleted = revisions.add({ instruction: '删掉 a.ts', target: 'backend-code', output: { ...round1, files: [] } });
+    const deleted = revisions.add({
+      instruction: '删掉 a.ts',
+      target: 'backend-code',
+      output: { ...round1, files: [] },
+    });
     expect(deleted.diff[0]?.action).toBe('delete');
     expect(deleted.diff[0]?.removedLines).toBeGreaterThan(0);
   });
 
   it('totalDelta 汇总新增 / 删除行；limit 淘汰最旧但保留当前轮', () => {
-    const revisions = new RevisionStore({ limit: 2, clock: () => 1, idFactory: (index) => `r${index}` });
+    const revisions = new RevisionStore({
+      limit: 2,
+      clock: () => 1,
+      idFactory: (index) => `r${index}`,
+    });
     revisions.add({ instruction: '1', target: 'backend-code', output: round1 });
     revisions.add({ instruction: '2', target: 'backend-code', output: round2 });
     revisions.add({ instruction: '3', target: 'backend-code', output: round3 });
@@ -365,7 +433,13 @@ describe('决策说明卡片（T4-04 要点 5 / NFR-U-02）', () => {
     expect(audit.underCited).toEqual(['ft-2']);
 
     const hallucinated = auditDecisionMemory(
-      { ...VALID_OUTPUT, decision: { ...VALID_OUTPUT.decision, referencedMemory: [{ id: 'ghost', title: 'x', layer: 'project' }] } },
+      {
+        ...VALID_OUTPUT,
+        decision: {
+          ...VALID_OUTPUT.decision,
+          referencedMemory: [{ id: 'ghost', title: 'x', layer: 'project' }],
+        },
+      },
       [],
     );
     expect(hallucinated.hallucinated).toEqual(['ghost']);

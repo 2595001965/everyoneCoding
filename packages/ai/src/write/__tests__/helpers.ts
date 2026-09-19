@@ -59,7 +59,11 @@ export function memoryFs(initial: Record<string, string> = {}): MemoryFs {
 }
 
 /** 构造一个 unified diff（old 内容行数需与磁盘一致） */
-export function unifiedDiff(input: { oldStart: number; oldLines: string[]; newLines: string[] }): string {
+export function unifiedDiff(input: {
+  oldStart: number;
+  oldLines: string[];
+  newLines: string[];
+}): string {
   const body = [
     ...input.oldLines.filter((line) => !input.newLines.includes(line)).map((line) => `-${line}`),
     ...input.newLines.filter((line) => !input.oldLines.includes(line)).map((line) => `+${line}`),

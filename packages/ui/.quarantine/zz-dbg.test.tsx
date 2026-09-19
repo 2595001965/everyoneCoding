@@ -6,7 +6,15 @@ import * as React from 'react';
 describe('tooltip debug', () => {
   it('react onFocus 语义', () => {
     let got = false;
-    const { container: c2 } = render(<button onFocus={() => { got = true; }}>直测</button>);
+    const { container: c2 } = render(
+      <button
+        onFocus={() => {
+          got = true;
+        }}
+      >
+        直测
+      </button>,
+    );
     (c2.querySelector('button') as HTMLButtonElement).focus();
     console.log('react onFocus fired:', got);
     expect(true).toBe(true);
@@ -20,7 +28,9 @@ describe('tooltip debug', () => {
     );
     const btn = container.querySelector('button') as HTMLButtonElement;
     let fired = false;
-    document.addEventListener('focusin', () => { fired = true; });
+    document.addEventListener('focusin', () => {
+      fired = true;
+    });
     btn.focus();
     console.log('focusin fired:', fired);
     console.log('activeElement:', document.activeElement?.tagName);

@@ -1,5 +1,11 @@
 import { ShellError, toShellError } from './errors';
-import type { AiControlHost, AiRpcError, AiRpcResponse, AiStreamEvent, AiStreamHandle } from './ai-control';
+import type {
+  AiControlHost,
+  AiRpcError,
+  AiRpcResponse,
+  AiStreamEvent,
+  AiStreamHandle,
+} from './ai-control';
 import {
   DOMAIN_KINDS,
   domainUnavailableError,
@@ -116,7 +122,8 @@ export class MockFileSystem implements FsApi {
   async readText(path: string, encoding: 'utf8' | 'base64' | 'binary' = 'utf8'): Promise<string> {
     const node = this.nodes.get(normalizeKey(path));
     if (!node) throw new ShellError('NOT_FOUND', `文件不存在: ${path}`, undefined, 'mock');
-    if (node.kind !== 'file') throw new ShellError('INVALID_ARGUMENT', `不是文件: ${path}`, undefined, 'mock');
+    if (node.kind !== 'file')
+      throw new ShellError('INVALID_ARGUMENT', `不是文件: ${path}`, undefined, 'mock');
     if (encoding === 'utf8') return new TextDecoder().decode(node.data);
     return Buffer.from(node.data).toString(encoding === 'base64' ? 'base64' : 'binary');
   }
@@ -124,7 +131,8 @@ export class MockFileSystem implements FsApi {
   async readBinary(path: string): Promise<Uint8Array> {
     const node = this.nodes.get(normalizeKey(path));
     if (!node) throw new ShellError('NOT_FOUND', `文件不存在: ${path}`, undefined, 'mock');
-    if (node.kind !== 'file') throw new ShellError('INVALID_ARGUMENT', `不是文件: ${path}`, undefined, 'mock');
+    if (node.kind !== 'file')
+      throw new ShellError('INVALID_ARGUMENT', `不是文件: ${path}`, undefined, 'mock');
     return new Uint8Array(node.data);
   }
 
@@ -178,7 +186,8 @@ export class MockFileSystem implements FsApi {
     const key = normalizeKey(path);
     const node = this.nodes.get(key);
     if (!node) throw new ShellError('NOT_FOUND', `目录不存在: ${path}`, undefined, 'mock');
-    if (node.kind !== 'dir') throw new ShellError('INVALID_ARGUMENT', `不是目录: ${path}`, undefined, 'mock');
+    if (node.kind !== 'dir')
+      throw new ShellError('INVALID_ARGUMENT', `不是目录: ${path}`, undefined, 'mock');
     const prefix = key === '/' ? '/' : `${key}/`;
     const out: FsDirent[] = [];
     for (const [candidate, child] of this.nodes) {
@@ -230,7 +239,8 @@ export class MockFileSystem implements FsApi {
   async copy(source: string, target: string): Promise<void> {
     const from = this.nodes.get(normalizeKey(source));
     if (!from) throw new ShellError('NOT_FOUND', `源文件不存在: ${source}`, undefined, 'mock');
-    if (from.kind !== 'file') throw new ShellError('INVALID_ARGUMENT', `不是文件: ${source}`, undefined, 'mock');
+    if (from.kind !== 'file')
+      throw new ShellError('INVALID_ARGUMENT', `不是文件: ${source}`, undefined, 'mock');
     await this.writeAtomic(target, new Uint8Array(from.data));
   }
 
@@ -301,7 +311,11 @@ export class MockProcessApi implements ProcessApi {
     this.handlers.set(command, handler);
   }
 
-  async spawn(command: string, args: string[], options?: SpawnOptions): Promise<ChildProcessHandle> {
+  async spawn(
+    command: string,
+    args: string[],
+    options?: SpawnOptions,
+  ): Promise<ChildProcessHandle> {
     const stdoutListeners = new Set<(chunk: string) => void>();
     const stderrListeners = new Set<(chunk: string) => void>();
     const exitListeners = new Set<(result: ProcessExit) => void>();
@@ -415,7 +429,12 @@ class MockSecureStore implements SecureStoreApi {
     const entry = this.entries.get(this.keyOf(namespace, key));
     if (!entry) return null;
     if (entry.sid !== this.currentSid) {
-      throw new ShellError('DECRYPT_FAILED', '当前用户上下文无法解密该项（模拟 DPAPI）', undefined, 'mock');
+      throw new ShellError(
+        'DECRYPT_FAILED',
+        '当前用户上下文无法解密该项（模拟 DPAPI）',
+        undefined,
+        'mock',
+      );
     }
     const raw = Buffer.from(entry.cipher, 'base64').toString('utf8');
     return raw.slice(raw.indexOf('::') + 2);
@@ -450,7 +469,9 @@ class MockNet implements NetApi {
   private hosts: string[] | '*' = [];
   private responder: ((request: NetRequest) => NetResponse | Promise<NetResponse>) | null = null;
 
-  setResponder(responder: ((request: NetRequest) => NetResponse | Promise<NetResponse>) | null): void {
+  setResponder(
+    responder: ((request: NetRequest) => NetResponse | Promise<NetResponse>) | null,
+  ): void {
     this.responder = responder;
   }
 
@@ -564,7 +585,8 @@ export class MockShell implements ShellHost {
       ...options.capabilities,
     };
 
-    const sep: '\\' | '/' = options.platform === 'windows' || options.platform === undefined ? '\\' : '/';
+    const sep: '\\' | '/' =
+      options.platform === 'windows' || options.platform === undefined ? '\\' : '/';
     this.path = createPathApi(sep);
 
     let clipboardText = '';
@@ -578,7 +600,12 @@ export class MockShell implements ShellHost {
       },
     };
 
-    const windowState = { maximized: false, fullscreen: false, title: options.name ?? 'EveryoneCoding', size: { width: 1440, height: 900 } };
+    const windowState = {
+      maximized: false,
+      fullscreen: false,
+      title: options.name ?? 'EveryoneCoding',
+      size: { width: 1440, height: 900 },
+    };
     this.window = {
       setTitle: async (title) => {
         windowState.title = title;
@@ -633,7 +660,8 @@ export class MockShell implements ShellHost {
       },
     };
 
-    const dataDir = options.dataDir ?? `${sep === '\\' ? 'C:' : ''}/Users/mock/AppData/Roaming/EveryoneCoding`;
+    const dataDir =
+      options.dataDir ?? `${sep === '\\' ? 'C:' : ''}/Users/mock/AppData/Roaming/EveryoneCoding`;
     let workspaceRoot: string | null = null;
     const info: AppInfo = {
       kind: 'mock',

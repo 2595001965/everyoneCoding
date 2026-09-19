@@ -45,7 +45,10 @@ export interface AnthropicResponse {
 /** Anthropic 的缓存 token 计入输入侧，避免费用统计漏项 */
 export function usageFromAnthropic(usage: AnthropicUsage | undefined): Usage | null {
   if (!usage) return null;
-  const input = (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
+  const input =
+    (usage.input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0);
   return usageOf(input, usage.output_tokens ?? 0);
 }
 
@@ -63,7 +66,10 @@ export function finishReasonFromAnthropic(reason: string | null | undefined): Fi
   }
 }
 
-export function chunksFromAnthropicResponse(payload: AnthropicResponse, providerId?: string): StreamChunk[] {
+export function chunksFromAnthropicResponse(
+  payload: AnthropicResponse,
+  providerId?: string,
+): StreamChunk[] {
   if (!payload || typeof payload !== 'object' || !Array.isArray(payload.content)) {
     throw new ProtocolError('响应缺少 content 字段', {
       ...(providerId ? { providerId } : {}),
@@ -90,7 +96,11 @@ export function chunksFromAnthropicResponse(payload: AnthropicResponse, provider
 
   const usage = usageFromAnthropic(payload.usage);
   if (usage) chunks.push({ type: 'usage', usage });
-  chunks.push({ type: 'done', finishReason: finishReasonFromAnthropic(payload.stop_reason), partial: false });
+  chunks.push({
+    type: 'done',
+    finishReason: finishReasonFromAnthropic(payload.stop_reason),
+    partial: false,
+  });
   return chunks;
 }
 
@@ -143,13 +153,21 @@ export function chunksFromAnthropicStreamEvent(
       if (!delta) return [];
       if (delta.type === 'text_delta' && delta.text) return [{ type: 'delta', text: delta.text }];
       if (delta.type === 'input_json_delta' && delta.partial_json) {
-        const toolDelta: ToolCallDelta = { index: event.index ?? 0, argumentsDelta: delta.partial_json };
+        const toolDelta: ToolCallDelta = {
+          index: event.index ?? 0,
+          argumentsDelta: delta.partial_json,
+        };
         return [{ type: 'tool_call', delta: toolDelta }];
       }
       // 少数中转不带 type 字段，按内容推断
       if (!delta.type && delta.text) return [{ type: 'delta', text: delta.text }];
       if (!delta.type && delta.partial_json) {
-        return [{ type: 'tool_call', delta: { index: event.index ?? 0, argumentsDelta: delta.partial_json } }];
+        return [
+          {
+            type: 'tool_call',
+            delta: { index: event.index ?? 0, argumentsDelta: delta.partial_json },
+          },
+        ];
       }
       return [];
     }
@@ -158,7 +176,11 @@ export function chunksFromAnthropicStreamEvent(
       const usage = usageFromAnthropic(event.usage);
       if (usage) chunks.push({ type: 'usage', usage });
       if (event.delta?.stop_reason !== undefined) {
-        chunks.push({ type: 'done', finishReason: finishReasonFromAnthropic(event.delta.stop_reason), partial: false });
+        chunks.push({
+          type: 'done',
+          finishReason: finishReasonFromAnthropic(event.delta.stop_reason),
+          partial: false,
+        });
       }
       return chunks;
     }

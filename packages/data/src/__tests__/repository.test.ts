@@ -3,7 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MockShell } from '@ec/shell-api';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ConflictError, DataClient, Migrator, Repository, UnitOfWork, newUlid, ulidTime } from '../index';
+import {
+  ConflictError,
+  DataClient,
+  Migrator,
+  Repository,
+  UnitOfWork,
+  newUlid,
+  ulidTime,
+} from '../index';
 
 type TestRow = Record<string, unknown>;
 
@@ -144,7 +152,9 @@ describe('Repository（真实 schema 集成）', () => {
 
   it('外键违规可被拦截', () => {
     const projects = new Repository<TestRow>(client.raw, 'project');
-    expect(() => projects.insert({ id: newUlid(), user_id: '不存在的用户', name: '孤儿项目' })).toThrow();
+    expect(() =>
+      projects.insert({ id: newUlid(), user_id: '不存在的用户', name: '孤儿项目' }),
+    ).toThrow();
   });
 
   it('ULID 可解析回时间戳', () => {

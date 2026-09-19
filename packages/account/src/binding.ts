@@ -37,7 +37,10 @@ export function canUnbind(input: {
 }
 
 /** 绑定前校验：已绑定则不允许重复绑定 */
-export function canBind(bindings: Binding[], target: AuthProvider): { allowed: boolean; reason: string | null } {
+export function canBind(
+  bindings: Binding[],
+  target: AuthProvider,
+): { allowed: boolean; reason: string | null } {
   if (bindings.some((binding) => binding.provider === target)) {
     return { allowed: false, reason: '该登录方式已绑定到当前账号。' };
   }
@@ -45,7 +48,11 @@ export function canBind(bindings: Binding[], target: AuthProvider): { allowed: b
 }
 
 /** 可用于登录的方式清单（登录页展示"还可使用"提示） */
-export function availableLoginMethods(bindings: Binding[], hasPassword: boolean, email: string): AuthProvider[] {
+export function availableLoginMethods(
+  bindings: Binding[],
+  hasPassword: boolean,
+  email: string,
+): AuthProvider[] {
   const methods: AuthProvider[] = [];
   if (hasPassword) methods.push('email');
   for (const binding of bindings) methods.push(binding.provider);

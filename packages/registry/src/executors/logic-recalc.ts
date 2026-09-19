@@ -10,7 +10,13 @@
  * 撤销：`stateSnapshots` 保存整份 DSL 改写前快照（DSL 是自有格式，整份还原最稳）。
  */
 
-import type { ExecutionContext, ExecutorInput, ExecutorResult, RenameExecutor, UndoPatch } from './types';
+import type {
+  ExecutionContext,
+  ExecutorInput,
+  ExecutorResult,
+  RenameExecutor,
+  UndoPatch,
+} from './types';
 import { emptyResult } from './types';
 
 /** DSL 承载字段（与 `logic-scanner` 的 `carrierField` 对齐） */

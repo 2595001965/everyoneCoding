@@ -11,7 +11,12 @@
  * 硬约束：本模块只做检测与建议，**不写任何文件**（写入口在 `rename-transaction`）。
  */
 
-import { deriveProjections, allReservedWords, validateProjectionFormat, type ProjectionFormatIssue } from './naming/rule-engine';
+import {
+  deriveProjections,
+  allReservedWords,
+  validateProjectionFormat,
+  type ProjectionFormatIssue,
+} from './naming/rule-engine';
 import { applyStyle, segmentWords } from './naming/identifier';
 import {
   PROJECTION_KINDS,
@@ -22,7 +27,13 @@ import {
 import type { ProjectionSet, RegistryEntityType } from './registry-model';
 
 /** 违规类型 */
-export const VIOLATION_KINDS = ['empty', 'reserved_word', 'conflict', 'too_long', 'illegal_char'] as const;
+export const VIOLATION_KINDS = [
+  'empty',
+  'reserved_word',
+  'conflict',
+  'too_long',
+  'illegal_char',
+] as const;
 export type ViolationKind = (typeof VIOLATION_KINDS)[number];
 
 /** 一次违规 */
@@ -86,7 +97,14 @@ interface CheckContext {
   reserved: ReadonlySet<string>;
 }
 
-const FRONTEND_KINDS: readonly ProjectionKind[] = ['component', 'variable', 'cssClass', 'i18nKey', 'routeSegment', 'testName'];
+const FRONTEND_KINDS: readonly ProjectionKind[] = [
+  'component',
+  'variable',
+  'cssClass',
+  'i18nKey',
+  'routeSegment',
+  'testName',
+];
 const BACKEND_KINDS: readonly ProjectionKind[] = ['apiField', 'methodName'];
 
 function buildContext(input: CheckNameInput): CheckContext {
@@ -106,7 +124,11 @@ function buildContext(input: CheckNameInput): CheckContext {
 function evaluate(
   canonicalName: string,
   context: CheckContext,
-): { projections: ProjectionSet; violations: NameViolation[]; formatIssues: ProjectionFormatIssue[] } {
+): {
+  projections: ProjectionSet;
+  violations: NameViolation[];
+  formatIssues: ProjectionFormatIssue[];
+} {
   const derived = deriveProjections(canonicalName, {
     entityType: context.entityType,
     rule: context.rule,
@@ -140,7 +162,11 @@ function evaluate(
         detail: `${PROJECTION_LABELS[kind]} \`${value}\` 是语言保留字`,
       });
     }
-    const side = FRONTEND_KINDS.includes(kind) ? '前端' : BACKEND_KINDS.includes(kind) ? '后端' : null;
+    const side = FRONTEND_KINDS.includes(kind)
+      ? '前端'
+      : BACKEND_KINDS.includes(kind)
+        ? '后端'
+        : null;
     const inFrontend = context.frontend.has(value);
     const inBackend = context.backend.has(value);
     if ((inFrontend || inBackend) && !context.exclude.has(value)) {
@@ -193,9 +219,10 @@ const SYNONYMS: Readonly<Record<string, string>> = {
 
 /** 缩写：取英文投影各词首字母（`UserLoginButton` → `ULB`），拼回规范名 */
 function abbreviate(canonicalName: string, context: CheckContext): string {
-  const primary = context.rule.preset.rules.component.template === undefined
-    ? deriveProjections(canonicalName, context).projections.component
-    : deriveProjections(canonicalName, context).projections.variable;
+  const primary =
+    context.rule.preset.rules.component.template === undefined
+      ? deriveProjections(canonicalName, context).projections.component
+      : deriveProjections(canonicalName, context).projections.variable;
   const letters = (primary.match(/[A-Z]/g) ?? []).join('');
   if (letters.length >= 2) return `${canonicalName}${letters}`;
   const tail = canonicalName.slice(-2);
@@ -226,7 +253,9 @@ export function suggestNames(canonicalName: string, context: CheckContext): stri
   if (canonicalName.trim().length === 0) {
     return ['未命名元素', '未命名元素_2', '未命名元素_3'];
   }
-  const tooLong = evaluate(canonicalName, context).violations.some((item) => item.kind === 'too_long');
+  const tooLong = evaluate(canonicalName, context).violations.some(
+    (item) => item.kind === 'too_long',
+  );
   const candidates: string[] = [];
 
   if (tooLong) {

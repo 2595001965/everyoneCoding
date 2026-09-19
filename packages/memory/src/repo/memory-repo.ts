@@ -173,7 +173,9 @@ function buildWhere(query: MemoryListQuery): WhereClause {
 
   if (query.text && query.text.trim().length > 0) {
     const like = `%${query.text.trim().replace(/[%_]/g, (m) => `\\${m}`)}%`;
-    clauses.push(`(title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')`);
+    clauses.push(
+      `(title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')`,
+    );
     params.push(like, like, like);
   }
 
@@ -218,9 +220,12 @@ export class MemoryRepo {
     const orderColumn = ORDER_COLUMN[query.orderBy ?? 'updatedAt'];
     const direction = (query.direction ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
     const limit = query.limit !== undefined ? ` LIMIT ${Math.max(0, Math.floor(query.limit))}` : '';
-    const offset = query.offset !== undefined ? ` OFFSET ${Math.max(0, Math.floor(query.offset))}` : '';
+    const offset =
+      query.offset !== undefined ? ` OFFSET ${Math.max(0, Math.floor(query.offset))}` : '';
     const rows = this.db
-      .prepare(`SELECT * FROM memory_item${where.sql} ORDER BY ${orderColumn} ${direction}${limit}${offset}`)
+      .prepare(
+        `SELECT * FROM memory_item${where.sql} ORDER BY ${orderColumn} ${direction}${limit}${offset}`,
+      )
       .all(...where.params) as MemoryItemRow[];
     let items = rows.map(fromRow);
     if (query.tags && query.tags.length > 0) {
@@ -231,9 +236,9 @@ export class MemoryRepo {
 
   count(query: MemoryListQuery = {}): number {
     const where = buildWhere(query);
-    const row = this.db.prepare(`SELECT COUNT(*) AS total FROM memory_item${where.sql}`).get(...where.params) as
-      | { total: number }
-      | undefined;
+    const row = this.db
+      .prepare(`SELECT COUNT(*) AS total FROM memory_item${where.sql}`)
+      .get(...where.params) as { total: number } | undefined;
     return row?.total ?? 0;
   }
 
@@ -241,7 +246,10 @@ export class MemoryRepo {
    * 分层统计：记忆中心左侧树与"进行中问题"角标使用。
    * 长期记忆始终计入（跨项目生效）；传入 projectId 时叠加该项目的各层条目。
    */
-  countByLayer(userId: string, projectId?: string | null): Array<{ layer: MemoryLayer; total: number }> {
+  countByLayer(
+    userId: string,
+    projectId?: string | null,
+  ): Array<{ layer: MemoryLayer; total: number }> {
     const params: unknown[] = [userId];
     let clause = `user_id = ? AND status = 'active' AND (scope = 'longterm'`;
     if (projectId) {
@@ -278,7 +286,9 @@ export class MemoryRepo {
       elementId: ownership.element_id ?? null,
       issueId: ownership.issue_id ?? null,
     });
-    return all.filter((item) => ownershipKeyOf(ownershipOfItem(item)) === ownershipKeyOf(ownership));
+    return all.filter(
+      (item) => ownershipKeyOf(ownershipOfItem(item)) === ownershipKeyOf(ownership),
+    );
   }
 
   /**
@@ -291,7 +301,9 @@ export class MemoryRepo {
         ? this.list({ userId: candidate.userId, scopes: ['longterm'] })
         : this.findBySlot(candidate.scope, ownershipOfItem(candidate));
     const key = normalizeTitleKey(candidate.title);
-    return scopeItems.filter((item) => item.id !== candidate.id && normalizeTitleKey(item.title) === key);
+    return scopeItems.filter(
+      (item) => item.id !== candidate.id && normalizeTitleKey(item.title) === key,
+    );
   }
 
   /**
@@ -299,7 +311,10 @@ export class MemoryRepo {
    * 这里只做"范围收敛"（比完整继承链更宽），精确归属判断交给 resolveInheritance，
    * 好处是候选取数与层级规则解耦，后续新增层级无需改 SQL。
    */
-  candidatesFor(ref: ResolveContextRef, options: { userId: string; includeInactive?: boolean }): MemoryItem[] {
+  candidatesFor(
+    ref: ResolveContextRef,
+    options: { userId: string; includeInactive?: boolean },
+  ): MemoryItem[] {
     const conditions: string[] = ['user_id = ?', `scope = 'longterm'`];
     const params: unknown[] = [options.userId];
 
@@ -324,7 +339,10 @@ export class MemoryRepo {
   }
 
   /** 解析上下文：候选集 + 继承覆盖（T2-01 核心 API） */
-  resolveContext(ref: ResolveContextRef, options: { userId: string; includeInactive?: boolean }): ResolvedContext {
+  resolveContext(
+    ref: ResolveContextRef,
+    options: { userId: string; includeInactive?: boolean },
+  ): ResolvedContext {
     return resolveInheritance(this.candidatesFor(ref, options), ref);
   }
 
@@ -354,7 +372,8 @@ export class MemoryRepo {
     const rowPatch: Partial<MemoryItemRow> = {};
     if (patch.title !== undefined) rowPatch.title = patch.title;
     if (patch.content !== undefined) rowPatch.content = patch.content;
-    if (patch.structured !== undefined) rowPatch.structured = patch.structured === null ? null : JSON.stringify(patch.structured);
+    if (patch.structured !== undefined)
+      rowPatch.structured = patch.structured === null ? null : JSON.stringify(patch.structured);
     if (patch.tags !== undefined) rowPatch.tags = JSON.stringify([...new Set(patch.tags)]);
     if (patch.sourceRef !== undefined) rowPatch.source_ref = patch.sourceRef;
     if (patch.confidence !== undefined) rowPatch.confidence = patch.confidence;
@@ -366,7 +385,9 @@ export class MemoryRepo {
     if (patch.issueId !== undefined) rowPatch.issue_id = patch.issueId;
     if (patch.embedding !== undefined) {
       rowPatch.embedding =
-        patch.embedding === null ? null : new Uint8Array(new Float32Array([...patch.embedding]).buffer);
+        patch.embedding === null
+          ? null
+          : new Uint8Array(new Float32Array([...patch.embedding]).buffer);
     }
 
     const updated = this.repo.update(id, rowPatch as Partial<MemoryItemRow & Row>, expectedVersion);
@@ -376,7 +397,8 @@ export class MemoryRepo {
 
   /** 仅更新向量（T2-03 写入后回填，避免整条替换） */
   setEmbedding(id: string, embedding: readonly number[] | null): void {
-    const blob = embedding === null ? null : new Uint8Array(new Float32Array([...embedding]).buffer);
+    const blob =
+      embedding === null ? null : new Uint8Array(new Float32Array([...embedding]).buffer);
     this.db.prepare('UPDATE memory_item SET embedding = ? WHERE id = ?').run(blob, id);
   }
 
@@ -406,7 +428,9 @@ export class MemoryRepo {
       feature_id: target.featureId ?? null,
       page_id: target.pageId ?? null,
       element_id: target.elementId ?? null,
-      issue_id: target.issueId ?? (target.scope === 'issue' ? (current.issueId ?? `ISSUE-${newUlid().slice(-6)}`) : null),
+      issue_id:
+        target.issueId ??
+        (target.scope === 'issue' ? (current.issueId ?? `ISSUE-${newUlid().slice(-6)}`) : null),
     };
     const violations = validateOwnership(target.scope, ownership);
     if (violations.length > 0) {
@@ -431,15 +455,24 @@ export class MemoryRepo {
   }
 
   /** 状态流转（active / archived / superseded），非法流转抛 MemoryStateError */
-  setStatus(id: string, next: MemoryStatus, options: { expectedVersion?: number; explicit?: boolean } = {}): MemoryItem {
+  setStatus(
+    id: string,
+    next: MemoryStatus,
+    options: { expectedVersion?: number; explicit?: boolean } = {},
+  ): MemoryItem {
     const current = this.require(id);
     assertStatusTransition(current.status, next, options);
     const rowPatch: Partial<MemoryItemRow> = { status: next };
     if (current.scope === 'issue' && (next === 'archived' || next === 'superseded')) {
       // 归档问题记忆时同步把处置状态落到 solved/mitigated，避免"已归档但仍显示未解决"
-      rowPatch.issue_status = current.issueStatus === 'unsolved' ? 'mitigated' : current.issueStatus;
+      rowPatch.issue_status =
+        current.issueStatus === 'unsolved' ? 'mitigated' : current.issueStatus;
     }
-    const updated = this.repo.update(id, rowPatch as Partial<MemoryItemRow & Row>, options.expectedVersion);
+    const updated = this.repo.update(
+      id,
+      rowPatch as Partial<MemoryItemRow & Row>,
+      options.expectedVersion,
+    );
     if (!updated) throw new Error(`记忆条目不存在：${id}`);
     return fromRow(updated);
   }
@@ -454,16 +487,26 @@ export class MemoryRepo {
     if (current.scope !== 'issue') throw new Error(`条目 ${id} 不是问题记忆，无法设置 issueStatus`);
     assertIssueStatusTransition(current.issueStatus ?? 'unsolved', next, options);
     if (options.expectedVersion !== undefined) {
-      const updated = this.repo.update(id, { issue_status: next } as Partial<MemoryItemRow & Row>, options.expectedVersion);
+      const updated = this.repo.update(
+        id,
+        { issue_status: next } as Partial<MemoryItemRow & Row>,
+        options.expectedVersion,
+      );
       if (!updated) throw new Error(`记忆条目不存在：${id}`);
       return fromRow(updated);
     }
-    this.db.prepare('UPDATE memory_item SET issue_status = ?, updated_at = ? WHERE id = ?').run(next, Date.now(), id);
+    this.db
+      .prepare('UPDATE memory_item SET issue_status = ?, updated_at = ? WHERE id = ?')
+      .run(next, Date.now(), id);
     return this.require(id);
   }
 
   /** 解决后沉淀：标记已解决并按需归档（FR-MEM-16） */
-  resolveIssue(id: string, outcome: IssueStatus, options: { archive?: boolean; explicit?: boolean } = {}): MemoryItem {
+  resolveIssue(
+    id: string,
+    outcome: IssueStatus,
+    options: { archive?: boolean; explicit?: boolean } = {},
+  ): MemoryItem {
     const resolved = this.setIssueStatus(id, outcome, {
       ...(options.explicit !== undefined ? { explicit: options.explicit } : {}),
     });
@@ -562,7 +605,9 @@ export class MemoryChangeLogRepo {
     return toChangeLogRecord(row);
   }
 
-  list(options: { userId?: string; memoryId?: string; limit?: number; offset?: number } = {}): ChangeLogRecord[] {
+  list(
+    options: { userId?: string; memoryId?: string; limit?: number; offset?: number } = {},
+  ): ChangeLogRecord[] {
     const where: Partial<MemoryChangeLogRow> = {};
     if (options.userId) where.user_id = options.userId;
     if (options.memoryId) where.memory_id = options.memoryId;
@@ -679,7 +724,10 @@ export class MemoryStructRevisionRepo {
 
   list(memoryId: string, limit?: number): StructRevisionRecord[] {
     return this.repo
-      .findWhere({ memory_id: memoryId }, { orderBy: 'revision DESC', ...(limit !== undefined ? { limit } : {}) })
+      .findWhere(
+        { memory_id: memoryId },
+        { orderBy: 'revision DESC', ...(limit !== undefined ? { limit } : {}) },
+      )
       .map(toRevisionRecord);
   }
 

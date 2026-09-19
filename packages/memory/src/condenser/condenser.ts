@@ -23,7 +23,10 @@ export interface CondensedSummary {
   /** 汇总后的接口依赖 */
   apiDeps: string[];
   /** 元素索引：保真度关键，AI 仅凭它即可重建类型/父子/绑定/接口 */
-  elementIndex: Record<string, { type: string; parentId: string | null; boundProps: string[]; featureRef: string | null }>;
+  elementIndex: Record<
+    string,
+    { type: string; parentId: string | null; boundProps: string[]; featureRef: string | null }
+  >;
   /** 是否发生过深度截断（或预算裁剪，见 token-estimator） */
   truncated: boolean;
 }
@@ -51,7 +54,12 @@ interface WalkCtx {
 }
 
 /** 深度有限地渲染 skeleton，并填充 elementIndex；超出 maxDepth 的子树折叠为占位 */
-function renderSkeleton(node: PageDslElement, parentId: string | null, depth: number, ctx: WalkCtx): string {
+function renderSkeleton(
+  node: PageDslElement,
+  parentId: string | null,
+  depth: number,
+  ctx: WalkCtx,
+): string {
   if (depth > ctx.rules.maxDepth) {
     ctx.truncated = true;
     return '…(深度截断)';
@@ -94,7 +102,10 @@ export function condensePage(dsl: PageDsl, rules?: CondenserRules): CondensedSum
   }));
 
   const state: CondensedSummary['state'] = (dsl.state ?? []).map((s) => {
-    const entry: { name: string; type: string; source?: 'local' | 'api' } = { name: s.name, type: s.type };
+    const entry: { name: string; type: string; source?: 'local' | 'api' } = {
+      name: s.name,
+      type: s.type,
+    };
     if (s.source) entry.source = s.source;
     return entry;
   });

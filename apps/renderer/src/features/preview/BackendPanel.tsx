@@ -97,16 +97,33 @@ export function BackendPanel(): JSX.Element {
       )}
 
       <div className="ec-backend-panel__actions">
-        <Button size="sm" disabled={busy || profile?.installCmd === null} onClick={() => run(() => api.installDependencies())}>
+        <Button
+          size="sm"
+          disabled={busy || profile?.installCmd === null}
+          onClick={() => run(() => api.installDependencies())}
+        >
           安装依赖
         </Button>
-        <Button size="sm" variant="primary" disabled={busy || profile?.startCmd === null} onClick={() => run(() => api.startBackend())}>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={busy || profile?.startCmd === null}
+          onClick={() => run(() => api.startBackend())}
+        >
           启动
         </Button>
-        <Button size="sm" disabled={busy || !status.running} onClick={() => run(() => api.stopBackend())}>
+        <Button
+          size="sm"
+          disabled={busy || !status.running}
+          onClick={() => run(() => api.stopBackend())}
+        >
           停止
         </Button>
-        <Button size="sm" disabled={busy || profile?.startCmd === null} onClick={() => run(() => api.restartBackend())}>
+        <Button
+          size="sm"
+          disabled={busy || profile?.startCmd === null}
+          onClick={() => run(() => api.restartBackend())}
+        >
           重启
         </Button>
         <span className="ec-backend-panel__status" role="status">
@@ -122,7 +139,12 @@ export function BackendPanel(): JSX.Element {
           onChange={setKeyword}
         />
       </div>
-      <div className="ec-backend-panel__logs" role="log" aria-label="后端日志" data-testid="backend-logs">
+      <div
+        className="ec-backend-panel__logs"
+        role="log"
+        aria-label="后端日志"
+        data-testid="backend-logs"
+      >
         {lines.length === 0 ? (
           <p className="ec-backend-panel__empty">暂无日志</p>
         ) : (

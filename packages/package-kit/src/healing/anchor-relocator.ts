@@ -58,7 +58,12 @@ function relocateOne(
   const content = port.readFile(projectId, anchor.filePath);
   if (content !== null) {
     const result = relocate({
-      anchor: { elementId: anchor.elementId, symbol: anchor.symbol, filePath: anchor.filePath, kind },
+      anchor: {
+        elementId: anchor.elementId,
+        symbol: anchor.symbol,
+        filePath: anchor.filePath,
+        kind,
+      },
       content,
     });
     if (result.status === 'ok') {
@@ -98,7 +103,13 @@ function relocateOne(
   }
 
   // ② 原路径不在：文件可能被移动/重命名——全项目搜索
-  return searchAcrossProject(anchor, projectId, port, fileList, '原文件不存在（可能被移动或重命名）');
+  return searchAcrossProject(
+    anchor,
+    projectId,
+    port,
+    fileList,
+    '原文件不存在（可能被移动或重命名）',
+  );
 }
 
 /** 在项目文件清单里搜索新位置：注释标记优先，其次符号文本 */
@@ -156,7 +167,12 @@ function searchAcrossProject(
       newEndLine: null,
       status: 'ambiguous',
       reason: `${prefixReason}，在 ${candidates.length} 个文件中找到疑似位置，需人工确认`,
-      candidates: candidates.map((filePath) => ({ filePath, symbol: symbolNeedle, startLine: 1, endLine: 1 })),
+      candidates: candidates.map((filePath) => ({
+        filePath,
+        symbol: symbolNeedle,
+        startLine: 1,
+        endLine: 1,
+      })),
     };
   }
 
@@ -177,7 +193,12 @@ function searchAcrossProject(
     };
   }
   const result = relocate({
-    anchor: { elementId: anchor.elementId, symbol: anchor.symbol, filePath: newPath, kind: anchor.kind },
+    anchor: {
+      elementId: anchor.elementId,
+      symbol: anchor.symbol,
+      filePath: newPath,
+      kind: anchor.kind,
+    },
     content: newContent,
   });
   if (result.status === 'ok') {

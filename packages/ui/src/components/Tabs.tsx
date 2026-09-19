@@ -21,7 +21,14 @@ export interface TabsProps {
   className?: string;
 }
 
-export function Tabs({ items, value, defaultValue, onChange, children, className }: TabsProps): React.ReactElement {
+export function Tabs({
+  items,
+  value,
+  defaultValue,
+  onChange,
+  children,
+  className,
+}: TabsProps): React.ReactElement {
   const firstKey = items[0]?.key ?? '';
   const [active, setActive] = useControllableState<string>({
     value,
@@ -75,7 +82,11 @@ export function Tabs({ items, value, defaultValue, onChange, children, className
             aria-controls={`ec-tabpanel-${it.key}`}
             tabIndex={it.key === active ? 0 : -1}
             disabled={it.disabled}
-            className={cx('ec-tabs__tab', it.key === active && 'ec-tabs__tab--active', it.disabled && 'ec-tabs__tab--disabled')}
+            className={cx(
+              'ec-tabs__tab',
+              it.key === active && 'ec-tabs__tab--active',
+              it.disabled && 'ec-tabs__tab--disabled',
+            )}
             onClick={() => setActive(it.key)}
             onKeyDown={(e) => onKeyDown(e, i)}
           >

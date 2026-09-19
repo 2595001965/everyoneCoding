@@ -38,7 +38,10 @@ export function ContentPanel({
   const meta = componentRegistry.get(element.type);
   const [rawMode, setRawMode] = React.useState(false);
 
-  const values = React.useMemo(() => ({ ...(meta?.defaultProps ?? {}), ...(element.props ?? {}) }), [meta, element.props]);
+  const values = React.useMemo(
+    () => ({ ...(meta?.defaultProps ?? {}), ...(element.props ?? {}) }),
+    [meta, element.props],
+  );
 
   return (
     <div className="ec-content-panel" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -50,14 +53,23 @@ export function ContentPanel({
           type="button"
           data-testid="toggle-raw-props"
           onClick={() => setRawMode((value) => !value)}
-          style={{ background: 'none', border: 'none', fontSize: 12, cursor: 'pointer', opacity: 0.7 }}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: 12,
+            cursor: 'pointer',
+            opacity: 0.7,
+          }}
         >
           {rawMode ? '表单编辑' : 'JSON 编辑'}
         </button>
       </header>
 
       {meta === null && !rawMode && (
-        <EmptyState title="未注册的组件" description="该类型不在组件注册表中，只能以 JSON 方式编辑属性。" />
+        <EmptyState
+          title="未注册的组件"
+          description="该类型不在组件注册表中，只能以 JSON 方式编辑属性。"
+        />
       )}
 
       {rawMode ? (
@@ -66,7 +78,8 @@ export function ContentPanel({
           values={{ data: element.props ?? {} }}
           onChange={(_key, value) => {
             if (value === undefined) onPropsReplace({});
-            else if (typeof value === 'object' && value !== null) onPropsReplace(value as Record<string, unknown>);
+            else if (typeof value === 'object' && value !== null)
+              onPropsReplace(value as Record<string, unknown>);
           }}
           debounceMs={0}
         />

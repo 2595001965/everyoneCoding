@@ -53,11 +53,19 @@ export function matchesQuery(commit: GitCommit, query: HistoryQuery): boolean {
   }
   if (query.author !== undefined && query.author.length > 0) {
     const needle = query.author.toLowerCase();
-    if (!commit.authorName.toLowerCase().includes(needle) && !commit.authorEmail.toLowerCase().includes(needle)) return false;
+    if (
+      !commit.authorName.toLowerCase().includes(needle) &&
+      !commit.authorEmail.toLowerCase().includes(needle)
+    )
+      return false;
   }
   if (query.keyword !== undefined && query.keyword.length > 0) {
     const needle = query.keyword.toLowerCase();
-    if (!commit.subject.toLowerCase().includes(needle) && !commit.body.toLowerCase().includes(needle)) return false;
+    if (
+      !commit.subject.toLowerCase().includes(needle) &&
+      !commit.body.toLowerCase().includes(needle)
+    )
+      return false;
   }
   if (query.since !== undefined && commit.authoredAt < query.since) return false;
   if (query.until !== undefined && commit.authoredAt > query.until) return false;

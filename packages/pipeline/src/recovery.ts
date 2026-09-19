@@ -28,7 +28,12 @@ export interface RecoverResult {
   /** 产物台账里的版本数 */
   artifactVersions: number;
   /** 一致性校验发现的问题（文件缺失 / 不可读） */
-  integrityProblems: Array<{ stage: PipelineStage; version: number; contentRef: string; reason: string }>;
+  integrityProblems: Array<{
+    stage: PipelineStage;
+    version: number;
+    contentRef: string;
+    reason: string;
+  }>;
   /** 恢复后的阶段状态（UI 渲染步骤条用） */
   snapshot: PipelineStageSnapshot;
   /** 需要续生成的阶段（status=running 或 stale 的第一个），无则 null */
@@ -90,7 +95,11 @@ export class PipelineRecovery {
       const state = this.deps.machine.stageState(stage);
       const activeVersion = state.activeVersion ?? this.deps.artifacts.activeVersion(stage);
       if (activeVersion > 0) {
-        this.deps.machine.restoreStageState({ ...state, activeVersion, latestVersion: this.deps.artifacts.latestVersion(stage) });
+        this.deps.machine.restoreStageState({
+          ...state,
+          activeVersion,
+          latestVersion: this.deps.artifacts.latestVersion(stage),
+        });
       }
     }
 
@@ -118,9 +127,21 @@ export class PipelineRecovery {
 
     // 同步 run 指针行，方便外部查询"这个项目跑到哪儿了"
     const current = this.deps.machine.currentStage();
-    this.deps.repo.updateRunPointer(this.run.id, current, snapshot[current].status, snapshot[current].activeVersion ?? 0);
+    this.deps.repo.updateRunPointer(
+      this.run.id,
+      current,
+      snapshot[current].status,
+      snapshot[current].activeVersion ?? 0,
+    );
 
-    return { restoredFromSnapshot, savedAt, artifactVersions: ledger.length, integrityProblems, snapshot, resumeStage };
+    return {
+      restoredFromSnapshot,
+      savedAt,
+      artifactVersions: ledger.length,
+      integrityProblems,
+      snapshot,
+      resumeStage,
+    };
   }
 
   /** 恢复后由 UI 决定丢弃快照（用户选择"重新开始"） */
@@ -141,7 +162,10 @@ export class PipelineRecovery {
       const record = value as Record<string, unknown>;
       snapshot[stage] = {
         stage,
-        status: typeof record['status'] === 'string' ? (record['status'] as PipelineStageSnapshot['S1']['status']) : 'pending',
+        status:
+          typeof record['status'] === 'string'
+            ? (record['status'] as PipelineStageSnapshot['S1']['status'])
+            : 'pending',
         activeVersion: typeof record['activeVersion'] === 'number' ? record['activeVersion'] : null,
         latestVersion: typeof record['latestVersion'] === 'number' ? record['latestVersion'] : 0,
         skippedAt: typeof record['skippedAt'] === 'number' ? record['skippedAt'] : null,
@@ -159,7 +183,8 @@ function findResumeStage(snapshot: PipelineStageSnapshot): PipelineStage | null 
     if (snapshot[stage].status === 'running') return stage;
   }
   for (const stage of STAGE_ORDER) {
-    if (snapshot[stage].status === 'awaiting_confirm' || snapshot[stage].status === 'stale') return stage;
+    if (snapshot[stage].status === 'awaiting_confirm' || snapshot[stage].status === 'stale')
+      return stage;
   }
   return null;
 }

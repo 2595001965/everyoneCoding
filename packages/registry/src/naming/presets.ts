@@ -16,7 +16,15 @@
 import type { IdentifierStyle, PinyinMode } from './identifier';
 
 /** 七端（与 `@ec/designer` 的 PageDSL platform 枚举一致） */
-export const NAMING_PLATFORMS = ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos'] as const;
+export const NAMING_PLATFORMS = [
+  'web',
+  'android',
+  'ios',
+  'harmonyos',
+  'windows',
+  'linux',
+  'macos',
+] as const;
 export type NamingPlatform = (typeof NAMING_PLATFORMS)[number];
 
 /** 八类标识符投影（PRD §6.2 `projections_json`） */
@@ -170,7 +178,13 @@ const ANDROID_PRESET: NamingPreset = {
     i18nKey: rule({ template: '{scope}_{snake}', maxLength: I18N_MAX, forbiddenChars: '-' }),
     apiField: rule({ style: 'snake', separator: '_', forbiddenChars: '-' }),
     methodName: rule({ style: 'camel', prefix: 'handle', forbiddenChars: '-' }),
-    routeSegment: rule({ style: 'snake', prefix: '', maxLength: ROUTE_MAX, separator: '_', forbiddenChars: '-' }),
+    routeSegment: rule({
+      style: 'snake',
+      prefix: '',
+      maxLength: ROUTE_MAX,
+      separator: '_',
+      forbiddenChars: '-',
+    }),
     testName: rule({ template: 'should render {Name}', maxLength: I18N_MAX, forbiddenChars: '-' }),
   },
 };
@@ -203,7 +217,7 @@ const HARMONYOS_PRESET: NamingPreset = {
   label: 'HarmonyOS（ArkTS + ArkUI）',
   resourceReference: 'arkts',
   notes: [
-    'ArkTS 规范：组件名 PascalCase，资源引用走 $r(\'app.string.<key>\')',
+    "ArkTS 规范：组件名 PascalCase，资源引用走 $r('app.string.<key>')",
     '页面路由为 pages/<Pascal>（ArkUI 页面栈路径）',
     '资源 key 禁用 `-`，分隔符用 `_`',
   ],
@@ -211,10 +225,19 @@ const HARMONYOS_PRESET: NamingPreset = {
     component: rule({ style: 'pascal', forbiddenChars: '-' }),
     variable: rule({ style: 'camel', forbiddenChars: '-' }),
     cssClass: rule({ style: 'snake', maxLength: CSS_MAX, separator: '_', forbiddenChars: '-' }),
-    i18nKey: rule({ template: 'app.string.{scope}_{snake}', maxLength: I18N_MAX, forbiddenChars: '-' }),
+    i18nKey: rule({
+      template: 'app.string.{scope}_{snake}',
+      maxLength: I18N_MAX,
+      forbiddenChars: '-',
+    }),
     apiField: rule({ style: 'snake', separator: '_', forbiddenChars: '-' }),
     methodName: rule({ style: 'camel', prefix: 'handle', forbiddenChars: '-' }),
-    routeSegment: rule({ style: 'pascal', prefix: 'pages/', maxLength: ROUTE_MAX, forbiddenChars: '-' }),
+    routeSegment: rule({
+      style: 'pascal',
+      prefix: 'pages/',
+      maxLength: ROUTE_MAX,
+      forbiddenChars: '-',
+    }),
     testName: rule({ template: 'should render {Name}', maxLength: I18N_MAX, forbiddenChars: '-' }),
   },
 };
@@ -307,10 +330,12 @@ function dedupeChars(input: string): string {
  *
  * 优先级：`override.presetId`（项目覆盖）> `platform` 预设 > Web 预设。
  */
-export function resolveNamingRule(input: {
-  platform?: NamingPlatform | undefined;
-  override?: NamingOverride | undefined;
-} = {}): ResolvedNamingRule {
+export function resolveNamingRule(
+  input: {
+    platform?: NamingPlatform | undefined;
+    override?: NamingOverride | undefined;
+  } = {},
+): ResolvedNamingRule {
   const override = input.override ?? {};
   const requested = override.presetId !== undefined ? findPreset(override.presetId) : null;
   const byPlatform = input.platform !== undefined ? PLATFORM_PRESETS[input.platform] : undefined;

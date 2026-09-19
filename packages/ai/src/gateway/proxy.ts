@@ -20,7 +20,10 @@ export const proxyUrlSchema = z
     try {
       parseProxyUrl(value);
     } catch (error) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error ? error.message : '代理地址非法' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : '代理地址非法',
+      });
     }
   });
 

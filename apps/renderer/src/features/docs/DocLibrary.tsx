@@ -6,7 +6,18 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Checkbox, EmptyState, Input, Modal, Select, Table, Tag, Textarea, type Column } from '@ec/ui';
+import {
+  Button,
+  Checkbox,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Table,
+  Tag,
+  Textarea,
+  type Column,
+} from '@ec/ui';
 import { DOC_FORMAT_LABELS, DOC_FORMATS, type DocFormat, type DocSummary } from '@ec/core';
 
 import { useDocs } from './docs-api';
@@ -29,7 +40,12 @@ export interface DocLibraryProps {
   onChanged?: () => void;
 }
 
-export function DocLibrary({ projectId, selectedId, onSelect, onChanged }: DocLibraryProps): JSX.Element {
+export function DocLibrary({
+  projectId,
+  selectedId,
+  onSelect,
+  onChanged,
+}: DocLibraryProps): JSX.Element {
   const api = useDocs();
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +114,12 @@ export function DocLibrary({ projectId, selectedId, onSelect, onChanged }: DocLi
       ),
     },
     { key: 'kind', title: '类型', width: 110, render: (row) => KIND_LABELS[row.kind] ?? row.kind },
-    { key: 'format', title: '格式', width: 110, render: (row) => DOC_FORMAT_LABELS[row.format] ?? row.format },
+    {
+      key: 'format',
+      title: '格式',
+      width: 110,
+      render: (row) => DOC_FORMAT_LABELS[row.format] ?? row.format,
+    },
     {
       key: 'sections',
       title: '章节',
@@ -233,7 +254,12 @@ interface ImportDocDialogProps {
   onImported: (doc: DocSummary) => void | Promise<void>;
 }
 
-function ImportDocDialog({ open, projectId, onClose, onImported }: ImportDocDialogProps): JSX.Element {
+function ImportDocDialog({
+  open,
+  projectId,
+  onClose,
+  onImported,
+}: ImportDocDialogProps): JSX.Element {
   const api = useDocs();
   const [format, setFormat] = useState<DocFormat>('markdown');
   const [title, setTitle] = useState('');
@@ -297,7 +323,12 @@ function ImportDocDialog({ open, projectId, onClose, onImported }: ImportDocDial
           <Button variant="ghost" onClick={onClose}>
             取消
           </Button>
-          <Button variant="primary" loading={busy} disabled={!canSubmit} onClick={() => void submit()}>
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+          >
             导入
           </Button>
         </>

@@ -86,7 +86,11 @@ export function ProviderSettings(): JSX.Element {
         />
       ) : null}
 
-      <PurposeBindingPanel binding={state.binding} models={state.allModels as Model[]} onChange={state.setBinding} />
+      <PurposeBindingPanel
+        binding={state.binding}
+        models={state.allModels as Model[]}
+        onChange={state.setBinding}
+      />
 
       {state.providers.length > 0 ? <GenerationTest /> : null}
 
@@ -115,7 +119,11 @@ export function ProviderSettings(): JSX.Element {
             >
               确认删除
             </button>
-            <button type="button" className="ec-ai__btn-ghost" onClick={() => setConfirmDelete(null)}>
+            <button
+              type="button"
+              className="ec-ai__btn-ghost"
+              onClick={() => setConfirmDelete(null)}
+            >
               取消
             </button>
           </span>

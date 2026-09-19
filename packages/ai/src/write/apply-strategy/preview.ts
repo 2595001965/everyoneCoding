@@ -66,8 +66,18 @@ export function computeDiffLines(before: string, after: string): PreviewDiffLine
 
   if (oldCount * newCount > LCS_CELL_LIMIT) {
     return [
-      ...oldLines.map((text, index) => ({ kind: 'remove' as const, text, oldLine: index + 1, newLine: null })),
-      ...newLines.map((text, index) => ({ kind: 'add' as const, text, oldLine: null, newLine: index + 1 })),
+      ...oldLines.map((text, index) => ({
+        kind: 'remove' as const,
+        text,
+        oldLine: index + 1,
+        newLine: null,
+      })),
+      ...newLines.map((text, index) => ({
+        kind: 'add' as const,
+        text,
+        oldLine: null,
+        newLine: index + 1,
+      })),
     ];
   }
 

@@ -188,7 +188,10 @@ export class CommandRegistry<C extends CommandContext = CommandContext> {
 }
 
 /** 子序列模糊打分：标题命中权重高于分组，连续命中额外加权 */
-export function fuzzyScore(query: string, command: { title: string; group: string; id: string }): number {
+export function fuzzyScore(
+  query: string,
+  command: { title: string; group: string; id: string },
+): number {
   const title = command.title.toLowerCase();
   const group = command.group.toLowerCase();
   const id = command.id.toLowerCase();

@@ -13,26 +13,14 @@ export interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 export const Tag = React.forwardRef<HTMLSpanElement, TagProps>(function Tag(
-  {
-    color = 'neutral',
-    closable = false,
-    onClose,
-    className,
-    children,
-    ...rest
-  },
+  { color = 'neutral', closable = false, onClose, className, children, ...rest },
   ref,
 ) {
   return (
     <span ref={ref} className={cx('ec-tag', `ec-tag--${color}`, className)} {...rest}>
       <span className="ec-tag__label">{children}</span>
       {closable && (
-        <button
-          type="button"
-          className="ec-tag__close"
-          aria-label="移除标签"
-          onClick={onClose}
-        >
+        <button type="button" className="ec-tag__close" aria-label="移除标签" onClick={onClose}>
           ×
         </button>
       )}

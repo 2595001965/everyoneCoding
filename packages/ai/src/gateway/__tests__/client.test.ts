@@ -15,13 +15,22 @@ import { RequestQueue } from '../../gateway/queue';
 import { FailoverController } from '../../gateway/failover';
 import { AiGateway } from '../../gateway/client';
 import { collect } from '../../core/stream';
-import { insertUser, openTestDb, testSecureStore, type MockServerHandle } from '../../__tests__/helpers';
+import {
+  insertUser,
+  openTestDb,
+  testSecureStore,
+  type MockServerHandle,
+} from '../../__tests__/helpers';
 
 const USER = 'USER0000000000000000000000';
 const SSE_HEADERS = { 'content-type': 'text/event-stream' };
 
 /** 构造一条 OpenAI 流式响应（含末帧 usage 与 [DONE]） */
-function sseReply(text: string, promptTokens = 100, completionTokens = 20): { status: number; body: string; headers: Record<string, string> } {
+function sseReply(
+  text: string,
+  promptTokens = 100,
+  completionTokens = 20,
+): { status: number; body: string; headers: Record<string, string> } {
   return {
     status: 200,
     headers: SSE_HEADERS,
@@ -47,7 +56,10 @@ afterEach(async () => {
 
 /** 可编排响应的本地服务：handler 自行决定每次返回什么 */
 async function startScripted(
-  respond: (req: { url: string; body: string }, callIndex: number) => { status: number; body: string; headers?: Record<string, string> },
+  respond: (
+    req: { url: string; body: string },
+    callIndex: number,
+  ) => { status: number; body: string; headers?: Record<string, string> },
 ): Promise<MockServerHandle> {
   let calls = 0;
   const httpServer: Server = createServer((req, res) => {
@@ -56,8 +68,14 @@ async function startScripted(
     req.on('end', () => {
       const index = calls;
       calls += 1;
-      const result = respond({ url: req.url ?? '/', body: Buffer.concat(chunks).toString('utf8') }, index);
-      res.writeHead(result.status, { 'content-type': 'application/json', ...(result.headers ?? {}) });
+      const result = respond(
+        { url: req.url ?? '/', body: Buffer.concat(chunks).toString('utf8') },
+        index,
+      );
+      res.writeHead(result.status, {
+        'content-type': 'application/json',
+        ...(result.headers ?? {}),
+      });
       res.end(result.body);
     });
   });
@@ -149,11 +167,16 @@ describe('AI Gateway 统一出口', () => {
     await seedTwoProviders(stack, server.url, null);
 
     const result = await collect(
-      stack.gateway.chat({ userId: USER, purpose: 'code', messages: [{ role: 'user', content: 'hi' }] }),
+      stack.gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
     );
 
     expect(result.text).toBe('生成完成');
-    const row = stack.db.prepare('SELECT * FROM usage_record').get() as Record<string, unknown> | undefined;
+    const row = stack.db.prepare('SELECT * FROM usage_record').get() as
+      Record<string, unknown> | undefined;
     expect(row).toBeDefined();
     expect(row?.['purpose']).toBe('code');
     expect(row?.['total_tokens']).toBe(120);
@@ -163,7 +186,11 @@ describe('AI Gateway 统一出口', () => {
   it('429 → 排队重试 → 成功', async () => {
     server = await startScripted((_req, index) =>
       index === 0
-        ? { status: 429, body: '{"error":{"message":"slow down"}}', headers: { 'retry-after': '0' } }
+        ? {
+            status: 429,
+            body: '{"error":{"message":"slow down"}}',
+            headers: { 'retry-after': '0' },
+          }
         : sseReply('重试后成功', 1, 1),
     );
     const stack = buildStack({ maxRetries: 2 });
@@ -173,7 +200,11 @@ describe('AI Gateway 统一出口', () => {
     stack.gateway.onEvent((event) => events.push(event.type));
 
     const result = await collect(
-      stack.gateway.chat({ userId: USER, purpose: 'code', messages: [{ role: 'user', content: 'hi' }] }),
+      stack.gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
     );
     expect(result.text).toBe('重试后成功');
     expect(events).toContain('retry');
@@ -182,7 +213,10 @@ describe('AI Gateway 统一出口', () => {
 
   it('连续失败 → 自动切备用 Provider', async () => {
     // 主服务固定 500，备用固定 200
-    const primaryServer = await startScripted(() => ({ status: 500, body: '{"error":{"message":"boom"}}' }));
+    const primaryServer = await startScripted(() => ({
+      status: 500,
+      body: '{"error":{"message":"boom"}}',
+    }));
     const backupServer = await startScripted(() => sseReply('备用接管', 0, 0));
     server = primaryServer;
 
@@ -193,7 +227,11 @@ describe('AI Gateway 统一出口', () => {
     stack.gateway.onEvent((event) => events.push(event as never));
 
     const result = await collect(
-      stack.gateway.chat({ userId: USER, purpose: 'code', messages: [{ role: 'user', content: 'hi' }] }),
+      stack.gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
     );
 
     expect(result.text).toBe('备用接管');
@@ -217,12 +255,14 @@ describe('AI Gateway 统一出口', () => {
     await seedTwoProviders(stack, server.url, null);
 
     const controller = new AbortController();
-    const iterator = stack.gateway.chat({
-      userId: USER,
-      purpose: 'code',
-      messages: [{ role: 'user', content: 'hi' }],
-      signal: controller.signal,
-    })[Symbol.asyncIterator]();
+    const iterator = stack.gateway
+      .chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'hi' }],
+        signal: controller.signal,
+      })
+      [Symbol.asyncIterator]();
 
     const first = await iterator.next();
     expect(first.done).toBe(false);
@@ -248,7 +288,11 @@ describe('AI Gateway 统一出口', () => {
     await seedTwoProviders(stack, server.url, null);
 
     const result = await collect(
-      stack.gateway.chat({ userId: USER, purpose: 'code', messages: [{ role: 'user', content: 'hi' }] }),
+      stack.gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
     );
     expect(result.error).toBeDefined();
     expect(result.error?.message).toContain('本月预算已用尽');
@@ -258,7 +302,11 @@ describe('AI Gateway 统一出口', () => {
   it('未配置任何模型时给出可操作提示而不是抛异常', async () => {
     const stack = buildStack();
     const result = await collect(
-      stack.gateway.chat({ userId: USER, purpose: 'code', messages: [{ role: 'user', content: 'hi' }] }),
+      stack.gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
     );
     expect(result.error?.message).toContain('尚未配置可用模型');
   });

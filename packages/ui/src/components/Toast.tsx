@@ -59,7 +59,11 @@ export function ToastProvider({ children, max = 5 }: ToastProviderProps): React.
       <Portal>
         <div className="ec-toast-region" role="region" aria-live="polite" aria-label="通知">
           {toasts.map((t) => (
-            <div key={t.id} className={cx('ec-toast', `ec-toast--${t.variant ?? 'info'}`)} role="status">
+            <div
+              key={t.id}
+              className={cx('ec-toast', `ec-toast--${t.variant ?? 'info'}`)}
+              role="status"
+            >
               <div className="ec-toast__content">
                 {t.title && <div className="ec-toast__title">{t.title}</div>}
                 {t.description && <div className="ec-toast__desc">{t.description}</div>}

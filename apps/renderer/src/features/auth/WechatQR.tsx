@@ -21,7 +21,9 @@ export function WechatQR({ onConfirmed }: WechatQRProps): JSX.Element {
   const api = useAuth();
   const [authorizeUrl, setAuthorizeUrl] = useState('');
   const [state, setState] = useState('');
-  const [phase, setPhase] = useState<'loading' | 'pending' | 'scanned' | 'expired' | 'error'>('loading');
+  const [phase, setPhase] = useState<'loading' | 'pending' | 'scanned' | 'expired' | 'error'>(
+    'loading',
+  );
   const [error, setError] = useState<string | null>(null);
   const [remainMs, setRemainMs] = useState(WECHAT_QR_TTL_MS);
   const confirmedRef = useRef(onConfirmed);

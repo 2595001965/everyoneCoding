@@ -36,7 +36,8 @@ export const PROJECT_SCOPE_NOTICE =
   '本次重命名仅影响当前项目，不修改长期记忆与其他项目；跨项目复用请手动导入 .ecpkg';
 
 /** 关于长期记忆的补充提示 */
-export const LONGTERM_MEMORY_NOTICE = '长期记忆（longterm）中的提及不在本次范围内，请在记忆中心自行维护';
+export const LONGTERM_MEMORY_NOTICE =
+  '长期记忆（longterm）中的提及不在本次范围内，请在记忆中心自行维护';
 
 /** 投影变化（前后对照表） */
 export interface ProjectionChange {
@@ -158,7 +159,11 @@ export function partitionScope(
   return { inScope, crossProject, longtermMemory };
 }
 
-function newTextOf(occurrence: Occurrence, projections: ProjectionSet, canonicalName: string): string {
+function newTextOf(
+  occurrence: Occurrence,
+  projections: ProjectionSet,
+  canonicalName: string,
+): string {
   if (occurrence.matchedSymbol === null) return canonicalName;
   return projections[occurrence.matchedSymbol];
 }
@@ -199,7 +204,10 @@ function groupItems(items: readonly ImpactItem[]): ImpactGroup[] {
 export function analyzeImpact(input: ImpactAnalysisInput): ImpactReport {
   const timer = input.timer ?? defaultTimer;
   const startedAt = timer();
-  const { inScope, crossProject, longtermMemory } = partitionScope(input.registry, input.occurrences);
+  const { inScope, crossProject, longtermMemory } = partitionScope(
+    input.registry,
+    input.occurrences,
+  );
   const derived = deriveProjections(input.newCanonicalName, {
     entityType: input.registry.entityType,
     rule: input.rule,

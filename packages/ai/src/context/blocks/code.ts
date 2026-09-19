@@ -31,7 +31,10 @@ export async function buildCodeBlock(context: BlockBuildContext): Promise<Contex
 
   const port = context.sources.code;
   if (port === undefined) {
-    return unavailableBlock({ ...base, reason: '未接入代码端口（外壳需装配工作区文件索引与锚点仓库）' });
+    return unavailableBlock({
+      ...base,
+      reason: '未接入代码端口（外壳需装配工作区文件索引与锚点仓库）',
+    });
   }
 
   let hits: readonly ContextCodeHit[] = [];
@@ -55,7 +58,10 @@ export async function buildCodeBlock(context: BlockBuildContext): Promise<Contex
   }
 
   const items: ContextBlockItem[] = hits.map((hit) => {
-    const body = hit.snippet.length > SNIPPET_CHAR_CAP ? `${hit.snippet.slice(0, SNIPPET_CHAR_CAP)}…` : hit.snippet;
+    const body =
+      hit.snippet.length > SNIPPET_CHAR_CAP
+        ? `${hit.snippet.slice(0, SNIPPET_CHAR_CAP)}…`
+        : hit.snippet;
     const header = `// ${hit.filePath} · ${hit.symbol} (${hit.kind}, L${hit.startLine}-${hit.endLine})`;
     const text = `### ${hit.filePath}\n\`\`\`${hit.language}\n${header}\n${body}\n\`\`\``;
     return {
@@ -82,7 +88,12 @@ export async function buildCodeBlock(context: BlockBuildContext): Promise<Contex
 export function codeWeight(hit: ContextCodeHit, elementId: string | null): number {
   let weight = hit.score;
   if (hit.anchorId !== undefined && hit.anchorId !== null && hit.anchorId.length > 0) weight += 0.3;
-  if (elementId !== null && elementId.length > 0 && hit.anchorId !== undefined && hit.anchorId.includes(elementId)) {
+  if (
+    elementId !== null &&
+    elementId.length > 0 &&
+    hit.anchorId !== undefined &&
+    hit.anchorId.includes(elementId)
+  ) {
     weight += 0.2;
   }
   return Number(weight.toFixed(4));

@@ -3,10 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRepo } from '../../repo/memory-repo';
 import { IssueMemoryService } from '../../service/issue-memory';
 import { DebugLoopDetector } from '../detector';
-import {
-  InMemoryIgnoreStore,
-  PromptCardSource,
-} from '../prompt-card-source';
+import { InMemoryIgnoreStore, PromptCardSource } from '../prompt-card-source';
 import {
   IssueDraftBuilder,
   draftToCreateIssueInput,
@@ -41,11 +38,7 @@ function targetOf(patch: Partial<typeof TARGET> = {}): typeof TARGET {
   return { ...TARGET, ...patch };
 }
 
-function event(
-  type: DebugEvent['type'],
-  at: number,
-  patch: Partial<DebugEvent> = {},
-): DebugEvent {
+function event(type: DebugEvent['type'], at: number, patch: Partial<DebugEvent> = {}): DebugEvent {
   return {
     type,
     at,
@@ -60,7 +53,11 @@ function cycle(at: number, signature: string, extra: Partial<DebugEvent> = {}): 
   return [
     event('generate', at, { attemptSummary: '生成提交按钮', ...extra }),
     event('run', at + 1, extra),
-    event('error', at + 2, { errorSignature: signature, rawError: `TypeError: ${signature} at /a/b.ts:1:2`, ...extra }),
+    event('error', at + 2, {
+      errorSignature: signature,
+      rawError: `TypeError: ${signature} at /a/b.ts:1:2`,
+      ...extra,
+    }),
   ];
 }
 
@@ -112,8 +109,12 @@ describe('WindowQueue 滚动窗口', () => {
 
 describe('错误指纹归一化与归属键', () => {
   it('仅路径 / 行号 / 时间戳不同的同类错误得到同一指纹', () => {
-    const a = normalizeErrorSignature("TypeError: Cannot read properties of undefined (reading 'x') at /a/b.ts:12:5");
-    const b = normalizeErrorSignature("TypeError: Cannot read properties of undefined (reading 'x') at C:\\x\\y.ts:99:1");
+    const a = normalizeErrorSignature(
+      "TypeError: Cannot read properties of undefined (reading 'x') at /a/b.ts:12:5",
+    );
+    const b = normalizeErrorSignature(
+      "TypeError: Cannot read properties of undefined (reading 'x') at C:\\x\\y.ts:99:1",
+    );
     const c = normalizeErrorSignature(
       "TypeError: Cannot read properties of undefined (reading 'x') at /a/b.ts:12:5 2024-01-02T03:04:05.678Z",
     );
@@ -130,7 +131,9 @@ describe('错误指纹归一化与归属键', () => {
 
   it('归属键稳定且与字段顺序无关，可读描述不含 targetKey', () => {
     expect(targetKeyOf(TARGET)).toBe('page:PG1|element:E1|feature:F1');
-    expect(targetKeyOf({ elementId: 'E1', featureId: 'F1', pageId: 'PG1' })).toBe('page:PG1|element:E1|feature:F1');
+    expect(targetKeyOf({ elementId: 'E1', featureId: 'F1', pageId: 'PG1' })).toBe(
+      'page:PG1|element:E1|feature:F1',
+    );
     expect(targetKeyOf({})).toBe('page:-|element:-|feature:-');
     expect(readableTarget(TARGET)).toBe('功能F1 / 页面PG1 / 元素E1');
     expect(readableTarget(TARGET)).not.toContain('page:');
@@ -223,7 +226,8 @@ describe('DebugLoopDetector 阈值与抑制', () => {
 
   it('reset 清空队列与抑制集合', () => {
     const { queue, detector } = makeDetector();
-    for (const item of [...cycle(T0, 's1'), ...cycle(T0 + 10, 's2'), ...cycle(T0 + 20, 's3')]) queue.push(item);
+    for (const item of [...cycle(T0, 's1'), ...cycle(T0 + 10, 's2'), ...cycle(T0 + 20, 's3')])
+      queue.push(item);
     expect(detector.inspect(T0 + 100)).toHaveLength(1);
     detector.reset();
     expect(detector.inspect(T0 + 100)).toEqual([]);
@@ -263,7 +267,9 @@ describe('PromptCardSource 提示卡策略', () => {
     expect(decisions).toHaveLength(1);
     expect(decisions[0]?.targetKey).toBe(KEY);
     expect(decisions[0]?.title).toBe('功能F1 / 页面PG1 / 元素E1');
-    expect(decisions[0]?.message).toBe('检测到正在反复调试「功能F1 / 页面PG1 / 元素E1」，是否建立专门的问题记忆？');
+    expect(decisions[0]?.message).toBe(
+      '检测到正在反复调试「功能F1 / 页面PG1 / 元素E1」，是否建立专门的问题记忆？',
+    );
     expect(decisions[0]?.message).not.toContain('page:');
   });
 
@@ -372,7 +378,9 @@ describe('IssueDraftBuilder 草稿构建', () => {
 
     const detector = new DebugLoopDetector({ queue, clock });
     const hit = detector.inspect(T0 + 1000)[0]!;
-    const draft = builder.build(hit, { relatedCode: [{ filePath: 'src/auth/session.ts', symbol: 'writeSession' }] });
+    const draft = builder.build(hit, {
+      relatedCode: [{ filePath: 'src/auth/session.ts', symbol: 'writeSession' }],
+    });
 
     expect(draft.title).toBe('反复调试「功能F1 / 页面PG1 / 元素E1」');
     expect(draft.phenomenon.split('\n\n')).toHaveLength(3);
@@ -386,7 +394,9 @@ describe('IssueDraftBuilder 草稿构建', () => {
       { action: '调整 token 过期时间', result: '待确认' },
       { action: '检查 Cookie SameSite', result: '待确认' },
     ]);
-    expect(draft.codeLocations).toEqual([{ filePath: 'src/auth/session.ts', symbol: 'writeSession' }]);
+    expect(draft.codeLocations).toEqual([
+      { filePath: 'src/auth/session.ts', symbol: 'writeSession' },
+    ]);
     expect(draft.relatedPageId).toBe('PG1');
     expect(draft.relatedElementId).toBe('E1');
     expect(draft.relatedFeatureId).toBe('F1');

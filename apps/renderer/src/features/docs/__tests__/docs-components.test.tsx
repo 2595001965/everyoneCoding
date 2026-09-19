@@ -76,7 +76,11 @@ describe('DocLibrary（文档库）', () => {
   });
 
   it('删除 → 进回收站 → 可恢复（二次确认弹窗生效）', async () => {
-    const docId = await seedDocument(env.store, { projectId: PROJECT, title: '需求文档', markdown: MARKDOWN });
+    const docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '需求文档',
+      markdown: MARKDOWN,
+    });
     renderLibrary(env);
 
     fireEvent.click(await screen.findByRole('button', { name: '删除' }));
@@ -111,8 +115,16 @@ describe('DocLibrary（文档库）', () => {
   });
 
   it('搜索按标题过滤', async () => {
-    await seedDocument(env.store, { projectId: PROJECT, title: '课程平台需求', markdown: MARKDOWN });
-    await seedDocument(env.store, { projectId: PROJECT, title: '支付需求', markdown: '# 支付\n\n## 功能\n- 下单\n' });
+    await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '课程平台需求',
+      markdown: MARKDOWN,
+    });
+    await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '支付需求',
+      markdown: '# 支付\n\n## 功能\n- 下单\n',
+    });
     renderLibrary(env);
     expect(await screen.findByText('课程平台需求')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('搜索文档'), { target: { value: '支付' } });
@@ -133,7 +145,11 @@ describe('DocViewer（正文与定位）', () => {
   });
 
   it('大纲点击定位到对应段落（Markdown 标题锚点）', async () => {
-    const docId = await seedDocument(env.store, { projectId: PROJECT, title: '课程平台', markdown: MARKDOWN });
+    const docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '课程平台',
+      markdown: MARKDOWN,
+    });
     render(
       <DocsProvider api={env.api}>
         <DocViewer documentId={docId} />
@@ -150,7 +166,12 @@ describe('DocViewer（正文与定位）', () => {
     const sections = JSON.parse(doc.sections_json!) as Array<{ anchor: string; heading: string }>;
     const anchor = sections.find((section) => section.heading === '功能需求')!.anchor;
     expect(document.getElementById(anchor)).toBeTruthy();
-    expect(within(outline).getByRole('button', { name: '功能需求' }).closest('li')?.getAttribute('data-active')).toBe('true');
+    expect(
+      within(outline)
+        .getByRole('button', { name: '功能需求' })
+        .closest('li')
+        ?.getAttribute('data-active'),
+    ).toBe('true');
   });
 
   it('PDF 文档在大纲标注页码（页码定位可用）', async () => {
@@ -207,7 +228,11 @@ describe('DocViewer（正文与定位）', () => {
   });
 
   it('版本历史可展开，含创建者标注', async () => {
-    const docId = await seedDocument(env.store, { projectId: PROJECT, title: 'V', markdown: MARKDOWN });
+    const docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: 'V',
+      markdown: MARKDOWN,
+    });
     await env.api.updateDocument({ id: docId, raw: `${MARKDOWN}\n补充一段。` });
     render(
       <DocsProvider api={env.api}>

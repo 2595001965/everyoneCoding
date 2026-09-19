@@ -11,16 +11,38 @@ export {
   type InspectorTab,
 } from './Inspector';
 
-export { SchemaForm, PropFieldControl, DEFAULT_DEBOUNCE_MS, type SchemaFormProps, type PropFieldControlProps } from './SchemaForm';
+export {
+  SchemaForm,
+  PropFieldControl,
+  DEFAULT_DEBOUNCE_MS,
+  type SchemaFormProps,
+  type PropFieldControlProps,
+} from './SchemaForm';
 
 export { StylePanel, STYLE_SCHEMA, type StylePanelProps } from './StylePanel';
 
 export { ContentPanel, FALLBACK_PROPS_SCHEMA, type ContentPanelProps } from './ContentPanel';
 
-export { BindingPanel, DEFAULT_BINDABLE_PROPS, catalogForElement, type BindingPanelProps } from './BindingPanel';
+export {
+  BindingPanel,
+  DEFAULT_BINDABLE_PROPS,
+  catalogForElement,
+  type BindingPanelProps,
+} from './BindingPanel';
 
 export { EventPanel, TRIGGER_OPTIONS, triggerLabel, type EventPanelProps } from './EventPanel';
 
-export { ConditionPanel, ConditionEditor, COMPARISON_OPS, type ConditionPanelProps, type ConditionEditorProps } from './ConditionPanel';
+export {
+  ConditionPanel,
+  ConditionEditor,
+  COMPARISON_OPS,
+  type ConditionPanelProps,
+  type ConditionEditorProps,
+} from './ConditionPanel';
 
-export { PermissionPanel, PERMISSION_MODES, PERMISSION_MODE_LABELS, type PermissionPanelProps } from './PermissionPanel';
+export {
+  PermissionPanel,
+  PERMISSION_MODES,
+  PERMISSION_MODE_LABELS,
+  type PermissionPanelProps,
+} from './PermissionPanel';

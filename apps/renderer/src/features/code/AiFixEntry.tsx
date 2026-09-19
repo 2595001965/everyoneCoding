@@ -20,7 +20,13 @@ export interface AiFixEntryProps {
   onClose: () => void;
 }
 
-export function AiFixEntry({ path, reason, contextSnippet, onConfirm, onClose }: AiFixEntryProps): JSX.Element {
+export function AiFixEntry({
+  path,
+  reason,
+  contextSnippet,
+  onConfirm,
+  onClose,
+}: AiFixEntryProps): JSX.Element {
   const [comment, setComment] = useState('');
   const fileName = path.split('/').at(-1) ?? path;
 
@@ -52,13 +58,16 @@ export function AiFixEntry({ path, reason, contextSnippet, onConfirm, onClose }:
       }
     >
       <div className="ec-ai-fix-entry" data-file-path={path}>
-        <p role="note" style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}>
+        <p
+          role="note"
+          style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}
+        >
           {reason}
         </p>
-        <p style={{ margin: '0 0 8px', fontSize: 12 }}>
-          {`目标文件：${path}`}
-        </p>
-        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>希望怎么改（会作为指令发给 AI）</label>
+        <p style={{ margin: '0 0 8px', fontSize: 12 }}>{`目标文件：${path}`}</p>
+        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+          希望怎么改（会作为指令发给 AI）
+        </label>
         <Textarea
           aria-label="AI 修改说明"
           rows={4}
@@ -69,7 +78,15 @@ export function AiFixEntry({ path, reason, contextSnippet, onConfirm, onClose }:
         {contextSnippet !== undefined && contextSnippet.length > 0 && (
           <pre
             data-testid="ec-ai-fix-context"
-            style={{ marginTop: 8, maxHeight: 160, overflow: 'auto', fontSize: 11, background: 'var(--ec-surface-sunken, #f8fafc)', padding: 8, borderRadius: 6 }}
+            style={{
+              marginTop: 8,
+              maxHeight: 160,
+              overflow: 'auto',
+              fontSize: 11,
+              background: 'var(--ec-surface-sunken, #f8fafc)',
+              padding: 8,
+              borderRadius: 6,
+            }}
           >
             {contextSnippet}
           </pre>

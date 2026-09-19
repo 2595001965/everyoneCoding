@@ -37,19 +37,33 @@ function statusClass(status: StageStatus): string {
   }
 }
 
-export function PipelineBar({ projectId, snapshot, onReview, onRollback, viewingStage }: PipelineBarProps): JSX.Element {
+export function PipelineBar({
+  projectId,
+  snapshot,
+  onReview,
+  onRollback,
+  viewingStage,
+}: PipelineBarProps): JSX.Element {
   const api = usePipelineApi();
   const states = snapshot ?? api.snapshot(projectId);
-  const current = [...STAGE_ORDER].reverse().find((stage) => states[stage].status !== 'pending') ?? 'S1';
+  const current =
+    [...STAGE_ORDER].reverse().find((stage) => states[stage].status !== 'pending') ?? 'S1';
 
   return (
     <div className="ec-pipe-bar" data-testid="pipeline-bar">
       <div className="ec-pipe-bar__steps">
         {STAGE_ORDER.map((stage, index) => {
           const state = states[stage];
-          const clickable = state.status === 'confirmed' || state.status === 'stale' || state.status === 'running';
+          const clickable =
+            state.status === 'confirmed' || state.status === 'stale' || state.status === 'running';
           const isViewing = viewingStage === stage;
-          const classes = ['ec-pipe-stage', statusClass(state.status), clickable ? 'ec-pipe-stage--clickable' : '', isViewing ? 'ec-pipe-stage--viewing' : '', stage === current ? 'ec-pipe-stage--current' : '']
+          const classes = [
+            'ec-pipe-stage',
+            statusClass(state.status),
+            clickable ? 'ec-pipe-stage--clickable' : '',
+            isViewing ? 'ec-pipe-stage--viewing' : '',
+            stage === current ? 'ec-pipe-stage--current' : '',
+          ]
             .filter(Boolean)
             .join(' ');
           return (

@@ -15,7 +15,15 @@ import { z } from 'zod';
  */
 
 /** 锚点种类（PRD §6.2 的 kind 枚举） */
-export const ANCHOR_KINDS = ['controller', 'service', 'dto', 'repo', 'sql', 'test', 'route'] as const;
+export const ANCHOR_KINDS = [
+  'controller',
+  'service',
+  'dto',
+  'repo',
+  'sql',
+  'test',
+  'route',
+] as const;
 export type AnchorKind = (typeof ANCHOR_KINDS)[number];
 
 export const ANCHOR_KIND_LABELS: Record<AnchorKind, string> = {

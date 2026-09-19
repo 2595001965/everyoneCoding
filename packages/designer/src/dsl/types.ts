@@ -21,7 +21,15 @@ export type {
 } from '../shared/condition';
 
 /** 产物目标端（七端矩阵，FR-AI-13 / FR-DSG-01） */
-export const PLATFORMS = ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos'] as const;
+export const PLATFORMS = [
+  'web',
+  'android',
+  'ios',
+  'harmonyos',
+  'windows',
+  'linux',
+  'macos',
+] as const;
 export type Platform = (typeof PLATFORMS)[number];
 
 /** 移动端与鸿蒙端需要安全区参数；桌面端需要窗口占位；Web 端无安全区。 */
@@ -106,7 +114,15 @@ export interface PageNote {
 }
 
 /** 代码锚点种类（PRD §6.2 `code_anchor.kind`） */
-export const ANCHOR_KINDS = ['controller', 'service', 'dto', 'repo', 'sql', 'test', 'route'] as const;
+export const ANCHOR_KINDS = [
+  'controller',
+  'service',
+  'dto',
+  'repo',
+  'sql',
+  'test',
+  'route',
+] as const;
 export type AnchorKind = (typeof ANCHOR_KINDS)[number];
 
 /** 元素 → 后端代码位置映射（FR-NAV-04 / T4-06） */
@@ -212,7 +228,18 @@ export const BREAKPOINTS = [1920, 1440, 768, 375] as const;
 export type Breakpoint = (typeof BREAKPOINTS)[number];
 
 /** DSL 中允许承载子节点的容器型组件（T3-04 的嵌套规则来源之一） */
-export const CONTAINER_TYPES: readonly string[] = ['Container', 'Form', 'Modal', 'Tabs', 'Card', 'Links', 'NavBar', 'Footer', 'List', 'Table'];
+export const CONTAINER_TYPES: readonly string[] = [
+  'Container',
+  'Form',
+  'Modal',
+  'Tabs',
+  'Card',
+  'Links',
+  'NavBar',
+  'Footer',
+  'List',
+  'Table',
+];
 
 /** 归一化动作种类：面板别名 → 规范值 */
 export function normalizeActionKind(input: ActionKindInput): ActionKind {
@@ -265,7 +292,7 @@ export interface RouteIssue {
   suggestion?: string;
 }
 
-/** DSL 结构不变量问题的编码（T3-01 要点 3） */export type DslIssueCode =
+/** DSL 结构不变量问题的编码（T3-01 要点 3） */ export type DslIssueCode =
   | 'DUPLICATE_ELEMENT_ID'
   | 'NESTING_TOO_DEEP'
   | 'DANGLING_NOTE'

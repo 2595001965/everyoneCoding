@@ -99,36 +99,34 @@ export interface AuthDomainOptions {
 export function createAuthDomain(options: AuthDomainOptions): { router: DomainRouter } {
   const secureStore = createDpapiSecureStore(options.safeStorage, options.secureDir);
 
-  const transport: TransportPort =
-    options.transport ??
-    {
-      async request(input) {
+  const transport: TransportPort = options.transport ?? {
+    async request(input) {
+      try {
+        const response = await fetch(input.url, {
+          method: input.method,
+          headers: {
+            ...(input.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+            ...(input.headers ?? {}),
+          },
+          ...(input.body !== undefined ? { body: JSON.stringify(input.body) } : {}),
+        });
+        const text = await response.text();
+        let json: unknown = null;
         try {
-          const response = await fetch(input.url, {
-            method: input.method,
-            headers: {
-              ...(input.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-              ...(input.headers ?? {}),
-            },
-            ...(input.body !== undefined ? { body: JSON.stringify(input.body) } : {}),
-          });
-          const text = await response.text();
-          let json: unknown = null;
-          try {
-            json = text.length > 0 ? JSON.parse(text) : null;
-          } catch {
-            json = { raw: text };
-          }
-          return { status: response.status, json };
-        } catch (error) {
-          // 网络层失败交给 OfflineController 识别（它据此进入离线模式）
-          if (!isNetworkError(error)) {
-            throw new ShellError('NET_ERROR', error instanceof Error ? error.message : String(error));
-          }
-          throw error;
+          json = text.length > 0 ? JSON.parse(text) : null;
+        } catch {
+          json = { raw: text };
         }
-      },
-    };
+        return { status: response.status, json };
+      } catch (error) {
+        // 网络层失败交给 OfflineController 识别（它据此进入离线模式）
+        if (!isNetworkError(error)) {
+          throw new ShellError('NET_ERROR', error instanceof Error ? error.message : String(error));
+        }
+        throw error;
+      }
+    },
+  };
 
   const system: SystemPort = {
     openExternal: (url) => options.openExternal(url),
@@ -173,7 +171,10 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
   const offline = new OfflineController(async () => {
     try {
       // 探测走同一传输口（测试注入的假传输才能控制可达性）
-      const response = await transport.request({ method: 'GET', url: `${options.baseUrl}/api/health` });
+      const response = await transport.request({
+        method: 'GET',
+        url: `${options.baseUrl}/api/health`,
+      });
       return response.status < 500;
     } catch {
       return false;
@@ -208,10 +209,14 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
     try {
       switch (method) {
         case 'register':
-          return keepSession(await client.register(params['input'] as Parameters<AuthClient['register']>[0]));
+          return keepSession(
+            await client.register(params['input'] as Parameters<AuthClient['register']>[0]),
+          );
 
         case 'login':
-          return keepSession(await client.login(params['input'] as Parameters<AuthClient['login']>[0]));
+          return keepSession(
+            await client.login(params['input'] as Parameters<AuthClient['login']>[0]),
+          );
 
         case 'logout':
           await client.logout();
@@ -264,14 +269,20 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
           return await client.bind(params['provider'] as AuthProvider, requireToken());
 
         case 'unbind':
-          return await client.unbind(params['provider'] as AuthProvider, requireToken(), params['hasPassword'] === true);
+          return await client.unbind(
+            params['provider'] as AuthProvider,
+            requireToken(),
+            params['hasPassword'] === true,
+          );
 
         case 'requestEmailVerification':
           await client.requestEmailVerification(String(params['email']));
           return undefined;
 
         case 'resetPassword':
-          await client.resetPassword(params['input'] as { email: string; code: string; newPassword: string });
+          await client.resetPassword(
+            params['input'] as { email: string; code: string; newPassword: string },
+          );
           return undefined;
 
         case 'isOffline':

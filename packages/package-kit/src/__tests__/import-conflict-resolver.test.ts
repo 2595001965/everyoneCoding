@@ -5,12 +5,29 @@ import { buildDiffPreview, resolveConflicts } from '../import/conflict-resolver'
 import { makeLocalPort, makeMemoryItem } from './import-testkit';
 import type { PackageObject, PackageObjectType } from '../import/import-types';
 
-function memPkg(id: string, content: string, updatedAt: number, projectId: string | null = null): PackageObject {
+function memPkg(
+  id: string,
+  content: string,
+  updatedAt: number,
+  projectId: string | null = null,
+): PackageObject {
   const m = makeMemoryItem({ id, content, updatedAt, projectId });
-  return { id, type: 'memory', projectId, name: content.slice(0, 20), updatedAt, payload: JSON.stringify(m) };
+  return {
+    id,
+    type: 'memory',
+    projectId,
+    name: content.slice(0, 20),
+    updatedAt,
+    payload: JSON.stringify(m),
+  };
 }
 
-function genPkg(id: string, type: PackageObjectType, payload: string, updatedAt = 1): PackageObject {
+function genPkg(
+  id: string,
+  type: PackageObjectType,
+  payload: string,
+  updatedAt = 1,
+): PackageObject {
   return { id, type, projectId: null, name: id, updatedAt, payload };
 }
 

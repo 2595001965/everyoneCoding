@@ -39,7 +39,11 @@ export function rowIdFromEvent(e: React.DragEvent | React.MouseEvent): string | 
 /**
  * 计算拖放结果。返回 null 表示非法（自身 / 自身子树 / 找不到目标）。
  */
-export function resolveDrop(dsl: PageDsl, draggedId: string, overId: string): DropResolution | null {
+export function resolveDrop(
+  dsl: PageDsl,
+  draggedId: string,
+  overId: string,
+): DropResolution | null {
   if (draggedId === overId) return null;
   const root = dsl.tree;
   // 禁止拖入自身子树（含自身）—— 循环检测
@@ -49,7 +53,8 @@ export function resolveDrop(dsl: PageDsl, draggedId: string, overId: string): Dr
   if (overLoc === null) return null;
   const overNode = overLoc.node;
 
-  const isContainer = (overNode.children?.length ?? 0) > 0 || CONTAINER_TYPES.includes(overNode.type);
+  const isContainer =
+    (overNode.children?.length ?? 0) > 0 || CONTAINER_TYPES.includes(overNode.type);
   if (isContainer) {
     // 落入容器：作为其子节点追加到末尾
     return { targetParentId: overId };
@@ -76,18 +81,18 @@ export interface LayerDnd {
 
 export function useLayerDnd(): LayerDnd {
   const store = useDesignerStore();
-  const [dragState, setDragState] = React.useState<LayerDndState>({ draggedId: null, overId: null });
+  const [dragState, setDragState] = React.useState<LayerDndState>({
+    draggedId: null,
+    overId: null,
+  });
 
-  const onDragStart = React.useCallback(
-    (e: React.DragEvent) => {
-      const id = rowIdFromEvent(e);
-      if (!id) return;
-      e.dataTransfer.setData('text/plain', id);
-      e.dataTransfer.effectAllowed = 'move';
-      setDragState({ draggedId: id, overId: null });
-    },
-    [],
-  );
+  const onDragStart = React.useCallback((e: React.DragEvent) => {
+    const id = rowIdFromEvent(e);
+    if (!id) return;
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDragState({ draggedId: id, overId: null });
+  }, []);
 
   const onDragOver = React.useCallback((e: React.DragEvent) => {
     const id = rowIdFromEvent(e);

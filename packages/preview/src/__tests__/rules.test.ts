@@ -30,7 +30,9 @@ describe('字段规则：random-string', () => {
 
 describe('字段规则：random-number', () => {
   it('落在 [min,max] 且为整数', () => {
-    const rules: FieldRule[] = [{ path: 'n', kind: 'random-number', min: 10, max: 20, integer: true }];
+    const rules: FieldRule[] = [
+      { path: 'n', kind: 'random-number', min: 10, max: 20, integer: true },
+    ];
     const out = applyFieldRules({ n: 0 }, rules, mulberry32(3)) as { n: number };
     expect(out.n).toBeGreaterThanOrEqual(10);
     expect(out.n).toBeLessThanOrEqual(20);
@@ -61,7 +63,10 @@ describe('字段规则：date', () => {
 describe('字段规则：reference', () => {
   it('引用同响应内其它字段', () => {
     const rules: FieldRule[] = [{ path: 'b', kind: 'reference', refPath: 'a' }];
-    const out = applyFieldRules({ a: 'X', b: '' }, rules, mulberry32(1)) as { a: string; b: string };
+    const out = applyFieldRules({ a: 'X', b: '' }, rules, mulberry32(1)) as {
+      a: string;
+      b: string;
+    };
     expect(out.b).toBe('X');
   });
 

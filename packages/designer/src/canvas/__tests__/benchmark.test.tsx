@@ -28,7 +28,13 @@ function buildLargePage(count = 500): PageDsl {
       id: `n-${index}`,
       type: 'Text',
       name: `节点 ${index}`,
-      style: { position: 'absolute', left: (index % 25) * 40, top: Math.floor(index / 25) * 24, width: 36, height: 20 },
+      style: {
+        position: 'absolute',
+        left: (index % 25) * 40,
+        top: Math.floor(index / 25) * 24,
+        width: 36,
+        height: 20,
+      },
     });
   }
   const tree: ElementNode = { id: 'root', type: 'Container', name: '页面', children };
@@ -39,7 +45,12 @@ function rectsOf(dsl: PageDsl): Rect[] {
   const out: Rect[] = [];
   const walk = (node: ElementNode): void => {
     const style = (node.style ?? {}) as Record<string, number | undefined>;
-    out.push({ x: style.left ?? 0, y: style.top ?? 0, width: style.width ?? 100, height: style.height ?? 40 });
+    out.push({
+      x: style.left ?? 0,
+      y: style.top ?? 0,
+      width: style.width ?? 100,
+      height: style.height ?? 40,
+    });
     for (const child of node.children ?? []) walk(child);
   };
   walk(dsl.tree);
@@ -110,7 +121,11 @@ describe('T3-02 性能基准：500 元素页面', () => {
 
   it('8 层嵌套下的吸附计算仍为常数级耗时', () => {
     // 8 层嵌套链（最大允许深度）
-    let node: ElementNode = { id: 'deep-7', type: 'Text', style: { left: 0, top: 0, width: 40, height: 20 } };
+    let node: ElementNode = {
+      id: 'deep-7',
+      type: 'Text',
+      style: { left: 0, top: 0, width: 40, height: 20 },
+    };
     for (let level = 6; level >= 0; level -= 1) {
       node = {
         id: `deep-${level}`,
@@ -126,7 +141,10 @@ describe('T3-02 性能基准：500 元素页面', () => {
     const iterations = 500;
     const start = performance.now();
     for (let index = 0; index < iterations; index += 1) {
-      computeSnap({ x: index % 10, y: index % 10, width: 40, height: 20 }, peers, { canvasWidth: 360, canvasHeight: 780 });
+      computeSnap({ x: index % 10, y: index % 10, width: 40, height: 20 }, peers, {
+        canvasWidth: 360,
+        canvasHeight: 780,
+      });
     }
     const perFrame = (performance.now() - start) / iterations;
     // eslint-disable-next-line no-console

@@ -21,7 +21,8 @@ import { ANCHOR_KINDS, type AnchorDeclaration, type AnchorKind } from './anchor-
  * ③ 声明的 kind 与符号的实际形态匹配（如 `controller` 不该指向一个 SQL 建表语句）。
  */
 
-export type SymbolForm = 'class' | 'interface' | 'function' | 'method' | 'variable' | 'table' | 'unknown';
+export type SymbolForm =
+  'class' | 'interface' | 'function' | 'method' | 'variable' | 'table' | 'unknown';
 
 export interface SymbolIndexEntry {
   /** 符号名（方法为 `Class.method` 或裸方法名） */
@@ -53,7 +54,12 @@ export interface AnchorVerification {
   status: AnchorVerificationStatus;
   reason: string;
   /** 校验通过 / 重定位后的真实位置 */
-  resolved: { startLine: number; endLine: number; form: SymbolForm; container: string | null } | null;
+  resolved: {
+    startLine: number;
+    endLine: number;
+    form: SymbolForm;
+    container: string | null;
+  } | null;
 }
 
 /* ------------------------------ kind ↔ form 映射 ------------------------------ */
@@ -75,7 +81,22 @@ export function kindMatchesForm(kind: AnchorKind, form: SymbolForm): boolean {
 
 /* ------------------------------ 默认符号索引器 ------------------------------ */
 
-const BRACE_LANGUAGES = new Set(['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'java', 'kt', 'kts', 'ets', 'dart', 'rs', 'go', 'cs']);
+const BRACE_LANGUAGES = new Set([
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'mjs',
+  'cjs',
+  'java',
+  'kt',
+  'kts',
+  'ets',
+  'dart',
+  'rs',
+  'go',
+  'cs',
+]);
 
 function extensionOf(path: string): string {
   return path.includes('.') ? (path.split('.').pop() ?? '').toLowerCase() : '';
@@ -121,18 +142,48 @@ function indexBraces(lines: readonly string[]): SymbolIndexEntry[] {
     const trimmed = line.trim();
     const lineNumber = index + 1;
 
-    const classLike = /^(?:export\s+)?(?:default\s+)?(?:abstract\s+|final\s+|public\s+|sealed\s+)*(class|interface|enum|struct|record)\s+([A-Za-z_$][\w$]*)/.exec(trimmed);
-    const functionLike = /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(trimmed);
-    const arrowLike = /^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:async\s*)?\(?/.exec(trimmed);
-    const javaMethod = /^(?:public|private|protected|static|final|override|\s)*[\w<>,.\s]+?\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{?\s*$/.exec(trimmed);
-    const methodLike = container !== null ? /^(?:public|private|protected|static|async|get|set|override|\s)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?::[^{]*)?\{/.exec(trimmed) : null;
+    const classLike =
+      /^(?:export\s+)?(?:default\s+)?(?:abstract\s+|final\s+|public\s+|sealed\s+)*(class|interface|enum|struct|record)\s+([A-Za-z_$][\w$]*)/.exec(
+        trimmed,
+      );
+    const functionLike =
+      /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(trimmed);
+    const arrowLike =
+      /^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:async\s*)?\(?/.exec(
+        trimmed,
+      );
+    const javaMethod =
+      /^(?:public|private|protected|static|final|override|\s)*[\w<>,.\s]+?\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{?\s*$/.exec(
+        trimmed,
+      );
+    const methodLike =
+      container !== null
+        ? /^(?:public|private|protected|static|async|get|set|override|\s)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?::[^{]*)?\{/.exec(
+            trimmed,
+          )
+        : null;
 
     if (classLike !== null && classLike[2] !== undefined) {
-      hits.push({ name: classLike[2], form: classLike[1] === 'interface' ? 'interface' : 'class', line: lineNumber, container: null });
+      hits.push({
+        name: classLike[2],
+        form: classLike[1] === 'interface' ? 'interface' : 'class',
+        line: lineNumber,
+        container: null,
+      });
     } else if (functionLike !== null && functionLike[1] !== undefined) {
-      hits.push({ name: functionLike[1], form: container === null ? 'function' : 'method', line: lineNumber, container: container?.name ?? null });
+      hits.push({
+        name: functionLike[1],
+        form: container === null ? 'function' : 'method',
+        line: lineNumber,
+        container: container?.name ?? null,
+      });
     } else if (arrowLike !== null && arrowLike[1] !== undefined) {
-      hits.push({ name: arrowLike[1], form: 'variable', line: lineNumber, container: container?.name ?? null });
+      hits.push({
+        name: arrowLike[1],
+        form: 'variable',
+        line: lineNumber,
+        container: container?.name ?? null,
+      });
     } else if (javaMethod !== null && javaMethod[1] !== undefined) {
       hits.push({
         name: javaMethod[1],
@@ -141,13 +192,22 @@ function indexBraces(lines: readonly string[]): SymbolIndexEntry[] {
         container: container?.name ?? null,
       });
     } else if (methodLike !== null && methodLike[1] !== undefined) {
-      hits.push({ name: methodLike[1], form: 'method', line: lineNumber, container: container?.name ?? null });
+      hits.push({
+        name: methodLike[1],
+        form: 'method',
+        line: lineNumber,
+        container: container?.name ?? null,
+      });
     }
 
     // 花括号配平（粗略但足够定位符号边界）
     const opens = countChar(line, '{');
     const closes = countChar(line, '}');
-    if (opens > 0 && container === null && (classLike !== null || functionLike !== null || arrowLike !== null)) {
+    if (
+      opens > 0 &&
+      container === null &&
+      (classLike !== null || functionLike !== null || arrowLike !== null)
+    ) {
       const name = classLike?.[2] ?? functionLike?.[1] ?? arrowLike?.[1];
       if (name !== undefined) container = { name, depth };
     }
@@ -166,10 +226,16 @@ function indexPython(lines: readonly string[]): SymbolIndexEntry[] {
     const trimmed = line.trim();
     const classMatch = /^class\s+([A-Za-z_]\w*)/.exec(trimmed);
     const defMatch = /^(?:async\s+)?def\s+([A-Za-z_]\w*)/.exec(trimmed);
-    if (classMatch?.[1] !== undefined) hits.push({ name: classMatch[1], form: 'class', line: index + 1, container: null, });
+    if (classMatch?.[1] !== undefined)
+      hits.push({ name: classMatch[1], form: 'class', line: index + 1, container: null });
 
     if (defMatch?.[1] !== undefined) {
-      hits.push({ name: defMatch[1], form: indent === 0 ? 'function' : 'method', line: index + 1, container: null });
+      hits.push({
+        name: defMatch[1],
+        form: indent === 0 ? 'function' : 'method',
+        line: index + 1,
+        container: null,
+      });
     }
     void indent;
   }
@@ -193,14 +259,26 @@ function indexPython(lines: readonly string[]): SymbolIndexEntry[] {
 function indexSql(lines: readonly string[]): SymbolIndexEntry[] {
   const hits: DeclarationHit[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const match = /CREATE\s+(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`[]?([\w.]+)/i.exec(lines[index] ?? '');
+    const match = /CREATE\s+(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`[]?([\w.]+)/i.exec(
+      lines[index] ?? '',
+    );
     if (match?.[1] === undefined) continue;
     hits.push({ name: match[1], form: 'table', line: index + 1, container: null });
   }
-  return hits.map((hit) => ({ name: hit.name, form: hit.form, startLine: hit.line, endLine: hit.line, container: null }));
+  return hits.map((hit) => ({
+    name: hit.name,
+    form: hit.form,
+    startLine: hit.line,
+    endLine: hit.line,
+    container: null,
+  }));
 }
 
-function toEntries(hits: readonly DeclarationHit[], lines: readonly string[], mode: 'braces'): SymbolIndexEntry[] {
+function toEntries(
+  hits: readonly DeclarationHit[],
+  lines: readonly string[],
+  mode: 'braces',
+): SymbolIndexEntry[] {
   void mode;
   return hits
     .map((hit) => {
@@ -248,7 +326,10 @@ function bareName(symbol: string): string {
   return parts[parts.length - 1] ?? symbol;
 }
 
-export function findSymbol(entries: readonly SymbolIndexEntry[], symbol: string): SymbolIndexEntry | null {
+export function findSymbol(
+  entries: readonly SymbolIndexEntry[],
+  symbol: string,
+): SymbolIndexEntry | null {
   const exact = entries.find((entry) => entry.name === symbol);
   if (exact !== undefined) return exact;
   const bare = bareName(symbol);
@@ -287,18 +368,31 @@ export function verifyDeclaration(input: VerifyInput): AnchorVerification {
       ...base,
       status: 'drift',
       reason: `锚点 kind=${input.declaration.kind} 与符号实际形态 ${found.form} 不匹配`,
-      resolved: { startLine: found.startLine, endLine: found.endLine, form: found.form, container: found.container },
+      resolved: {
+        startLine: found.startLine,
+        endLine: found.endLine,
+        form: found.form,
+        container: found.container,
+      },
     };
   }
 
   const declaredStart = input.declaration.startLine;
   const declaredEnd = input.declaration.endLine;
-  if (declaredStart !== undefined && (declaredStart < found.startLine || declaredStart > found.endLine)) {
+  if (
+    declaredStart !== undefined &&
+    (declaredStart < found.startLine || declaredStart > found.endLine)
+  ) {
     return {
       ...base,
       status: 'drift',
       reason: `声明行号 ${declaredStart} 落在符号范围 ${found.startLine}-${found.endLine} 之外`,
-      resolved: { startLine: found.startLine, endLine: found.endLine, form: found.form, container: found.container },
+      resolved: {
+        startLine: found.startLine,
+        endLine: found.endLine,
+        form: found.form,
+        container: found.container,
+      },
     };
   }
   if (declaredEnd !== undefined && declaredEnd < found.startLine) {
@@ -306,7 +400,12 @@ export function verifyDeclaration(input: VerifyInput): AnchorVerification {
       ...base,
       status: 'drift',
       reason: `声明行号区间 ${declaredStart ?? '?'}-${declaredEnd} 与符号范围 ${found.startLine}-${found.endLine} 无交集`,
-      resolved: { startLine: found.startLine, endLine: found.endLine, form: found.form, container: found.container },
+      resolved: {
+        startLine: found.startLine,
+        endLine: found.endLine,
+        form: found.form,
+        container: found.container,
+      },
     };
   }
 
@@ -314,7 +413,12 @@ export function verifyDeclaration(input: VerifyInput): AnchorVerification {
     ...base,
     status: 'ok',
     reason: VERIFY_STATUS_LABELS.ok,
-    resolved: { startLine: found.startLine, endLine: found.endLine, form: found.form, container: found.container },
+    resolved: {
+      startLine: found.startLine,
+      endLine: found.endLine,
+      form: found.form,
+      container: found.container,
+    },
   };
 }
 
@@ -327,7 +431,8 @@ export function verifyDeclarations(input: {
   const adapter = input.adapter ?? defaultAstAdapter;
   const cache = new Map<string, string | null>();
   return input.declarations.map((declaration) => {
-    if (!cache.has(declaration.filePath)) cache.set(declaration.filePath, input.readFile(declaration.filePath));
+    if (!cache.has(declaration.filePath))
+      cache.set(declaration.filePath, input.readFile(declaration.filePath));
     const content = cache.get(declaration.filePath) ?? null;
     if (content === null) {
       return {
@@ -346,6 +451,7 @@ export function verifyDeclarations(input: {
 /** 便于测试与断言：所有 kind 都能映射到至少一种符号形态 */
 export function assertKindCoverage(): void {
   for (const kind of ANCHOR_KINDS) {
-    if ((KIND_EXPECTED_FORMS[kind] ?? []).length === 0) throw new Error(`未定义 kind=${kind} 的期望形态`);
+    if ((KIND_EXPECTED_FORMS[kind] ?? []).length === 0)
+      throw new Error(`未定义 kind=${kind} 的期望形态`);
   }
 }

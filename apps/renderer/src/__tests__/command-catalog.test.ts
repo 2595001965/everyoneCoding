@@ -20,7 +20,9 @@ const navItems = [...navigation, ...utilityNavigation];
 describe('命令目录与导航一致', () => {
   it('导航路由集合与命令目录的 route 集合完全一致（双向，防漏防多）', () => {
     const navRoutes = new Set(navItems.map((item) => item.to));
-    const commandRoutes = new Set(APP_COMMANDS.map((command) => command.route).filter((route) => route !== undefined));
+    const commandRoutes = new Set(
+      APP_COMMANDS.map((command) => command.route).filter((route) => route !== undefined),
+    );
     expect([...commandRoutes].sort()).toEqual([...navRoutes].sort());
   });
 

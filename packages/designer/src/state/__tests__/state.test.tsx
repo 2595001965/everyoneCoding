@@ -6,7 +6,12 @@ import { findById } from '../../dsl/traverse';
 import { getDataSources } from '../../shared/data-source';
 import { DesignerProvider } from '../../store/designer-context';
 import { createEditorStore } from '../../store/editor-store';
-import { BindingPicker, expandStateShape, listAllBindingPaths, valueToField } from '../BindingPicker';
+import {
+  BindingPicker,
+  expandStateShape,
+  listAllBindingPaths,
+  valueToField,
+} from '../BindingPicker';
 import { StateEditor, validateStateVar, type StateVarDraft } from '../StateEditor';
 import { StatePanel } from '../StatePanel';
 import { StateStore } from '../StateStore';
@@ -89,14 +94,22 @@ describe('T3-08 状态变量校验', () => {
   };
 
   it('名称必填 / 合法字符 / 不允许重名', () => {
-    expect(validateStateVar({ ...base, name: '  ' }, [])).toMatchObject({ name: '状态名称不能为空' });
-    expect(validateStateVar({ ...base, name: '1abc' }, [])).toMatchObject({ name: expect.stringContaining('字母或中文开头') });
-    expect(validateStateVar({ ...base, name: 'count' }, ['count'])).toMatchObject({ name: '状态名称已存在，请更换一个' });
+    expect(validateStateVar({ ...base, name: '  ' }, [])).toMatchObject({
+      name: '状态名称不能为空',
+    });
+    expect(validateStateVar({ ...base, name: '1abc' }, [])).toMatchObject({
+      name: expect.stringContaining('字母或中文开头'),
+    });
+    expect(validateStateVar({ ...base, name: 'count' }, ['count'])).toMatchObject({
+      name: '状态名称已存在，请更换一个',
+    });
     expect(validateStateVar(base, [])).toEqual({});
   });
 
   it('来源为接口时必须选关联接口', () => {
-    expect(validateStateVar({ ...base, source: 'api' }, [])).toMatchObject({ apiRef: '来源为接口时必须选择关联接口' });
+    expect(validateStateVar({ ...base, source: 'api' }, [])).toMatchObject({
+      apiRef: '来源为接口时必须选择关联接口',
+    });
     expect(validateStateVar({ ...base, source: 'api', apiRef: '/api/x' }, [])).toEqual({});
   });
 
@@ -122,7 +135,10 @@ describe('T3-08 状态变量校验', () => {
 
 describe('T3-08 数据源与绑定路径', () => {
   it('expandStateShape 展开 object / array 结构为字段树', () => {
-    expect(expandStateShape({ name: 'count', type: 'number', initial: 0 })).toMatchObject({ name: 'count', type: 'number' });
+    expect(expandStateShape({ name: 'count', type: 'number', initial: 0 })).toMatchObject({
+      name: 'count',
+      type: 'number',
+    });
     const obj = expandStateShape({ name: 'form', type: 'object', initial: { phone: '', age: 0 } });
     expect(obj?.children?.map((child) => child.name)).toEqual(['phone', 'age']);
 
@@ -169,7 +185,15 @@ describe('T3-08 数据源与绑定路径', () => {
   it('已绑定时显示回显并提供清除绑定', () => {
     const onUnbind = vi.fn();
     const catalog = getDataSources(createLoginPageDsl());
-    render(<BindingPicker catalog={catalog} property="value" value="phone" onBind={() => undefined} onUnbind={onUnbind} />);
+    render(
+      <BindingPicker
+        catalog={catalog}
+        property="value"
+        value="phone"
+        onBind={() => undefined}
+        onUnbind={onUnbind}
+      />,
+    );
     fireEvent.click(screen.getByRole('button', { name: '清除' }));
     expect(onUnbind).toHaveBeenCalledWith('value');
   });

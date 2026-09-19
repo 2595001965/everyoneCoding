@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createElement, createLoginPageDsl } from '../../dsl/factory';
 import { findById } from '../../dsl/traverse';
 import type { ElementNode, PageDsl } from '../../dsl/types';
-import { createAutoSnapshotScheduler, DEFAULT_SNAPSHOT_INTERVAL_MS, MILESTONE_LABELS } from '../auto-snapshot';
+import {
+  createAutoSnapshotScheduler,
+  DEFAULT_SNAPSHOT_INTERVAL_MS,
+  MILESTONE_LABELS,
+} from '../auto-snapshot';
 import { DiffView } from '../diff-view';
 import { diffTrees, isEmptyDiff } from '../diff-ops';
 import { BASELINE_EVERY, HistoryStore, applyOps, diffToOps } from '../snapshot';
@@ -18,10 +22,12 @@ function withEdit(base: PageDsl, mutate: (dsl: PageDsl) => void): PageDsl {
 }
 
 function emptyStore() {
-  return new HistoryStore({ idFactory: (() => {
-    let index = 0;
-    return () => `s${(index += 1)}`;
-  })() });
+  return new HistoryStore({
+    idFactory: (() => {
+      let index = 0;
+      return () => `s${(index += 1)}`;
+    })(),
+  });
 }
 
 describe('T3-10 结构化差异（四类识别）', () => {
@@ -29,9 +35,13 @@ describe('T3-10 结构化差异（四类识别）', () => {
     const base = createLoginPageDsl();
     const next = withEdit(base, (dsl) => {
       // 新增
-      dsl.tree.children![2]!.children!.push(createElement({ id: 'el-21', type: 'Text', name: '新版权信息' }));
+      dsl.tree.children![2]!.children!.push(
+        createElement({ id: 'el-21', type: 'Text', name: '新版权信息' }),
+      );
       // 删除
-      dsl.tree.children![0]!.children = dsl.tree.children![0]!.children!.filter((child) => child.id !== 'el-4');
+      dsl.tree.children![0]!.children = dsl.tree.children![0]!.children!.filter(
+        (child) => child.id !== 'el-4',
+      );
       // 修改
       const title = findById(dsl.tree, 'el-7') as ElementNode;
       title.props = { ...(title.props ?? {}), text: '欢迎回来' };
@@ -107,7 +117,9 @@ describe('T3-10 增量 patch 与回放', () => {
         id: 'root',
         type: 'Container',
         name: '页面',
-        children: Array.from({ length: 60 }, (_item, index) => createElement({ id: `n-${index}`, type: 'Text' })),
+        children: Array.from({ length: 60 }, (_item, index) =>
+          createElement({ id: `n-${index}`, type: 'Text' }),
+        ),
       });
     });
     const ops = diffToOps(base, next, { maxOps: 10 });
@@ -154,7 +166,9 @@ describe('T3-10 增量 patch 与回放', () => {
     expect(kinds.filter((kind) => kind === 'delta').length).toBe(BASELINE_EVERY);
     expect(kinds[kinds.length - 1]).toBe('base');
     // 基线后的增量链可正常回放
-    expect(store.materialize(store.list()[store.list().length - 1]!.id)?.name).toBe(`第 ${BASELINE_EVERY + 1} 次改名`);
+    expect(store.materialize(store.list()[store.list().length - 1]!.id)?.name).toBe(
+      `第 ${BASELINE_EVERY + 1} 次改名`,
+    );
   });
 
   it('回滚：回滚前自动备份当前版本，可再次回滚回去', () => {
@@ -293,7 +307,13 @@ describe('T3-10 自动快照调度', () => {
 
   it('关键操作立即落一张里程碑快照', () => {
     const { scheduler, history } = setup();
-    for (const kind of ['stage-confirm', 'ai-generated', 'rename-transaction', 'import', 'export'] as const) {
+    for (const kind of [
+      'stage-confirm',
+      'ai-generated',
+      'rename-transaction',
+      'import',
+      'export',
+    ] as const) {
       const meta = scheduler.captureMilestone(kind);
       expect(meta?.reason).toBe('milestone');
       expect(meta?.label).toBe(MILESTONE_LABELS[kind]);
@@ -317,7 +337,12 @@ describe('T3-10 时间轴与差异视图', () => {
       dsl.name = '第二版';
     });
     store.capture({ dsl: v1, reason: 'auto', now: Date.parse('2026-09-10T10:00:00Z') });
-    const s2 = store.capture({ dsl: v2, reason: 'milestone', label: 'AI 生成完成', now: Date.parse('2026-09-10T10:05:00Z') });
+    const s2 = store.capture({
+      dsl: v2,
+      reason: 'milestone',
+      label: 'AI 生成完成',
+      now: Date.parse('2026-09-10T10:05:00Z'),
+    });
 
     render(
       <Timeline
@@ -354,7 +379,9 @@ describe('T3-10 时间轴与差异视图', () => {
   it('差异视图分四栏展示，点击条目可定位', () => {
     const base = createLoginPageDsl();
     const next = withEdit(base, (dsl) => {
-      dsl.tree.children![2]!.children!.push(createElement({ id: 'el-21', type: 'Text', name: '新元素' }));
+      dsl.tree.children![2]!.children!.push(
+        createElement({ id: 'el-21', type: 'Text', name: '新元素' }),
+      );
       const form = findById(dsl.tree, 'el-9') as ElementNode;
       form.children = form.children!.filter((child) => child.id !== 'el-12');
       (findById(dsl.tree, 'el-7') as ElementNode).props = { text: '改了' };

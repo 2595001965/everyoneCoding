@@ -45,11 +45,16 @@ export class ContractInjector {
     return { contracts, block: buildContractBlock(contracts) };
   }
 
-  private async collect(projectId: string, nodeIds: readonly string[]): Promise<DependencyContract[]> {
+  private async collect(
+    projectId: string,
+    nodeIds: readonly string[],
+  ): Promise<DependencyContract[]> {
     if (this.port === undefined) return [];
     const [fromNodes, fromTechDoc] = await Promise.all([
       this.port.listContracts(projectId, nodeIds),
-      this.port.listFromTechDoc !== undefined ? this.port.listFromTechDoc(projectId) : Promise.resolve([]),
+      this.port.listFromTechDoc !== undefined
+        ? this.port.listFromTechDoc(projectId)
+        : Promise.resolve([]),
     ]);
     const seen = new Set<string>();
     const result: DependencyContract[] = [];
@@ -76,10 +81,9 @@ export function summarizeContract(contract: DependencyContract): string {
 /** 契约块：注入接口摘要而非全部代码（FR-PIPE-10 的机器可断言点） */
 export function buildContractBlock(contracts: readonly DependencyContract[]): string {
   if (contracts.length === 0) {
-    return [
-      '## 依赖接口契约',
-      '（无已生成依赖的接口契约 —— 本项目首次生成或依赖尚未生成）',
-    ].join('\n');
+    return ['## 依赖接口契约', '（无已生成依赖的接口契约 —— 本项目首次生成或依赖尚未生成）'].join(
+      '\n',
+    );
   }
   const body = contracts.map((contract) => summarizeContract(contract)).join('\n\n');
   return `## 依赖接口契约（只允许调用以下接口签名，禁止臆造未列出的接口）\n\n${body}`;
@@ -92,5 +96,9 @@ export function buildContractBlock(contracts: readonly DependencyContract[]): st
  */
 export function containsImplementationDetail(block: string): boolean {
   // 出现函数体 / 赋值实现 / 依赖导入即视为泄漏了实现细节
-  return /=>\s*{[\s\S]*}/.test(block) || /\{\s*return\b[\s\S]*\}/.test(block) || /^\s*(import|require)\s*\(/m.test(block);
+  return (
+    /=>\s*{[\s\S]*}/.test(block) ||
+    /\{\s*return\b[\s\S]*\}/.test(block) ||
+    /^\s*(import|require)\s*\(/m.test(block)
+  );
 }

@@ -96,11 +96,7 @@ describe('E2E-21 多端目标与生成（Web + Android + HarmonyOS + Windows 四
           { path: 'src/index.ts', content: 'export {}\n' },
         ];
         return {
-          content: [
-            '```json',
-            JSON.stringify({ files }),
-            '```',
-          ].join('\n'),
+          content: ['```json', JSON.stringify({ files }), '```'].join('\n'),
           degraded: false,
         };
       },
@@ -123,7 +119,8 @@ describe('E2E-21 多端目标与生成（Web + Android + HarmonyOS + Windows 四
     const generator = createGenerator();
     const toolchain: ToolchainRunner = {
       // 三端工具链全部可用（web 端走 Vite 校验，不在本工具链矩阵内）
-      detect: async (command) => ['flutter', 'hvigorw', 'cargo'].some((tool) => command.startsWith(tool)),
+      detect: async (command) =>
+        ['flutter', 'hvigorw', 'cargo'].some((tool) => command.startsWith(tool)),
       run: async () => ({ ok: true, output: 'build succeeded' }),
     };
     const gen = new MultiPlatformGenerator({ generate: generator, toolchain });

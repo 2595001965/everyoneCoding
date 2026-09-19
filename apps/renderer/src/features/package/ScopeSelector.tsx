@@ -12,7 +12,10 @@ import { Button, Checkbox, Input, Select } from '@ec/ui';
 
 import type { ExportPlanPreset, ExportScopeKind, ExportSelection } from './package-api';
 
-const MEMORY_LAYER_LABELS: ReadonlyArray<{ key: keyof ExportSelection['content']['memory']; label: string }> = [
+const MEMORY_LAYER_LABELS: ReadonlyArray<{
+  key: keyof ExportSelection['content']['memory'];
+  label: string;
+}> = [
   { key: 'longterm', label: '长期记忆' },
   { key: 'project', label: '项目记忆' },
   { key: 'feature', label: '功能记忆' },
@@ -20,7 +23,10 @@ const MEMORY_LAYER_LABELS: ReadonlyArray<{ key: keyof ExportSelection['content']
   { key: 'issue', label: '问题记忆' },
 ];
 
-const CONTENT_LABELS: ReadonlyArray<{ key: keyof Omit<ExportSelection['content'], 'memory'>; label: string }> = [
+const CONTENT_LABELS: ReadonlyArray<{
+  key: keyof Omit<ExportSelection['content'], 'memory'>;
+  label: string;
+}> = [
   { key: 'documents', label: '文档' },
   { key: 'code', label: '代码' },
   { key: 'pipeline', label: '流水线产物' },
@@ -54,11 +60,20 @@ export function ScopeSelector(props: ScopeSelectorProps): React.ReactElement {
     props.onChange(next);
   };
 
-  const toggleMemoryLayer = (key: keyof ExportSelection['content']['memory'], value: boolean): void => {
-    props.onChange({ ...selection, content: { ...selection.content, memory: { ...selection.content.memory, [key]: value } } });
+  const toggleMemoryLayer = (
+    key: keyof ExportSelection['content']['memory'],
+    value: boolean,
+  ): void => {
+    props.onChange({
+      ...selection,
+      content: { ...selection.content, memory: { ...selection.content.memory, [key]: value } },
+    });
   };
 
-  const toggleContent = (key: keyof Omit<ExportSelection['content'], 'memory'>, value: boolean): void => {
+  const toggleContent = (
+    key: keyof Omit<ExportSelection['content'], 'memory'>,
+    value: boolean,
+  ): void => {
     props.onChange({ ...selection, content: { ...selection.content, [key]: value } });
   };
 
@@ -134,11 +149,14 @@ export function ScopeSelector(props: ScopeSelectorProps): React.ReactElement {
         <h3>导出方案</h3>
         <div className="ec-package-scope__preset">
           <Input aria-label="方案名称" placeholder="方案名称" data-testid="preset-name" />
-          <Button data-testid="save-preset" onClick={() => {
-            const input = document.querySelector<HTMLInputElement>('[data-testid="preset-name"]');
-            const name = input?.value?.trim() ?? '';
-            if (name.length > 0) props.onSavePreset(name);
-          }}>
+          <Button
+            data-testid="save-preset"
+            onClick={() => {
+              const input = document.querySelector<HTMLInputElement>('[data-testid="preset-name"]');
+              const name = input?.value?.trim() ?? '';
+              if (name.length > 0) props.onSavePreset(name);
+            }}
+          >
             保存方案
           </Button>
           <Select
@@ -150,11 +168,14 @@ export function ScopeSelector(props: ScopeSelectorProps): React.ReactElement {
               if (value.length > 0) props.onLoadPreset(value);
             }}
           />
-          <Button data-testid="delete-preset" onClick={() => {
-            const select = document.querySelector<HTMLInputElement>('[aria-label="加载方案"]');
-            const name = select?.value?.trim() ?? '';
-            if (name.length > 0) props.onDeletePreset(name);
-          }}>
+          <Button
+            data-testid="delete-preset"
+            onClick={() => {
+              const select = document.querySelector<HTMLInputElement>('[aria-label="加载方案"]');
+              const name = select?.value?.trim() ?? '';
+              if (name.length > 0) props.onDeletePreset(name);
+            }}
+          >
             删除方案
           </Button>
         </div>

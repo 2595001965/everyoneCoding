@@ -1,4 +1,12 @@
-import { createPathApi, ShellError, toShellError, type AiRpcRequest, type AiRpcResponse, type AiStreamEvent, type AiStreamRequest } from '@ec/shell-api';
+import {
+  createPathApi,
+  ShellError,
+  toShellError,
+  type AiRpcRequest,
+  type AiRpcResponse,
+  type AiStreamEvent,
+  type AiStreamRequest,
+} from '@ec/shell-api';
 import type {
   AppInfo,
   ChildProcessHandle,
@@ -23,7 +31,9 @@ export interface EcShellPreload {
     readBinary(filePath: string): Promise<number[]>;
     writeAtomic(filePath: string, data: string | number[], encoding?: string): Promise<void>;
     stat(filePath: string): Promise<Record<string, unknown> | null>;
-    readdir(dirPath: string): Promise<Array<{ name: string; path: string; isFile: boolean; isDirectory: boolean }>>;
+    readdir(
+      dirPath: string,
+    ): Promise<Array<{ name: string; path: string; isFile: boolean; isDirectory: boolean }>>;
     mkdir(dirPath: string, options?: { recursive?: boolean }): Promise<void>;
     remove(target: string, options?: { recursive?: boolean }): Promise<void>;
     copy(source: string, target: string): Promise<void>;
@@ -42,7 +52,11 @@ export interface EcShellPreload {
     confirm(options: Record<string, unknown>): Promise<boolean>;
   };
   process: {
-    spawn(command: string, args: string[], options?: Record<string, unknown>): Promise<{ id: string; pid: number | null }>;
+    spawn(
+      command: string,
+      args: string[],
+      options?: Record<string, unknown>,
+    ): Promise<{ id: string; pid: number | null }>;
     write(id: string, data: string): Promise<void>;
     kill(id: string, signal?: string): Promise<boolean>;
     list(): Promise<Array<{ id: string; pid: number | null; command: string; args: string[] }>>;
@@ -66,17 +80,36 @@ export interface EcShellPreload {
     close(): Promise<void>;
   };
   secureStore: {
-    set(namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret', key: string, value: string): Promise<void>;
-    get(namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret', key: string): Promise<string | null>;
-    delete(namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret', key: string): Promise<void>;
-    has(namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret', key: string): Promise<boolean>;
-    listKeys(namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret'): Promise<string[]>;
+    set(
+      namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret',
+      key: string,
+      value: string,
+    ): Promise<void>;
+    get(
+      namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret',
+      key: string,
+    ): Promise<string | null>;
+    delete(
+      namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret',
+      key: string,
+    ): Promise<void>;
+    has(
+      namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret',
+      key: string,
+    ): Promise<boolean>;
+    listKeys(
+      namespace: 'ai-key' | 'oauth-token' | 'git-credential' | 'app-secret',
+    ): Promise<string[]>;
   };
   updater: {
     check(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;
     downloadAndInstall(): Promise<void>;
     onProgress(
-      cb: (progress: { phase: 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error'; percent?: number; message?: string }) => void,
+      cb: (progress: {
+        phase: 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error';
+        percent?: number;
+        message?: string;
+      }) => void,
     ): () => void;
   };
   appInfo: {
@@ -96,13 +129,21 @@ export interface EcShellPreload {
       headers?: Record<string, string>;
       body?: string | number[];
       timeoutMs?: number;
-    }): Promise<{ status: number; statusText: string; headers: Record<string, string>; body: string }>;
+    }): Promise<{
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: string;
+    }>;
     isHostAllowed(host: string): Promise<boolean>;
     setAllowedHosts(hosts: string[] | '*'): Promise<void>;
   };
   ai: {
     invoke(request: AiRpcRequest): Promise<AiRpcResponse>;
-    stream(request: AiStreamRequest, listener: (event: AiStreamEvent) => void): { requestId: string; off(): void };
+    stream(
+      request: AiStreamRequest,
+      listener: (event: AiStreamEvent) => void,
+    ): { requestId: string; off(): void };
     abort(requestId: string): Promise<void>;
   };
   domain: {
@@ -137,7 +178,12 @@ async function call<T>(task: () => Promise<T>): Promise<T> {
       try {
         const parsed = JSON.parse(message) as { code?: string; message?: string };
         if (parsed.code) {
-          throw new ShellError(parsed.code as never, parsed.message ?? message, undefined, 'electron');
+          throw new ShellError(
+            parsed.code as never,
+            parsed.message ?? message,
+            undefined,
+            'electron',
+          );
         }
       } catch (parseError) {
         if (parseError instanceof ShellError) throw parseError;
@@ -155,7 +201,11 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
   const watchHandles = new Set<{ id: string; close(): Promise<void> }>();
 
   const processApi = {
-    async spawn(command: string, args: string[], options?: { cwd?: string; env?: Record<string, string>; shell?: boolean }): Promise<ChildProcessHandle> {
+    async spawn(
+      command: string,
+      args: string[],
+      options?: { cwd?: string; env?: Record<string, string>; shell?: boolean },
+    ): Promise<ChildProcessHandle> {
       const { id, pid } = await call(() => api.process.spawn(command, args, options));
       const stdoutListeners = new Set<(chunk: string) => void>();
       const stderrListeners = new Set<(chunk: string) => void>();
@@ -248,7 +298,8 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
     },
     dialog: {
       openFile: (options) => call(() => api.dialog.openFile(options as Record<string, unknown>)),
-      openDirectory: (options) => call(() => api.dialog.openDirectory(options as Record<string, unknown>)),
+      openDirectory: (options) =>
+        call(() => api.dialog.openDirectory(options as Record<string, unknown>)),
       saveFile: (options) => call(() => api.dialog.saveFile(options as Record<string, unknown>)),
       showMessage: (options) => call(() => api.dialog.showMessage({ ...options })),
       confirm: async (options) => {
@@ -305,7 +356,10 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
             headers?: Record<string, string>;
             body?: string | number[];
             timeoutMs?: number;
-          } = { url: request.url, ...(request.headers !== undefined ? { headers: request.headers } : {}) };
+          } = {
+            url: request.url,
+            ...(request.headers !== undefined ? { headers: request.headers } : {}),
+          };
           if (request.method !== undefined) wire.method = request.method;
           if (request.timeoutMs !== undefined) wire.timeoutMs = request.timeoutMs;
           if (request.body !== undefined) {
@@ -338,7 +392,9 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
             listeners.add(listener);
             return () => listeners.delete(listener);
           },
-          abort: () => { void api.ai.abort(request.requestId); },
+          abort: () => {
+            void api.ai.abort(request.requestId);
+          },
         };
       },
       abort: (requestId) => call(() => api.ai.abort(requestId)),

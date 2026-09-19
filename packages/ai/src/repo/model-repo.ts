@@ -27,7 +27,9 @@ export class ModelRepo {
   }
 
   list(providerId: string): Model[] {
-    return this.repo.findWhere({ provider_id: providerId }, { orderBy: 'name ASC' }).map(modelFromRow);
+    return this.repo
+      .findWhere({ provider_id: providerId }, { orderBy: 'name ASC' })
+      .map(modelFromRow);
   }
 
   listAll(): Model[] {
@@ -67,7 +69,10 @@ export class ModelRepo {
    * 写入远程发现的模型列表。
    * 返回写入/跳过的数量，跳过项即被 manualOverride 保护或已存在。
    */
-  upsertDiscovered(providerId: string, discovered: ModelDiscovery): { created: number; skipped: number } {
+  upsertDiscovered(
+    providerId: string,
+    discovered: ModelDiscovery,
+  ): { created: number; skipped: number } {
     const run = this.db.transaction(() => {
       let created = 0;
       let skipped = 0;
@@ -114,7 +119,9 @@ export class ModelRepo {
     const merged = mergeCapability(model.capability, patch, {
       ...(options.overwrite === undefined ? {} : { overwrite: options.overwrite }),
     });
-    const capability = options.keepManualFlag ? { ...merged, manualOverride: model.capability.manualOverride } : merged;
+    const capability = options.keepManualFlag
+      ? { ...merged, manualOverride: model.capability.manualOverride }
+      : merged;
 
     const updated = this.repo.update(
       id,

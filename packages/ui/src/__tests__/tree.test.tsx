@@ -3,7 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Tree, type TreeNode } from '../index';
 
-const bigData: TreeNode[] = Array.from({ length: 10000 }, (_, i) => ({ id: `n${i}`, label: `节点${i}` }));
+const bigData: TreeNode[] = Array.from({ length: 10000 }, (_, i) => ({
+  id: `n${i}`,
+  label: `节点${i}`,
+}));
 
 describe('Tree 虚拟化', () => {
   it('1 万节点仅渲染窗口内少量节点', () => {

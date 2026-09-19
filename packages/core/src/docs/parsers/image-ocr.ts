@@ -51,7 +51,10 @@ export function parseImageOcr(
  */
 export function makeImageParser(port?: OcrPort | null): {
   format: 'image';
-  parse(input: { raw: string | Uint8Array; fileName?: string | undefined }): Promise<ParsedDocument>;
+  parse(input: {
+    raw: string | Uint8Array;
+    fileName?: string | undefined;
+  }): Promise<ParsedDocument>;
 } {
   return {
     format: 'image',

@@ -81,7 +81,11 @@ export function mergeCapability(
 ): ModelCapability {
   if (!options.overwrite && current.manualOverride) return current;
   const hasPatch = Object.values(patch).some((value) => value !== undefined);
-  return { ...current, ...stripUndefined(patch), manualOverride: current.manualOverride || hasPatch };
+  return {
+    ...current,
+    ...stripUndefined(patch),
+    manualOverride: current.manualOverride || hasPatch,
+  };
 }
 
 function stripUndefined<T extends object>(input: T): Partial<T> {

@@ -175,7 +175,8 @@ export function runShellContract(
         await shell.net.fetch({ url: 'https://example.com/ping' });
         throw new Error('应被拒绝却通过了');
       } catch (error) {
-        const ok = isShellError(error) && (error.code === 'NET_BLOCKED' || error.code === 'NET_ERROR');
+        const ok =
+          isShellError(error) && (error.code === 'NET_BLOCKED' || error.code === 'NET_ERROR');
         expect(ok).toBe(true);
       }
     });

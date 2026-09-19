@@ -11,7 +11,11 @@ import type { Rect } from '../canvas/coordinate';
 export const SNAP_THRESHOLD = 4;
 
 /** 把值吸附到栅格 */
-export function snapToGrid(value: number, size: number = GRID_SIZE, enabled: boolean = true): number {
+export function snapToGrid(
+  value: number,
+  size: number = GRID_SIZE,
+  enabled: boolean = true,
+): number {
   if (!enabled) return value;
   if (!Number.isFinite(value)) return value;
   return Math.round(value / size) * size;
@@ -109,7 +113,10 @@ export function computeSnap(candidate: Rect, peers: Rect[], options: SnapOptions
   for (const source of verticalSources) {
     for (const line of peerLinesX) {
       const diff = line.value - source.from;
-      if (Math.abs(diff) <= threshold && (bestX === null || Math.abs(diff) < Math.abs(bestX.offset))) {
+      if (
+        Math.abs(diff) <= threshold &&
+        (bestX === null || Math.abs(diff) < Math.abs(bestX.offset))
+      ) {
         bestX = { offset: diff, guide: line.value, kind: line.kind };
       }
     }
@@ -123,7 +130,10 @@ export function computeSnap(candidate: Rect, peers: Rect[], options: SnapOptions
   for (const source of horizontalSources) {
     for (const line of peerLinesY) {
       const diff = line.value - source.from;
-      if (Math.abs(diff) <= threshold && (bestY === null || Math.abs(diff) < Math.abs(bestY.offset))) {
+      if (
+        Math.abs(diff) <= threshold &&
+        (bestY === null || Math.abs(diff) < Math.abs(bestY.offset))
+      ) {
         bestY = { offset: diff, guide: line.value, kind: line.kind };
       }
     }

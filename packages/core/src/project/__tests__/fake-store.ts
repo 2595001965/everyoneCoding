@@ -61,7 +61,10 @@ export class FakeDuplicatePort implements ProjectDuplicatePort {
 }
 
 /** 可拨动的时钟 */
-export function createClock(start = 1_700_000_000_000): { now: () => number; advance: (ms: number) => void } {
+export function createClock(start = 1_700_000_000_000): {
+  now: () => number;
+  advance: (ms: number) => void;
+} {
   let current = start;
   return {
     now: () => current,

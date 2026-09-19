@@ -62,7 +62,9 @@ export function ProviderEditor({
           <Select
             options={PROTOCOL_OPTIONS}
             value={draft.protocol}
-            onChange={(value) => onChange({ protocol: value === 'anthropic' ? 'anthropic' : 'openai' })}
+            onChange={(value) =>
+              onChange({ protocol: value === 'anthropic' ? 'anthropic' : 'openai' })
+            }
           />
         </label>
 
@@ -146,7 +148,12 @@ export function ProviderEditor({
 
       {error ? <p className="ec-ai__error">{error}</p> : null}
 
-      <ConnectionTest state={testState} result={testResult} onTest={onTest} disabled={busy || draft.baseUrl.trim().length === 0} />
+      <ConnectionTest
+        state={testState}
+        result={testResult}
+        onTest={onTest}
+        disabled={busy || draft.baseUrl.trim().length === 0}
+      />
 
       <footer className="ec-ai__editor-actions">
         <Button variant="primary" onClick={onSave} loading={busy}>

@@ -59,7 +59,6 @@ function elementToTreeNode(node: ElementNode, args: BuildArgs): TreeNode {
   };
 }
 
-
 /** 收集需要展开的容器节点 id（有子节点的节点），用于图层树默认展开 */
 function expandableIds(root: ElementNode): string[] {
   return walkElements(root)
@@ -68,7 +67,10 @@ function expandableIds(root: ElementNode): string[] {
 }
 
 /** 搜索过滤：命中节点自身或任一后代则保留（从而保留祖先链） */
-function filterElement(node: ElementNode, predicate: (n: ElementNode) => boolean): ElementNode | null {
+function filterElement(
+  node: ElementNode,
+  predicate: (n: ElementNode) => boolean,
+): ElementNode | null {
   const children = (node.children ?? [])
     .map((child) => filterElement(child, predicate))
     .filter((kept): kept is ElementNode => kept !== null);
@@ -131,7 +133,10 @@ export function LayerTree({
   const treeNodes = React.useMemo<TreeNode[]>(() => {
     const q = query.trim().toLowerCase();
     const root = q
-      ? filterElement(dsl.tree, (n) => (n.name ?? '').toLowerCase().includes(q) || n.type.toLowerCase().includes(q))
+      ? filterElement(
+          dsl.tree,
+          (n) => (n.name ?? '').toLowerCase().includes(q) || n.type.toLowerCase().includes(q),
+        )
       : dsl.tree;
     if (root === null) return [];
     const args: BuildArgs = {

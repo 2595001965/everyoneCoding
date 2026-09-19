@@ -1,4 +1,10 @@
-import { composeTemplate, renderTemplate, UNIVERSAL_NEGATIVE_CONSTRAINTS, type PromptTemplate, type PromptTemplateInput } from './shared';
+import {
+  composeTemplate,
+  renderTemplate,
+  UNIVERSAL_NEGATIVE_CONSTRAINTS,
+  type PromptTemplate,
+  type PromptTemplateInput,
+} from './shared';
 
 /** 需求文档模板（S1 产物，FR-PIPE-05） */
 export const requirementTemplate: PromptTemplate = composeTemplate({

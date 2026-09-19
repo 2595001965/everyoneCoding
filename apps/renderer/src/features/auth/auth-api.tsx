@@ -19,7 +19,12 @@ export interface AuthApi {
     rememberDays?: number;
   }): Promise<AuthSession>;
   /** 邮箱登录 */
-  login(input: { email: string; password: string; rememberMe: boolean; rememberDays?: number }): Promise<AuthSession>;
+  login(input: {
+    email: string;
+    password: string;
+    rememberMe: boolean;
+    rememberDays?: number;
+  }): Promise<AuthSession>;
   logout(): Promise<void>;
   /** 启动恢复本地会话（离线时保留本地身份） */
   restore(): Promise<AuthSession | null>;
@@ -27,9 +32,16 @@ export interface AuthApi {
   /** 发起第三方授权（PKCE，返回授权链接与 state） */
   beginOAuth(provider: OAuthProvider): Promise<{ authorizeUrl: string; state: string }>;
   /** 完成第三方授权（回调 URL 由外壳捕获） */
-  completeOAuth(provider: OAuthProvider, callbackUrl: string, rememberMe: boolean): Promise<AuthSession>;
+  completeOAuth(
+    provider: OAuthProvider,
+    callbackUrl: string,
+    rememberMe: boolean,
+  ): Promise<AuthSession>;
   /** 微信扫码轮询状态（5 分钟超时过期） */
-  pollWechatScan(state: string): Promise<{ state: 'pending' | 'scanned' | 'confirmed' | 'expired' | 'cancelled'; callbackUrl?: string }>;
+  pollWechatScan(state: string): Promise<{
+    state: 'pending' | 'scanned' | 'confirmed' | 'expired' | 'cancelled';
+    callbackUrl?: string;
+  }>;
 
   listBindings(): Promise<Binding[]>;
   bind(provider: AuthProvider): Promise<Binding[]>;
@@ -48,7 +60,13 @@ export interface AuthApi {
 const AuthContext = createContext<AuthApi | null>(null);
 
 /** 端口 Provider（命名带 Api 前缀，避免与 @ec/account 的 AuthProvider 概念混淆） */
-export function AuthApiProvider({ api, children }: { api: AuthApi | null; children: ReactNode }): JSX.Element {
+export function AuthApiProvider({
+  api,
+  children,
+}: {
+  api: AuthApi | null;
+  children: ReactNode;
+}): JSX.Element {
   return <AuthContext.Provider value={api}>{children}</AuthContext.Provider>;
 }
 

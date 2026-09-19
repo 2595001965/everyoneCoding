@@ -70,7 +70,10 @@ describe('备注富文本（T4-01）', () => {
   });
 
   it('标题块序列化为 # 前缀，供提示词注入时保留层级', () => {
-    const doc = { type: 'doc' as const, blocks: [{ type: 'heading' as const, level: 2 as const, spans: textToSpans('需求') }] };
+    const doc = {
+      type: 'doc' as const,
+      blocks: [{ type: 'heading' as const, level: 2 as const, spans: textToSpans('需求') }],
+    };
     expect(documentToText(doc)).toBe('## 需求');
   });
 
@@ -176,7 +179,9 @@ describe('备注优先级与上下文排序（T4-01）', () => {
   });
 
   it('普通备注不加前缀，纯文本不丢失', () => {
-    const context = toContextNote(makeNote({ title: '需校验图形验证码', content: documentFromText('') }));
+    const context = toContextNote(
+      makeNote({ title: '需校验图形验证码', content: documentFromText('') }),
+    );
     expect(context.text.startsWith(HARD_CONSTRAINT_PREFIX)).toBe(false);
     expect(context.text).toContain('需校验图形验证码');
   });

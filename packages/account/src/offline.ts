@@ -13,7 +13,9 @@ export function isNetworkError(error: unknown): boolean {
   if (error instanceof Error) {
     return (
       error.name === 'TypeError' || // fetch 在断网/不可达时抛 TypeError: Failed to fetch
-      /fetch failed|network|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|socket hang up|无法解析|网络/i.test(error.message)
+      /fetch failed|network|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|socket hang up|无法解析|网络/i.test(
+        error.message,
+      )
     );
   }
   return false;

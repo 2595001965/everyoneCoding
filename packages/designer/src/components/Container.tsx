@@ -19,7 +19,7 @@ const JUSTIFY_MAP: Record<string, React.CSSProperties['justifyContent']> = {
   end: 'flex-end',
   between: 'space-between',
   around: 'space-around',
-}
+};
 
 function buildStyle(node: Parameters<typeof withNodeStyle>[1]): React.CSSProperties {
   const direction = propString(node, 'direction', 'row') as 'row' | 'column';
@@ -65,25 +65,46 @@ export const ContainerMeta: ComponentMeta = {
   acceptsChildren: true,
   propSchema: {
     fields: [
-      { key: 'direction', label: '排列方向', type: 'enum', group: '布局', default: 'row', options: [
-        { value: 'row', label: '横向' },
-        { value: 'column', label: '纵向' },
-      ] },
+      {
+        key: 'direction',
+        label: '排列方向',
+        type: 'enum',
+        group: '布局',
+        default: 'row',
+        options: [
+          { value: 'row', label: '横向' },
+          { value: 'column', label: '纵向' },
+        ],
+      },
       { key: 'gap', label: '间距', type: 'spacing', group: '布局', default: '8px' },
       { key: 'padding', label: '内边距', type: 'spacing', group: '布局', default: '8px' },
-      { key: 'align', label: '交叉轴对齐', type: 'enum', group: '布局', default: 'stretch', options: [
-        { value: 'start', label: '起始' },
-        { value: 'center', label: '居中' },
-        { value: 'end', label: '结束' },
-        { value: 'stretch', label: '拉伸' },
-      ] },
-      { key: 'justify', label: '主轴对齐', type: 'enum', group: '布局', default: 'start', options: [
-        { value: 'start', label: '起始' },
-        { value: 'center', label: '居中' },
-        { value: 'end', label: '结束' },
-        { value: 'between', label: '两端' },
-        { value: 'around', label: '环绕' },
-      ] },
+      {
+        key: 'align',
+        label: '交叉轴对齐',
+        type: 'enum',
+        group: '布局',
+        default: 'stretch',
+        options: [
+          { value: 'start', label: '起始' },
+          { value: 'center', label: '居中' },
+          { value: 'end', label: '结束' },
+          { value: 'stretch', label: '拉伸' },
+        ],
+      },
+      {
+        key: 'justify',
+        label: '主轴对齐',
+        type: 'enum',
+        group: '布局',
+        default: 'start',
+        options: [
+          { value: 'start', label: '起始' },
+          { value: 'center', label: '居中' },
+          { value: 'end', label: '结束' },
+          { value: 'between', label: '两端' },
+          { value: 'around', label: '环绕' },
+        ],
+      },
       { key: 'background', label: '背景色', type: 'color', group: '外观', default: '' },
       { key: 'border', label: '边框', type: 'border', group: '外观', default: '' },
       { key: 'radius', label: '圆角', type: 'size', group: '外观', default: '' },

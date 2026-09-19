@@ -50,7 +50,10 @@ describe('E2E-11 用户自配远程配置：拉取 → 差异 → 设为默认',
       { method: 'GET', path: '/config.json', status: 200, body: JSON.stringify(REMOTE_DOC) },
     ]);
 
-    const fetched = await fetchRemoteConfig({ url: `${server.url}/config.json` }, createNodeHttpTransport());
+    const fetched = await fetchRemoteConfig(
+      { url: `${server.url}/config.json` },
+      createNodeHttpTransport(),
+    );
     expect(fetched.ok).toBe(true);
     expect(fetched.status).toBe('success');
     expect(fetched.document?.payload.revision).toBe('rev-2026-09-14');
@@ -75,7 +78,9 @@ describe('E2E-11 用户自配远程配置：拉取 → 差异 → 设为默认',
     // 用户确认后应用：新 provider 建库 + 默认模型指向远程默认
     const plan = planApply(fetched.document!.payload, locals, { currentDefaultModel: null });
     expect(plan.revision).toBe('rev-2026-09-14');
-    expect(plan.items.some((item) => item.kind === 'create' && item.name === '团队中转')).toBe(true);
+    expect(plan.items.some((item) => item.kind === 'create' && item.name === '团队中转')).toBe(
+      true,
+    );
     expect(plan.defaultModel).toBe('gpt-team-large');
   });
 
@@ -83,7 +88,10 @@ describe('E2E-11 用户自配远程配置：拉取 → 差异 → 设为默认',
     server = await startMockServer([
       { method: 'GET', path: '/config.json', status: 200, body: JSON.stringify(REMOTE_DOC) },
     ]);
-    const fetched = await fetchRemoteConfig({ url: `${server.url}/config.json` }, createNodeHttpTransport());
+    const fetched = await fetchRemoteConfig(
+      { url: `${server.url}/config.json` },
+      createNodeHttpTransport(),
+    );
 
     const locals: LocalProviderSnapshot[] = [
       {
@@ -104,9 +112,13 @@ describe('E2E-11 用户自配远程配置：拉取 → 差异 → 设为默认',
 
   it('URL 不可达时如实返回 unreachable，且不抛错（不阻塞启动）', async () => {
     // 本机高位端口无监听
-    const result = await fetchRemoteConfig({ url: 'http://127.0.0.1:1/config.json' }, createNodeHttpTransport(), {
-      timeoutMs: 2000,
-    });
+    const result = await fetchRemoteConfig(
+      { url: 'http://127.0.0.1:1/config.json' },
+      createNodeHttpTransport(),
+      {
+        timeoutMs: 2000,
+      },
+    );
     expect(result.ok).toBe(false);
     expect(result.status).toBe('unreachable');
     expect(result.document).toBeNull();
@@ -117,7 +129,10 @@ describe('E2E-11 用户自配远程配置：拉取 → 差异 → 设为默认',
     server = await startMockServer([
       { method: 'GET', path: '/bad.json', status: 200, body: JSON.stringify({ revision: '' }) },
     ]);
-    const result = await fetchRemoteConfig({ url: `${server.url}/bad.json` }, createNodeHttpTransport());
+    const result = await fetchRemoteConfig(
+      { url: `${server.url}/bad.json` },
+      createNodeHttpTransport(),
+    );
     expect(result.ok).toBe(false);
     expect(['invalid', 'unreachable']).toContain(result.status);
   });

@@ -64,7 +64,9 @@ const pathSchema = z
   .min(1)
   // 拒绝绝对路径与向上越界：生成物只能落在项目工作区内（NFR-S-05）
   .refine((value) => !/^([a-zA-Z]:|[\\/])/.test(value), { message: '文件路径必须是工作区相对路径' })
-  .refine((value) => !value.split(/[\\/]/).includes('..'), { message: '文件路径不得越出工作区（禁止 ..）' });
+  .refine((value) => !value.split(/[\\/]/).includes('..'), {
+    message: '文件路径不得越出工作区（禁止 ..）',
+  });
 
 /**
  * 注意两个坑：
@@ -88,12 +90,13 @@ export const referencedMemorySchema: z.ZodType<ReferencedMemory, z.ZodTypeDef, u
   layer: z.string(),
 });
 
-export const generationDecisionSchema: z.ZodType<GenerationDecision, z.ZodTypeDef, unknown> = z.object({
-  referencedMemory: z.array(referencedMemorySchema).default([]),
-  rationale: z.string().default(''),
-  risks: z.array(z.string()).default([]),
-  uncovered: z.array(z.string()).default([]),
-});
+export const generationDecisionSchema: z.ZodType<GenerationDecision, z.ZodTypeDef, unknown> =
+  z.object({
+    referencedMemory: z.array(referencedMemorySchema).default([]),
+    rationale: z.string().default(''),
+    risks: z.array(z.string()).default([]),
+    uncovered: z.array(z.string()).default([]),
+  });
 
 export const generationOutputSchema: z.ZodType<GenerationOutput, z.ZodTypeDef, unknown> = z
   .object({
@@ -101,7 +104,12 @@ export const generationOutputSchema: z.ZodType<GenerationOutput, z.ZodTypeDef, u
     anchors: z.array(anchorDeclarationSchema).default([]),
     summary: z.string().default(''),
     notes: z.string().default(''),
-    decision: generationDecisionSchema.default({ referencedMemory: [], rationale: '', risks: [], uncovered: [] }),
+    decision: generationDecisionSchema.default({
+      referencedMemory: [],
+      rationale: '',
+      risks: [],
+      uncovered: [],
+    }),
   })
   .refine(
     (value) =>
@@ -126,7 +134,9 @@ export function validateGenerationOutput(
   if (parsed.success) return { ok: true, value: parsed.data };
   return {
     ok: false,
-    issues: parsed.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
+    issues: parsed.error.issues.map(
+      (issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`,
+    ),
   };
 }
 

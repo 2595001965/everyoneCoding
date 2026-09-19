@@ -1,5 +1,12 @@
 import { Select, Switch } from '@ec/ui';
-import { AI_PURPOSES, PURPOSE_LABELS, resolveModelId, type AiPurpose, type Model, type PurposeBinding } from '@ec/ai';
+import {
+  AI_PURPOSES,
+  PURPOSE_LABELS,
+  resolveModelId,
+  type AiPurpose,
+  type Model,
+  type PurposeBinding,
+} from '@ec/ai';
 
 /**
  * 用途化模型绑定（FR-MDL-05）。
@@ -12,15 +19,24 @@ export interface PurposeBindingProps {
   onChange(next: PurposeBinding): void;
 }
 
-export function PurposeBindingPanel({ binding, models, onChange }: PurposeBindingProps): JSX.Element {
-  const options = models.map((model) => ({ value: model.id, label: model.displayName ?? model.name }));
+export function PurposeBindingPanel({
+  binding,
+  models,
+  onChange,
+}: PurposeBindingProps): JSX.Element {
+  const options = models.map((model) => ({
+    value: model.id,
+    label: model.displayName ?? model.name,
+  }));
 
   return (
     <section className="ec-ai__section" aria-label="用途化模型绑定">
       <header className="ec-ai__section-head">
         <div>
           <h2 className="ec-ai__section-title">用途化模型绑定</h2>
-          <p className="ec-ai__hint">不同用途可用不同模型，例如「代码生成」用强模型、「提交信息」用廉价模型。</p>
+          <p className="ec-ai__hint">
+            不同用途可用不同模型，例如「代码生成」用强模型、「提交信息」用廉价模型。
+          </p>
         </div>
         <Switch
           checked={binding.useDefaultForAll}
@@ -36,7 +52,9 @@ export function PurposeBindingPanel({ binding, models, onChange }: PurposeBindin
             options={options}
             value={binding.defaultModelId ?? ''}
             placeholder="未选择"
-            onChange={(value) => onChange({ ...binding, defaultModelId: value.length > 0 ? value : null })}
+            onChange={(value) =>
+              onChange({ ...binding, defaultModelId: value.length > 0 ? value : null })
+            }
           />
         </label>
 

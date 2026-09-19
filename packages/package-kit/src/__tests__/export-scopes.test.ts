@@ -26,7 +26,12 @@ afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 
-function mem(id: string, layer: ExportMemoryItem['layer'], projectId: string | null, content: string): ExportMemoryItem {
+function mem(
+  id: string,
+  layer: ExportMemoryItem['layer'],
+  projectId: string | null,
+  content: string,
+): ExportMemoryItem {
   return { id, layer, projectId, updatedAt: 1, json: JSON.stringify({ id, layer, content }) };
 }
 
@@ -70,7 +75,10 @@ function projectB(): FakeProject {
   };
 }
 
-function baseRequest(outputName: string, selection: ExportJobRequest['selection']): ExportJobRequest {
+function baseRequest(
+  outputName: string,
+  selection: ExportJobRequest['selection'],
+): ExportJobRequest {
   return {
     outputPath: path.join(workDir, outputName),
     selection,
@@ -112,7 +120,11 @@ describe('导出三种范围（T8-02）', () => {
   it('scope=project：仅导出指定单项目（proj-a），proj-b 不出现', async () => {
     const port = makeFakePort({ projects: [projectA(), projectB()], attachments: [] });
     const result = await runExport(
-      baseRequest('project.ecpkg', { scope: 'project', projectIds: ['proj-a'], content: fullContent() }),
+      baseRequest('project.ecpkg', {
+        scope: 'project',
+        projectIds: ['proj-a'],
+        content: fullContent(),
+      }),
       port,
     );
     expect(result.counts.projects).toBe(1);
@@ -134,7 +146,11 @@ describe('导出三种范围（T8-02）', () => {
   it('scope=selected：仅导出勾选集合（proj-a）', async () => {
     const port = makeFakePort({ projects: [projectA(), projectB()], attachments: [] });
     const result = await runExport(
-      baseRequest('selected.ecpkg', { scope: 'selected', projectIds: ['proj-a'], content: fullContent() }),
+      baseRequest('selected.ecpkg', {
+        scope: 'selected',
+        projectIds: ['proj-a'],
+        content: fullContent(),
+      }),
       port,
     );
     expect(result.counts.projects).toBe(1);
@@ -177,7 +193,9 @@ describe('导出三种范围（T8-02）', () => {
     try {
       expect(reader.hasEntry('documents/doc-a/a.md')).toBe(false);
       expect(reader.hasEntry('projects/proj-a/code/src/app.ts')).toBe(false);
-      expect(reader.readEntryText('memory/projects/proj-a/project.jsonl')).toContain('A 的项目记忆');
+      expect(reader.readEntryText('memory/projects/proj-a/project.jsonl')).toContain(
+        'A 的项目记忆',
+      );
     } finally {
       reader.close();
     }

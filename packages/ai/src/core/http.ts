@@ -56,7 +56,10 @@ export class TransportError extends Error {
   readonly aborted: boolean;
   readonly timedOut: boolean;
 
-  constructor(message: string, options: { aborted?: boolean; timedOut?: boolean; cause?: unknown } = {}) {
+  constructor(
+    message: string,
+    options: { aborted?: boolean; timedOut?: boolean; cause?: unknown } = {},
+  ) {
     super(message);
     this.name = 'TransportError';
     this.aborted = options.aborted ?? false;
@@ -101,7 +104,9 @@ export function toAsyncIterable(stream: {
   const onEnd = (() => finish()) as (...args: unknown[]) => void;
   const onError = ((error: Error) => finish(error)) as (...args: unknown[]) => void;
   // 客户端 destroy 时先 aborted 再 close：视为中断，已读到的字节仍然保留
-  const onAborted = (() => finish(new TransportError('响应被中断', { aborted: true }))) as (...args: unknown[]) => void;
+  const onAborted = (() => finish(new TransportError('响应被中断', { aborted: true }))) as (
+    ...args: unknown[]
+  ) => void;
   const onClose = (() => finish()) as (...args: unknown[]) => void;
 
   stream.on('data', onData);

@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { UsageDashboard } from '../features/usage/UsageDashboard';
-import { UsageApiProvider, UsageUnavailable, readInjectedUsageApi } from '../features/usage/usage-api';
+import {
+  UsageApiProvider,
+  UsageUnavailable,
+  readInjectedUsageApi,
+} from '../features/usage/usage-api';
 import { useAppStore } from '../store/useAppStore';
 
 /**
@@ -21,10 +25,7 @@ export function UsagePage(): JSX.Element {
   const shellReady = useAppStore((state) => state.shellReady);
   const [options, setOptions] = useState<ProjectOption[]>([]);
 
-  const usageApi = useMemo(
-    () => (void shellReady, readInjectedUsageApi()),
-    [shellReady],
-  );
+  const usageApi = useMemo(() => (void shellReady, readInjectedUsageApi()), [shellReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +38,8 @@ export function UsagePage(): JSX.Element {
       if (typeof workspace?.listProjects !== 'function') return;
       try {
         const projects = await workspace.listProjects();
-        if (!cancelled) setOptions(projects.map((project) => ({ id: project.id, name: project.name })));
+        if (!cancelled)
+          setOptions(projects.map((project) => ({ id: project.id, name: project.name })));
       } catch {
         // 工作台端口异常不阻塞用量页（全局视图仍可用）
       }

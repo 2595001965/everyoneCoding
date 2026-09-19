@@ -22,7 +22,11 @@ function flatten(elements: readonly TemplateElement[]): TemplateElement[] {
 describe('内置项目模板', () => {
   it('恰好三套：Web 管理后台 / 移动端 App / 官网落地页', () => {
     expect(PROJECT_TEMPLATES).toHaveLength(3);
-    expect(PROJECT_TEMPLATES.map((t) => t.id)).toEqual(['tpl-web-admin', 'tpl-mobile-app', 'tpl-landing']);
+    expect(PROJECT_TEMPLATES.map((t) => t.id)).toEqual([
+      'tpl-web-admin',
+      'tpl-mobile-app',
+      'tpl-landing',
+    ]);
     expect(findTemplate('tpl-mobile-app')?.name).toBe('移动端 App');
     expect(findTemplate('不存在')).toBeNull();
   });
@@ -46,7 +50,17 @@ describe('内置项目模板', () => {
   });
 
   it('模板目标端与页面 platform 一致，技术方案取 FR-AI-13 矩阵值', () => {
-    const allowedValues = new Set(['react', 'vue3', 'flutter', 'react-native', 'native', 'arkts', 'tauri2', 'electron', 'qt']);
+    const allowedValues = new Set([
+      'react',
+      'vue3',
+      'flutter',
+      'react-native',
+      'native',
+      'arkts',
+      'tauri2',
+      'electron',
+      'qt',
+    ]);
     for (const template of PROJECT_TEMPLATES) {
       for (const platform of template.targetPlatforms) {
         const value = template.techStack[platform];

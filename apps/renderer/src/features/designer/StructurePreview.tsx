@@ -52,7 +52,8 @@ export function StructurePreview({
     setError(null);
   }, [summary]);
 
-  const ratio = tokenBudget > 0 ? Math.min(100, Math.round((tokenEstimate / tokenBudget) * 100)) : 0;
+  const ratio =
+    tokenBudget > 0 ? Math.min(100, Math.round((tokenEstimate / tokenBudget) * 100)) : 0;
 
   return (
     <section className="ec-structure-preview" aria-label="逻辑结构摘要">
@@ -128,9 +129,13 @@ export function StructurePreview({
                 <time dateTime={new Date(revision.createdAt).toISOString()}>
                   {new Date(revision.createdAt).toLocaleString('zh-CN')}
                 </time>
-                <span className="ec-structure-preview__rev-tokens">{revision.tokenEstimate} tokens</span>
+                <span className="ec-structure-preview__rev-tokens">
+                  {revision.tokenEstimate} tokens
+                </span>
                 {revision.changed && revision.changed.length > 0 && (
-                  <span className="ec-structure-preview__rev-changed">变更：{revision.changed.join('、')}</span>
+                  <span className="ec-structure-preview__rev-changed">
+                    变更：{revision.changed.join('、')}
+                  </span>
                 )}
               </li>
             ))}
@@ -154,7 +159,9 @@ function SummaryRow({
   return (
     <div className="ec-structure-preview__row">
       <span className="ec-structure-preview__label">{label}</span>
-      <span className={`ec-structure-preview__value${monospace ? ' ec-structure-preview__value--mono' : ''}`}>
+      <span
+        className={`ec-structure-preview__value${monospace ? ' ec-structure-preview__value--mono' : ''}`}
+      >
         {formatValue(value)}
       </span>
     </div>

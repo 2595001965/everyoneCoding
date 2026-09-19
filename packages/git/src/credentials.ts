@@ -49,27 +49,53 @@ export class GitCredentialStore {
   }
 
   /** HTTPS：Personal Access Token */
-  async setHttpsCredential(input: { remoteName: string; username: string; token: string }): Promise<void> {
+  async setHttpsCredential(input: {
+    remoteName: string;
+    username: string;
+    token: string;
+  }): Promise<void> {
     const scope = input.remoteName;
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.kind}`, 'https');
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.username}`, input.username);
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.token}`, input.token);
-    await this.store.delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.keyPath}`).catch(() => undefined);
-    await this.store.delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.passphrase}`).catch(() => undefined);
+    await this.store
+      .delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.keyPath}`)
+      .catch(() => undefined);
+    await this.store
+      .delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.passphrase}`)
+      .catch(() => undefined);
   }
 
   /** SSH：ed25519 私钥路径（+ 可选口令，建议改用 ssh-agent） */
-  async setSshCredential(input: { remoteName: string; privateKeyPath: string; passphrase?: string | null }): Promise<void> {
+  async setSshCredential(input: {
+    remoteName: string;
+    privateKeyPath: string;
+    passphrase?: string | null;
+  }): Promise<void> {
     const scope = input.remoteName;
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.kind}`, 'ssh');
-    await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.keyPath}`, input.privateKeyPath);
+    await this.store.set(
+      GIT_CREDENTIAL_NAMESPACE,
+      `${scope}${SUFFIX.keyPath}`,
+      input.privateKeyPath,
+    );
     if (typeof input.passphrase === 'string' && input.passphrase.length > 0) {
-      await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.passphrase}`, input.passphrase);
+      await this.store.set(
+        GIT_CREDENTIAL_NAMESPACE,
+        `${scope}${SUFFIX.passphrase}`,
+        input.passphrase,
+      );
     } else {
-      await this.store.delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.passphrase}`).catch(() => undefined);
+      await this.store
+        .delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.passphrase}`)
+        .catch(() => undefined);
     }
-    await this.store.delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.username}`).catch(() => undefined);
-    await this.store.delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.token}`).catch(() => undefined);
+    await this.store
+      .delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.username}`)
+      .catch(() => undefined);
+    await this.store
+      .delete(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.token}`)
+      .catch(() => undefined);
   }
 
   async kindOf(remoteName: string): Promise<GitCredentialKind | null> {
@@ -86,33 +112,58 @@ export class GitCredentialStore {
     const kind = await this.kindOf(remoteName);
     if (kind === null) return null;
     if (kind === 'https') {
-      const username = (await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.username}`)) ?? '';
+      const username =
+        (await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.username}`)) ?? '';
       const token = await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.token}`);
       if (token === null || token.length === 0) return null;
       return { kind: 'https', username: username.length > 0 ? username : 'x-access-token', token };
     }
-    const privateKeyPath = await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.keyPath}`);
+    const privateKeyPath = await this.store.get(
+      GIT_CREDENTIAL_NAMESPACE,
+      `${remoteName}${SUFFIX.keyPath}`,
+    );
     if (privateKeyPath === null || privateKeyPath.length === 0) return null;
-    const passphrase = await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.passphrase}`);
-    return { kind: 'ssh', privateKeyPath, passphrase: passphrase !== null && passphrase.length > 0 ? passphrase : null };
+    const passphrase = await this.store.get(
+      GIT_CREDENTIAL_NAMESPACE,
+      `${remoteName}${SUFFIX.passphrase}`,
+    );
+    return {
+      kind: 'ssh',
+      privateKeyPath,
+      passphrase: passphrase !== null && passphrase.length > 0 ? passphrase : null,
+    };
   }
 
   async remove(remoteName: string): Promise<void> {
     for (const suffix of Object.values(SUFFIX)) {
-      await this.store.delete(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${suffix}`).catch(() => undefined);
+      await this.store
+        .delete(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${suffix}`)
+        .catch(() => undefined);
     }
   }
 
   /** 只返回绑定元信息（远程名 + 种类 + 非敏感字段），**不返回任何密钥** */
   async listBindings(): Promise<CredentialBinding[]> {
     const keys = await this.store.listKeys(GIT_CREDENTIAL_NAMESPACE);
-    const names = [...new Set(keys.filter((key) => key.endsWith(SUFFIX.kind)).map((key) => key.slice(0, -SUFFIX.kind.length)))];
+    const names = [
+      ...new Set(
+        keys
+          .filter((key) => key.endsWith(SUFFIX.kind))
+          .map((key) => key.slice(0, -SUFFIX.kind.length)),
+      ),
+    ];
     const bindings: CredentialBinding[] = [];
     for (const remoteName of names) {
       const kind = await this.kindOf(remoteName);
       if (kind === null) continue;
-      const username = kind === 'https' ? await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.username}`) : null;
-      const privateKeyPath = kind === 'ssh' ? await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.keyPath}`) : null;
+      const username =
+        kind === 'https'
+          ? await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.username}`)
+          : null;
+      const privateKeyPath =
+        kind === 'ssh'
+          ? await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.keyPath}`)
+          : null;
       bindings.push({
         remoteName,
         kind,

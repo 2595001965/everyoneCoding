@@ -10,7 +10,12 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-import { CHANNELS, EVENT_CHANNELS, PRELOAD_METHOD_KEYS, PRELOAD_TOP_LEVEL_KEYS } from '../main/channels';
+import {
+  CHANNELS,
+  EVENT_CHANNELS,
+  PRELOAD_METHOD_KEYS,
+  PRELOAD_TOP_LEVEL_KEYS,
+} from '../main/channels';
 import { registerDomainIpc, registerUnavailableDomainIpc } from '../main/ipc/domain';
 import { createPreloadApi } from '../preload/api';
 import type { IpcMainLike } from '../main/types';
@@ -20,7 +25,10 @@ import {
   type DomainDescriptor,
   type DomainRpcRequest,
 } from '@ec/shell-api';
-function collector(): { ipc: IpcMainLike; handlers: Map<string, (event: unknown, payload: unknown) => unknown> } {
+function collector(): {
+  ipc: IpcMainLike;
+  handlers: Map<string, (event: unknown, payload: unknown) => unknown>;
+} {
   const handlers = new Map<string, (event: unknown, payload: unknown) => unknown>();
   return {
     handlers,
@@ -56,7 +64,10 @@ describe('未装配域运行时的兜底行为', () => {
     const handler = handlers.get(CHANNELS.domain.invoke);
     expect(handler).toBeDefined();
 
-    const response = (await handler?.({}, { requestId: 'req-7', domain: 'docs', method: 'listDocuments' })) as {
+    const response = (await handler?.(
+      {},
+      { requestId: 'req-7', domain: 'docs', method: 'listDocuments' },
+    )) as {
       requestId: string;
       ok: boolean;
       error?: { code: string };
@@ -119,7 +130,9 @@ describe('已装配域运行时的透传', () => {
   it('describe 原样回传装配状态', async () => {
     const { ipc, handlers } = collector();
     registerDomainIpc(ipc, fakeHost());
-    await expect(handlers.get(CHANNELS.domain.describe)?.({}, undefined)).resolves.toEqual(descriptors);
+    await expect(handlers.get(CHANNELS.domain.describe)?.({}, undefined)).resolves.toEqual(
+      descriptors,
+    );
   });
 });
 
@@ -136,7 +149,12 @@ describe('域事件下发（invoke 期间按 requestId 绑定发送器）', () =
         host.events.send({
           requestId: request.requestId,
           domain: request.domain,
-          payload: { type: 'workspace:import-progress', stage: 'clone', ratio: 0.5, message: '克隆中' },
+          payload: {
+            type: 'workspace:import-progress',
+            stage: 'clone',
+            ratio: 0.5,
+            message: '克隆中',
+          },
         });
         return { requestId: request.requestId, ok: true, result: null };
       }),
@@ -176,7 +194,12 @@ describe('域事件下发（invoke 期间按 requestId 绑定发送器）', () =
         payload: {
           requestId: 'workspace-1',
           domain: 'workspace',
-          payload: { type: 'workspace:import-progress', stage: 'clone', ratio: 0.5, message: '克隆中' },
+          payload: {
+            type: 'workspace:import-progress',
+            stage: 'clone',
+            ratio: 0.5,
+            message: '克隆中',
+          },
         },
       },
     ]);
@@ -194,7 +217,11 @@ describe('域事件下发（invoke 期间按 requestId 绑定发送器）', () =
     );
     expect(sent).toHaveLength(1);
 
-    host.events.send({ requestId: 'workspace-1', domain: 'workspace', payload: { stage: 'inspect' } });
+    host.events.send({
+      requestId: 'workspace-1',
+      domain: 'workspace',
+      payload: { stage: 'inspect' },
+    });
     expect(sent).toHaveLength(1);
   });
 

@@ -33,7 +33,9 @@ describe('FileService 原子写', () => {
   });
 
   it('路径逃逸一律被拒绝', async () => {
-    await expect(service.writeAtomic('C:/workspace/../../outside.txt', 'x')).rejects.toThrow(PathEscapeError);
+    await expect(service.writeAtomic('C:/workspace/../../outside.txt', 'x')).rejects.toThrow(
+      PathEscapeError,
+    );
     await expect(service.readText('D:/other')).rejects.toThrow(PathEscapeError);
   });
 

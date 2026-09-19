@@ -13,7 +13,13 @@ export function ListRenderer({ node, mode, scope, children }: ComponentRenderPro
 
   if (mode === 'design') {
     return (
-      <div className="ecd-list" data-layout={layout} data-split={split} data-component="List" data-mode={mode}>
+      <div
+        className="ecd-list"
+        data-layout={layout}
+        data-split={split}
+        data-component="List"
+        data-mode={mode}
+      >
         {isEmpty ? <EmptyState title="暂无数据" description="预览时绑定数据源" /> : children}
       </div>
     );
@@ -22,7 +28,13 @@ export function ListRenderer({ node, mode, scope, children }: ComponentRenderPro
   const items = resolveBoundRows(node, scope);
   const height = Math.min(320, Math.max(120, items.length * 44));
   return (
-    <div className="ecd-list" data-layout={layout} data-split={split} data-component="List" data-mode={mode}>
+    <div
+      className="ecd-list"
+      data-layout={layout}
+      data-split={split}
+      data-component="List"
+      data-mode={mode}
+    >
       <List
         items={items}
         itemHeight={44}
@@ -49,10 +61,17 @@ export const ListMeta: ComponentMeta = {
   propSchema: {
     fields: [
       { key: 'dataSource', label: '数据源', type: 'text', group: '数据', default: '' },
-      { key: 'itemLayout', label: '排布', type: 'enum', group: '布局', default: 'vertical', options: [
-        { value: 'horizontal', label: '横向' },
-        { value: 'vertical', label: '纵向' },
-      ] },
+      {
+        key: 'itemLayout',
+        label: '排布',
+        type: 'enum',
+        group: '布局',
+        default: 'vertical',
+        options: [
+          { value: 'horizontal', label: '横向' },
+          { value: 'vertical', label: '纵向' },
+        ],
+      },
       { key: 'split', label: '分割线', type: 'boolean', group: '外观', default: true },
     ],
   },

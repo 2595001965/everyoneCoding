@@ -23,7 +23,10 @@ const ANCHOR_STATUS_LABELS: Record<HealingAnchorOutcome['status'], string> = {
   missing: '已丢失',
 };
 
-const ANCHOR_STATUS_VARIANTS: Record<HealingAnchorOutcome['status'], 'success' | 'neutral' | 'warning' | 'danger'> = {
+const ANCHOR_STATUS_VARIANTS: Record<
+  HealingAnchorOutcome['status'],
+  'success' | 'neutral' | 'warning' | 'danger'
+> = {
   relocated: 'success',
   unchanged: 'neutral',
   ambiguous: 'warning',
@@ -79,9 +82,7 @@ export function HealingReportView(props: HealingReportViewProps): JSX.Element {
       </div>
 
       <section aria-label="锚点重定位">
-        <h4>
-          锚点重定位（成功率 {successPercent}%，目标 ≥90%）
-        </h4>
+        <h4>锚点重定位（成功率 {successPercent}%，目标 ≥90%）</h4>
         <ul>
           {report.anchors.outcomes.map((outcome) => (
             <HealingAnchorRow
@@ -95,7 +96,9 @@ export function HealingReportView(props: HealingReportViewProps): JSX.Element {
       </section>
 
       <section aria-label="关联修复">
-        <h4>关联修复（自动修复 {report.links.fixedCount}，未修复 {report.links.unresolvableCount}）</h4>
+        <h4>
+          关联修复（自动修复 {report.links.fixedCount}，未修复 {report.links.unresolvableCount}）
+        </h4>
         {problematicLinks.length === 0 ? (
           <p>全部关联有效，无需修复。</p>
         ) : (
@@ -105,7 +108,8 @@ export function HealingReportView(props: HealingReportViewProps): JSX.Element {
                 <Tag color={outcome.status === 'fixed' ? 'success' : 'danger'}>
                   {LINK_STATUS_LABELS[outcome.status]}
                 </Tag>{' '}
-                {outcome.sourceType}/{outcome.sourceId} → {outcome.targetType}/{outcome.targetId}：{outcome.detail}
+                {outcome.sourceType}/{outcome.sourceId} → {outcome.targetType}/{outcome.targetId}：
+                {outcome.detail}
               </li>
             ))}
           </ul>
@@ -113,7 +117,10 @@ export function HealingReportView(props: HealingReportViewProps): JSX.Element {
       </section>
 
       <section aria-label="附件清点">
-        <h4>附件清点（检查 {report.attachments.checked} 个，问题 {report.attachments.issues.length} 个）</h4>
+        <h4>
+          附件清点（检查 {report.attachments.checked} 个，问题 {report.attachments.issues.length}{' '}
+          个）
+        </h4>
         {report.attachments.issues.length === 0 ? (
           <p>附件完整，无缺失或损坏。</p>
         ) : (
@@ -178,7 +185,9 @@ function HealingAnchorRow(props: {
 
   return (
     <li>
-      <Tag color={ANCHOR_STATUS_VARIANTS[outcome.status]}>{ANCHOR_STATUS_LABELS[outcome.status]}</Tag>{' '}
+      <Tag color={ANCHOR_STATUS_VARIANTS[outcome.status]}>
+        {ANCHOR_STATUS_LABELS[outcome.status]}
+      </Tag>{' '}
       <code>{outcome.symbol ?? '(无符号)'}</code> @ <code>{location}</code> — {outcome.reason}
       {isAmbiguous && !adopted && (
         <span className="ec-healing-report__candidates">

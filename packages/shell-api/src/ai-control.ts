@@ -8,14 +8,40 @@ import type { Unsubscribe } from './types';
  */
 
 export const AI_RPC_METHODS = [
-  'listProviders', 'createProvider', 'updateProvider', 'removeProvider', 'setProviderEnabled', 'reorderProviders',
-  'testConnection', 'testDraftConnection', 'listModels', 'listAllModels', 'refreshModels', 'addManualModel',
-  'updateCapability', 'getBinding', 'saveBinding', 'monthlyUsage', 'usageByModel', 'budgetConfig', 'setBudget',
-  'setLimits', 'setProxy', 'testProxy', 'listRemoteSources', 'createRemoteSource', 'updateRemoteSource',
-  'removeRemoteSource', 'fetchRemoteSource', 'previewRemoteSource', 'applyRemoteSource', 'ackRemoteRevision',
+  'listProviders',
+  'createProvider',
+  'updateProvider',
+  'removeProvider',
+  'setProviderEnabled',
+  'reorderProviders',
+  'testConnection',
+  'testDraftConnection',
+  'listModels',
+  'listAllModels',
+  'refreshModels',
+  'addManualModel',
+  'updateCapability',
+  'getBinding',
+  'saveBinding',
+  'monthlyUsage',
+  'usageByModel',
+  'budgetConfig',
+  'setBudget',
+  'setLimits',
+  'setProxy',
+  'testProxy',
+  'listRemoteSources',
+  'createRemoteSource',
+  'updateRemoteSource',
+  'removeRemoteSource',
+  'fetchRemoteSource',
+  'previewRemoteSource',
+  'applyRemoteSource',
+  'ackRemoteRevision',
   'refreshRemoteSourcesOnBoot',
   // 密钥环：明文 Key 的唯一入口，只回传引用名
-  'persistApiKey', 'discardTempKey',
+  'persistApiKey',
+  'discardTempKey',
 ] as const;
 
 export type AiRpcMethod = (typeof AI_RPC_METHODS)[number];
@@ -93,18 +119,24 @@ export function aiErrorFromUnknown(error: unknown): AiRpcError {
       };
     }
   }
-  return { code: 'UNKNOWN', message: sanitizeAiMessage(error instanceof Error ? error.message : String(error)) };
+  return {
+    code: 'UNKNOWN',
+    message: sanitizeAiMessage(error instanceof Error ? error.message : String(error)),
+  };
 }
 
 /** RPC 边界最后一道脱敏：普通 Error 也不能把认证头/Key 带回渲染层。 */
 function sanitizeAiMessage(message: string): string {
   return message
     .replace(/\bBearer\s+[^\s,;}]+/gi, 'Bearer ***')
-    .replace(/\b(?:api[_-]?key|x-api-key|authorization|token|secret|password)\b\s*[:=]\s*[^\s,;}]+/gi, (match) => {
-      const separator = match.match(/\s*[:=]\s*/)?.[0] ?? ': ';
-      const key = match.slice(0, match.indexOf(separator)).trim();
-      return `${key}${separator}***`;
-    })
+    .replace(
+      /\b(?:api[_-]?key|x-api-key|authorization|token|secret|password)\b\s*[:=]\s*[^\s,;}]+/gi,
+      (match) => {
+        const separator = match.match(/\s*[:=]\s*/)?.[0] ?? ': ';
+        const key = match.slice(0, match.indexOf(separator)).trim();
+        return `${key}${separator}***`;
+      },
+    )
     .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, 'sk-***');
 }
 

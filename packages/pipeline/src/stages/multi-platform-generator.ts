@@ -32,55 +32,68 @@ export const TOOLCHAIN_BY_FRAMEWORK: Readonly<Record<string, PlatformToolchain>>
     framework: 'flutter',
     detectCommand: 'flutter --version',
     buildCommand: ['flutter', 'build', 'apk', '--debug'],
-    installGuide: '未检测到 Flutter SDK。安装引导：https://docs.flutter.dev/get-started/install/windows（配置 PATH 后重试）。',
-    projectShape: 'Flutter 工程：lib/main.dart 入口、pubspec.yaml 依赖清单、路由在 lib/app.dart、状态管理用 Provider/Riverpod、接口调用在 lib/services/。',
+    installGuide:
+      '未检测到 Flutter SDK。安装引导：https://docs.flutter.dev/get-started/install/windows（配置 PATH 后重试）。',
+    projectShape:
+      'Flutter 工程：lib/main.dart 入口、pubspec.yaml 依赖清单、路由在 lib/app.dart、状态管理用 Provider/Riverpod、接口调用在 lib/services/。',
   },
   'react-native': {
     platform: 'android',
     framework: 'react-native',
     detectCommand: 'npx react-native --version',
     buildCommand: ['npx', 'react-native', 'run-android', '--no-packager'],
-    installGuide: '未检测到 React Native CLI。安装引导：https://reactnative.dev/docs/environment-setup（配置 Android SDK 后重试）。',
-    projectShape: 'React Native 工程：App.tsx 入口、路由 react-navigation、状态管理 zustand、接口调用 src/services/。',
+    installGuide:
+      '未检测到 React Native CLI。安装引导：https://reactnative.dev/docs/environment-setup（配置 Android SDK 后重试）。',
+    projectShape:
+      'React Native 工程：App.tsx 入口、路由 react-navigation、状态管理 zustand、接口调用 src/services/。',
   },
   native: {
     platform: 'android',
     framework: 'native',
     detectCommand: 'gradle --version',
     buildCommand: ['gradle', 'assembleDebug'],
-    installGuide: '未检测到 Gradle / Android SDK。安装引导：https://developer.android.com/studio（安装 Android Studio 后重试）。',
-    projectShape: 'Android 原生工程（Kotlin）：MainActivity.kt 入口、Jetpack Compose 或 View 体系、Retrofit 接口层。',
+    installGuide:
+      '未检测到 Gradle / Android SDK。安装引导：https://developer.android.com/studio（安装 Android Studio 后重试）。',
+    projectShape:
+      'Android 原生工程（Kotlin）：MainActivity.kt 入口、Jetpack Compose 或 View 体系、Retrofit 接口层。',
   },
   arkts: {
     platform: 'harmonyos',
     framework: 'arkts',
     detectCommand: 'hvigorw --version',
     buildCommand: ['hvigorw', 'assembleHap'],
-    installGuide: '未检测到 hvigor 构建工具链。安装引导：https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-software-overview（DevEco Studio 自带 hvigor，需配置 PATH）。',
-    projectShape: 'HarmonyOS Stage 模型工程（ArkTS + ArkUI）：entry/src/main/ets/entryability/EntryAbility.ets 入口、pages/ 页面、ets 声明式 UI、模块化 Stage 结构。',
+    installGuide:
+      '未检测到 hvigor 构建工具链。安装引导：https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-software-overview（DevEco Studio 自带 hvigor，需配置 PATH）。',
+    projectShape:
+      'HarmonyOS Stage 模型工程（ArkTS + ArkUI）：entry/src/main/ets/entryability/EntryAbility.ets 入口、pages/ 页面、ets 声明式 UI、模块化 Stage 结构。',
   },
   tauri2: {
     platform: 'windows',
     framework: 'tauri2',
     detectCommand: 'cargo tauri --version',
     buildCommand: ['cargo', 'tauri', 'build', '--no-bundle'],
-    installGuide: '未检测到 Tauri CLI / Rust 工具链。安装引导：https://v2.tauri.app/start/prerequisites/（安装 Rust 与 tauri-cli 后重试）。',
-    projectShape: 'Tauri 2 工程：src-tauri/ Rust 内核、src/ Web 前端（React+Vite）、tauri.conf.json 配置、窗口与系统能力在 Rust 侧实现。',
+    installGuide:
+      '未检测到 Tauri CLI / Rust 工具链。安装引导：https://v2.tauri.app/start/prerequisites/（安装 Rust 与 tauri-cli 后重试）。',
+    projectShape:
+      'Tauri 2 工程：src-tauri/ Rust 内核、src/ Web 前端（React+Vite）、tauri.conf.json 配置、窗口与系统能力在 Rust 侧实现。',
   },
   electron: {
     platform: 'windows',
     framework: 'electron',
     detectCommand: 'npx electron --version',
     buildCommand: ['npx', 'electron-builder', '--dir'],
-    installGuide: '未检测到 Electron 工具链。安装引导：https://www.electronjs.org/docs/latest/tutorial/installation（npm 全局或 npx 安装 electron-builder 后重试）。',
-    projectShape: 'Electron 工程：main.js 主进程、preload.js 预加载、src/ 渲染层（React+Vite）、electron-builder.yml 打包配置。',
+    installGuide:
+      '未检测到 Electron 工具链。安装引导：https://www.electronjs.org/docs/latest/tutorial/installation（npm 全局或 npx 安装 electron-builder 后重试）。',
+    projectShape:
+      'Electron 工程：main.js 主进程、preload.js 预加载、src/ 渲染层（React+Vite）、electron-builder.yml 打包配置。',
   },
   qt: {
     platform: 'windows',
     framework: 'qt',
     detectCommand: 'qmake --version',
     buildCommand: ['qmake', '&&', 'make'],
-    installGuide: '未检测到 Qt 工具链。安装引导：https://doc.qt.io/qt-6/gettingstarted.html（安装 Qt 与 CMake 后重试）。',
+    installGuide:
+      '未检测到 Qt 工具链。安装引导：https://doc.qt.io/qt-6/gettingstarted.html（安装 Qt 与 CMake 后重试）。',
     projectShape: 'Qt 工程（C++/QML）：main.cpp 入口、QML 界面、信号槽业务层、CMake 构建。',
   },
 };
@@ -169,7 +182,13 @@ export class MultiPlatformGenerator {
     // 2) 强制编译校验
     const verification = await this.verifyAndFix(input, files);
 
-    return { platform: input.platform, framework: input.framework, files, build: verification, degraded };
+    return {
+      platform: input.platform,
+      framework: input.framework,
+      files,
+      build: verification,
+      degraded,
+    };
   }
 
   /** 编译校验 + 失败重试闭环 */
@@ -179,7 +198,12 @@ export class MultiPlatformGenerator {
   ): Promise<BuildVerification> {
     const toolchain = this.toolchainFor(input.framework);
     if (toolchain === null) {
-      return { status: 'skipped_toolchain_missing', output: `框架 ${input.framework} 无内置工具链定义，请人工校验`, retries: 0, installGuide: null };
+      return {
+        status: 'skipped_toolchain_missing',
+        output: `框架 ${input.framework} 无内置工具链定义，请人工校验`,
+        retries: 0,
+        installGuide: null,
+      };
     }
 
     // 工具链缺失：输出安装引导 + 待验清单（NFR-C-05：绝不静默跳过）
@@ -216,8 +240,12 @@ export class MultiPlatformGenerator {
 
   /* ------------------------------ 提示词 ------------------------------ */
 
-  private buildPlatformPrompt(input: PlatformGenerationInput, toolchain: PlatformToolchain | null): { system: string; user: string } {
-    const shape = toolchain?.projectShape ?? '标准工程结构（入口文件 + 依赖清单 + 页面 + 服务层）。';
+  private buildPlatformPrompt(
+    input: PlatformGenerationInput,
+    toolchain: PlatformToolchain | null,
+  ): { system: string; user: string } {
+    const shape =
+      toolchain?.projectShape ?? '标准工程结构（入口文件 + 依赖清单 + 页面 + 服务层）。';
     const system = [
       `你是 EveryoneCoding 的${input.platform}端工程生成器。你的产物是一个**可直接编译的真实工程**，不是片段。`,
       '',
@@ -288,8 +316,13 @@ export class MultiPlatformGenerator {
     const jsonMatch = /```json\s*\n([\s\S]*?)```/.exec(raw) ?? /^\{[\s\S]*\}$/m.exec(raw);
     if (jsonMatch !== null && jsonMatch[1] !== undefined) {
       try {
-        const parsed = JSON.parse(jsonMatch[1]) as { files?: Array<{ path: string; content: string }> };
-        if (Array.isArray(parsed.files)) return parsed.files.filter((file) => typeof file.path === 'string' && typeof file.content === 'string');
+        const parsed = JSON.parse(jsonMatch[1]) as {
+          files?: Array<{ path: string; content: string }>;
+        };
+        if (Array.isArray(parsed.files))
+          return parsed.files.filter(
+            (file) => typeof file.path === 'string' && typeof file.content === 'string',
+          );
       } catch {
         // 落入降级
       }

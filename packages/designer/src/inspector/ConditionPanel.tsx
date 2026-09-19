@@ -60,7 +60,11 @@ export function ConditionEditor({
 
   if (expr === null) {
     return (
-      <div className="ec-condition-editor" data-testid={testId} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div
+        className="ec-condition-editor"
+        data-testid={testId}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
         <p style={{ fontSize: 12, opacity: 0.6 }}>{title}：未设置（始终渲染）</p>
         <Button size="sm" variant="secondary" onClick={() => onChange(createCondition('eq'))}>
           添加条件
@@ -70,7 +74,11 @@ export function ConditionEditor({
   }
 
   return (
-    <div className="ec-condition-editor" data-testid={testId} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div
+      className="ec-condition-editor"
+      data-testid={testId}
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <strong style={{ fontSize: 13 }}>{title}</strong>
         <Tag color="info">{describeCondition(expr)}</Tag>
@@ -80,7 +88,10 @@ export function ConditionEditor({
         </Button>
       </header>
       <ConditionNodeView node={expr} depth={0} suggestions={suggestions} onChange={onChange} />
-      <p data-testid="condition-structured" style={{ fontSize: 11, opacity: 0.5, wordBreak: 'break-all' }}>
+      <p
+        data-testid="condition-structured"
+        style={{ fontSize: 11, opacity: 0.5, wordBreak: 'break-all' }}
+      >
         {JSON.stringify(expr)}
       </p>
     </div>
@@ -94,7 +105,12 @@ interface ConditionNodeViewProps {
   onChange: (next: ConditionExpr) => void;
 }
 
-function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNodeViewProps): React.ReactElement {
+function ConditionNodeView({
+  node,
+  depth,
+  suggestions,
+  onChange,
+}: ConditionNodeViewProps): React.ReactElement {
   const opOptions = [...LOGICAL_OPS, ...UNARY_OPS, ...COMPARISON_OPS].map((op) => ({
     value: op,
     label: CONDITION_OPERATOR_LABELS[op],
@@ -116,11 +132,21 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
     return (
       <div
         data-testid={`condition-group-${node.op}`}
-        style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: indent, borderLeft: indent > 0 ? '1px dashed #dee2e6' : undefined }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          paddingLeft: indent,
+          borderLeft: indent > 0 ? '1px dashed #dee2e6' : undefined,
+        }}
       >
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {opSelect}
-          <Button size="sm" variant="ghost" onClick={() => onChange({ ...node, items: [...node.items, createCondition('eq')] })}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onChange({ ...node, items: [...node.items, createCondition('eq')] })}
+          >
             添加子条件
           </Button>
           <span style={{ fontSize: 11, opacity: 0.55 }}>{`${node.items.length} 个子条件`}</span>
@@ -144,7 +170,9 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
               size="sm"
               variant="ghost"
               aria-label={`删除第 ${index + 1} 个子条件`}
-              onClick={() => onChange({ ...node, items: node.items.filter((_item, i) => i !== index) })}
+              onClick={() =>
+                onChange({ ...node, items: node.items.filter((_item, i) => i !== index) })
+              }
             >
               移除
             </Button>
@@ -156,7 +184,10 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
 
   if (node.op === 'not') {
     return (
-      <div data-testid="condition-not" style={{ display: 'flex', gap: 6, alignItems: 'flex-start', paddingLeft: indent }}>
+      <div
+        data-testid="condition-not"
+        style={{ display: 'flex', gap: 6, alignItems: 'flex-start', paddingLeft: indent }}
+      >
         {opSelect}
         <div style={{ flex: 1 }}>
           <ConditionNodeView
@@ -172,8 +203,22 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
 
   if (node.op === 'truthy' || node.op === 'falsy' || node.op === 'empty') {
     return (
-      <div data-testid={`condition-${node.op}`} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', paddingLeft: indent }}>
-        <PathInput label="字段路径" value={node.left} suggestions={suggestions} onChange={(next) => onChange({ ...node, left: next })} />
+      <div
+        data-testid={`condition-${node.op}`}
+        style={{
+          display: 'flex',
+          gap: 6,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          paddingLeft: indent,
+        }}
+      >
+        <PathInput
+          label="字段路径"
+          value={node.left}
+          suggestions={suggestions}
+          onChange={(next) => onChange({ ...node, left: next })}
+        />
         {opSelect}
       </div>
     );
@@ -181,8 +226,22 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
 
   if (node.op === 'in') {
     return (
-      <div data-testid="condition-in" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', paddingLeft: indent }}>
-        <PathInput label="字段路径" value={node.left} suggestions={suggestions} onChange={(next) => onChange({ ...node, left: next })} />
+      <div
+        data-testid="condition-in"
+        style={{
+          display: 'flex',
+          gap: 6,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          paddingLeft: indent,
+        }}
+      >
+        <PathInput
+          label="字段路径"
+          value={node.left}
+          suggestions={suggestions}
+          onChange={(next) => onChange({ ...node, left: next })}
+        />
         {opSelect}
         <input
           aria-label="集合取值（逗号分隔）"
@@ -203,13 +262,26 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
   }
 
   if (!isComparisonExpr(node)) {
-    return <div data-testid="condition-unknown" style={{ fontSize: 12, opacity: 0.6 }}>不支持的条件类型</div>;
+    return (
+      <div data-testid="condition-unknown" style={{ fontSize: 12, opacity: 0.6 }}>
+        不支持的条件类型
+      </div>
+    );
   }
 
   const comparison: ComparisonExpr = node;
   const rightText = comparison.right === null ? '' : String(comparison.right);
   return (
-    <div data-testid={`condition-${comparison.op}`} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', paddingLeft: indent }}>
+    <div
+      data-testid={`condition-${comparison.op}`}
+      style={{
+        display: 'flex',
+        gap: 6,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        paddingLeft: indent,
+      }}
+    >
       <PathInput
         label="字段路径"
         value={comparison.left}
@@ -222,8 +294,10 @@ function ConditionNodeView({ node, depth, suggestions, onChange }: ConditionNode
         value={rightText}
         onChange={(event) => {
           const raw = event.target.value;
-          if (raw === 'true' || raw === 'false') return onChange({ ...comparison, right: raw === 'true' });
-          if (raw.trim() !== '' && !Number.isNaN(Number(raw))) return onChange({ ...comparison, right: Number(raw) });
+          if (raw === 'true' || raw === 'false')
+            return onChange({ ...comparison, right: raw === 'true' });
+          if (raw.trim() !== '' && !Number.isNaN(Number(raw)))
+            return onChange({ ...comparison, right: Number(raw) });
           return onChange({ ...comparison, right: raw });
         }}
         style={{ flex: 1, minWidth: 100, padding: '4px 8px' }}
@@ -271,7 +345,11 @@ export interface ConditionPanelProps {
   suggestions?: readonly string[];
 }
 
-export function ConditionPanel({ value, onChange, suggestions }: ConditionPanelProps): React.ReactElement {
+export function ConditionPanel({
+  value,
+  onChange,
+  suggestions,
+}: ConditionPanelProps): React.ReactElement {
   return (
     <div className="ec-condition-panel">
       <p style={{ fontSize: 12, opacity: 0.65, marginBottom: 8 }}>

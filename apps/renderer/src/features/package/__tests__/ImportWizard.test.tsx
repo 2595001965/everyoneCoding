@@ -26,7 +26,12 @@ describe('ImportWizard：端到端流程', () => {
   });
 
   it('校验失败：展示 failureMessage 与步骤', async () => {
-    const fake = createFakeImportApi({ verifyReport: failVerify('integrity', '包完整性校验未通过，损坏/缺失文件：memory/longterm.jsonl') });
+    const fake = createFakeImportApi({
+      verifyReport: failVerify(
+        'integrity',
+        '包完整性校验未通过，损坏/缺失文件：memory/longterm.jsonl',
+      ),
+    });
     renderWizard(fake.api);
     await userEvent.click(screen.getByText('选择包文件'));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('包完整性校验未通过'));
@@ -50,7 +55,9 @@ describe('ImportWizard：端到端流程', () => {
     await userEvent.click(screen.getByText('选择包文件'));
     await waitFor(() => expect(screen.getByText('选择导入模式')).toBeInTheDocument());
     await userEvent.click(screen.getByText('下一步：差异预览'));
-    await waitFor(() => expect(screen.getByTestId('conflict-total')).toHaveTextContent('冲突条目：2'));
+    await waitFor(() =>
+      expect(screen.getByTestId('conflict-total')).toHaveTextContent('冲突条目：2'),
+    );
 
     // 未决策：导入按钮禁用 + 未决策徽标
     const importBtn = screen.getByTestId('import-button') as HTMLButtonElement;
@@ -63,7 +70,9 @@ describe('ImportWizard：端到端流程', () => {
     await userEvent.click(keepLocalButtons[1]!);
 
     // 决策齐备 → 按钮可点
-    await waitFor(() => expect((screen.getByTestId('import-button') as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() =>
+      expect((screen.getByTestId('import-button') as HTMLButtonElement).disabled).toBe(false),
+    );
     await userEvent.click(screen.getByTestId('import-button'));
 
     await waitFor(() => expect(screen.getByTestId('report-title')).toHaveTextContent('导入完成'));
@@ -89,7 +98,9 @@ describe('ImportWizard：端到端流程', () => {
     await waitFor(() => expect(screen.getByTestId('conflict-total')).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '两者都保留' }));
-    await waitFor(() => expect((screen.getByTestId('import-button') as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() =>
+      expect((screen.getByTestId('import-button') as HTMLButtonElement).disabled).toBe(false),
+    );
     await userEvent.click(screen.getByTestId('import-button'));
 
     await waitFor(() => expect(screen.getByTestId('report-title')).toBeInTheDocument());

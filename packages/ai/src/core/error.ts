@@ -92,7 +92,8 @@ export abstract class AiError extends Error {
 export class AuthError extends AiError {
   override readonly kind = 'auth';
   override readonly userMessage = 'API Key 无效或没有访问该模型的权限。';
-  override readonly action = '请在「设置 → 模型服务」中检查 Key 是否正确，或重新粘贴后再次连接测试。';
+  override readonly action =
+    '请在「设置 → 模型服务」中检查 Key 是否正确，或重新粘贴后再次连接测试。';
 
   constructor(message = '认证失败', options: AiErrorOptions = {}) {
     super(message, false, options);
@@ -114,7 +115,10 @@ export class RateLimitError extends AiError {
   }
 
   override toJSON(): Record<string, unknown> {
-    return { ...super.toJSON(), ...(this.retryAfterMs !== undefined ? { retryAfterMs: this.retryAfterMs } : {}) };
+    return {
+      ...super.toJSON(),
+      ...(this.retryAfterMs !== undefined ? { retryAfterMs: this.retryAfterMs } : {}),
+    };
   }
 }
 
@@ -205,7 +209,11 @@ export function toAiError(error: unknown, context: AiErrorOptions = {}): AiError
   }
   const raw = error instanceof Error ? error.message : String(error);
   const lowered = raw.toLowerCase();
-  if (/timed out|timeout|etimedout|econnreset|econnrefused|enotfound|eai_again|socket hang up/.test(lowered)) {
+  if (
+    /timed out|timeout|etimedout|econnreset|econnrefused|enotfound|eai_again|socket hang up/.test(
+      lowered,
+    )
+  ) {
     return new TimeoutError(`网络请求失败：${raw}`, context);
   }
   if (/fetch failed|network|unreachable|dns/.test(lowered)) {

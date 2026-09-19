@@ -102,14 +102,22 @@ describe('Anthropic 兼容适配器（本地 mock 服务，真实 HTTP）', () =
     const adapter = new AnthropicAdapter();
     const result = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'claude-3-5-sonnet', messages: [{ role: 'user', content: '天气' }] },
+        {
+          provider: provider(server.url),
+          model: 'claude-3-5-sonnet',
+          messages: [{ role: 'user', content: '天气' }],
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-ant' },
       ),
     );
 
     expect(result.text).toBe('正在查询');
     expect(result.toolCalls).toHaveLength(1);
-    expect(result.toolCalls[0]).toEqual({ id: 'tool_1', name: 'weather', arguments: { city: '上海' } });
+    expect(result.toolCalls[0]).toEqual({
+      id: 'tool_1',
+      name: 'weather',
+      arguments: { city: '上海' },
+    });
     expect(result.finishReason).toBe('tool_use');
     expect(result.usage?.promptTokens).toBe(10);
     expect(result.usage?.completionTokens).toBe(7);
@@ -134,9 +142,14 @@ describe('Anthropic 兼容适配器（本地 mock 服务，真实 HTTP）', () =
             { role: 'user', content: '天气' },
             {
               role: 'assistant',
-              content: [{ type: 'tool_use', id: 'tool_1', name: 'weather', input: { city: '上海' } }],
+              content: [
+                { type: 'tool_use', id: 'tool_1', name: 'weather', input: { city: '上海' } },
+              ],
             },
-            { role: 'tool', content: [{ type: 'tool_result', toolUseId: 'tool_1', output: '晴 28℃' }] },
+            {
+              role: 'tool',
+              content: [{ type: 'tool_result', toolUseId: 'tool_1', output: '晴 28℃' }],
+            },
           ],
           stream: false,
         },
@@ -166,7 +179,12 @@ describe('Anthropic 兼容适配器（本地 mock 服务，真实 HTTP）', () =
     const adapter = new AnthropicAdapter();
     const limited = await collect(
       adapter.chat(
-        { provider: provider(server.url), model: 'claude-3-5-sonnet', messages: [{ role: 'user', content: 'hi' }], stream: false },
+        {
+          provider: provider(server.url),
+          model: 'claude-3-5-sonnet',
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: false,
+        },
         { transport: createNodeHttpTransport(), apiKey: 'sk-ant' },
       ),
     ).catch((error: unknown) => error);
@@ -175,12 +193,22 @@ describe('Anthropic 兼容适配器（本地 mock 服务，真实 HTTP）', () =
 
     await server.close();
     server = await startMockServer([
-      { method: 'POST', path: '/v1/messages', status: 401, body: '{"type":"error","error":{"message":"invalid x-api-key"}}' },
+      {
+        method: 'POST',
+        path: '/v1/messages',
+        status: 401,
+        body: '{"type":"error","error":{"message":"invalid x-api-key"}}',
+      },
     ]);
     await expect(
       collect(
         adapter.chat(
-          { provider: provider(server.url), model: 'claude-3-5-sonnet', messages: [{ role: 'user', content: 'hi' }], stream: false },
+          {
+            provider: provider(server.url),
+            model: 'claude-3-5-sonnet',
+            messages: [{ role: 'user', content: 'hi' }],
+            stream: false,
+          },
           { transport: createNodeHttpTransport(), apiKey: 'sk-ant' },
         ),
       ),
@@ -201,7 +229,11 @@ describe('Anthropic 兼容适配器（本地 mock 服务，真实 HTTP）', () =
     await expect(
       collect(
         adapter.chat(
-          { provider: provider(server.url), model: 'claude-3-5-sonnet', messages: [{ role: 'user', content: 'hi' }] },
+          {
+            provider: provider(server.url),
+            model: 'claude-3-5-sonnet',
+            messages: [{ role: 'user', content: 'hi' }],
+          },
           { transport: createNodeHttpTransport(), apiKey: 'sk-ant' },
         ),
       ),
@@ -209,12 +241,17 @@ describe('Anthropic 兼容适配器（本地 mock 服务，真实 HTTP）', () =
   });
 
   it('/models 不可用时回退手填列表', async () => {
-    server = await startMockServer([{ method: 'GET', path: '/v1/models', status: 404, body: '{}' }]);
+    server = await startMockServer([
+      { method: 'GET', path: '/v1/models', status: 404, body: '{}' },
+    ]);
     const adapter = new AnthropicAdapter();
-    const discovery = await adapter.listModels(provider(server.url, { manualModels: ['claude-3-5-sonnet'] }), {
-      transport: createNodeHttpTransport(),
-      apiKey: 'sk-ant',
-    });
+    const discovery = await adapter.listModels(
+      provider(server.url, { manualModels: ['claude-3-5-sonnet'] }),
+      {
+        transport: createNodeHttpTransport(),
+        apiKey: 'sk-ant',
+      },
+    );
     expect(discovery.source).toBe('manual');
     expect(discovery.models.map((model) => model.name)).toEqual(['claude-3-5-sonnet']);
   });

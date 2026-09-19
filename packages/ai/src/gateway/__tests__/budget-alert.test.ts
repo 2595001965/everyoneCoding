@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { budgetAlertView, budgetConfigFromInput, emptyBudgetView, validateBudgetInput } from '../../gateway/budget-alert';
+import {
+  budgetAlertView,
+  budgetConfigFromInput,
+  emptyBudgetView,
+  validateBudgetInput,
+} from '../../gateway/budget-alert';
 
 describe('budget-alert：面板状态', () => {
   it('无预算配置 → 空态', () => {
@@ -14,24 +19,23 @@ describe('budget-alert：面板状态', () => {
   });
 
   it('达到 80% 阈值 → 告警', () => {
-    const view = budgetAlertView(
-      { ok: true, warn: { scope: 'monthly', ratio: 0.8, spent: 80, limit: 100 } },
-    );
+    const view = budgetAlertView({
+      ok: true,
+      warn: { scope: 'monthly', ratio: 0.8, spent: 80, limit: 100 },
+    });
     expect(view.level).toBe('warning');
     expect(view.ratio).toBeCloseTo(0.8);
     expect(view.message).toContain('本月预算已使用 80%');
   });
 
   it('月度超限 → 拒绝并给出"本月至今用量"说明', () => {
-    const view = budgetAlertView(
-      {
-        ok: false,
-        scope: 'monthly',
-        spent: 101.5,
-        limit: 100,
-        message: '本月预算已用尽（$101.5000 / $100.00），可在设置中调整或次月再试',
-      },
-    );
+    const view = budgetAlertView({
+      ok: false,
+      scope: 'monthly',
+      spent: 101.5,
+      limit: 100,
+      message: '本月预算已用尽（$101.5000 / $100.00），可在设置中调整或次月再试',
+    });
     expect(view.level).toBe('exceeded');
     expect(view.message).toContain('本月至今用量 $101.5000');
     expect(view.message).toContain('上限 $100.00');
@@ -40,9 +44,13 @@ describe('budget-alert：面板状态', () => {
   });
 
   it('日预算超限 → 拒绝文案使用"今日"', () => {
-    const view = budgetAlertView(
-      { ok: false, scope: 'daily', spent: 5.2, limit: 5, message: '今日预算已用尽' },
-    );
+    const view = budgetAlertView({
+      ok: false,
+      scope: 'daily',
+      spent: 5.2,
+      limit: 5,
+      message: '今日预算已用尽',
+    });
     expect(view.level).toBe('exceeded');
     expect(view.scope).toBe('daily');
     expect(view.message).toContain('今日预算已用尽');
@@ -62,14 +70,24 @@ describe('budget-alert：表单校验', () => {
   });
 
   it('负数与非数字被拒绝', () => {
-    expect(validateBudgetInput({ dailyUsd: '-1', monthlyUsd: '', alertRatio: '0.8' })).toContain('日预算');
-    expect(validateBudgetInput({ dailyUsd: 'abc', monthlyUsd: '', alertRatio: '0.8' })).toContain('日预算');
-    expect(validateBudgetInput({ dailyUsd: '', monthlyUsd: 'xyz', alertRatio: '0.8' })).toContain('月预算');
+    expect(validateBudgetInput({ dailyUsd: '-1', monthlyUsd: '', alertRatio: '0.8' })).toContain(
+      '日预算',
+    );
+    expect(validateBudgetInput({ dailyUsd: 'abc', monthlyUsd: '', alertRatio: '0.8' })).toContain(
+      '日预算',
+    );
+    expect(validateBudgetInput({ dailyUsd: '', monthlyUsd: 'xyz', alertRatio: '0.8' })).toContain(
+      '月预算',
+    );
   });
 
   it('告警阈值必须在 (0,1]', () => {
-    expect(validateBudgetInput({ dailyUsd: '5', monthlyUsd: '', alertRatio: '0' })).toContain('阈值');
-    expect(validateBudgetInput({ dailyUsd: '5', monthlyUsd: '', alertRatio: '1.5' })).toContain('阈值');
+    expect(validateBudgetInput({ dailyUsd: '5', monthlyUsd: '', alertRatio: '0' })).toContain(
+      '阈值',
+    );
+    expect(validateBudgetInput({ dailyUsd: '5', monthlyUsd: '', alertRatio: '1.5' })).toContain(
+      '阈值',
+    );
     expect(validateBudgetInput({ dailyUsd: '5', monthlyUsd: '', alertRatio: '1' })).toBeNull();
   });
 

@@ -13,8 +13,18 @@ import type { BudgetGuard } from '../gateway/budget';
 import type { RequestQueue } from '../gateway/queue';
 import type { AiGateway } from '../gateway/client';
 import type { UsageTotals } from '../repo/usage-repo';
-import { fetchRemoteConfig, parseRemoteConfig, type RemoteFetchResult } from '../remote-config/fetcher';
-import { diffRemoteConfig, planApply, summarizeDiff, type ApplyPlan, type ConfigDiffItem } from '../remote-config/applier';
+import {
+  fetchRemoteConfig,
+  parseRemoteConfig,
+  type RemoteFetchResult,
+} from '../remote-config/fetcher';
+import {
+  diffRemoteConfig,
+  planApply,
+  summarizeDiff,
+  type ApplyPlan,
+  type ConfigDiffItem,
+} from '../remote-config/applier';
 import { parseCreateProvider, type CreateProviderInput } from '../dto/create-provider';
 import { parseUpdateProvider, type UpdateProviderInput } from '../dto/update-provider';
 import { parseProxyUrl, testProxyConnectivity, type ProxyTestResult } from '../gateway/proxy';
@@ -53,7 +63,9 @@ export class AiControlService {
 
   /** 新建 Provider；userId 由服务注入，UI 不需要知道 */
   async createProvider(input: Omit<CreateProviderInput, 'userId'>): Promise<Provider> {
-    const created = await this.deps.providers.create(parseCreateProvider({ ...input, userId: this.deps.userId }));
+    const created = await this.deps.providers.create(
+      parseCreateProvider({ ...input, userId: this.deps.userId }),
+    );
     // 手工填写的模型名必须落成 model 记录，否则 Gateway 选模型时看不到任何候选（FR-MDL-02）
     this.syncManualModels(created.id, created.manualModels ?? []);
     return created;
@@ -83,7 +95,9 @@ export class AiControlService {
       if (!this.deps.models.findByName(providerId, name)) this.deps.models.create(providerId, name);
     }
     const binding = this.deps.bindings.get(this.deps.userId);
-    const bound = new Set(Object.values(binding.bindings).filter((id): id is string => typeof id === 'string'));
+    const bound = new Set(
+      Object.values(binding.bindings).filter((id): id is string => typeof id === 'string'),
+    );
     if (binding.defaultModelId) bound.add(binding.defaultModelId);
     const provider = this.deps.providers.findById(providerId);
     const declaredBefore = new Set((provider?.manualModels ?? []).map((name) => name.trim()));
@@ -116,7 +130,10 @@ export class AiControlService {
    *
    * @param keyRef 渲染层写入 secureStore 后拿到的引用名；为 null 时回落到已保存 Key（编辑场景）
    */
-  async testDraftConnection(input: Omit<CreateProviderInput, 'userId'>, keyRef: string | null = null): Promise<ConnectionTestResult> {
+  async testDraftConnection(
+    input: Omit<CreateProviderInput, 'userId'>,
+    keyRef: string | null = null,
+  ): Promise<ConnectionTestResult> {
     const provider = parseCreateProvider({ ...input, userId: this.deps.userId });
     const raw = input as unknown as { id?: unknown };
     const existingId = typeof raw.id === 'string' ? raw.id : undefined;
@@ -124,22 +141,35 @@ export class AiControlService {
     let resolvedRef: string | null = keyRef;
     if (!resolvedRef && existing) resolvedRef = existing.keyRef;
     const draft = {
-... (existing ?? {}), id: existing?.id ?? `draft-${Date.now()}`, userId: this.deps.userId,
-      name: provider.name, protocol: provider.protocol, baseUrl: provider.baseUrl,
-      headers: provider.headers, timeoutMs: provider.timeoutMs, supportsStream: provider.supportsStream,
-      supportsTools: provider.supportsTools, supportsVision: provider.supportsVision,
-      enabled: provider.enabled, order: provider.order, manualModels: provider.manualModels,
-      keyRef: resolvedRef, version: existing?.version ?? 1, createdAt: 0, updatedAt: 0,
+      ...(existing ?? {}),
+      id: existing?.id ?? `draft-${Date.now()}`,
+      userId: this.deps.userId,
+      name: provider.name,
+      protocol: provider.protocol,
+      baseUrl: provider.baseUrl,
+      headers: provider.headers,
+      timeoutMs: provider.timeoutMs,
+      supportsStream: provider.supportsStream,
+      supportsTools: provider.supportsTools,
+      supportsVision: provider.supportsVision,
+      enabled: provider.enabled,
+      order: provider.order,
+      manualModels: provider.manualModels,
+      keyRef: resolvedRef,
+      version: existing?.version ?? 1,
+      createdAt: 0,
+      updatedAt: 0,
     } as Provider;
     const apiKey = await this.readKey(resolvedRef, existingId);
-    const adapter = draft.protocol === 'openai'
-      ? new (await import('../adapters/openai/client')).OpenAiAdapter()
-      : new (await import('../adapters/anthropic/client')).AnthropicAdapter();
-    return (await import('../core/connection-test')).runConnectionTest(
-      adapter,
-      draft,
-      { transport: this.deps.transport, apiKey, timeoutMs: draft.timeoutMs },
-    );
+    const adapter =
+      draft.protocol === 'openai'
+        ? new (await import('../adapters/openai/client')).OpenAiAdapter()
+        : new (await import('../adapters/anthropic/client')).AnthropicAdapter();
+    return (await import('../core/connection-test')).runConnectionTest(adapter, draft, {
+      transport: this.deps.transport,
+      apiKey,
+      timeoutMs: draft.timeoutMs,
+    });
   }
 
   /** 读取 Key：草稿引用优先从草稿命名空间取，已保存引用走正式命名空间 */
@@ -151,7 +181,6 @@ export class AiControlService {
     return existingId ? this.deps.providers.getApiKey(existingId) : null;
   }
 
-
   /**
    * 把草稿 Key 写入本机密钥环（DPAPI），返回可跨 IPC 传递的引用名。
    *
@@ -161,9 +190,8 @@ export class AiControlService {
   async persistApiKey(input: { keyRef?: string | null; apiKey: string }): Promise<string> {
     const keys = this.deps.providers.keyStore();
     if (!keys) throw new Error('密钥环不可用，无法保存 API Key');
-    const ref = input.keyRef && input.keyRef.trim().length > 0
-      ? input.keyRef.trim()
-      : tempKeyRefOf();
+    const ref =
+      input.keyRef && input.keyRef.trim().length > 0 ? input.keyRef.trim() : tempKeyRefOf();
     if (!isTempKeyRef(ref)) {
       throw new Error('非法的 Key 引用名（只允许连接测试生成的临时引用）');
     }
@@ -259,13 +287,25 @@ export class AiControlService {
     return this.deps.remoteConfig.list(this.deps.userId);
   }
 
-  createRemoteSource(input: { name: string; url: string; publicKey?: string | null; enabled?: boolean; updateIntervalMin?: number }): RemoteConfigSource {
+  createRemoteSource(input: {
+    name: string;
+    url: string;
+    publicKey?: string | null;
+    enabled?: boolean;
+    updateIntervalMin?: number;
+  }): RemoteConfigSource {
     return this.deps.remoteConfig.create({ userId: this.deps.userId, ...input });
   }
 
   updateRemoteSource(
     id: string,
-    patch: { name?: string; url?: string; publicKey?: string | null; enabled?: boolean; updateIntervalMin?: number },
+    patch: {
+      name?: string;
+      url?: string;
+      publicKey?: string | null;
+      enabled?: boolean;
+      updateIntervalMin?: number;
+    },
   ): RemoteConfigSource | null {
     return this.deps.remoteConfig.update(id, patch);
   }
@@ -300,7 +340,12 @@ export class AiControlService {
   }
 
   /** 差异预览：优先用本次拉取结果，拉取失败则用上次缓存 */
-  async previewRemoteSource(id: string): Promise<{ items: ConfigDiffItem[]; summary: string; revision: string | null; plan?: ApplyPlan | null }> {
+  async previewRemoteSource(id: string): Promise<{
+    items: ConfigDiffItem[];
+    summary: string;
+    revision: string | null;
+    plan?: ApplyPlan | null;
+  }> {
     const source = this.deps.remoteConfig.findById(id);
     if (!source) return { items: [], summary: '配置源不存在', revision: null, plan: null };
     const payload = await this.payloadOf(source);
@@ -313,7 +358,10 @@ export class AiControlService {
   }
 
   /** 应用：本地优先，只创建本地没有的服务；返回计划供 UI 复核 */
-  async applyRemoteSource(id: string, options: { overwriteLocal?: boolean; ackDefaultModel?: boolean } = {}): Promise<ApplyPlan> {
+  async applyRemoteSource(
+    id: string,
+    options: { overwriteLocal?: boolean; ackDefaultModel?: boolean } = {},
+  ): Promise<ApplyPlan> {
     const source = this.deps.remoteConfig.findById(id);
     if (!source) throw new Error('配置源不存在');
     const payload = await this.payloadOf(source);
@@ -349,11 +397,17 @@ export class AiControlService {
     // 默认模型变更：用户已确认（或无需询问）才写入
     if (plan.defaultModelChange && options.ackDefaultModel) {
       const binding = this.deps.bindings.get(this.deps.userId);
-      const model = this.deps.models.listAll().find((item) => item.name === plan.defaultModelChange?.after);
-      if (model) this.deps.bindings.save(this.deps.userId, { ...binding, defaultModelId: model.id });
+      const model = this.deps.models
+        .listAll()
+        .find((item) => item.name === plan.defaultModelChange?.after);
+      if (model)
+        this.deps.bindings.save(this.deps.userId, { ...binding, defaultModelId: model.id });
     }
 
-    this.deps.remoteConfig.recordFetch(id, { status: 'success', appliedRevision: payload.revision });
+    this.deps.remoteConfig.recordFetch(id, {
+      status: 'success',
+      appliedRevision: payload.revision,
+    });
     return plan;
   }
 

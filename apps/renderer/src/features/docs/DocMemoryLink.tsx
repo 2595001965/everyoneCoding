@@ -29,14 +29,20 @@ export interface DocMemoryLinkProps {
   onOpenDocument?: (documentId: string) => void;
 }
 
-export function DocMemoryLink({ projectId, documentId, onOpenDocument }: DocMemoryLinkProps): JSX.Element {
+export function DocMemoryLink({
+  projectId,
+  documentId,
+  onOpenDocument,
+}: DocMemoryLinkProps): JSX.Element {
   const api = useDocs();
   const [links, setLinks] = useState<DocMemoryLinkModel[]>([]);
   const [nodes, setNodes] = useState<DocMemoryNode[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [selectedMemory, setSelectedMemory] = useState<string>('');
   const [linkType, setLinkType] = useState<DocLinkType>('related');
-  const [refsOf, setRefsOf] = useState<{ memoryId: string; docs: DocMemoryLinkModel[] } | null>(null);
+  const [refsOf, setRefsOf] = useState<{ memoryId: string; docs: DocMemoryLinkModel[] } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -64,7 +70,10 @@ export function DocMemoryLink({ projectId, documentId, onOpenDocument }: DocMemo
       SCOPE_ORDER.flatMap((scope) =>
         nodes
           .filter((node) => node.scope === scope)
-          .map((node) => ({ value: node.id, label: `${DOC_MEMORY_SCOPE_LABELS[scope]}：${node.title}` })),
+          .map((node) => ({
+            value: node.id,
+            label: `${DOC_MEMORY_SCOPE_LABELS[scope]}：${node.title}`,
+          })),
       ),
     [nodes],
   );
@@ -143,7 +152,12 @@ export function DocMemoryLink({ projectId, documentId, onOpenDocument }: DocMemo
           options={DOC_LINK_TYPES.map((value) => ({ value, label: DOC_LINK_TYPE_LABELS[value] }))}
           onChange={(value) => setLinkType(value as DocLinkType)}
         />
-        <Button variant="primary" size="sm" disabled={!selectedMemory} onClick={() => void addLink()}>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={!selectedMemory}
+          onClick={() => void addLink()}
+        >
           建立关联
         </Button>
       </div>

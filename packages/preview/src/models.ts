@@ -34,7 +34,11 @@ export function ok<T>(data: T, logs: PreviewLogEntry[] = []): PreviewResult<T> {
   return { ok: true, data, logs, error: null };
 }
 
-export function fail<T>(code: string, message: string, logs: PreviewLogEntry[] = []): PreviewResult<T> {
+export function fail<T>(
+  code: string,
+  message: string,
+  logs: PreviewLogEntry[] = [],
+): PreviewResult<T> {
   return { ok: false, data: null, logs, error: { code, message } };
 }
 

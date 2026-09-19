@@ -53,7 +53,10 @@ export function buildCanvasPresets(platforms: readonly TargetPlatform[]): Canvas
 }
 
 /** 构造完整联动载荷 */
-export function buildTargetsPayload(projectId: string, platforms: readonly TargetPlatform[]): TargetsChangedPayload {
+export function buildTargetsPayload(
+  projectId: string,
+  platforms: readonly TargetPlatform[],
+): TargetsChangedPayload {
   return {
     projectId,
     platforms: [...platforms],

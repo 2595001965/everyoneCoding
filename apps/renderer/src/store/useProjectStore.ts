@@ -31,7 +31,10 @@ export const useProjectStore = create<ProjectStore>()(
     openProject: (project) =>
       set((state) => {
         state.current = project;
-        state.recent = [project, ...state.recent.filter((item) => item.id !== project.id)].slice(0, 10);
+        state.recent = [project, ...state.recent.filter((item) => item.id !== project.id)].slice(
+          0,
+          10,
+        );
       }),
     closeProject: () =>
       set((state) => {

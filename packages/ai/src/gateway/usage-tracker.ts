@@ -5,7 +5,7 @@ import { monthRange } from '../repo/usage-repo';
 import type { AiPurpose } from '../domain/purpose-binding';
 import type { ModelPrice } from '../core/usage';
 import { computeCost, type Usage } from '../core/usage';
-import type { BudgetGuard} from './budget';
+import type { BudgetGuard } from './budget';
 import { type BudgetDecision } from './budget';
 
 /**
@@ -69,7 +69,12 @@ export class UsageTracker {
       cost: cost.complete ? Number(cost.total.toFixed(6)) : null,
     });
 
-    this.emit({ type: 'recorded', userId: entry.userId, cost: cost.complete ? cost.total : null, complete: cost.complete });
+    this.emit({
+      type: 'recorded',
+      userId: entry.userId,
+      cost: cost.complete ? cost.total : null,
+      complete: cost.complete,
+    });
     this.checkBudget();
     return { cost: cost.complete ? cost.total : null, complete: cost.complete };
   }
@@ -80,7 +85,10 @@ export class UsageTracker {
     return { ...totals, complete: totals.complete };
   }
 
-  byModel(userId: string, now: number = Date.now()): Array<{ modelId: string; totals: UsageTotals }> {
+  byModel(
+    userId: string,
+    now: number = Date.now(),
+  ): Array<{ modelId: string; totals: UsageTotals }> {
     const [since, until] = monthRange(now);
     return this.repo.byModel(userId, since, until);
   }
@@ -99,9 +107,10 @@ export class UsageTracker {
     if (decision.warn && decision.warn.ratio >= 1) return;
     if (decision.warn) {
       const now = new Date();
-      const period = decision.warn.scope === 'daily'
-        ? `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`
-        : `${now.getFullYear()}-${now.getMonth()}`;
+      const period =
+        decision.warn.scope === 'daily'
+          ? `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`
+          : `${now.getFullYear()}-${now.getMonth()}`;
       const warningKey = `${userId}:${period}:${decision.warn.scope}:${decision.warn.limit}`;
       if (this.warnedInMonth.has(warningKey)) return;
       this.warnedInMonth.add(warningKey);

@@ -12,7 +12,12 @@
 
 import { buildMigrationCommitMessage, type GeneratedMigration } from './ddl-generator';
 import { splitStatements } from './safety-check';
-import { createRenameEvent, type RenameEvent, type RenameEventStore, type ChangeSet } from '../rename-event';
+import {
+  createRenameEvent,
+  type RenameEvent,
+  type RenameEventStore,
+  type ChangeSet,
+} from '../rename-event';
 import { newUlid } from '../ids';
 
 /** 数据源连接端口（外壳绑定项目数据源；连接串走 `secure-store`，本模块不接触明文） */
@@ -23,7 +28,10 @@ export interface MigrationConnectionPort {
 
 /** Git 提交端口（与 T7-04 同形） */
 export interface MigrationGitPort {
-  commit(input: { message: string; paths: readonly string[] }): Promise<string | null> | string | null;
+  commit(input: {
+    message: string;
+    paths: readonly string[];
+  }): Promise<string | null> | string | null;
 }
 
 export const MIGRATION_LOG_LEVELS = ['info', 'success', 'warn', 'error'] as const;
@@ -79,7 +87,9 @@ export interface MigrationExecutionResult {
  * - `confirmed !== true`：D-08 默认只生成脚本；
  * - `requiresSecondConfirm === true && secondConfirmed !== true`：高危操作缺二次确认。
  */
-export async function executeMigration(input: ExecuteMigrationInput): Promise<MigrationExecutionResult> {
+export async function executeMigration(
+  input: ExecuteMigrationInput,
+): Promise<MigrationExecutionResult> {
   const now = input.now ?? Date.now();
   const random = input.random ?? Math.random;
   const log: MigrationLogLine[] = [];
@@ -186,7 +196,11 @@ export async function executeMigration(input: ExecuteMigrationInput): Promise<Mi
     try {
       commitSha = (await input.git.commit({ message: commitMessage, paths: [] })) ?? null;
     } catch (error) {
-      record('warn', `Git 提交失败（迁移已生效，可稍后在 Git 面板手动提交）：${String(error)}`, total);
+      record(
+        'warn',
+        `Git 提交失败（迁移已生效，可稍后在 Git 面板手动提交）：${String(error)}`,
+        total,
+      );
     }
   }
 
@@ -271,7 +285,11 @@ function emptyProjections(): ChangeSet['projections']['before'] {
   };
 }
 
-function emptyRegistry(registryId: string, projectId: string, now: number): ChangeSet['registryBefore'] {
+function emptyRegistry(
+  registryId: string,
+  projectId: string,
+  now: number,
+): ChangeSet['registryBefore'] {
   return {
     id: registryId,
     projectId,

@@ -78,7 +78,15 @@ export interface PreviewApi {
   /* ------------------------------ 模式与运行 ------------------------------ */
   state(): Promise<PreviewState>;
   setMode(mode: PreviewMode): void;
-  start(mode: PreviewMode): Promise<PreviewResult<{ port: number; url: string; mode: PreviewMode; shifted: boolean; notice: string | null }>>;
+  start(mode: PreviewMode): Promise<
+    PreviewResult<{
+      port: number;
+      url: string;
+      mode: PreviewMode;
+      shifted: boolean;
+      notice: string | null;
+    }>
+  >;
   stop(): Promise<PreviewResult<null>>;
   pages(): Promise<readonly { route: string; name: string }[]>;
   /** 热更新：变更后刷新，返回耗时（验收要求 ≤3s） */
@@ -86,7 +94,12 @@ export interface PreviewApi {
 
   /* ------------------------------ API 调试 ------------------------------ */
   requests(): Promise<readonly ApiRequestLog[]>;
-  replayRequest(input: { id: string; url?: string | undefined; method?: HttpMethodName | undefined; body?: unknown }): Promise<PreviewResult<ResolvedResponse>>;
+  replayRequest(input: {
+    id: string;
+    url?: string | undefined;
+    method?: HttpMethodName | undefined;
+    body?: unknown;
+  }): Promise<PreviewResult<ResolvedResponse>>;
   toCurl(input: { id: string }): Promise<string>;
   clearRequests(): Promise<void>;
 
@@ -97,7 +110,11 @@ export interface PreviewApi {
   stopBackend(): Promise<PreviewResult<null>>;
   restartBackend(): Promise<PreviewResult<ManagedProcess>>;
   backendStatus(): Promise<{ running: boolean; process: ManagedProcess | null }>;
-  logs(filter?: { level?: PreviewLogLevel | undefined; keyword?: string | undefined; source?: LogStreamSource | undefined }): Promise<readonly StreamedLogLine[]>;
+  logs(filter?: {
+    level?: PreviewLogLevel | undefined;
+    keyword?: string | undefined;
+    source?: LogStreamSource | undefined;
+  }): Promise<readonly StreamedLogLine[]>;
   subscribeLogs(listener: (line: StreamedLogLine) => void): () => void;
 
   /* ------------------------------ 多端预览 ------------------------------ */

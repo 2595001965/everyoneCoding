@@ -20,7 +20,11 @@ import {
 } from '@ec/pipeline';
 import type { ProjectSummary, TechStackFingerprint } from '@ec/core';
 
-import { buildTargetsPayload, emitTargetsChanged, type TargetsChangedPayload } from './workspace-events';
+import {
+  buildTargetsPayload,
+  emitTargetsChanged,
+  type TargetsChangedPayload,
+} from './workspace-events';
 import { useWorkspace } from './workspace-api';
 
 export interface ProjectSettingsProps {
@@ -45,7 +49,11 @@ export function TargetPlatformPicker({
         const availability = isPlatformEnabled(platform);
         const checked = value.includes(platform);
         return (
-          <label key={platform} className="ec-ws__platform" data-disabled={availability.enabled ? 'false' : 'true'}>
+          <label
+            key={platform}
+            className="ec-ws__platform"
+            data-disabled={availability.enabled ? 'false' : 'true'}
+          >
             <Checkbox
               checked={checked}
               disabled={disabled || !availability.enabled}
@@ -90,7 +98,9 @@ export function ProjectSettings({ project, onSaved, onCancel }: ProjectSettingsP
 
   const save = async (): Promise<void> => {
     if (missingChoice.length > 0) {
-      setError(`以下目标端尚未选择技术方案：${missingChoice.map((p) => TARGET_PLATFORM_LABELS[p]).join('、')}`);
+      setError(
+        `以下目标端尚未选择技术方案：${missingChoice.map((p) => TARGET_PLATFORM_LABELS[p]).join('、')}`,
+      );
       return;
     }
     setBusy(true);
@@ -181,7 +191,13 @@ export function ProjectSettings({ project, onSaved, onCancel }: ProjectSettingsP
                 value={stack[key] ?? ''}
                 onChange={(value) => setStack((prev) => ({ ...prev, [key]: value }))}
                 aria-label={`技术栈 ${key}`}
-                placeholder={key === 'frontend' ? 'React 18 + TypeScript' : key === 'backend' ? 'Node + Fastify' : 'SQLite'}
+                placeholder={
+                  key === 'frontend'
+                    ? 'React 18 + TypeScript'
+                    : key === 'backend'
+                      ? 'Node + Fastify'
+                      : 'SQLite'
+                }
               />
             </label>
           ))}

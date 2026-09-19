@@ -20,7 +20,10 @@ function allow(key: string, limitPerMin: number): boolean {
     buckets.set(key, { tokens: limitPerMin - 1, updatedAt: now });
     return true;
   }
-  existing.tokens = Math.min(limitPerMin, existing.tokens + (now - existing.updatedAt) * refillPerMs);
+  existing.tokens = Math.min(
+    limitPerMin,
+    existing.tokens + (now - existing.updatedAt) * refillPerMs,
+  );
   existing.updatedAt = now;
   if (existing.tokens >= 1) {
     existing.tokens -= 1;

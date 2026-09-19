@@ -19,7 +19,10 @@ export function breakpointKey(breakpoint: Breakpoint | number): string {
 }
 
 /** 某个元素的断点覆盖（无则空对象） */
-export function overridesOf(node: ElementNode, breakpoint: Breakpoint | number): Record<string, unknown> {
+export function overridesOf(
+  node: ElementNode,
+  breakpoint: Breakpoint | number,
+): Record<string, unknown> {
   return node.responsive?.[breakpointKey(breakpoint)] ?? {};
 }
 
@@ -64,7 +67,10 @@ export function setBreakpointOverride(
 }
 
 /** 合并基线 + 断点覆盖，得到该断点下的最终样式 */
-export function resolveStyleForBreakpoint(node: ElementNode, breakpoint: Breakpoint | number): Record<string, unknown> {
+export function resolveStyleForBreakpoint(
+  node: ElementNode,
+  breakpoint: Breakpoint | number,
+): Record<string, unknown> {
   return { ...(node.style ?? {}), ...overridesOf(node, breakpoint) };
 }
 
@@ -72,7 +78,10 @@ export function resolveStyleForBreakpoint(node: ElementNode, breakpoint: Breakpo
 export function resolveAllBreakpoints(
   node: ElementNode,
 ): Array<{ breakpoint: Breakpoint; style: Record<string, unknown> }> {
-  return RESPONSIVE_BREAKPOINTS.map((breakpoint) => ({ breakpoint, style: resolveStyleForBreakpoint(node, breakpoint) }));
+  return RESPONSIVE_BREAKPOINTS.map((breakpoint) => ({
+    breakpoint,
+    style: resolveStyleForBreakpoint(node, breakpoint),
+  }));
 }
 
 export interface ResponsiveStats {
@@ -108,7 +117,10 @@ export function responsiveStats(dsl: PageDsl): ResponsiveStats {
 
   // 反事实：若每个断点都复制一份完整元素树（共 4 个断点）
   const fullTrees = RESPONSIVE_BREAKPOINTS.map((breakpoint) => {
-    const clone = mapTree(dsl.tree, (node) => ({ ...node, style: resolveStyleForBreakpoint(node, breakpoint) }));
+    const clone = mapTree(dsl.tree, (node) => ({
+      ...node,
+      style: resolveStyleForBreakpoint(node, breakpoint),
+    }));
     return JSON.stringify({ ...dsl, tree: clone });
   });
   const fullCopyBytes = fullTrees.reduce((sum, text) => sum + byteSize(text), 0);

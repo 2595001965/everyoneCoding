@@ -24,7 +24,9 @@ function matchesCombo(event: KeyboardEvent, combo: string): boolean {
 
   const eventKey = event.key.toLowerCase();
   const keyMatches =
-    eventKey === key || (key.length === 1 && eventKey.length === 1 && eventKey === key) || event.code === `Key${key.toUpperCase()}`;
+    eventKey === key ||
+    (key.length === 1 && eventKey.length === 1 && eventKey === key) ||
+    event.code === `Key${key.toUpperCase()}`;
   return (
     keyMatches &&
     event.ctrlKey === needCtrl &&

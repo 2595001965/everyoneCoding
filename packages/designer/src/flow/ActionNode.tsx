@@ -42,7 +42,12 @@ function portStyle(port: OutPort | 'in'): React.CSSProperties {
 }
 
 /** JSON 字段：内部维护原始文本，解析成功才回写 */
-function JsonField(props: { label: string; value: unknown; onCommit: (value: unknown) => void; rows?: number }): React.ReactElement {
+function JsonField(props: {
+  label: string;
+  value: unknown;
+  onCommit: (value: unknown) => void;
+  rows?: number;
+}): React.ReactElement {
   const { label, value, onCommit, rows = 3 } = props;
   const [raw, setRaw] = React.useState(() => JSON.stringify(value ?? null, null, 2));
   const lastValue = React.useRef(value);
@@ -103,7 +108,17 @@ export function ActionNode(props: ActionNodeViewProps): React.ReactElement {
         onPointerDown={(e) => onDragStart(node.id, e)}
         style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'move', marginBottom: 6 }}
       >
-        <span aria-hidden="true">{ACTION_LABELS[node.kind] === '跳转' ? '➡' : ACTION_LABELS[node.kind] === '请求' ? '⤴' : ACTION_LABELS[node.kind] === '赋值' ? '✎' : ACTION_LABELS[node.kind] === '提示' ? '💬' : '⑂'}</span>
+        <span aria-hidden="true">
+          {ACTION_LABELS[node.kind] === '跳转'
+            ? '➡'
+            : ACTION_LABELS[node.kind] === '请求'
+              ? '⤴'
+              : ACTION_LABELS[node.kind] === '赋值'
+                ? '✎'
+                : ACTION_LABELS[node.kind] === '提示'
+                  ? '💬'
+                  : '⑂'}
+        </span>
         <strong>{ACTION_LABELS[node.kind]}</strong>
         {node.label ? <span style={{ opacity: 0.6 }}>{node.label}</span> : null}
       </div>
@@ -128,11 +143,18 @@ export function ActionNode(props: ActionNodeViewProps): React.ReactElement {
             <Select
               aria-label="请求方法"
               size="sm"
-              options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => ({ label: m, value: m }))}
+              options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => ({
+                label: m,
+                value: m,
+              }))}
               value={typeof node.params.method === 'string' ? node.params.method : 'POST'}
               onChange={(v) => setParam('method', v)}
             />
-            <JsonField label="请求入参" value={node.params.body} onCommit={(v) => setParam('body', v)} />
+            <JsonField
+              label="请求入参"
+              value={node.params.body}
+              onCommit={(v) => setParam('body', v)}
+            />
           </>
         )}
         {node.kind === 'assign' && (
@@ -174,7 +196,12 @@ export function ActionNode(props: ActionNodeViewProps): React.ReactElement {
           </>
         )}
         {node.kind === 'branch' && (
-          <JsonField label="条件表达式" value={node.params.expression} onCommit={(v) => setParam('expression', v)} rows={4} />
+          <JsonField
+            label="条件表达式"
+            value={node.params.expression}
+            onCommit={(v) => setParam('expression', v)}
+            rows={4}
+          />
         )}
       </div>
 

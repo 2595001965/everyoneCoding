@@ -157,12 +157,17 @@ describe('E2E-10 自定义中转：连通测试 → 列模型 → 一次生成',
     bindings.save(USER, { bindings: {}, useDefaultForAll: true, defaultModelId: model.id });
 
     const result = await collect(
-      gateway.chat({ userId: USER, purpose: 'code', messages: [{ role: 'user', content: '你好' }] }),
+      gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: '你好' }],
+      }),
     );
     expect(result.text).toBe('自定义中转可用');
 
     // 用量落库（FR-AI-09：成本与用量统计的数据来源）
-    const row = database.prepare('SELECT * FROM usage_record').get() as Record<string, unknown> | undefined;
+    const row = database.prepare('SELECT * FROM usage_record').get() as
+      Record<string, unknown> | undefined;
     expect(row).toBeDefined();
     expect(row?.['purpose']).toBe('code');
     expect(row?.['total_tokens']).toBe(20);

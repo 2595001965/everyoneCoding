@@ -16,7 +16,10 @@ const ICON_OPTIONS = [
 ];
 
 export function InputRenderer({ node, mode, scope }: ComponentRenderProps): JSX.Element {
-  const placeholder = mode === 'preview' ? previewString(node, 'placeholder', scope, '') : propString(node, 'placeholder', '');
+  const placeholder =
+    mode === 'preview'
+      ? previewString(node, 'placeholder', scope, '')
+      : propString(node, 'placeholder', '');
   const inputType = propString(node, 'inputType', 'text');
   const disabled = mode === 'design';
   const clearable = propBoolean(node, 'clearable', false);
@@ -46,23 +49,52 @@ export const InputMeta: ComponentMeta = {
   group: '表单',
   description: '单行文本输入，支持多种类型与清空',
   icon: 'input',
-  defaultProps: { placeholder: '请输入', inputType: 'text', required: false, maxLength: 0, clearable: false, prefixIcon: '' },
+  defaultProps: {
+    placeholder: '请输入',
+    inputType: 'text',
+    required: false,
+    maxLength: 0,
+    clearable: false,
+    prefixIcon: '',
+  },
   defaultStyle: {},
   acceptsChildren: false,
   propSchema: {
     fields: [
       { key: 'placeholder', label: '占位提示', type: 'text', group: '内容', default: '请输入' },
-      { key: 'inputType', label: '输入类型', type: 'enum', group: '内容', default: 'text', options: [
-        { value: 'text', label: '文本' },
-        { value: 'password', label: '密码' },
-        { value: 'tel', label: '电话' },
-        { value: 'email', label: '邮箱' },
-        { value: 'number', label: '数字' },
-      ] },
+      {
+        key: 'inputType',
+        label: '输入类型',
+        type: 'enum',
+        group: '内容',
+        default: 'text',
+        options: [
+          { value: 'text', label: '文本' },
+          { value: 'password', label: '密码' },
+          { value: 'tel', label: '电话' },
+          { value: 'email', label: '邮箱' },
+          { value: 'number', label: '数字' },
+        ],
+      },
       { key: 'required', label: '必填', type: 'boolean', group: '交互', default: false },
-      { key: 'maxLength', label: '最大长度', type: 'number', group: '高级', default: 0, min: 0, max: 500 },
+      {
+        key: 'maxLength',
+        label: '最大长度',
+        type: 'number',
+        group: '高级',
+        default: 0,
+        min: 0,
+        max: 500,
+      },
       { key: 'clearable', label: '可清空', type: 'boolean', group: '交互', default: false },
-      { key: 'prefixIcon', label: '前缀图标', type: 'enum', group: '内容', default: '', options: ICON_OPTIONS },
+      {
+        key: 'prefixIcon',
+        label: '前缀图标',
+        type: 'enum',
+        group: '内容',
+        default: '',
+        options: ICON_OPTIONS,
+      },
     ],
   },
 };

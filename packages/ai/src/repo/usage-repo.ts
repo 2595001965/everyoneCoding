@@ -93,7 +93,14 @@ export class UsageRepo {
          WHERE user_id = ? AND created_at >= ? AND created_at <= ?`,
       )
       .get(userId, since, until) as
-      | { requests: number; prompt: number; completion: number; total: number; cost: number; missing_cost: number }
+      | {
+          requests: number;
+          prompt: number;
+          completion: number;
+          total: number;
+          cost: number;
+          missing_cost: number;
+        }
       | undefined;
 
     return {
@@ -113,7 +120,11 @@ export class UsageRepo {
   }
 
   /** 按模型分组汇总 */
-  byModel(userId: string, since: number, until: number = Date.now()): Array<{ modelId: string; totals: UsageTotals }> {
+  byModel(
+    userId: string,
+    since: number,
+    until: number = Date.now(),
+  ): Array<{ modelId: string; totals: UsageTotals }> {
     const rows = this.db
       .prepare(
         `SELECT model_id,

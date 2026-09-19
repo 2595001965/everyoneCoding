@@ -16,10 +16,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   rightIcon?: React.ReactNode;
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  props,
-  ref,
-) {
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(props, ref) {
   const {
     variant = 'secondary',
     size = 'md',

@@ -173,7 +173,8 @@ export class ArtifactStore {
   async read(stage: PipelineStage, version: number): Promise<string> {
     const entry = this.get(stage, version);
     const content = await this.deps.fs.readText(entry.contentRef);
-    if (content === null) throw new ArtifactNotFoundError(stage, version, `产物文件缺失：${entry.contentRef}`);
+    if (content === null)
+      throw new ArtifactNotFoundError(stage, version, `产物文件缺失：${entry.contentRef}`);
     return content;
   }
 
@@ -197,7 +198,10 @@ export class ArtifactStore {
   }
 
   /** 恢复场景：整表灌入（persistence.ts 从 stage_artifact 表重建台账） */
-  hydrate(entries: readonly ArtifactVersion[], activeByStage: Readonly<Record<string, number>> = {}): void {
+  hydrate(
+    entries: readonly ArtifactVersion[],
+    activeByStage: Readonly<Record<string, number>> = {},
+  ): void {
     this.ledger.clear();
     this.active.clear();
     for (const raw of entries) {
@@ -230,18 +234,35 @@ export class ArtifactStore {
    * 恢复时的一致性校验（FR-PIPE-11 要点 5）：台账里的每个版本都必须能读到内容文件。
    * 返回缺失 / 不可读的版本清单，由 UI 提示；不自动删除台账（可能只是暂时的挂载问题）。
    */
-  async verifyIntegrity(): Promise<Array<{ stage: PipelineStage; version: number; contentRef: string; reason: string }>> {
-    const problems: Array<{ stage: PipelineStage; version: number; contentRef: string; reason: string }> = [];
+  async verifyIntegrity(): Promise<
+    Array<{ stage: PipelineStage; version: number; contentRef: string; reason: string }>
+  > {
+    const problems: Array<{
+      stage: PipelineStage;
+      version: number;
+      contentRef: string;
+      reason: string;
+    }> = [];
     for (const versions of this.ledger.values()) {
       for (const entry of versions) {
         const exists = await this.deps.fs.exists(entry.contentRef);
         if (!exists) {
-          problems.push({ stage: entry.stage, version: entry.version, contentRef: entry.contentRef, reason: '产物文件不存在（可能被外部删除或移动）' });
+          problems.push({
+            stage: entry.stage,
+            version: entry.version,
+            contentRef: entry.contentRef,
+            reason: '产物文件不存在（可能被外部删除或移动）',
+          });
           continue;
         }
         const content = await this.deps.fs.readText(entry.contentRef);
         if (content === null) {
-          problems.push({ stage: entry.stage, version: entry.version, contentRef: entry.contentRef, reason: '产物文件不可读' });
+          problems.push({
+            stage: entry.stage,
+            version: entry.version,
+            contentRef: entry.contentRef,
+            reason: '产物文件不可读',
+          });
         }
       }
     }

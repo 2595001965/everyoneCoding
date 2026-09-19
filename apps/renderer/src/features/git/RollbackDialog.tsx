@@ -23,7 +23,12 @@ export interface RollbackDialogProps {
 
 const MODES: readonly RollbackMode[] = ['soft', 'revert'];
 
-export function RollbackDialog({ sha, open, onOpenChange, onDone }: RollbackDialogProps): JSX.Element | null {
+export function RollbackDialog({
+  sha,
+  open,
+  onOpenChange,
+  onDone,
+}: RollbackDialogProps): JSX.Element | null {
   const api = useGitApi();
   const [mode, setMode] = useState<RollbackMode>('soft');
   const [plan, setPlan] = useState<RollbackPlan | null>(null);
@@ -74,13 +79,23 @@ export function RollbackDialog({ sha, open, onOpenChange, onDone }: RollbackDial
             <Button size="sm" onClick={() => onOpenChange(false)}>
               取消
             </Button>
-            <Button size="sm" variant="danger" onClick={() => setConfirming(true)} disabled={plan === null} data-testid="rollback-execute">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => setConfirming(true)}
+              disabled={plan === null}
+              data-testid="rollback-execute"
+            >
               执行回滚
             </Button>
           </>
         }
       >
-        <div className="ec-rollback-dialog" data-testid="rollback-dialog" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          className="ec-rollback-dialog"
+          data-testid="rollback-dialog"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+        >
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ color: 'var(--ec-color-text-secondary)' }}>目标提交</span>
             <code data-testid="rollback-sha">{sha ?? ''}</code>
@@ -109,7 +124,11 @@ export function RollbackDialog({ sha, open, onOpenChange, onDone }: RollbackDial
               </div>
 
               {plan.warnings.length > 0 && (
-                <div role="alert" data-testid="rollback-warnings" style={{ color: 'var(--ec-color-warning)' }}>
+                <div
+                  role="alert"
+                  data-testid="rollback-warnings"
+                  style={{ color: 'var(--ec-color-warning)' }}
+                >
                   {plan.warnings.map((warning) => (
                     <div key={warning}>· {warning}</div>
                   ))}
@@ -157,15 +176,22 @@ export function RollbackDialog({ sha, open, onOpenChange, onDone }: RollbackDial
             <Button size="sm" onClick={() => setConfirming(false)}>
               取消
             </Button>
-            <Button size="sm" variant="danger" onClick={execute} loading={busy} data-testid="rollback-confirm">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={execute}
+              loading={busy}
+              data-testid="rollback-confirm"
+            >
               确认回滚
             </Button>
           </>
         }
       >
         <p>
-          将按「{ROLLBACK_MODE_LABELS[mode]}」回滚到 <code>{sha ?? ''}</code>。执行前会自动创建安全快照分支{' '}
-          <code>{plan?.snapshotBranch ?? ''}</code>，可据此恢复。确认继续？
+          将按「{ROLLBACK_MODE_LABELS[mode]}」回滚到 <code>{sha ?? ''}</code>
+          。执行前会自动创建安全快照分支 <code>{plan?.snapshotBranch ?? ''}</code>
+          ，可据此恢复。确认继续？
         </p>
       </Modal>
     </>

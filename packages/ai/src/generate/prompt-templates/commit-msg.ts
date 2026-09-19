@@ -1,4 +1,9 @@
-import { composeTemplate, renderTemplate, type PromptTemplate, type PromptTemplateInput } from './shared';
+import {
+  composeTemplate,
+  renderTemplate,
+  type PromptTemplate,
+  type PromptTemplateInput,
+} from './shared';
 
 /**
  * 提交信息模板（Conventional Commits，AI 生成节点自动提交时使用，FR-GIT-09）。

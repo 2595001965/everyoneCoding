@@ -40,7 +40,9 @@ export function NodeStatusCard({ node, result }: NodeStatusCardProps): ReactElem
         boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+      >
         <span style={{ fontWeight: 600, fontSize: 14 }}>{node.name}</span>
         <Badge color={kindColor}>{kindLabel}</Badge>
       </div>

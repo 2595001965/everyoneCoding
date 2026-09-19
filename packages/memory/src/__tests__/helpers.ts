@@ -88,7 +88,10 @@ export function seedGraph(db: Database.Database, userId: string = TEST_GRAPH.use
 }
 
 function migrationsDir(): string {
-  return new URL('../../../data/migrations', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  return new URL('../../../data/migrations', import.meta.url).pathname.replace(
+    /^\/([A-Za-z]:)/,
+    '$1',
+  );
 }
 
 export function migrationsCount(): number {

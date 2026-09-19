@@ -12,8 +12,22 @@ import {
 /* ------------------------------ 样本构造 ------------------------------ */
 
 const VALID_JSON = JSON.stringify({
-  files: [{ path: 'src/auth/auth.controller.ts', content: 'export class AuthController {}', action: 'create', language: 'ts' }],
-  anchors: [{ elementId: 'el-btn', filePath: 'src/auth/auth.controller.ts', symbol: 'AuthController.login', kind: 'controller' }],
+  files: [
+    {
+      path: 'src/auth/auth.controller.ts',
+      content: 'export class AuthController {}',
+      action: 'create',
+      language: 'ts',
+    },
+  ],
+  anchors: [
+    {
+      elementId: 'el-btn',
+      filePath: 'src/auth/auth.controller.ts',
+      symbol: 'AuthController.login',
+      kind: 'controller',
+    },
+  ],
   summary: '新增登录接口',
   notes: '',
   decision: {
@@ -24,7 +38,8 @@ const VALID_JSON = JSON.stringify({
   },
 });
 
-const CODE_FENCE_TS = '```ts\n// src/auth/auth.controller.ts\nexport class AuthController {\n  login() {}\n}\n```';
+const CODE_FENCE_TS =
+  '```ts\n// src/auth/auth.controller.ts\nexport class AuthController {\n  login() {}\n}\n```';
 
 /**
  * 20 组样本：合法、围栏、夹带解释、截断、混排、契约违规、纯文本……
@@ -51,7 +66,9 @@ const SAMPLES: { name: string; raw: string; expectSuccess: boolean }[] = [
   {
     name: '6 字符串内含大括号',
     raw: JSON.stringify({
-      files: [{ path: 'a.ts', content: 'const x = { a: { b: 1 } };', action: 'create', language: 'ts' }],
+      files: [
+        { path: 'a.ts', content: 'const x = { a: { b: 1 } };', action: 'create', language: 'ts' },
+      ],
       anchors: [],
       summary: '含嵌套大括号的代码',
       notes: '',
@@ -62,7 +79,14 @@ const SAMPLES: { name: string; raw: string; expectSuccess: boolean }[] = [
   {
     name: '7 字符串内含转义引号',
     raw: JSON.stringify({
-      files: [{ path: 'a.ts', content: 'const s = "he said \\"hi\\"";', action: 'create', language: 'ts' }],
+      files: [
+        {
+          path: 'a.ts',
+          content: 'const s = "he said \\"hi\\"";',
+          action: 'create',
+          language: 'ts',
+        },
+      ],
       anchors: [],
       summary: '含转义引号',
       notes: '',
@@ -72,12 +96,19 @@ const SAMPLES: { name: string; raw: string; expectSuccess: boolean }[] = [
   },
   {
     name: '8 缺 decision 字段（补默认值）',
-    raw: JSON.stringify({ files: [{ path: 'a.ts', content: 'x', action: 'create', language: 'ts' }], anchors: [], summary: 's' }),
+    raw: JSON.stringify({
+      files: [{ path: 'a.ts', content: 'x', action: 'create', language: 'ts' }],
+      anchors: [],
+      summary: 's',
+    }),
     expectSuccess: true,
   },
   {
     name: '9 缺 language（默认 ts）',
-    raw: JSON.stringify({ files: [{ path: 'a.ts', content: 'x', action: 'create' }], summary: 's' }),
+    raw: JSON.stringify({
+      files: [{ path: 'a.ts', content: 'x', action: 'create' }],
+      summary: 's',
+    }),
     expectSuccess: true,
   },
   {
@@ -188,7 +219,12 @@ describe('结构化输出解析（T4-04 要点 2）', () => {
   it('只有 anchor 注释的代码块也能把锚点声明救回来', () => {
     const result = parseModelOutput(SAMPLES[15]?.raw ?? '');
     expect(result.output?.anchors).toEqual([
-      { elementId: 'el-btn', filePath: 'src/auth/auth.controller.ts', symbol: 'AuthController.login', kind: 'controller' },
+      {
+        elementId: 'el-btn',
+        filePath: 'src/auth/auth.controller.ts',
+        symbol: 'AuthController.login',
+        kind: 'controller',
+      },
     ]);
   });
 
@@ -242,6 +278,13 @@ describe('解析工具（T4-04）', () => {
   });
 
   it('computeParseStats 对空数组返回 0 而不是 NaN', () => {
-    expect(computeParseStats([])).toEqual({ total: 0, success: 0, strictSuccess: 0, degraded: 0, rate: 0, strictRate: 0 });
+    expect(computeParseStats([])).toEqual({
+      total: 0,
+      success: 0,
+      strictSuccess: 0,
+      degraded: 0,
+      rate: 0,
+      strictRate: 0,
+    });
   });
 });

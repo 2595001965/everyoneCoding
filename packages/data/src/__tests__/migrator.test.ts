@@ -47,7 +47,13 @@ describe('迁移框架', () => {
 
   it('解析迁移文件：识别 up / down 段与版本号', () => {
     const script = parseMigration(
-      ['-- migration: 0007_demo', '-- up', 'CREATE TABLE demo (id TEXT);', '-- down', 'DROP TABLE demo;'].join('\n'),
+      [
+        '-- migration: 0007_demo',
+        '-- up',
+        'CREATE TABLE demo (id TEXT);',
+        '-- down',
+        'DROP TABLE demo;',
+      ].join('\n'),
       '0007_demo',
     );
     expect(script.version).toBe(7);
@@ -57,7 +63,9 @@ describe('迁移框架', () => {
   });
 
   it('缺少 up 段的迁移文件解析即报错', () => {
-    expect(() => parseMigration('-- migration: 0008_bad\nDROP TABLE x;', '0008_bad')).toThrow(MigrationError);
+    expect(() => parseMigration('-- migration: 0008_bad\nDROP TABLE x;', '0008_bad')).toThrow(
+      MigrationError,
+    );
   });
 
   it('执行全部迁移后 22 张表齐备且外键检查通过', () => {

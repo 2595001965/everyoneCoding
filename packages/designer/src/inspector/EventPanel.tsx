@@ -35,9 +35,20 @@ export interface EventPanelProps {
   height?: number;
 }
 
-export function EventPanel({ elementId, events, onCreateEvent, height = 380 }: EventPanelProps): React.ReactElement {
+export function EventPanel({
+  elementId,
+  events,
+  onCreateEvent,
+  height = 380,
+}: EventPanelProps): React.ReactElement {
   const bound = React.useMemo(
-    () => events.filter((event) => event.elementId === elementId || event.elementId === null || event.elementId === undefined),
+    () =>
+      events.filter(
+        (event) =>
+          event.elementId === elementId ||
+          event.elementId === null ||
+          event.elementId === undefined,
+      ),
     [events, elementId],
   );
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -60,7 +71,11 @@ export function EventPanel({ elementId, events, onCreateEvent, height = 380 }: E
   }
 
   return (
-    <div className="ec-event-panel" data-testid="event-panel" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div
+      className="ec-event-panel"
+      data-testid="event-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Select
           aria-label="选择事件"

@@ -64,7 +64,9 @@ export function RenameDialog({
   const [check, setCheck] = useState<ConflictCheckResult | null>(null);
   const [report, setReport] = useState<ImpactReport | null>(null);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
-  const [status, setStatus] = useState<'idle' | 'checking' | 'analyzing' | 'ready' | 'executed' | 'failed'>('idle');
+  const [status, setStatus] = useState<
+    'idle' | 'checking' | 'analyzing' | 'ready' | 'executed' | 'failed'
+  >('idle');
   const [result, setResult] = useState<RenameTransactionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -95,7 +97,10 @@ export function RenameDialog({
           onIntent: (intent) => {
             void (async () => {
               try {
-                const next = await client.analyze({ registryId: intent.registryId, newName: intent.newName });
+                const next = await client.analyze({
+                  registryId: intent.registryId,
+                  newName: intent.newName,
+                });
                 setReport(next);
                 setSelection(defaultImpactSelection(next));
                 setStatus('ready');
@@ -231,7 +236,10 @@ export function RenameDialog({
       title="重命名"
       size="lg"
       footer={
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }} data-testid="rename-dialog-footer">
+        <div
+          style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}
+          data-testid="rename-dialog-footer"
+        >
           <Button onClick={onClose}>取消</Button>
           <Button
             variant="primary"
@@ -261,13 +269,21 @@ export function RenameDialog({
             </div>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span>新名称</span>
-              <Input value={name} onChange={onChangeName} aria-label="新名称" placeholder="请输入新的显示名" />
+              <Input
+                value={name}
+                onChange={onChangeName}
+                aria-label="新名称"
+                placeholder="请输入新的显示名"
+              />
             </label>
 
             <ConflictWarning result={blocked ? check : null} onPick={pickSuggestion} />
 
             {status === 'analyzing' && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} data-testid="rename-analyzing">
+              <div
+                style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+                data-testid="rename-analyzing"
+              >
                 <Spinner size={14} />
                 <span>正在分析影响面…</span>
               </div>
@@ -285,7 +301,10 @@ export function RenameDialog({
             )}
 
             {error !== null && status === 'failed' && (
-              <p data-testid="rename-error" style={{ margin: 0, color: 'var(--ec-color-danger, #d4380d)' }}>
+              <p
+                data-testid="rename-error"
+                style={{ margin: 0, color: 'var(--ec-color-danger, #d4380d)' }}
+              >
                 {error}
               </p>
             )}
@@ -339,9 +358,15 @@ export function RenameDialog({
                   将修改 {selection.size} 处（其中确认区 {report?.totals.confirm ?? 0} 处、警告区{' '}
                   {report?.totals.warn ?? 0} 处），并生成一次 Git 提交。执行后可一键撤销。
                 </span>
-                <span style={{ color: 'var(--ec-color-text-secondary)' }}>{report?.scopeNotice ?? ''}</span>
+                <span style={{ color: 'var(--ec-color-text-secondary)' }}>
+                  {report?.scopeNotice ?? ''}
+                </span>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <Button variant="danger" onClick={() => void execute()} data-testid="rename-confirm-execute">
+                  <Button
+                    variant="danger"
+                    onClick={() => void execute()}
+                    data-testid="rename-confirm-execute"
+                  >
                     确认执行
                   </Button>
                   <Button onClick={() => setConfirming(false)}>再想想</Button>
@@ -350,9 +375,12 @@ export function RenameDialog({
             )}
 
             {report !== null && status === 'ready' && (
-              <p style={{ margin: 0, color: 'var(--ec-color-text-secondary)' }} data-testid="rename-selection-count">
-                当前勾选 {selection.size} 处（自动区 {report.totals.auto} / 确认区 {report.totals.confirm} / 警告区{' '}
-                {report.totals.warn}）
+              <p
+                style={{ margin: 0, color: 'var(--ec-color-text-secondary)' }}
+                data-testid="rename-selection-count"
+              >
+                当前勾选 {selection.size} 处（自动区 {report.totals.auto} / 确认区{' '}
+                {report.totals.confirm} / 警告区 {report.totals.warn}）
               </p>
             )}
           </>

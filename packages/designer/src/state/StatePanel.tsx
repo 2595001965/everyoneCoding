@@ -14,7 +14,12 @@ import { Badge, Button, EmptyState, IconButton, Modal, Select, Tag } from '@ec/u
 import { findById } from '../dsl/traverse';
 import type { PageStateVar, StateType } from '../dsl/types';
 import { useDesignerStore, useEditorState } from '../store/designer-context';
-import { findReferencingElements, getDataSources, type ApiDef, type DataSourceCatalog } from '../shared/data-source';
+import {
+  findReferencingElements,
+  getDataSources,
+  type ApiDef,
+  type DataSourceCatalog,
+} from '../shared/data-source';
 import { BindingPicker } from './BindingPicker';
 import { STATE_TYPE_LABELS, StateEditor } from './StateEditor';
 
@@ -26,7 +31,16 @@ const GROUP_OPTIONS = [
   { label: '按类型', value: 'type' },
 ];
 
-const DEFAULT_BINDABLE_PROPS = ['value', 'text', 'checked', 'disabled', 'visible', 'src', 'label', 'href'];
+const DEFAULT_BINDABLE_PROPS = [
+  'value',
+  'text',
+  'checked',
+  'disabled',
+  'visible',
+  'src',
+  'label',
+  'href',
+];
 
 const SOURCE_COLOR = { local: 'neutral', api: 'info' } as const;
 
@@ -45,22 +59,34 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
   const [editing, setEditing] = React.useState<PageStateVar | 'new' | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
 
-  const catalog: DataSourceCatalog = React.useMemo(() => getDataSources(dsl, apiCatalog), [dsl, apiCatalog]);
+  const catalog: DataSourceCatalog = React.useMemo(
+    () => getDataSources(dsl, apiCatalog),
+    [dsl, apiCatalog],
+  );
   const states = dsl.state;
   const apiRefOptions = catalog.apis.map((a) => a.path);
 
   const groups = React.useMemo(() => {
-    if (groupMode === 'none') return [{ key: 'all', label: `全部状态（${states.length}）`, items: states }];
+    if (groupMode === 'none')
+      return [{ key: 'all', label: `全部状态（${states.length}）`, items: states }];
     const map = new Map<string, PageStateVar[]>();
     for (const item of states) {
-      const key = groupMode === 'source' ? item.source ?? 'local' : item.type;
+      const key = groupMode === 'source' ? (item.source ?? 'local') : item.type;
       const bucket = map.get(key);
       if (bucket) bucket.push(item);
       else map.set(key, [item]);
     }
     const labelFor = (k: string): string =>
-      groupMode === 'source' ? (k === 'api' ? '接口来源' : '页面来源') : STATE_TYPE_LABELS[k as StateType] ?? k;
-    return Array.from(map.entries()).map(([key, items]) => ({ key, label: `${labelFor(key)}（${items.length}）`, items }));
+      groupMode === 'source'
+        ? k === 'api'
+          ? '接口来源'
+          : '页面来源'
+        : (STATE_TYPE_LABELS[k as StateType] ?? k);
+    return Array.from(map.entries()).map(([key, items]) => ({
+      key,
+      label: `${labelFor(key)}（${items.length}）`,
+      items,
+    }));
   }, [states, groupMode]);
 
   const move = (index: number, dir: -1 | 1): void => {
@@ -113,14 +139,21 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
   const selectedElement =
     selectedIds.length === 1 ? findById(dsl.tree, selectedIds[0] as string) : null;
   const bindableProps = selectedElement
-    ? Array.from(new Set([...DEFAULT_BINDABLE_PROPS, ...Object.keys(selectedElement.bindings ?? {})]))
+    ? Array.from(
+        new Set([...DEFAULT_BINDABLE_PROPS, ...Object.keys(selectedElement.bindings ?? {})]),
+      )
     : [];
 
   const pendingRefs = pendingDelete ? findReferencingElements(dsl, pendingDelete) : [];
 
   return (
-    <div className="ec-state-panel" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12 }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    <div
+      className="ec-state-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12 }}
+    >
+      <header
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+      >
         <strong>页面状态</strong>
         <div style={{ display: 'flex', gap: 8 }}>
           <Select
@@ -160,26 +193,53 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <code style={{ fontWeight: 600 }}>{item.name}</code>
-                      <Tag color={SOURCE_COLOR[item.source ?? 'local']}>{item.source ?? 'local'}</Tag>
+                      <Tag color={SOURCE_COLOR[item.source ?? 'local']}>
+                        {item.source ?? 'local'}
+                      </Tag>
                       <Tag color="neutral">{STATE_TYPE_LABELS[item.type]}</Tag>
                       {item.apiRef && <Badge color="info">{item.apiRef}</Badge>}
                     </div>
                     {item.description && (
-                      <div style={{ fontSize: 12, opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          opacity: 0.6,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
                         {item.description}
                       </div>
                     )}
                   </div>
-                  <IconButton aria-label={`上移 ${item.name}`} size="sm" onClick={() => move(index, -1)}>
+                  <IconButton
+                    aria-label={`上移 ${item.name}`}
+                    size="sm"
+                    onClick={() => move(index, -1)}
+                  >
                     ↑
                   </IconButton>
-                  <IconButton aria-label={`下移 ${item.name}`} size="sm" onClick={() => move(index, 1)}>
+                  <IconButton
+                    aria-label={`下移 ${item.name}`}
+                    size="sm"
+                    onClick={() => move(index, 1)}
+                  >
                     ↓
                   </IconButton>
-                  <IconButton aria-label={`编辑 ${item.name}`} size="sm" onClick={() => setEditing(item)}>
+                  <IconButton
+                    aria-label={`编辑 ${item.name}`}
+                    size="sm"
+                    onClick={() => setEditing(item)}
+                  >
                     ✎
                   </IconButton>
-                  <IconButton aria-label={`删除 ${item.name}`} size="sm" variant="danger" onClick={() => requestDelete(item.name)}>
+                  <IconButton
+                    aria-label={`删除 ${item.name}`}
+                    size="sm"
+                    variant="danger"
+                    onClick={() => requestDelete(item.name)}
+                  >
                     ×
                   </IconButton>
                 </div>
@@ -190,8 +250,18 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
       )}
 
       {selectedElement && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px dashed var(--ec-color-border, #e3e8ef)', paddingTop: 8 }}>
-          <strong style={{ fontSize: 13 }}>数据绑定 · {selectedElement.name ?? selectedElement.id}</strong>
+        <section
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            borderTop: '1px dashed var(--ec-color-border, #e3e8ef)',
+            paddingTop: 8,
+          }}
+        >
+          <strong style={{ fontSize: 13 }}>
+            数据绑定 · {selectedElement.name ?? selectedElement.id}
+          </strong>
           {bindableProps.map((prop) => (
             <BindingPicker
               key={prop}
@@ -207,7 +277,11 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
 
       <Modal
         open={editing !== null}
-        title={editing === 'new' ? '新增状态变量' : `编辑状态变量${editing && 'name' in editing ? `：${editing.name}` : ''}`}
+        title={
+          editing === 'new'
+            ? '新增状态变量'
+            : `编辑状态变量${editing && 'name' in editing ? `：${editing.name}` : ''}`
+        }
         onOpenChange={(open) => {
           if (!open) setEditing(null);
         }}
@@ -249,7 +323,11 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
         }
       >
         {pendingDelete && (
-          <div data-testid="reference-warning" role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div
+            data-testid="reference-warning"
+            role="alert"
+            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+          >
             <p>
               状态 <code>{pendingDelete}</code> 仍被以下元素引用，删除将一并清除这些绑定：
             </p>
@@ -259,7 +337,13 @@ export function StatePanel(props: StatePanelProps): React.ReactElement {
                   <button
                     type="button"
                     data-testid={`ref-item-${el.id}`}
-                    style={{ background: 'none', border: 'none', color: 'var(--ec-color-link, #1971c2)', cursor: 'pointer', padding: 0 }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--ec-color-link, #1971c2)',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
                     onClick={() => store.getState().select([el.id])}
                   >
                     {el.name ?? el.id}（{el.type}）

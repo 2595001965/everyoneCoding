@@ -36,7 +36,9 @@ export function valueToField(name: string, value: unknown): DataField {
   if (Array.isArray(value) && value.length > 0) {
     field.children = [valueToField('0', value[0]!)]; // 下标段渲染为 [...]
   } else if (value !== null && typeof value === 'object') {
-    field.children = Object.entries(value as Record<string, unknown>).map(([key, child]) => valueToField(key, child));
+    field.children = Object.entries(value as Record<string, unknown>).map(([key, child]) =>
+      valueToField(key, child),
+    );
   }
   return field;
 }
@@ -47,7 +49,10 @@ export function expandStateShape(state: StateDef): DataField | null {
   return valueToField(state.name, state.initial);
 }
 
-const TYPE_COLORS: Record<StateType, 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
+const TYPE_COLORS: Record<
+  StateType,
+  'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
+> = {
   string: 'neutral',
   number: 'primary',
   boolean: 'success',
@@ -80,7 +85,11 @@ export function BindingPicker(props: BindingPickerProps): React.ReactElement {
     let counter = 0;
     const nodes: TreeNode[] = [];
 
-    const makeNode = (segments: PathSegment[], label: React.ReactNode, children?: TreeNode[]): TreeNode => {
+    const makeNode = (
+      segments: PathSegment[],
+      label: React.ReactNode,
+      children?: TreeNode[],
+    ): TreeNode => {
       const id = `bn-${counter}`;
       counter += 1;
       idToPath.set(id, formatPath(segments));
@@ -156,7 +165,14 @@ export function BindingPicker(props: BindingPickerProps): React.ReactElement {
     <div className="ec-binding-picker" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 12, opacity: 0.8 }}>属性</span>
-        <code style={{ fontSize: 12, padding: '2px 6px', background: 'var(--ec-color-canvas-subtle, #f1f3f5)', borderRadius: 4 }}>
+        <code
+          style={{
+            fontSize: 12,
+            padding: '2px 6px',
+            background: 'var(--ec-color-canvas-subtle, #f1f3f5)',
+            borderRadius: 4,
+          }}
+        >
           {property}
         </code>
         {value ? (
@@ -173,7 +189,15 @@ export function BindingPicker(props: BindingPickerProps): React.ReactElement {
         )}
       </div>
 
-      <div ref={listRef} style={{ maxHeight: 200, overflow: 'auto', border: '1px solid var(--ec-color-border, #e3e8ef)', borderRadius: 6 }}>
+      <div
+        ref={listRef}
+        style={{
+          maxHeight: 200,
+          overflow: 'auto',
+          border: '1px solid var(--ec-color-border, #e3e8ef)',
+          borderRadius: 6,
+        }}
+      >
         {nodes.length === 0 ? (
           <div style={{ padding: 12, fontSize: 12, opacity: 0.5 }}>暂无可选数据源</div>
         ) : (

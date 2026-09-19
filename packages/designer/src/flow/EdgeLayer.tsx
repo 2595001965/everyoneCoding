@@ -22,7 +22,11 @@ export interface Point {
 export type NodePositions = Record<string, Point>;
 
 /** 计算某节点的端口坐标（输入口在左中，输出口在右中 / 分支上下分布） */
-export function portPoint(id: string, port: 'in' | OutPort, positions: NodePositions): Point | null {
+export function portPoint(
+  id: string,
+  port: 'in' | OutPort,
+  positions: NodePositions,
+): Point | null {
   const pos = positions[id];
   if (!pos) return null;
   switch (port) {
@@ -88,7 +92,13 @@ export function EdgeLayer(props: EdgeLayerProps): React.ReactElement {
           data-testid={`edge-${edge.from}-${edge.port}`}
         />
         {label && (
-          <text x={midX} y={(start.y + end.y) / 2 - 4} fill={color} fontSize={12} textAnchor="middle">
+          <text
+            x={midX}
+            y={(start.y + end.y) / 2 - 4}
+            fill={color}
+            fontSize={12}
+            textAnchor="middle"
+          >
             {label}
           </text>
         )}

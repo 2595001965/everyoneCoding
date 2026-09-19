@@ -242,7 +242,10 @@ describe('Ed25519 签名（FR-PKG-04 验收第 4 条）', () => {
 
   it('签名对象是去掉 signature 字段的规范化字节（回填 signature 后仍可验）', () => {
     const { publicKeyPem, privateKeyPem } = generateEd25519KeyPair();
-    const base = { formatVersion: '1.0.0', generator: { app: 'E', version: '1', platform: 'win32-x64' } };
+    const base = {
+      formatVersion: '1.0.0',
+      generator: { app: 'E', version: '1', platform: 'win32-x64' },
+    };
     const signature = signManifest(base, privateKeyPem);
     const withSignature = { ...base, signature };
     expect(verifyManifestSignature(withSignature, signature, publicKeyPem)).toBe(true);

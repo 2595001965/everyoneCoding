@@ -38,7 +38,9 @@ function cloneContent(content: ContentSelection): ContentSelection {
   };
 }
 
-function normalizeMemoryLayer(input: Partial<MemoryLayerSelection> | undefined): MemoryLayerSelection {
+function normalizeMemoryLayer(
+  input: Partial<MemoryLayerSelection> | undefined,
+): MemoryLayerSelection {
   const base = FULL_CONTENT_SELECTION.memory;
   if (input === undefined) return { ...base };
   return {

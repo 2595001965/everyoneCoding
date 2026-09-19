@@ -33,8 +33,18 @@ export function Tooltip({
     const el = triggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const top = placement === 'top' ? r.top - 8 : placement === 'bottom' ? r.bottom + 8 : (r.top + r.height) / 2;
-    const left = placement === 'left' ? r.left - 8 : placement === 'right' ? r.right + 8 : (r.left + r.width) / 2;
+    const top =
+      placement === 'top'
+        ? r.top - 8
+        : placement === 'bottom'
+          ? r.bottom + 8
+          : (r.top + r.height) / 2;
+    const left =
+      placement === 'left'
+        ? r.left - 8
+        : placement === 'right'
+          ? r.right + 8
+          : (r.left + r.width) / 2;
     setCoords({ top, left });
   }, [placement]);
 

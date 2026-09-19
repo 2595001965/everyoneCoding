@@ -21,7 +21,11 @@ function projectionLabel(kind: ProjectionKind | null): string {
   return kind === null ? '规范名' : PROJECTION_LABELS[kind];
 }
 
-export function ConflictWarning({ result, onPick, className }: ConflictWarningProps): JSX.Element | null {
+export function ConflictWarning({
+  result,
+  onPick,
+  className,
+}: ConflictWarningProps): JSX.Element | null {
   if (result === null || result.ok) return null;
 
   return (
@@ -49,7 +53,10 @@ export function ConflictWarning({ result, onPick, className }: ConflictWarningPr
 
       <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {result.violations.map((violation, index) => (
-          <li key={`${violation.kind}-${violation.projection ?? 'name'}-${index}`} data-testid="violation">
+          <li
+            key={`${violation.kind}-${violation.projection ?? 'name'}-${index}`}
+            data-testid="violation"
+          >
             <strong>{VIOLATION_LABELS[violation.kind]}</strong>
             <span style={{ color: 'var(--ec-color-text-secondary)' }}>
               {' '}

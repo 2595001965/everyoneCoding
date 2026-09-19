@@ -28,7 +28,8 @@ let runtime: DomainControlServiceHost;
 function makeFakeSafeStorage(available = true): SafeStorageLike {
   return {
     isEncryptionAvailable: () => available,
-    encryptString: (plain) => Buffer.from(`enc1:${Buffer.from(plain, 'utf8').toString('base64')}`, 'utf8'),
+    encryptString: (plain) =>
+      Buffer.from(`enc1:${Buffer.from(plain, 'utf8').toString('base64')}`, 'utf8'),
     decryptString: (buffer) => {
       const text = buffer.toString('utf8');
       if (!text.startsWith('enc1:')) throw new Error('decrypt failed');
@@ -44,10 +45,16 @@ interface RecordedRequest {
   body?: unknown;
 }
 
-type FakeRoute = { match: string; respond: (request: RecordedRequest) => { status: number; json: unknown } };
+type FakeRoute = {
+  match: string;
+  respond: (request: RecordedRequest) => { status: number; json: unknown };
+};
 
 /** 可编程假传输：按"路径包含"匹配返回，未命中返回 404 */
-function makeFakeTransport(routes: FakeRoute[]): { transport: TransportPort; requests: RecordedRequest[] } {
+function makeFakeTransport(routes: FakeRoute[]): {
+  transport: TransportPort;
+  requests: RecordedRequest[];
+} {
   const requests: RecordedRequest[] = [];
   return {
     requests,
@@ -88,7 +95,10 @@ function makeTokens(): Record<string, unknown> {
   };
 }
 
-function build(overrides: { fakeSafe?: SafeStorageLike; fake?: ReturnType<typeof makeFakeTransport> }): void {
+function build(overrides: {
+  fakeSafe?: SafeStorageLike;
+  fake?: ReturnType<typeof makeFakeTransport>;
+}): void {
   const domain = createAuthDomain({
     baseUrl: 'https://account.test',
     safeStorage: overrides.fakeSafe ?? makeFakeSafeStorage(),
@@ -103,7 +113,9 @@ function build(overrides: { fakeSafe?: SafeStorageLike; fake?: ReturnType<typeof
 async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   const response = await runtime.invoke({ requestId: 'test', domain: 'auth', method, params });
   if (!response.ok) {
-    const error = new Error(response.error?.message ?? '域调用失败') as Error & { code?: string | undefined };
+    const error = new Error(response.error?.message ?? '域调用失败') as Error & {
+      code?: string | undefined;
+    };
     const code = response.error?.code;
     if (code !== undefined) error.code = code;
     throw error;
@@ -120,7 +132,9 @@ const LOGIN_OK: FakeRoute = {
 };
 
 async function login(): Promise<void> {
-  await call('login', { input: { email: 'user@example.com', password: 'Passw0rd!', rememberMe: false } });
+  await call('login', {
+    input: { email: 'user@example.com', password: 'Passw0rd!', rememberMe: false },
+  });
 }
 
 beforeEach(() => {
@@ -153,9 +167,17 @@ describe('登录 / 恢复 / 退出', () => {
     ]);
     build({ fake });
 
-    const session = await call<{ identity: { login: string }; tokens: { accessToken: string } }>('login', {
-      input: { email: 'user@example.com', password: 'Passw0rd!', rememberMe: true, rememberDays: 30 },
-    });
+    const session = await call<{ identity: { login: string }; tokens: { accessToken: string } }>(
+      'login',
+      {
+        input: {
+          email: 'user@example.com',
+          password: 'Passw0rd!',
+          rememberMe: true,
+          rememberDays: 30,
+        },
+      },
+    );
     expect(session.identity.login).toBe('user@example.com');
     expect(session.tokens.accessToken).toBe('at-1');
 
@@ -178,19 +200,29 @@ describe('登录 / 恢复 / 退出', () => {
     const fake = makeFakeTransport([]);
     build({ fake });
     await expect(
-      call('register', { input: { email: 'user@example.com', password: '123', confirm: '123', rememberMe: false } }),
+      call('register', {
+        input: { email: 'user@example.com', password: '123', confirm: '123', rememberMe: false },
+      }),
     ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
     expect(fake.requests).toHaveLength(0);
   });
 
   it('服务端 409 时映射为 ALREADY_EXISTS；401 映射为 PERMISSION_DENIED', async () => {
     const fake = makeFakeTransport([
-      { match: '/api/auth/register', respond: () => ({ status: 409, json: { error: 'email_taken' } }) },
+      {
+        match: '/api/auth/register',
+        respond: () => ({ status: 409, json: { error: 'email_taken' } }),
+      },
     ]);
     build({ fake });
     await expect(
       call('register', {
-        input: { email: 'user@example.com', password: 'Passw0rd!', confirm: 'Passw0rd!', rememberMe: false },
+        input: {
+          email: 'user@example.com',
+          password: 'Passw0rd!',
+          confirm: 'Passw0rd!',
+          rememberMe: false,
+        },
       }),
     ).rejects.toMatchObject({ code: 'ALREADY_EXISTS' });
   });
@@ -214,7 +246,9 @@ describe('绑定管理（令牌来自已恢复会话）', () => {
     const bindings = await call<Array<{ provider: string; linkedAt: number }>>('listBindings');
     expect(bindings).toEqual([{ provider: 'github', linkedAt: 1 }]);
 
-    const bindingRequest = fake.requests.find((request) => request.url.includes('/api/auth/bindings'));
+    const bindingRequest = fake.requests.find((request) =>
+      request.url.includes('/api/auth/bindings'),
+    );
     expect(bindingRequest?.headers?.Authorization).toBe('Bearer at-1');
   });
 
@@ -232,7 +266,10 @@ describe('绑定管理（令牌来自已恢复会话）', () => {
         },
       },
       // bind/unbind 都会先 GET 一次绑定清单做前置守卫
-      { match: '/api/auth/bindings', respond: () => ({ status: 200, json: { bindings: [{ provider: 'github' }] } }) },
+      {
+        match: '/api/auth/bindings',
+        respond: () => ({ status: 200, json: { bindings: [{ provider: 'github' }] } }),
+      },
     ]);
     build({ fake });
     await login();
@@ -242,7 +279,10 @@ describe('绑定管理（令牌来自已恢复会话）', () => {
   it('仅剩单一登录方式且未设密码时，解绑在客户端侧被拒（FR-ACC-06）', async () => {
     const fake = makeFakeTransport([
       LOGIN_OK,
-      { match: '/api/auth/bindings', respond: () => ({ status: 200, json: { bindings: [{ provider: 'github' }] } }) },
+      {
+        match: '/api/auth/bindings',
+        respond: () => ({ status: 200, json: { bindings: [{ provider: 'github' }] } }),
+      },
     ]);
     build({ fake });
     await login();
@@ -273,9 +313,11 @@ describe('离线模式', () => {
 
     expect(await call<boolean>('isOffline')).toBe(false);
     await expect(login()).rejects.toMatchObject({ code: 'NET_ERROR' });
-    await expect(call('login', { input: { email: 'user@example.com', password: 'Passw0rd!', rememberMe: false } })).rejects.toThrowError(
-      /离线模式/,
-    );
+    await expect(
+      call('login', {
+        input: { email: 'user@example.com', password: 'Passw0rd!', rememberMe: false },
+      }),
+    ).rejects.toThrowError(/离线模式/);
     expect(await call<boolean>('isOffline')).toBe(true);
     expect(await call<boolean>('tryRecover')).toBe(false);
   });
@@ -292,7 +334,11 @@ describe('离线模式', () => {
       {
         match: '/api/health',
         respond: () =>
-          reachable ? { status: 200, json: { ok: true } } : (() => { throw new TypeError('fetch failed'); })(),
+          reachable
+            ? { status: 200, json: { ok: true } }
+            : (() => {
+                throw new TypeError('fetch failed');
+              })(),
       },
     ]);
     build({ fake });
@@ -355,7 +401,9 @@ describe('OAuth 握手的状态由外壳持有', () => {
     });
     runtime = createDomainRuntime({ routers: { auth: domain.router } });
 
-    const handshake = await call<{ authorizeUrl: string; state: string }>('beginOAuth', { provider: 'google' });
+    const handshake = await call<{ authorizeUrl: string; state: string }>('beginOAuth', {
+      provider: 'google',
+    });
     expect(handshake.state.length).toBeGreaterThan(0);
     expect(handshake.authorizeUrl).toContain('accounts.google.com');
     expect(openExternal).toHaveBeenCalledTimes(1);

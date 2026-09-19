@@ -39,7 +39,9 @@ export function createSqliteProjectStore(db: Database.Database): ProjectStore {
 
   return {
     async loadAll(): Promise<ProjectRowSnapshot[]> {
-      return (db.prepare(`${SELECT_ALL} ORDER BY updated_at DESC`).all() as unknown[]).map(rowToSnapshot);
+      return (db.prepare(`${SELECT_ALL} ORDER BY updated_at DESC`).all() as unknown[]).map(
+        rowToSnapshot,
+      );
     },
 
     async loadById(id: string): Promise<ProjectRowSnapshot | null> {
@@ -50,7 +52,9 @@ export function createSqliteProjectStore(db: Database.Database): ProjectStore {
     async insert(row: ProjectRowSnapshot): Promise<void> {
       const placeholders = COLUMNS.map(() => '?').join(', ');
       const values = COLUMNS.map((column) => row[column] ?? null);
-      db.prepare(`INSERT INTO project (${COLUMNS.join(', ')}) VALUES (${placeholders})`).run(...values);
+      db.prepare(`INSERT INTO project (${COLUMNS.join(', ')}) VALUES (${placeholders})`).run(
+        ...values,
+      );
     },
 
     async update(id: string, patch: Partial<ProjectRowSnapshot>): Promise<void> {
@@ -66,11 +70,17 @@ export function createSqliteProjectStore(db: Database.Database): ProjectStore {
     async deleteRow(id: string): Promise<void> {
       // 级联清理：项目下的页面/元素/功能/文档/记忆引用都要先摘掉，否则外键会拦
       const tx = db.transaction((projectId: string) => {
-        db.prepare(`DELETE FROM element WHERE page_id IN (SELECT id FROM page WHERE project_id = ?)`).run(projectId);
+        db.prepare(
+          `DELETE FROM element WHERE page_id IN (SELECT id FROM page WHERE project_id = ?)`,
+        ).run(projectId);
         db.prepare(`DELETE FROM page WHERE project_id = ?`).run(projectId);
         db.prepare(`DELETE FROM feature WHERE project_id = ?`).run(projectId);
-        db.prepare(`DELETE FROM memory_doc_link WHERE document_id IN (SELECT id FROM document WHERE project_id = ?)`).run(projectId);
-        db.prepare(`DELETE FROM doc_version WHERE document_id IN (SELECT id FROM document WHERE project_id = ?)`).run(projectId);
+        db.prepare(
+          `DELETE FROM memory_doc_link WHERE document_id IN (SELECT id FROM document WHERE project_id = ?)`,
+        ).run(projectId);
+        db.prepare(
+          `DELETE FROM doc_version WHERE document_id IN (SELECT id FROM document WHERE project_id = ?)`,
+        ).run(projectId);
         db.prepare(`DELETE FROM document WHERE project_id = ?`).run(projectId);
         db.prepare(`DELETE FROM code_anchor WHERE project_id = ?`).run(projectId);
         db.prepare(`DELETE FROM stage_artifact WHERE project_id = ?`).run(projectId);

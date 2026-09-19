@@ -1,10 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { nameSimilarity } from '@ec/ai';
 
-import { relocateAnchors, relocationSuccessRate, type HealingCodePort } from '../healing/anchor-relocator';
-import { fixLinks, LINK_FIX_SIMILARITY_THRESHOLD, type LinkTargetIndex } from '../healing/link-fixer';
-import { checkAttachments, hashOfHashName, type AttachmentContentPort } from '../healing/attachment-checker';
-import { buildHealingReport, healingReportToMarkdown, serializeHealingReport } from '../healing/healing-report';
+import {
+  relocateAnchors,
+  relocationSuccessRate,
+  type HealingCodePort,
+} from '../healing/anchor-relocator';
+import {
+  fixLinks,
+  LINK_FIX_SIMILARITY_THRESHOLD,
+  type LinkTargetIndex,
+} from '../healing/link-fixer';
+import {
+  checkAttachments,
+  hashOfHashName,
+  type AttachmentContentPort,
+} from '../healing/attachment-checker';
+import {
+  buildHealingReport,
+  healingReportToMarkdown,
+  serializeHealingReport,
+} from '../healing/healing-report';
 import { sha256Hex } from '../format/checksum';
 import type { RelocatableAnchor } from '../healing/healing-types';
 
@@ -132,7 +148,17 @@ describe('锚点重定位（T8-04 / FR-PKG-10：成功率 ≥90%）', () => {
       listFiles: () => [...files.keys()],
     };
     const relocations = relocateAnchors(
-      [{ id: 'anc-x', elementId: null, symbol: 'Alpha', filePath: 'src/gone.ts', kind: 'service', startLine: 1, endLine: 1 }],
+      [
+        {
+          id: 'anc-x',
+          elementId: null,
+          symbol: 'Alpha',
+          filePath: 'src/gone.ts',
+          kind: 'service',
+          startLine: 1,
+          endLine: 1,
+        },
+      ],
       'proj-1',
       port,
     );
@@ -153,7 +179,15 @@ describe('失效链接修复（T8-04）', () => {
 
   it('目标仍在 → ok', () => {
     const outcomes = fixLinks(
-      [{ linkId: 'l1', sourceType: 'document', sourceId: 'doc-new-1', targetType: 'memory', targetId: 'mem-new-1' }],
+      [
+        {
+          linkId: 'l1',
+          sourceType: 'document',
+          sourceId: 'doc-new-1',
+          targetType: 'memory',
+          targetId: 'mem-new-1',
+        },
+      ],
       index,
     );
     expect(outcomes[0]?.status).toBe('ok');
@@ -203,9 +237,23 @@ describe('失效链接修复（T8-04）', () => {
   it('零候选或多候选 → unresolvable（绝不瞎连）', () => {
     const outcomes = fixLinks(
       [
-        { linkId: 'l4', sourceType: 'document', sourceId: 'd', targetType: 'memory', targetId: 'gone', targetName: '完全不存在的名字' },
+        {
+          linkId: 'l4',
+          sourceType: 'document',
+          sourceId: 'd',
+          targetType: 'memory',
+          targetId: 'gone',
+          targetName: '完全不存在的名字',
+        },
         // 「登录…」两个候选（登录偏好/安全策略都以"登录"开头但整体不同——用相似度双双命中的场景改用精确重复名）
-        { linkId: 'l5', sourceType: 'document', sourceId: 'd', targetType: 'memory', targetId: 'gone2', targetName: '' },
+        {
+          linkId: 'l5',
+          sourceType: 'document',
+          sourceId: 'd',
+          targetType: 'memory',
+          targetId: 'gone2',
+          targetName: '',
+        },
       ],
       index,
     );
@@ -222,7 +270,16 @@ describe('失效链接修复（T8-04）', () => {
       document: new Map(),
     };
     const outcomes = fixLinks(
-      [{ linkId: 'l6', sourceType: 'document', sourceId: 'd', targetType: 'memory', targetId: 'gone', targetName: '同名条目' }],
+      [
+        {
+          linkId: 'l6',
+          sourceType: 'document',
+          sourceId: 'd',
+          targetType: 'memory',
+          targetId: 'gone',
+          targetName: '同名条目',
+        },
+      ],
       dupIndex,
     );
     expect(outcomes[0]?.status).toBe('unresolvable');
@@ -233,7 +290,8 @@ describe('失效链接修复（T8-04）', () => {
 describe('附件清点（T8-04）', () => {
   function makePort(files: Map<string, Buffer>, referenced: string[]): AttachmentContentPort {
     return {
-      listReferencedAttachments: () => referenced.map((hashName) => ({ hashName, referencedBy: 'documents/doc-1' })),
+      listReferencedAttachments: () =>
+        referenced.map((hashName) => ({ hashName, referencedBy: 'documents/doc-1' })),
       readAttachment: (hashName) => files.get(hashName) ?? null,
     };
   }
@@ -251,13 +309,23 @@ describe('附件清点（T8-04）', () => {
       [`${goodHash}.bin`, good],
       ['eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.txt', corruptedContent],
     ]);
-    const port = makePort(files, [`${goodHash}.bin`, 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.png', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.txt']);
+    const port = makePort(files, [
+      `${goodHash}.bin`,
+      'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.png',
+      'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.txt',
+    ]);
 
     const result = checkAttachments(port);
     expect(result.checked).toBe(3);
-    expect(result.issues.find((issue) => issue.status === 'missing')?.hashName.startsWith('ffff')).toBe(true);
-    expect(result.issues.find((issue) => issue.status === 'corrupted')?.hashName.startsWith('eeee')).toBe(true);
-    expect(result.issues.filter((issue) => issue.hashName.startsWith(goodHash.slice(0, 8)))).toEqual([]);
+    expect(
+      result.issues.find((issue) => issue.status === 'missing')?.hashName.startsWith('ffff'),
+    ).toBe(true);
+    expect(
+      result.issues.find((issue) => issue.status === 'corrupted')?.hashName.startsWith('eeee'),
+    ).toBe(true);
+    expect(
+      result.issues.filter((issue) => issue.hashName.startsWith(goodHash.slice(0, 8))),
+    ).toEqual([]);
   });
 });
 
@@ -268,7 +336,16 @@ describe('自愈报告（T8-04：可查看与导出）', () => {
     const report = buildHealingReport({
       anchors: relocations,
       links: [
-        { linkId: 'l1', sourceType: 'memory', sourceId: 'm1', targetType: 'document', targetId: 'gone', status: 'unresolvable', newTargetId: null, detail: '找不到' },
+        {
+          linkId: 'l1',
+          sourceType: 'memory',
+          sourceId: 'm1',
+          targetType: 'document',
+          targetId: 'gone',
+          status: 'unresolvable',
+          newTargetId: null,
+          detail: '找不到',
+        },
       ],
       attachmentIssues: [{ hashName: 'ffff.png', status: 'missing', detail: '缺失' }],
       attachmentsChecked: 5,

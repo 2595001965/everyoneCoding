@@ -3,7 +3,9 @@ import { CHANNELS } from '../channels';
 
 /** window IPC：仅窗口管理；渲染层不得接触任何窗口实现细节。 */
 export function registerWindowIpc(ipc: IpcMainLike, deps: IpcDependencies): void {
-  const withWindow = <T>(task: (win: NonNullable<ReturnType<IpcDependencies['getWindow']>>) => T): T => {
+  const withWindow = <T>(
+    task: (win: NonNullable<ReturnType<IpcDependencies['getWindow']>>) => T,
+  ): T => {
     const win = deps.getWindow();
     if (!win || win.isDestroyed()) {
       throw new Error(JSON.stringify({ code: 'NOT_SUPPORTED', message: '窗口不存在' }));

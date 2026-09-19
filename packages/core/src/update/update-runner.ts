@@ -23,7 +23,12 @@ import {
   type ReminderState,
   type UpdateSettings,
 } from './update-policy';
-import { UpdateLedger, type BootDecision, type UpdateLedgerState, type UpdateRecord } from './update-ledger';
+import {
+  UpdateLedger,
+  type BootDecision,
+  type UpdateLedgerState,
+  type UpdateRecord,
+} from './update-ledger';
 import { isNewerVersion } from './update-types';
 
 /** 版本号非法时当作"没有更新"，而不是让更新检查抛错打断启动。 */
@@ -229,7 +234,9 @@ export class UpdateService {
 
     const info = (await this.ports.updater?.check()) ?? null;
     this.runtime.lastCheckAt = now;
-    this.availableInfoValue = isNewerSafe(info?.version, await this.ports.currentVersion()) ? info : null;
+    this.availableInfoValue = isNewerSafe(info?.version, await this.ports.currentVersion())
+      ? info
+      : null;
     await this.persist();
     this.emit({ type: 'check-done', info });
     if (info === null) return null;
@@ -303,7 +310,8 @@ export class UpdateService {
       backupPath = await this.ports.backupCurrentVersion(currentVersion);
       const record = this.ledgerInstance.current;
       if (record !== null) record.backupPath = backupPath;
-      const unsubscribe = this.onProgress === undefined ? null : updater.onProgress(this.onProgress);
+      const unsubscribe =
+        this.onProgress === undefined ? null : updater.onProgress(this.onProgress);
       try {
         await updater.downloadAndInstall();
       } finally {
@@ -374,7 +382,8 @@ function normalizeRuntime(raw: UpdateRuntimeState | null): UpdateRuntimeState {
         ? {
             deferredVersion:
               typeof reminder.deferredVersion === 'string' ? reminder.deferredVersion : null,
-            deferredUntil: typeof reminder.deferredUntil === 'number' ? reminder.deferredUntil : null,
+            deferredUntil:
+              typeof reminder.deferredUntil === 'number' ? reminder.deferredUntil : null,
             snoozeCount: typeof reminder.snoozeCount === 'number' ? reminder.snoozeCount : 0,
           }
         : { ...EMPTY_REMINDER },

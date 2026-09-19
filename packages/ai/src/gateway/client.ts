@@ -6,11 +6,7 @@ import type { FinishReason, StreamChunk } from '../core/stream';
 import type { ToolDefinition } from '../core/tool';
 import type { Usage } from '../core/usage';
 import { mergeUsage } from '../core/usage';
-import {
-  ProviderUnavailableError,
-  toAiError,
-  type AiError,
-} from '../core/error';
+import { ProviderUnavailableError, toAiError, type AiError } from '../core/error';
 import type { HttpTransport, ProxyConfig } from '../core/http';
 import { runConnectionTest } from '../core/connection-test';
 import type { ConnectionTestResult } from '../core/adapter';
@@ -23,12 +19,12 @@ import type { ProviderRepo } from '../repo/provider-repo';
 import type { PurposeBindingRepo } from '../repo/purpose-binding-repo';
 import { embedWithOpenAi } from '../adapters/openai/embeddings';
 import { DEFAULT_RETRY_POLICY, delayFor, shouldRetry, type RetryPolicy } from './retry';
-import type { RequestQueue} from './queue';
+import type { RequestQueue } from './queue';
 import { type QueueRelease } from './queue';
-import type { BudgetGuard} from './budget';
+import type { BudgetGuard } from './budget';
 import { describeBudget, type BudgetConfig } from './budget';
 import type { UsageTracker } from './usage-tracker';
-import type { FailoverController} from './failover';
+import type { FailoverController } from './failover';
 import { type FailoverPolicy } from './failover';
 import { testProxyConnectivity, type ProxyTestResult } from './proxy';
 
@@ -83,13 +79,27 @@ export interface GatewayEmbeddingRequest {
   dimensions?: number | null;
 }
 
-export type GatewayEvent =  | { type: 'provider-selected'; providerId: string; providerName: string; modelName: string; purpose: AiPurpose }
+export type GatewayEvent =
+  | {
+      type: 'provider-selected';
+      providerId: string;
+      providerName: string;
+      modelName: string;
+      purpose: AiPurpose;
+    }
   | { type: 'queued'; providerId: string; position: number }
   | { type: 'retry'; providerId: string; attempt: number; delayMs: number; reason: string }
   | { type: 'failover'; fromProviderId: string; toProviderId: string; reason: string }
   | { type: 'budget-exceeded'; message: string }
   | { type: 'budget-warning'; message: string }
-  | { type: 'usage'; providerId: string; modelId: string | null; usage: Usage; cost: number | null; latencyMs: number }
+  | {
+      type: 'usage';
+      providerId: string;
+      modelId: string | null;
+      usage: Usage;
+      cost: number | null;
+      latencyMs: number;
+    }
   | { type: 'error'; error: AiError }
   | { type: 'done'; finishReason: FinishReason; partial: boolean };
 
@@ -131,9 +141,12 @@ export class AiGateway {
   async *chat(request: GatewayChatRequest): AsyncIterable<StreamChunk> {
     const model = this.resolveModel(request);
     if (!model) {
-      const error = new ProviderUnavailableError('尚未配置可用模型，请先在「设置 → 模型服务」中完成连接测试', {
-        retryable: false,
-      });
+      const error = new ProviderUnavailableError(
+        '尚未配置可用模型，请先在「设置 → 模型服务」中完成连接测试',
+        {
+          retryable: false,
+        },
+      );
       this.emit({ type: 'error', error });
       yield { type: 'error', error };
       yield { type: 'done', finishReason: 'error', partial: true };
@@ -142,7 +155,9 @@ export class AiGateway {
 
     const candidates = this.candidatesFor(model, request.userId, request.providerId ?? null);
     if (candidates.length === 0) {
-      const error = new ProviderUnavailableError('没有可用的模型服务（全部被停用或已降级）', { retryable: false });
+      const error = new ProviderUnavailableError('没有可用的模型服务（全部被停用或已降级）', {
+        retryable: false,
+      });
       this.emit({ type: 'error', error });
       yield { type: 'error', error };
       yield { type: 'done', finishReason: 'error', partial: true };
@@ -178,20 +193,34 @@ export class AiGateway {
       }
 
       // 只有达到阈值后才允许切换；单次瞬时失败不应绕过容灾策略。
-      const shouldSwitch = this.deps.failover.recordFailure(candidate.provider.id, outcome.error.message);
+      const shouldSwitch = this.deps.failover.recordFailure(
+        candidate.provider.id,
+        outcome.error.message,
+      );
       if (!shouldSwitch) break;
 
       const next = candidates.find(
-        (item) => item.provider.id !== candidate.provider.id && !this.deps.failover.isDegraded(item.provider.id),
+        (item) =>
+          item.provider.id !== candidate.provider.id &&
+          !this.deps.failover.isDegraded(item.provider.id),
       );
       if (!next) break;
-      this.deps.failover.notifySwitch(candidate.provider.id, next.provider.id, outcome.error.message);
+      this.deps.failover.notifySwitch(
+        candidate.provider.id,
+        next.provider.id,
+        outcome.error.message,
+      );
       this.deps.logger?.warn('模型服务故障，切换备用', {
         from: candidate.provider.name,
         to: next.provider.name,
         reason: outcome.error.message,
       });
-      this.emit({ type: 'failover', fromProviderId: candidate.provider.id, toProviderId: next.provider.id, reason: outcome.error.message });
+      this.emit({
+        type: 'failover',
+        fromProviderId: candidate.provider.id,
+        toProviderId: next.provider.id,
+        reason: outcome.error.message,
+      });
     }
 
     const exhausted = new ProviderUnavailableError(
@@ -229,7 +258,13 @@ export class AiGateway {
         const retryAfter = lastRetryAfterMs;
         const delayMs = delayFor(attempt, this.retryPolicy, retryAfter ?? undefined);
         lastRetryAfterMs = undefined;
-        this.emit({ type: 'retry', providerId: provider.id, attempt, delayMs, reason: lastErrorReason });
+        this.emit({
+          type: 'retry',
+          providerId: provider.id,
+          attempt,
+          delayMs,
+          reason: lastErrorReason,
+        });
         await sleep(delayMs, request.signal);
       }
 
@@ -239,7 +274,10 @@ export class AiGateway {
         release = await this.deps.queue.acquire(provider.id, ticket, request.signal);
       } catch (acquireError) {
         // 排队等待期间被中断：直接结束，已产出的部分内容由上层保留
-        if (request.signal?.aborted || (acquireError instanceof Error && acquireError.name === 'AbortError')) {
+        if (
+          request.signal?.aborted ||
+          (acquireError instanceof Error && acquireError.name === 'AbortError')
+        ) {
           yield { type: 'done', finishReason: 'aborted', partial: true };
           return { kind: 'aborted' as const };
         }
@@ -261,7 +299,10 @@ export class AiGateway {
         }
         const aiError = toAiError(error, { providerId: provider.id, modelId: model.id });
         lastErrorReason = aiError.message;
-        lastRetryAfterMs = aiError instanceof Error && 'retryAfterMs' in aiError ? (aiError as { retryAfterMs?: number }).retryAfterMs : undefined;
+        lastRetryAfterMs =
+          aiError instanceof Error && 'retryAfterMs' in aiError
+            ? (aiError as { retryAfterMs?: number }).retryAfterMs
+            : undefined;
 
         if (request.signal?.aborted || aiError.kind === 'aborted') {
           yield { type: 'done', finishReason: 'aborted', partial: true };
@@ -277,7 +318,11 @@ export class AiGateway {
         release?.();
       }
     }
-    return { kind: 'fatal' as const, error: toAiError(new Error('重试次数已用尽'), { providerId: provider.id }), switchable: true };
+    return {
+      kind: 'fatal' as const,
+      error: toAiError(new Error('重试次数已用尽'), { providerId: provider.id }),
+      switchable: true,
+    };
   }
 
   private async *streamOnce(
@@ -371,7 +416,10 @@ export class AiGateway {
       ? this.deps.providers.findById(request.providerId)
       : this.deps.providers.findById(model.providerId);
     if (!provider || !provider.enabled) {
-      return embeddingUnavailable('not-configured', '向量化所用的模型服务已被停用，检索暂时只用关键词');
+      return embeddingUnavailable(
+        'not-configured',
+        '向量化所用的模型服务已被停用，检索暂时只用关键词',
+      );
     }
     if (provider.protocol !== 'openai') {
       return embeddingUnavailable(
@@ -381,7 +429,10 @@ export class AiGateway {
     }
     // 仅当用户显式标注「不支持」时才跳过尝试；默认（未标注）仍会探测一次
     if (model.capability.supportsEmbedding === false && model.capability.manualOverride) {
-      return embeddingUnavailable('unsupported-model', `模型 ${model.name} 已被标注为不支持向量化，检索只用关键词`);
+      return embeddingUnavailable(
+        'unsupported-model',
+        `模型 ${model.name} 已被标注为不支持向量化，检索只用关键词`,
+      );
     }
 
     const decision = this.deps.budget.check();
@@ -480,7 +531,11 @@ export class AiGateway {
    * 用途 → 绑定 → 模型的统一解析（chat 与 embed 共用）。
    * 兜底顺序：显式指定 → 用途绑定 → 默认模型 → 第一个启用 Provider 的第一个模型。
    */
-  private resolveModelFor(userId: string, purpose: AiPurpose, explicitModelId: string | null): Model | null {
+  private resolveModelFor(
+    userId: string,
+    purpose: AiPurpose,
+    explicitModelId: string | null,
+  ): Model | null {
     if (explicitModelId) {
       const explicit = this.deps.models.findById(explicitModelId);
       if (explicit) return explicit;
@@ -501,18 +556,29 @@ export class AiGateway {
   }
 
   /** 候选 Provider：首选模型所属的，其余按 sort_order 兜底 */
-  private candidatesFor(model: Model, userId: string, preferredId: string | null): Array<{ provider: Provider; model: Model }> {
+  private candidatesFor(
+    model: Model,
+    userId: string,
+    preferredId: string | null,
+  ): Array<{ provider: Provider; model: Model }> {
     const owner = this.deps.providers.findById(model.providerId);
     const all = this.deps.providers.list(owner?.userId ?? userId, { enabledOnly: true });
     const preferred = preferredId ? all.find((provider) => provider.id === preferredId) : undefined;
-    const ordered = [preferred, owner, ...all.filter((provider) => provider.id !== owner?.id && provider.id !== preferredId)]
+    const ordered = [
+      preferred,
+      owner,
+      ...all.filter((provider) => provider.id !== owner?.id && provider.id !== preferredId),
+    ]
       .filter((provider): provider is Provider => Boolean(provider))
       .filter((provider) => !this.deps.failover.isDegraded(provider.id))
       .sort((a, b) => a.order - b.order);
-    return ordered.map((provider) => {
-      const selected = provider.id === model.providerId ? model : this.deps.models.list(provider.id)[0];
-      return selected ? { provider, model: selected } : null;
-    }).filter((item): item is { provider: Provider; model: Model } => Boolean(item));
+    return ordered
+      .map((provider) => {
+        const selected =
+          provider.id === model.providerId ? model : this.deps.models.list(provider.id)[0];
+        return selected ? { provider, model: selected } : null;
+      })
+      .filter((item): item is { provider: Provider; model: Model } => Boolean(item));
   }
 
   private emit(event: GatewayEvent): void {

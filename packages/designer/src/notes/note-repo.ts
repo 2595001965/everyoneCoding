@@ -111,7 +111,9 @@ export class NoteRepository {
 
   /** 批量装载（不触发历史留痕，用于启动时从端口回读） */
   hydrate(notes: readonly Note[]): void {
-    this.notes = new Map(notes.filter((note) => note.projectId === this.projectId).map((note) => [note.id, note]));
+    this.notes = new Map(
+      notes.filter((note) => note.projectId === this.projectId).map((note) => [note.id, note]),
+    );
     this.emit();
   }
 
@@ -167,15 +169,20 @@ export class NoteRepository {
 
     const nextType = patch.type ?? current.type;
     const mustFollow = NOTE_TYPE_META[nextType].mustFollow;
-    const manualPriority = patch.manualPriority !== undefined ? patch.manualPriority : current.manualPriority;
+    const manualPriority =
+      patch.manualPriority !== undefined ? patch.manualPriority : current.manualPriority;
 
     const draft: Note = {
       ...current,
       type: nextType,
       title: patch.title !== undefined ? patch.title.trim() : current.title,
       content: patch.content ?? current.content,
-      checklists: patch.checklists ? patch.checklists.map((item) => ({ ...item })) : current.checklists,
-      codeBlocks: patch.codeBlocks ? patch.codeBlocks.map((block) => ({ ...block })) : current.codeBlocks,
+      checklists: patch.checklists
+        ? patch.checklists.map((item) => ({ ...item }))
+        : current.checklists,
+      codeBlocks: patch.codeBlocks
+        ? patch.codeBlocks.map((block) => ({ ...block }))
+        : current.codeBlocks,
       status: patch.status ?? current.status,
       manualPriority: mustFollow ? null : manualPriority,
       priority: computeNotePriority(nextType, mustFollow ? null : manualPriority),
@@ -206,7 +213,11 @@ export class NoteRepository {
   }
 
   /** 勾选 / 取消勾选清单项 */
-  toggleChecklistItem(noteId: string, itemId: string, options: { editor?: string } = {}): Note | null {
+  toggleChecklistItem(
+    noteId: string,
+    itemId: string,
+    options: { editor?: string } = {},
+  ): Note | null {
     const current = this.notes.get(noteId);
     if (current === null || current === undefined) return null;
     const checklists: NoteChecklistItem[] = current.checklists.map((item) =>
@@ -233,7 +244,9 @@ export class NoteRepository {
     const scoped: NoteFilter = { projectId: this.projectId, ...filter };
     return [...this.notes.values()]
       .filter((note) => noteMatchesFilter(note, scoped))
-      .sort((a, b) => (a.updatedAt === b.updatedAt ? (a.id < b.id ? -1 : 1) : b.updatedAt - a.updatedAt));
+      .sort((a, b) =>
+        a.updatedAt === b.updatedAt ? (a.id < b.id ? -1 : 1) : b.updatedAt - a.updatedAt,
+      );
   }
 
   listForTarget(targetType: NoteTargetType, targetId: string): Note[] {
@@ -299,12 +312,15 @@ export class NoteRepository {
 
   private relatedNotes(target: NoteContextTarget): Note[] {
     const wanted = new Set<string>();
-    if (target.elementId !== null && target.elementId !== undefined) wanted.add(`element:${target.elementId}`);
+    if (target.elementId !== null && target.elementId !== undefined)
+      wanted.add(`element:${target.elementId}`);
     if (target.pageId !== null && target.pageId !== undefined) wanted.add(`page:${target.pageId}`);
-    if (target.featureId !== null && target.featureId !== undefined) wanted.add(`feature:${target.featureId}`);
+    if (target.featureId !== null && target.featureId !== undefined)
+      wanted.add(`feature:${target.featureId}`);
     if (wanted.size === 0) return [];
     return [...this.notes.values()].filter(
-      (note) => note.projectId === target.projectId && wanted.has(`${note.targetType}:${note.targetId}`),
+      (note) =>
+        note.projectId === target.projectId && wanted.has(`${note.targetType}:${note.targetId}`),
     );
   }
 
@@ -364,7 +380,9 @@ export class NoteRepository {
       createdAt: current.updatedAt,
     };
     const merged = [...current.history, snapshot];
-    return merged.length > this.historyLimit ? merged.slice(merged.length - this.historyLimit) : merged;
+    return merged.length > this.historyLimit
+      ? merged.slice(merged.length - this.historyLimit)
+      : merged;
   }
 }
 
@@ -384,8 +402,10 @@ export function changedFieldsBetween(previous: Note, next: Note): string[] {
   if (previous.title !== next.title) changed.push('title');
   if (previous.type !== next.type) changed.push('type');
   if (JSON.stringify(previous.content) !== JSON.stringify(next.content)) changed.push('content');
-  if (JSON.stringify(previous.checklists) !== JSON.stringify(next.checklists)) changed.push('checklists');
-  if (JSON.stringify(previous.codeBlocks) !== JSON.stringify(next.codeBlocks)) changed.push('codeBlocks');
+  if (JSON.stringify(previous.checklists) !== JSON.stringify(next.checklists))
+    changed.push('checklists');
+  if (JSON.stringify(previous.codeBlocks) !== JSON.stringify(next.codeBlocks))
+    changed.push('codeBlocks');
   if (previous.status !== next.status) changed.push('status');
   if (previous.manualPriority !== next.manualPriority) changed.push('manualPriority');
   return changed;
@@ -401,6 +421,10 @@ export function createChecklistItem(
 }
 
 /** 便捷构造代码片段 */
-export function createNoteCodeBlock(code: string, language: string, idFactory: () => string): NoteCodeBlock {
+export function createNoteCodeBlock(
+  code: string,
+  language: string,
+  idFactory: () => string,
+): NoteCodeBlock {
   return { id: idFactory(), language, code };
 }

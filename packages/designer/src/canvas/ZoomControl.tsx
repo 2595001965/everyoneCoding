@@ -19,10 +19,19 @@ export interface ZoomControlProps {
   className?: string;
 }
 
-const MENU_OPTIONS = [0.25, 0.5, 0.75, 1, 1.5, 2, 4].map((z) => ({ value: String(z), label: `${Math.round(z * 100)}%` }));
+const MENU_OPTIONS = [0.25, 0.5, 0.75, 1, 1.5, 2, 4].map((z) => ({
+  value: String(z),
+  label: `${Math.round(z * 100)}%`,
+}));
 
 /** 缩放控制条 */
-export function ZoomControl({ zoom, onZoomChange, onFit, onReset, className }: ZoomControlProps): React.ReactElement {
+export function ZoomControl({
+  zoom,
+  onZoomChange,
+  onFit,
+  onReset,
+  className,
+}: ZoomControlProps): React.ReactElement {
   const clamped = clampZoom(zoom);
   const percent = Math.round(clamped * 100);
 
@@ -58,11 +67,20 @@ export function ZoomControl({ zoom, onZoomChange, onFit, onReset, className }: Z
         </Button>
       </Tooltip>
       <Tooltip content="实际大小（100%）">
-        <Button aria-label="实际大小" variant="ghost" size="sm" onClick={() => (onReset ?? (() => onZoomChange(1)))()}>
+        <Button
+          aria-label="实际大小"
+          variant="ghost"
+          size="sm"
+          onClick={() => (onReset ?? (() => onZoomChange(1)))()}
+        >
           100%
         </Button>
       </Tooltip>
-      <span data-testid="zoom-percent" aria-live="polite" style={{ minWidth: 44, textAlign: 'center' }}>
+      <span
+        data-testid="zoom-percent"
+        aria-live="polite"
+        style={{ minWidth: 44, textAlign: 'center' }}
+      >
         {percent}%
       </span>
       <span data-testid="zoom-range" className="ec-sr-only">

@@ -61,7 +61,11 @@ describe('域端口方法白名单', () => {
 
 describe('域端口错误映射', () => {
   it('保留结构化 code 与 retryable', () => {
-    const mapped = domainErrorFromUnknown({ code: 'NOT_FOUND', message: '项目不存在', retryable: true });
+    const mapped = domainErrorFromUnknown({
+      code: 'NOT_FOUND',
+      message: '项目不存在',
+      retryable: true,
+    });
     expect(mapped).toEqual({ code: 'NOT_FOUND', message: '项目不存在', retryable: true });
   });
 
@@ -225,7 +229,9 @@ describe('导入进度事件载荷守卫', () => {
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: 1.5 })).toBe(false);
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: -0.1 })).toBe(false);
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: Number.NaN })).toBe(false);
-    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(isWorkspaceImportProgressEvent({ ...valid, ratio: Number.POSITIVE_INFINITY })).toBe(
+      false,
+    );
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: '42%' })).toBe(false);
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: undefined })).toBe(false);
   });

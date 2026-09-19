@@ -89,7 +89,9 @@ export interface SystemPort {
    * 启动本地回环监听，返回回调 URL 与停止函数（主通道）。
    * 失败时抛错，调用方回退到自定义协议（辅通道）。
    */
-  startLoopback(handler: (callbackUrl: string) => void): Promise<{ redirectUri: string; stop: () => void }>;
+  startLoopback(
+    handler: (callbackUrl: string) => void,
+  ): Promise<{ redirectUri: string; stop: () => void }>;
   /** 注册自定义协议 everyonecoding://oauth（辅通道）；不支持时返回 false */
   registerProtocol(handler: (url: string) => void): Promise<boolean>;
   /** 系统剪贴板（复制授权链接） */

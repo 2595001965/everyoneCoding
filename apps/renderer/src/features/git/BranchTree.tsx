@@ -121,7 +121,12 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
         ids.push(item.name);
         const children = convert(item.children);
         const label = (
-          <BranchLabel node={item} onSwitch={switchTo} onRename={openRename} onDelete={openDelete} />
+          <BranchLabel
+            node={item}
+            onSwitch={switchTo}
+            onRename={openRename}
+            onDelete={openDelete}
+          />
         );
         return children.length > 0 ? { id: item.name, label, children } : { id: item.name, label };
       });
@@ -131,7 +136,12 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
   return (
     <div className="ec-branch-tree" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="ec-branch-tree__toolbar" style={{ display: 'flex', gap: 8 }}>
-        <Button size="sm" variant="primary" onClick={() => setCreateOpen(true)} data-testid="branch-create">
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => setCreateOpen(true)}
+          data-testid="branch-create"
+        >
           新建分支
         </Button>
       </div>
@@ -156,7 +166,12 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
             <Button size="sm" onClick={() => setPendingDelete(null)}>
               取消
             </Button>
-            <Button size="sm" variant="danger" onClick={confirmDelete} data-testid="branch-delete-confirm">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={confirmDelete}
+              data-testid="branch-delete-confirm"
+            >
               删除
             </Button>
           </>
@@ -178,7 +193,12 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
             <Button size="sm" onClick={() => setRename(null)}>
               取消
             </Button>
-            <Button size="sm" variant="primary" onClick={confirmRename} data-testid="branch-rename-confirm">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={confirmRename}
+              data-testid="branch-rename-confirm"
+            >
               重命名
             </Button>
           </>
@@ -191,7 +211,11 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
           data-testid="branch-rename-input"
         />
         {renameError !== null && (
-          <div role="alert" style={{ color: 'var(--ec-color-danger)' }} data-testid="branch-rename-error">
+          <div
+            role="alert"
+            style={{ color: 'var(--ec-color-danger)' }}
+            data-testid="branch-rename-error"
+          >
             {renameError}
           </div>
         )}
@@ -208,7 +232,12 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
             <Button size="sm" onClick={() => setCreateOpen(false)}>
               取消
             </Button>
-            <Button size="sm" variant="primary" onClick={confirmCreate} data-testid="branch-create-confirm">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={confirmCreate}
+              data-testid="branch-create-confirm"
+            >
               创建
             </Button>
           </>
@@ -222,7 +251,11 @@ export function BranchTree({ onSwitched }: BranchTreeProps): JSX.Element {
           data-testid="branch-create-input"
         />
         {createError !== null && (
-          <div role="alert" style={{ color: 'var(--ec-color-danger)' }} data-testid="branch-create-error">
+          <div
+            role="alert"
+            style={{ color: 'var(--ec-color-danger)' }}
+            data-testid="branch-create-error"
+          >
             {createError}
           </div>
         )}
@@ -244,7 +277,10 @@ function BranchLabel({
 }): JSX.Element {
   const branch = node.branch;
   return (
-    <span className="ec-branch-tree__label" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+    <span
+      className="ec-branch-tree__label"
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
+    >
       <span className="ec-branch-tree__name" style={{ minWidth: 120 }}>
         {node.label}
         {branch?.current === true && (

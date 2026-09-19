@@ -17,9 +17,15 @@ import type { PageDsl, RouteEntry } from '../dsl/types';
 /** 页面记忆写入（外壳适配 @ec/memory 的 T2-06 精简器 + PageMemoryService） */
 export interface PageMemoryPort {
   /** 结构摘要写入页面记忆；实现方负责精简、去重与版本号 */
-  writePageStructure(input: { projectId: string; pageId: string; dsl: PageDsl }): void | Promise<void>;
+  writePageStructure(input: {
+    projectId: string;
+    pageId: string;
+    dsl: PageDsl;
+  }): void | Promise<void>;
   /** 读取最近若干次结构变更（供 StructurePreview 展示） */
-  listStructureRevisions?(pageId: string): Array<{ revision: number; tokenEstimate: number; createdAt: number; changed?: string[] }>;
+  listStructureRevisions?(
+    pageId: string,
+  ): Array<{ revision: number; tokenEstimate: number; createdAt: number; changed?: string[] }>;
 }
 
 /** 项目记忆的路由总表读写（外壳适配 ProjectMemoryService.mergeRoutes） */

@@ -12,7 +12,13 @@ import {
   type StreamedLogLine,
 } from '@ec/preview';
 
-import type { ApiRequestLog, DeviceChannel, ManagedProcess, PreviewApi, PreviewState } from '../preview-api';
+import type {
+  ApiRequestLog,
+  DeviceChannel,
+  ManagedProcess,
+  PreviewApi,
+  PreviewState,
+} from '../preview-api';
 
 /**
  * 内存假预览端口：不碰网络 / 文件 / 进程，仅驱动渲染层测试。
@@ -39,16 +45,45 @@ export interface FakePreviewApi extends PreviewApi {
 }
 
 const DEFAULT_DEVICES: readonly DeviceChannel[] = [
-  { id: 'mobile-1', kind: 'mobile', label: 'Android 模拟器', available: true, toolchain: 'adb', guide: null, selected: true },
-  { id: 'harmony-1', kind: 'harmony', label: '鸿蒙设备', available: false, toolchain: null, guide: '未检测到 hdc 工具链，请安装 DevEco Studio 并将 hdc 加入 PATH 后重试。', selected: false },
-  { id: 'desktop-1', kind: 'desktop', label: '桌面端', available: true, toolchain: 'electron', guide: null, selected: false },
+  {
+    id: 'mobile-1',
+    kind: 'mobile',
+    label: 'Android 模拟器',
+    available: true,
+    toolchain: 'adb',
+    guide: null,
+    selected: true,
+  },
+  {
+    id: 'harmony-1',
+    kind: 'harmony',
+    label: '鸿蒙设备',
+    available: false,
+    toolchain: null,
+    guide: '未检测到 hdc 工具链，请安装 DevEco Studio 并将 hdc 加入 PATH 后重试。',
+    selected: false,
+  },
+  {
+    id: 'desktop-1',
+    kind: 'desktop',
+    label: '桌面端',
+    available: true,
+    toolchain: 'electron',
+    guide: null,
+    selected: false,
+  },
 ];
 
 export function createFakePreviewApi(options?: FakePreviewOptions): FakePreviewApi {
   const shiftMode = options?.shiftMode ?? 'linked';
   const devices = options?.devices ?? DEFAULT_DEVICES;
 
-  const internal = { mode: 'static' as PreviewMode, running: false, lanEnabled: false, shifted: false };
+  const internal = {
+    mode: 'static' as PreviewMode,
+    running: false,
+    lanEnabled: false,
+    shifted: false,
+  };
   let port = 4173;
   let notice: string | null = null;
   let dataSource: DataSourceKind | null = 'mock';
@@ -79,9 +114,30 @@ export function createFakePreviewApi(options?: FakePreviewOptions): FakePreviewA
     },
   ];
   const logs: StreamedLogLine[] = [
-    { id: 'log-1', source: 'install', level: 'info', text: '依赖安装完成', at: 1, stream: 'stdout' },
-    { id: 'log-2', source: 'run', level: 'warn', text: '端口占用，尝试顺延', at: 2, stream: 'stdout' },
-    { id: 'log-3', source: 'run', level: 'error', text: '启动失败 fatal error', at: 3, stream: 'stderr' },
+    {
+      id: 'log-1',
+      source: 'install',
+      level: 'info',
+      text: '依赖安装完成',
+      at: 1,
+      stream: 'stdout',
+    },
+    {
+      id: 'log-2',
+      source: 'run',
+      level: 'warn',
+      text: '端口占用，尝试顺延',
+      at: 2,
+      stream: 'stdout',
+    },
+    {
+      id: 'log-3',
+      source: 'run',
+      level: 'error',
+      text: '启动失败 fatal error',
+      at: 3,
+      stream: 'stderr',
+    },
   ];
   let backendRunning = false;
   let process: ManagedProcess | null = null;

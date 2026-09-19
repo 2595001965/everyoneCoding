@@ -1,4 +1,10 @@
-import { composeTemplate, renderTemplate, UNIVERSAL_NEGATIVE_CONSTRAINTS, type PromptTemplate, type PromptTemplateInput } from './shared';
+import {
+  composeTemplate,
+  renderTemplate,
+  UNIVERSAL_NEGATIVE_CONSTRAINTS,
+  type PromptTemplate,
+  type PromptTemplateInput,
+} from './shared';
 
 /**
  * 移动端代码模板（FR-AI-13：移动双端默认 Flutter 单代码库）。

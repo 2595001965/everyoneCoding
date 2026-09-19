@@ -56,7 +56,9 @@ export interface DataSourceRef {
 
 function methodFromPath(path: string): HttpMethod {
   // 无显式方法时按约定推断：/api/**/create|login|submit 等按 POST，其余 GET
-  return /\/(create|update|delete|login|logout|submit|save|register|reset)\b/i.test(path) ? 'POST' : 'GET';
+  return /\/(create|update|delete|login|logout|submit|save|register|reset)\b/i.test(path)
+    ? 'POST'
+    : 'GET';
 }
 
 /** 构造接口定义（apiDeps 自动收集） */
@@ -77,7 +79,10 @@ export function apiDefFromPath(path: string, extra: Partial<ApiDef> = {}): ApiDe
  * @param dsl 页面 DSL
  * @param catalogApis 项目接口清单（可选，用于补全请求 / 响应字段）
  */
-export function getDataSources(dsl: PageDsl, catalogApis: readonly ApiDef[] = []): DataSourceCatalog {
+export function getDataSources(
+  dsl: PageDsl,
+  catalogApis: readonly ApiDef[] = [],
+): DataSourceCatalog {
   const apis: ApiDef[] = dsl.apiDeps.map((path) => {
     const known = catalogApis.find((api) => api.id === path || api.path === path);
     return known ?? apiDefFromPath(path);
@@ -109,7 +114,10 @@ export function listDataSourcePaths(catalog: DataSourceCatalog): DataSourceRef[]
     kind: 'state',
     id: state.name,
     path: state.name,
-    label: state.description !== undefined && state.description.length > 0 ? `${state.name}（${state.description}）` : state.name,
+    label:
+      state.description !== undefined && state.description.length > 0
+        ? `${state.name}（${state.description}）`
+        : state.name,
     type: state.type,
     depth: 0,
   }));
@@ -138,7 +146,9 @@ export function findReferencingElements(dsl: PageDsl, path: string): ElementNode
   const out: ElementNode[] = [];
   for (const { node } of walkElements(dsl.tree)) {
     const bindings = Object.values(node.bindings ?? {});
-    const inBindings = bindings.some((value) => value === needle || collectExpressionPaths(value).includes(needle));
+    const inBindings = bindings.some(
+      (value) => value === needle || collectExpressionPaths(value).includes(needle),
+    );
     const inProps = JSON.stringify(node.props ?? {}).includes(needle);
     if (inBindings || inProps) out.push(node);
   }

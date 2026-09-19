@@ -15,11 +15,16 @@ import type { MemoryItem, MemoryScope } from '@ec/memory';
 import type { ImportLocalStatePort, ImportTargetPort, PackageObject } from '../import/import-types';
 
 export function tmpFile(name: string): string {
-  return path.join(os.tmpdir(), `ecpkg-test-${Date.now()}-${Math.random().toString(36).slice(2)}-${name}`);
+  return path.join(
+    os.tmpdir(),
+    `ecpkg-test-${Date.now()}-${Math.random().toString(36).slice(2)}-${name}`,
+  );
 }
 
 /** 构造一个宽松合法的 MemoryItem（测试用，不强制全部不变量） */
-export function makeMemoryItem(p: Partial<MemoryItem> & { id: string; updatedAt: number }): MemoryItem {
+export function makeMemoryItem(
+  p: Partial<MemoryItem> & { id: string; updatedAt: number },
+): MemoryItem {
   return {
     id: p.id,
     userId: p.userId ?? 'U',
@@ -58,7 +63,12 @@ export interface PackageSpec {
     rawFiles?: Array<{ name: string; content: string }>;
   }>;
   codeFiles?: Array<{ projectId: string; relPath: string; content: string }>;
-  designPages?: Array<{ projectId: string; name: string; updatedAt: number; content: Record<string, unknown> }>;
+  designPages?: Array<{
+    projectId: string;
+    name: string;
+    updatedAt: number;
+    content: Record<string, unknown>;
+  }>;
   registry?: Array<{ projectId: string; updatedAt: number; content: Record<string, unknown> }>;
   anchors?: Array<{ projectId: string; updatedAt: number; content: Record<string, unknown> }>;
   pipeline?: Array<{ projectId: string; relPath: string; content: Record<string, unknown> }>;
@@ -74,7 +84,8 @@ export function buildPackage(spec: PackageSpec): string {
   const writer = EcpkgWriter.create(out);
   const includes = new Set<ContentKind>();
 
-  if (spec.memoryLongterm?.length || Object.keys(spec.memoryByProject ?? {}).length) includes.add('memory');
+  if (spec.memoryLongterm?.length || Object.keys(spec.memoryByProject ?? {}).length)
+    includes.add('memory');
   if (spec.documents?.length) includes.add('documents');
   if (spec.codeFiles?.length) includes.add('code');
   if (spec.designPages?.length) includes.add('design');
@@ -83,10 +94,16 @@ export function buildPackage(spec: PackageSpec): string {
   if (spec.pipeline?.length) includes.add('pipeline');
 
   if (spec.memoryLongterm?.length) {
-    writer.writeTextEntry('memory/longterm.jsonl', spec.memoryLongterm.map((m) => JSON.stringify(m)).join('\n') + '\n');
+    writer.writeTextEntry(
+      'memory/longterm.jsonl',
+      spec.memoryLongterm.map((m) => JSON.stringify(m)).join('\n') + '\n',
+    );
   }
   for (const [pid, items] of Object.entries(spec.memoryByProject ?? {})) {
-    writer.writeTextEntry(`memory/projects/${pid}/project.jsonl`, items.map((m) => JSON.stringify(m)).join('\n') + '\n');
+    writer.writeTextEntry(
+      `memory/projects/${pid}/project.jsonl`,
+      items.map((m) => JSON.stringify(m)).join('\n') + '\n',
+    );
   }
   for (const pr of spec.projects ?? []) {
     writer.writeTextEntry(
@@ -95,7 +112,12 @@ export function buildPackage(spec: PackageSpec): string {
     );
   }
   if (spec.documents?.length) {
-    const index = spec.documents.map((d) => ({ id: d.id, name: d.name, projectId: d.projectId, updatedAt: d.updatedAt }));
+    const index = spec.documents.map((d) => ({
+      id: d.id,
+      name: d.name,
+      projectId: d.projectId,
+      updatedAt: d.updatedAt,
+    }));
     writer.writeTextEntry('documents/index.json', JSON.stringify(index));
     for (const d of spec.documents) {
       for (const f of d.rawFiles ?? []) {
@@ -110,13 +132,22 @@ export function buildPackage(spec: PackageSpec): string {
     );
   }
   for (const r of spec.registry ?? []) {
-    writer.writeTextEntry(`projects/${r.projectId}/registry.json`, JSON.stringify({ ...r.content, updatedAt: r.updatedAt }));
+    writer.writeTextEntry(
+      `projects/${r.projectId}/registry.json`,
+      JSON.stringify({ ...r.content, updatedAt: r.updatedAt }),
+    );
   }
   for (const a of spec.anchors ?? []) {
-    writer.writeTextEntry(`projects/${a.projectId}/anchors.json`, JSON.stringify({ ...a.content, updatedAt: a.updatedAt }));
+    writer.writeTextEntry(
+      `projects/${a.projectId}/anchors.json`,
+      JSON.stringify({ ...a.content, updatedAt: a.updatedAt }),
+    );
   }
   for (const pl of spec.pipeline ?? []) {
-    writer.writeTextEntry(`projects/${pl.projectId}/pipeline/${pl.relPath}`, JSON.stringify(pl.content));
+    writer.writeTextEntry(
+      `projects/${pl.projectId}/pipeline/${pl.relPath}`,
+      JSON.stringify(pl.content),
+    );
   }
   for (const c of spec.codeFiles ?? []) {
     writer.writeTextEntry(`projects/${c.projectId}/code/${c.relPath}`, c.content);

@@ -9,7 +9,10 @@
 import type { AiControlServiceHost, DomainControlServiceHost } from '@ec/shell-api';
 
 export interface IpcMainLike {
-  handle(channel: string, handler: (event: unknown, payload: unknown) => Promise<unknown> | unknown): void;
+  handle(
+    channel: string,
+    handler: (event: unknown, payload: unknown) => Promise<unknown> | unknown,
+  ): void;
   removeHandler(channel: string): void;
 }
 
@@ -18,8 +21,12 @@ export interface IpcSenderLike {
 }
 
 export interface ElectronDialogLike {
-  showOpenDialog(options: Record<string, unknown>): Promise<{ canceled: boolean; filePaths: string[] }>;
-  showSaveDialog(options: Record<string, unknown>): Promise<{ canceled: boolean; filePath?: string }>;
+  showOpenDialog(
+    options: Record<string, unknown>,
+  ): Promise<{ canceled: boolean; filePaths: string[] }>;
+  showSaveDialog(
+    options: Record<string, unknown>,
+  ): Promise<{ canceled: boolean; filePath?: string }>;
   showMessageBox(options: Record<string, unknown>): Promise<{ response: number }>;
 }
 
@@ -54,7 +61,9 @@ export interface SafeStorageLike {
 export interface UpdaterLike {
   check(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;
   downloadAndInstall(): Promise<void>;
-  onProgress(listener: (progress: { phase: string; percent?: number; message?: string }) => void): () => void;
+  onProgress(
+    listener: (progress: { phase: string; percent?: number; message?: string }) => void,
+  ): () => void;
 }
 
 export interface ElectronAppLike {

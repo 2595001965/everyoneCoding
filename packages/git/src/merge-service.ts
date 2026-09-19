@@ -72,7 +72,10 @@ export class MergeService {
    * 执行合并。步骤固定为「创建备份 → 合并 → 归类结果」，
    * 任何失败都不吞掉：调用方能拿到 `status: 'failed'` 与结构化日志。
    */
-  async execute(source: string, options: MergeExecuteOptions = {}): Promise<GitResult<MergeOutcome>> {
+  async execute(
+    source: string,
+    options: MergeExecuteOptions = {},
+  ): Promise<GitResult<MergeOutcome>> {
     const logs: GitLogEntry[] = [];
     let backupBranch: string | null = null;
 
@@ -81,7 +84,12 @@ export class MergeService {
       const created = await this.client.createBranch(branchName);
       logs.push(...created.logs);
       if (created.ok) backupBranch = branchName;
-      else logs.push({ level: 'warn', message: `备份分支创建失败，本次合并未执行：${created.error?.message ?? '未知原因'}`, at: this.clock() });
+      else
+        logs.push({
+          level: 'warn',
+          message: `备份分支创建失败，本次合并未执行：${created.error?.message ?? '未知原因'}`,
+          at: this.clock(),
+        });
       if (!created.ok) {
         return { ok: false, data: null, logs, error: created.error };
       }
@@ -137,7 +145,8 @@ export class MergeService {
     }
     const rebased = await this.client.rebase(onto);
     logs.push(...rebased.logs);
-    if (!rebased.ok || rebased.data === null) return { ok: false, data: null, logs, error: rebased.error };
+    if (!rebased.ok || rebased.data === null)
+      return { ok: false, data: null, logs, error: rebased.error };
 
     const conflictFiles = rebased.data.conflictFiles;
     const head = await this.client.headSha();
@@ -157,13 +166,19 @@ export class MergeService {
   }
 
   /** 备份分支列表（按时间倒序） */
-  async listBackups(): Promise<GitResult<{ name: string; sha: string | null; subject: string | null }[]>> {
+  async listBackups(): Promise<
+    GitResult<{ name: string; sha: string | null; subject: string | null }[]>
+  > {
     const result = await this.client.branches();
     if (!result.ok || result.data === null) return { ...result, data: null };
     const backups = result.data
       .filter((branch) => isBackupBranch(branch.name))
       .sort((a, b) => (a.name < b.name ? 1 : -1))
-      .map((branch) => ({ name: branch.name, sha: branch.lastCommitSha, subject: branch.lastCommitSubject }));
+      .map((branch) => ({
+        name: branch.name,
+        sha: branch.lastCommitSha,
+        subject: branch.lastCommitSubject,
+      }));
     return { ok: true, error: null, logs: result.logs, data: backups };
   }
 }

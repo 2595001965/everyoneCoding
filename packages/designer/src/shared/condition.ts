@@ -10,17 +10,10 @@ import { readPath, resolveExpression, parsePath, type PathSegment } from './expr
 export type ConditionLiteral = string | number | boolean | null;
 
 export type ConditionComparisonOp =
-  | 'eq'
-  | 'neq'
-  | 'gt'
-  | 'gte'
-  | 'lt'
-  | 'lte'
-  | 'contains'
-  | 'startsWith'
-  | 'endsWith';
+  'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith';
 
-export type ConditionOp = ConditionComparisonOp | 'and' | 'or' | 'not' | 'truthy' | 'falsy' | 'in' | 'empty';
+export type ConditionOp =
+  ConditionComparisonOp | 'and' | 'or' | 'not' | 'truthy' | 'falsy' | 'in' | 'empty';
 
 /** 条件表达式（递归结构） */
 export type ConditionExpr =
@@ -112,7 +105,13 @@ export function parseCondition(value: unknown): ConditionExpr | null {
   if (typeof left !== 'string') return null;
   if (typed === 'truthy' || typed === 'falsy' || typed === 'empty') return { op: typed, left };
   const right = value['right'];
-  if (right !== null && typeof right !== 'string' && typeof right !== 'number' && typeof right !== 'boolean') return null;
+  if (
+    right !== null &&
+    typeof right !== 'string' &&
+    typeof right !== 'number' &&
+    typeof right !== 'boolean'
+  )
+    return null;
   return { op: typed, left, right: right as ConditionLiteral };
 }
 
@@ -139,7 +138,10 @@ export function createCondition(op: ConditionOp = 'eq'): ConditionExpr {
 function compare(left: unknown, right: ConditionLiteral, op: ConditionComparisonOp): boolean {
   if (op === 'eq') return looseEquals(left, right);
   if (op === 'neq') return !looseEquals(left, right);
-  if (op === 'contains') return Array.isArray(left) ? left.includes(right) : String(left ?? '').includes(String(right ?? ''));
+  if (op === 'contains')
+    return Array.isArray(left)
+      ? left.includes(right)
+      : String(left ?? '').includes(String(right ?? ''));
   if (op === 'startsWith') return String(left ?? '').startsWith(String(right ?? ''));
   if (op === 'endsWith') return String(left ?? '').endsWith(String(right ?? ''));
   const a = typeof left === 'number' ? left : Number(left);
@@ -161,7 +163,8 @@ function looseEquals(left: unknown, right: ConditionLiteral): boolean {
   if (left === right) return true;
   if (left === null || left === undefined) return right === null || right === '';
   if (typeof left === 'number' || typeof right === 'number') return Number(left) === Number(right);
-  if (typeof left === 'boolean' || typeof right === 'boolean') return String(left) === String(right);
+  if (typeof left === 'boolean' || typeof right === 'boolean')
+    return String(left) === String(right);
   return String(left) === String(right);
 }
 
@@ -174,7 +177,10 @@ function isEmptyValue(value: unknown): boolean {
 }
 
 /** 求值：scope 为运行时变量表（页面状态、接口响应等） */
-export function evaluateCondition(expr: ConditionExpr | null | undefined, scope: Record<string, unknown> = {}): boolean {
+export function evaluateCondition(
+  expr: ConditionExpr | null | undefined,
+  scope: Record<string, unknown> = {},
+): boolean {
   if (expr === null || expr === undefined) return true;
   switch (expr.op) {
     case 'and':
@@ -214,9 +220,13 @@ export function describeCondition(expr: ConditionExpr | null | undefined): strin
   if (expr === null || expr === undefined) return '始终渲染';
   switch (expr.op) {
     case 'and':
-      return expr.items.length === 0 ? '（空条件）' : expr.items.map((item) => `(${describeCondition(item)})`).join(' 并且 ');
+      return expr.items.length === 0
+        ? '（空条件）'
+        : expr.items.map((item) => `(${describeCondition(item)})`).join(' 并且 ');
     case 'or':
-      return expr.items.length === 0 ? '（空条件）' : expr.items.map((item) => `(${describeCondition(item)})`).join(' 或者 ');
+      return expr.items.length === 0
+        ? '（空条件）'
+        : expr.items.map((item) => `(${describeCondition(item)})`).join(' 或者 ');
     case 'not':
       return `非(${describeCondition(expr.item)})`;
     case 'truthy':
@@ -268,14 +278,20 @@ export function evaluatePermission(
 }
 
 /** 校验：返回问题列表（空数组表示通过），供 ConditionPanel / flow-validator 复用 */
-export function validateCondition(expr: ConditionExpr | null | undefined, path: string[] = []): string[] {
+export function validateCondition(
+  expr: ConditionExpr | null | undefined,
+  path: string[] = [],
+): string[] {
   if (expr === null || expr === undefined) return [];
   const issues: string[] = [];
   switch (expr.op) {
     case 'and':
     case 'or':
-      if (expr.items.length === 0) issues.push(`${path.join('.') || '条件'}：逻辑组至少需要一个子条件`);
-      expr.items.forEach((item, index) => issues.push(...validateCondition(item, [...path, `${expr.op}[${index}]`])));
+      if (expr.items.length === 0)
+        issues.push(`${path.join('.') || '条件'}：逻辑组至少需要一个子条件`);
+      expr.items.forEach((item, index) =>
+        issues.push(...validateCondition(item, [...path, `${expr.op}[${index}]`])),
+      );
       break;
     case 'not':
       issues.push(...validateCondition(expr.item, [...path, 'not']));

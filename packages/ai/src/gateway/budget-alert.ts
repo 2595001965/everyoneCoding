@@ -27,7 +27,15 @@ export interface BudgetAlertView {
 
 /** 无预算配置时的空态 */
 export function emptyBudgetView(): BudgetAlertView {
-  return { level: 'ok', scope: null, spent: 0, limit: null, ratio: 0, message: '未设置预算，用量不受限制', hint: null };
+  return {
+    level: 'ok',
+    scope: null,
+    spent: 0,
+    limit: null,
+    ratio: 0,
+    message: '未设置预算，用量不受限制',
+    hint: null,
+  };
 }
 
 /**
@@ -74,11 +82,14 @@ export function validateBudgetInput(input: {
     return Number.isFinite(value) && value >= 0 ? value : null;
   };
   const ratio = Number(input.alertRatio.trim() === '' ? '0.8' : input.alertRatio);
-  if (!Number.isFinite(ratio) || ratio <= 0 || ratio > 1) return '告警阈值必须是 0~1 之间的小数（默认 0.8）';
+  if (!Number.isFinite(ratio) || ratio <= 0 || ratio > 1)
+    return '告警阈值必须是 0~1 之间的小数（默认 0.8）';
   const daily = parse(input.dailyUsd);
   const monthly = parse(input.monthlyUsd);
-  if (input.dailyUsd.trim() !== '' && daily === null) return '日预算必须是 ≥0 的数字（留空表示不限）';
-  if (input.monthlyUsd.trim() !== '' && monthly === null) return '月预算必须是 ≥0 的数字（留空表示不限）';
+  if (input.dailyUsd.trim() !== '' && daily === null)
+    return '日预算必须是 ≥0 的数字（留空表示不限）';
+  if (input.monthlyUsd.trim() !== '' && monthly === null)
+    return '月预算必须是 ≥0 的数字（留空表示不限）';
   // 全空 = 两者都不限，是合法组合（emptyBudgetView 展示"未设置预算"）
   return null;
 }

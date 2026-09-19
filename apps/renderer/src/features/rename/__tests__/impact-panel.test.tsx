@@ -21,7 +21,13 @@ async function reportFixture(): Promise<ImpactReport> {
 }
 
 /** 受控包装：把 onSelectionChange 接回 state，模拟真实宿主页面 */
-function Controlled({ report, onExecute }: { report: ImpactReport; onExecute?: (selection: ReadonlySet<string>) => void }) {
+function Controlled({
+  report,
+  onExecute,
+}: {
+  report: ImpactReport;
+  onExecute?: (selection: ReadonlySet<string>) => void;
+}) {
   const [selection, setSelection] = useState<ReadonlySet<string> | undefined>(undefined);
   return (
     <ImpactPanel
@@ -38,29 +44,43 @@ describe('ImpactPanel', () => {
     const report = await reportFixture();
     render(<Controlled report={report} />);
     const groups = screen.getAllByTestId('risk-group');
-    expect(groups.map((group) => group.getAttribute('data-level'))).toEqual(['auto', 'confirm', 'warn']);
+    expect(groups.map((group) => group.getAttribute('data-level'))).toEqual([
+      'auto',
+      'confirm',
+      'warn',
+    ]);
   });
 
   it('warn 区默认未勾选，auto / confirm 默认勾选（FR-UNI-04 硬验收）', async () => {
     const report = await reportFixture();
     render(<Controlled report={report} />);
 
-    const warnGroup = screen.getAllByTestId('risk-group').find((group) => group.getAttribute('data-level') === 'warn');
+    const warnGroup = screen
+      .getAllByTestId('risk-group')
+      .find((group) => group.getAttribute('data-level') === 'warn');
     expect(warnGroup?.getAttribute('data-selected')).toBe('0');
     expect(warnGroup).toHaveTextContent('已选 0 /');
 
-    const autoGroup = screen.getAllByTestId('risk-group').find((group) => group.getAttribute('data-level') === 'auto');
+    const autoGroup = screen
+      .getAllByTestId('risk-group')
+      .find((group) => group.getAttribute('data-level') === 'auto');
     expect(autoGroup?.getAttribute('data-selected')).toBe(String(report.totals.auto));
   });
 
   it('顶部展示总计、预计耗时与项目内边界提示（D-07）', async () => {
     const report = await reportFixture();
     render(<Controlled report={report} />);
-    expect(screen.getByTestId('impact-summary')).toHaveTextContent(`将修改 ${report.totals.selected} 处`);
-    expect(screen.getByTestId('impact-summary')).toHaveTextContent(`警告区 ${report.totals.warn} 处`);
+    expect(screen.getByTestId('impact-summary')).toHaveTextContent(
+      `将修改 ${report.totals.selected} 处`,
+    );
+    expect(screen.getByTestId('impact-summary')).toHaveTextContent(
+      `警告区 ${report.totals.warn} 处`,
+    );
     expect(screen.getByTestId('impact-elapsed')).toHaveTextContent('预算 1500ms');
     expect(screen.getByTestId('impact-scope-notice')).toHaveTextContent(PROJECT_SCOPE_NOTICE);
-    expect(screen.getByTestId('impact-groups-count')).toHaveTextContent(`共 ${report.totals.total} 处`);
+    expect(screen.getByTestId('impact-groups-count')).toHaveTextContent(
+      `共 ${report.totals.total} 处`,
+    );
   });
 
   it('检索定位：按文件路径过滤后仅保留命中条目', async () => {

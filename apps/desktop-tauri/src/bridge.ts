@@ -108,7 +108,10 @@ function extractShellError(err: unknown): { code: string; message?: string } | n
 }
 
 /** 统一调用封装：异常归一化为 `ShellError`。 */
-async function call<TReturn>(command: string, args: Record<string, unknown> = {}): Promise<TReturn> {
+async function call<TReturn>(
+  command: string,
+  args: Record<string, unknown> = {},
+): Promise<TReturn> {
   try {
     return await invoke<TReturn>(command, clean(args));
   } catch (err) {
@@ -311,7 +314,11 @@ const dialogApi: DialogApi = {
 };
 
 const processApi: ProcessApi = {
-  async spawn(command: string, args: string[], options?: SpawnOptions): Promise<ChildProcessHandle> {
+  async spawn(
+    command: string,
+    args: string[],
+    options?: SpawnOptions,
+  ): Promise<ChildProcessHandle> {
     const channel = new Channel<ProcessEventWire>();
     const spawned = await call<{ id: string; pid: number | null }>('process_spawn', {
       command,
@@ -564,7 +571,13 @@ export function createTauriShell(): ShellHost {
           }
         };
         void call<void>('ai_stream_start', { request, channel }).catch((error) => {
-          const event: AiStreamEvent = { type: 'error', error: { code: 'NOT_SUPPORTED', message: error instanceof Error ? error.message : String(error) } };
+          const event: AiStreamEvent = {
+            type: 'error',
+            error: {
+              code: 'NOT_SUPPORTED',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          };
           for (const listener of listeners) listener(event);
         });
         return {
@@ -573,10 +586,14 @@ export function createTauriShell(): ShellHost {
             listeners.add(listener);
             return () => listeners.delete(listener);
           },
-          abort: () => { void call<void>('ai_abort', { requestId: request.requestId }); },
+          abort: () => {
+            void call<void>('ai_abort', { requestId: request.requestId });
+          },
         } satisfies AiStreamHandle;
       },
-      abort: (requestId: string) => { void call<void>('ai_abort', { requestId }); },
+      abort: (requestId: string) => {
+        void call<void>('ai_abort', { requestId });
+      },
     } satisfies AiControlHost,
     domain: {
       // Rust 侧尚未提供域端口命令（工作台 / 文档 / 账号 / 设置四域）。

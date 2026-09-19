@@ -46,7 +46,9 @@ const SECTION_HEADING_PATTERN = /^#{1,3}\s*(.+?)\s*$/;
 
 /** 渲染提示词：问卷结果 + 记忆约束前置，禁止技术用强约束句式 */
 export function buildTechDocPrompt(input: TechDocPromptInput): { system: string; user: string } {
-  const forbiddenLines = input.forbidden.map((item) => `- 【强约束】禁止使用 ${item}。此条来自记忆，违反即返工。`);
+  const forbiddenLines = input.forbidden.map(
+    (item) => `- 【强约束】禁止使用 ${item}。此条来自记忆，违反即返工。`,
+  );
   const stackLines = [
     ...input.targetPlatforms.map((platform) => `- 目标端：${platform}`),
     ...input.stack.split('\n').map((line) => `- ${line}`),
@@ -70,7 +72,9 @@ export function buildTechDocPrompt(input: TechDocPromptInput): { system: string;
     '2. 记忆中的禁止技术绝不可出现在方案中（含依赖与命令示例）。',
     '3. OpenAPI 草案必须结构合法（paths / components 齐全，operation 至少含 summary）。',
     '4. 不要臆造第三方服务与依赖；确有必要时写进「风险与假设」并由决策说明承担。',
-    ...(input.forbidden.length > 0 ? ['', '## 禁止事项（来自记忆，违反即返工）', ...forbiddenLines] : []),
+    ...(input.forbidden.length > 0
+      ? ['', '## 禁止事项（来自记忆，违反即返工）', ...forbiddenLines]
+      : []),
   ].join('\n');
 
   const userLines = [
@@ -79,7 +83,11 @@ export function buildTechDocPrompt(input: TechDocPromptInput): { system: string;
     '## 技术选型问卷结果（必须逐条遵守）',
     ...stackLines,
   ];
-  if (input.declaredStack !== null && input.declaredStack !== undefined && input.declaredStack.trim().length > 0) {
+  if (
+    input.declaredStack !== null &&
+    input.declaredStack !== undefined &&
+    input.declaredStack.trim().length > 0
+  ) {
     userLines.push('', '## 项目记忆已声明的技术栈（冲突时对比说明）', input.declaredStack);
   }
   userLines.push('', '## 需求文档（输入）', input.requirementDoc);

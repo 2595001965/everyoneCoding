@@ -80,7 +80,12 @@ const { fakeInvoke, MockChannel } = vi.hoisted(() => {
       case 'fs_readdir': {
         const dir = args.path as string;
         const prefix = `${dir}${SEP}`;
-        const entries: Array<{ name: string; path: string; isFile: boolean; isDirectory: boolean }> = [];
+        const entries: Array<{
+          name: string;
+          path: string;
+          isFile: boolean;
+          isDirectory: boolean;
+        }> = [];
         for (const key of fs.keys()) {
           if (!key.startsWith(prefix)) continue;
           const rest = key.slice(prefix.length);
@@ -210,8 +215,10 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 // 复用 shell-api 的契约套件：同一份用例覆盖 Tauri 实现。
-runShellContract(
-  'TauriShell',
-  () => createTauriShell(),
-  { describe, it, expect, beforeEach, afterEach } as unknown as ContractHarness,
-);
+runShellContract('TauriShell', () => createTauriShell(), {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+} as unknown as ContractHarness);

@@ -29,7 +29,9 @@ export function locate(refPath: string, line: number, column: number): string {
 }
 
 /** 解析 `file:line:col` 定位串 */
-export function parseLocator(locator: string): { refPath: string; line: number; column: number } | null {
+export function parseLocator(
+  locator: string,
+): { refPath: string; line: number; column: number } | null {
   const match = /^(.*):(\d+):(\d+)$/.exec(locator);
   if (match === null) return null;
   return { refPath: match[1]!, line: Number(match[2]), column: Number(match[3]) };

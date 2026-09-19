@@ -1,4 +1,12 @@
-import { isMobilePlatform, type ElementNode, type EventDef, type PageDsl, type PageStateVar, type Platform, type Viewport } from './types';
+import {
+  isMobilePlatform,
+  type ElementNode,
+  type EventDef,
+  type PageDsl,
+  type PageStateVar,
+  type Platform,
+  type Viewport,
+} from './types';
 
 /**
  * PageDSL 构造工厂（T3-01）。
@@ -163,7 +171,13 @@ export function createLoginPageDsl(): PageDsl {
     state: [
       { name: 'phone', type: 'string', initial: '', source: 'local', description: '手机号' },
       { name: 'password', type: 'string', initial: '', source: 'local', description: '密码' },
-      { name: 'remember', type: 'boolean', initial: false, source: 'local', description: '记住登录' },
+      {
+        name: 'remember',
+        type: 'boolean',
+        initial: false,
+        source: 'local',
+        description: '记住登录',
+      },
       { name: 'loading', type: 'boolean', initial: false, source: 'local', description: '提交中' },
       { name: 'errorMsg', type: 'string', initial: '', source: 'local', description: '错误提示' },
     ],
@@ -178,19 +192,47 @@ export function createLoginPageDsl(): PageDsl {
           type: 'Navbar',
           name: '导航栏',
           children: [
-            createElement({ id: 'el-3', type: 'Image', name: '站点标识', props: { alt: 'EveryoneCoding' } }),
-            createElement({ id: 'el-4', type: 'Text', name: '首页链接', props: { text: '首页', href: '/' } }),
+            createElement({
+              id: 'el-3',
+              type: 'Image',
+              name: '站点标识',
+              props: { alt: 'EveryoneCoding' },
+            }),
+            createElement({
+              id: 'el-4',
+              type: 'Text',
+              name: '首页链接',
+              props: { text: '首页', href: '/' },
+            }),
           ],
         }),
         createElement({
           id: 'el-5',
           type: 'Container',
           name: '登录卡片',
-          style: { width: 400, margin: '80px auto', padding: 32, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,.08)' },
+          style: {
+            width: 400,
+            margin: '80px auto',
+            padding: 32,
+            borderRadius: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,.08)',
+          },
           children: [
             createElement({ id: 'el-6', type: 'Image', name: '品牌标识', props: { alt: 'EC' } }),
-            createElement({ id: 'el-7', type: 'Text', name: '标题', props: { text: '欢迎登录' }, style: { fontSize: 24, fontWeight: 600, textAlign: 'center' } }),
-            createElement({ id: 'el-8', type: 'Text', name: '副标题', props: { text: '使用手机号登录你的账号' }, style: { textAlign: 'center' } }),
+            createElement({
+              id: 'el-7',
+              type: 'Text',
+              name: '标题',
+              props: { text: '欢迎登录' },
+              style: { fontSize: 24, fontWeight: 600, textAlign: 'center' },
+            }),
+            createElement({
+              id: 'el-8',
+              type: 'Text',
+              name: '副标题',
+              props: { text: '使用手机号登录你的账号' },
+              style: { textAlign: 'center' },
+            }),
             createElement({
               id: 'el-9',
               type: 'Form',
@@ -214,7 +256,12 @@ export function createLoginPageDsl(): PageDsl {
                   props: { placeholder: '请输入密码', inputType: 'password', required: true },
                   bindings: { value: 'password' },
                 }),
-                createElement({ id: 'el-12', type: 'Image', name: '密码可见切换', props: { alt: '显示密码' } }),
+                createElement({
+                  id: 'el-12',
+                  type: 'Image',
+                  name: '密码可见切换',
+                  props: { alt: '显示密码' },
+                }),
                 createElement({
                   id: 'el-13',
                   type: 'Input',
@@ -270,7 +317,12 @@ export function createLoginPageDsl(): PageDsl {
           type: 'Container',
           name: '页脚',
           children: [
-            createElement({ id: 'el-20', type: 'Text', name: '版权信息', props: { text: '© 2026 EveryoneCoding' } }),
+            createElement({
+              id: 'el-20',
+              type: 'Text',
+              name: '版权信息',
+              props: { text: '© 2026 EveryoneCoding' },
+            }),
           ],
         }),
       ],
@@ -295,7 +347,9 @@ export function createLoginPageDsl(): PageDsl {
             kind: 'request',
             target: '/api/auth/login',
             async: true,
-            params: { body: { phone: '${phone}', password: '${password}', remember: '${remember}' } },
+            params: {
+              body: { phone: '${phone}', password: '${password}', remember: '${remember}' },
+            },
             next: 'act-3',
             label: '请求登录接口',
           },
@@ -308,7 +362,13 @@ export function createLoginPageDsl(): PageDsl {
             label: '是否登录成功',
           },
           { id: 'act-4', kind: 'navigate', target: '/dashboard', label: '跳转仪表盘' },
-          { id: 'act-5', kind: 'notify', params: { type: 'error' }, value: '登录失败，请重试', label: '提示失败' },
+          {
+            id: 'act-5',
+            kind: 'notify',
+            params: { type: 'error' },
+            value: '登录失败，请重试',
+            label: '提示失败',
+          },
         ],
       },
     ],

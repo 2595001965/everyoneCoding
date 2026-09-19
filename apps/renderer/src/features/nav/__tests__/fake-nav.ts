@@ -45,16 +45,44 @@ function target(
 
 /** 4 类目标，分数降序（前两个 raw > 1，验证不是并列 1.0 后被字典序打乱） */
 export const HOVER_TARGETS: readonly NavTarget[] = [
-  target('anc-login', 'backend-api', 'POST /auth/login', 'server/auth/auth.controller.ts · login', 1.4, 0),
+  target(
+    'anc-login',
+    'backend-api',
+    'POST /auth/login',
+    'server/auth/auth.controller.ts · login',
+    1.4,
+    0,
+  ),
   target('tbl-user', 'db-table', 'users 表', 'server/db/schema.ts · users', 1.1, 2),
   target('test-login', 'test-case', '登录接口用例', 'tests/auth/login.spec.ts · 登录成功', 0.9, 3),
   target('doc-auth', 'doc-section', '技术文档 · 认证设计', 'docs/tech/auth.md · 认证', 0.6, 4),
 ];
 
 function layeredResolution(): JumpResolution {
-  const controller = target('anc-ctl', 'backend-api', 'AuthController.login', 'server/auth/auth.controller.ts', 1.4, 0);
-  const service = target('anc-svc', 'backend-module', 'AuthService.verify', 'server/auth/auth.service.ts', 1.3, 1);
-  const repo = target('anc-repo', 'backend-module', 'UserRepository.findByEmail', 'server/auth/user.repo.ts', 1.2, 2);
+  const controller = target(
+    'anc-ctl',
+    'backend-api',
+    'AuthController.login',
+    'server/auth/auth.controller.ts',
+    1.4,
+    0,
+  );
+  const service = target(
+    'anc-svc',
+    'backend-module',
+    'AuthService.verify',
+    'server/auth/auth.service.ts',
+    1.3,
+    1,
+  );
+  const repo = target(
+    'anc-repo',
+    'backend-module',
+    'UserRepository.findByEmail',
+    'server/auth/user.repo.ts',
+    1.2,
+    2,
+  );
   const test = target('anc-test', 'test-case', 'login.spec.ts', 'tests/auth/login.spec.ts', 1.1, 3);
   return {
     elementId: 'e-login',
@@ -74,9 +102,30 @@ function sampleGraph(): RelationGraph {
   const nodes: RelationNode[] = [
     { id: 'p1', type: 'page', label: '登录页', group: 'p1', filePath: null, degree: 1 },
     { id: 'e1', type: 'element', label: '登录按钮', group: 'p1', filePath: null, degree: 2 },
-    { id: 'a1', type: 'api', label: 'POST /auth/login', group: 'auth', filePath: 'server/auth/auth.controller.ts', degree: 3 },
-    { id: 'm1', type: 'module', label: 'AuthService', group: 'auth', filePath: 'server/auth/auth.service.ts', degree: 3 },
-    { id: 'm2', type: 'module', label: 'login.spec.ts', group: 'auth', filePath: 'tests/auth/login.spec.ts', degree: 1 },
+    {
+      id: 'a1',
+      type: 'api',
+      label: 'POST /auth/login',
+      group: 'auth',
+      filePath: 'server/auth/auth.controller.ts',
+      degree: 3,
+    },
+    {
+      id: 'm1',
+      type: 'module',
+      label: 'AuthService',
+      group: 'auth',
+      filePath: 'server/auth/auth.service.ts',
+      degree: 3,
+    },
+    {
+      id: 'm2',
+      type: 'module',
+      label: 'login.spec.ts',
+      group: 'auth',
+      filePath: 'tests/auth/login.spec.ts',
+      degree: 1,
+    },
     { id: 't1', type: 'table', label: 'users', group: 'auth', filePath: null, degree: 1 },
     { id: 't2', type: 'table', label: 'login_logs', group: 'auth', filePath: null, degree: 1 },
   ];
@@ -95,7 +144,14 @@ const FLOW_STEPS: readonly DataFlowStep[] = [
   { id: 'f1', kind: 'element', label: '登录按钮', detail: 'Button#login', at: 0, ok: true },
   { id: 'f2', kind: 'event', label: 'onClick 触发', detail: 'submitForm', at: 2, ok: true },
   { id: 'f3', kind: 'api', label: 'POST /auth/login', detail: '200 OK', at: 26, ok: true },
-  { id: 'f4', kind: 'backend', label: 'AuthService.verify', detail: '数据库连接超时', at: 1024, ok: false },
+  {
+    id: 'f4',
+    kind: 'backend',
+    label: 'AuthService.verify',
+    detail: '数据库连接超时',
+    at: 1024,
+    ok: false,
+  },
   { id: 'f5', kind: 'writeback', label: '写入 login_logs', detail: '1 行', at: 1030, ok: true },
   { id: 'f6', kind: 'render', label: '按钮进入错误态', detail: null, at: 1040, ok: true },
 ];
@@ -147,7 +203,13 @@ export function createFakeNavApi(): FakeNavApi {
             filePath: input.filePath,
             line: input.line,
             anchorId: 'anc-login',
-            element: { elementId: 'e-login', name: '登录按钮', type: 'Button', pageId: 'p1', pageName: '登录页' },
+            element: {
+              elementId: 'e-login',
+              name: '登录按钮',
+              type: 'Button',
+              pageId: 'p1',
+              pageName: '登录页',
+            },
             page: null,
           },
         ],

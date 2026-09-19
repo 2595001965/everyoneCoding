@@ -20,7 +20,13 @@ export interface SupplementDialogProps {
   onClose: () => void;
 }
 
-export function SupplementDialog({ open, stage, onEvaluate, onSubmit, onClose }: SupplementDialogProps): JSX.Element {
+export function SupplementDialog({
+  open,
+  stage,
+  onEvaluate,
+  onSubmit,
+  onClose,
+}: SupplementDialogProps): JSX.Element {
   const [instruction, setInstruction] = useState('');
   const [report, setReport] = useState<ImpactReport | null>(null);
 
@@ -53,10 +59,20 @@ export function SupplementDialog({ open, stage, onEvaluate, onSubmit, onClose }:
           <Button variant="ghost" onClick={onClose}>
             取消
           </Button>
-          <Button variant="secondary" data-testid="supplement-evaluate" onClick={evaluate} disabled={instruction.trim().length === 0}>
+          <Button
+            variant="secondary"
+            data-testid="supplement-evaluate"
+            onClick={evaluate}
+            disabled={instruction.trim().length === 0}
+          >
             评估影响范围
           </Button>
-          <Button variant="primary" data-testid="supplement-submit" onClick={submit} disabled={instruction.trim().length === 0}>
+          <Button
+            variant="primary"
+            data-testid="supplement-submit"
+            onClick={submit}
+            disabled={instruction.trim().length === 0}
+          >
             提交并重新生成
           </Button>
         </>
@@ -64,7 +80,8 @@ export function SupplementDialog({ open, stage, onEvaluate, onSubmit, onClose }:
     >
       <div className="ec-pipe-supplement">
         <p className="ec-pipe-supplement__hint">
-          补充指令将与当前 {stage} 阶段的原文档一起提交，要求 AI 输出<strong>完整新版</strong>（不做碎片化补丁拼接）。
+          补充指令将与当前 {stage} 阶段的原文档一起提交，要求 AI 输出<strong>完整新版</strong>
+          （不做碎片化补丁拼接）。
         </p>
         <Textarea
           value={instruction}
@@ -77,14 +94,22 @@ export function SupplementDialog({ open, stage, onEvaluate, onSubmit, onClose }:
           <div className="ec-pipe-supplement__impact" data-testid="supplement-impact">
             <div className="ec-pipe-supplement__impact-title">影响范围（需重新生成的节点）</div>
             {report.affected.length === 0 ? (
-              <div className="ec-pipe-supplement__impact-empty">未匹配到拆分结果中的节点（可提交后手动跟踪）</div>
+              <div className="ec-pipe-supplement__impact-empty">
+                未匹配到拆分结果中的节点（可提交后手动跟踪）
+              </div>
             ) : (
               <ul>
                 {report.affected.map((id) => (
-                  <li key={id} className="ec-pipe-supplement__impact-node" data-testid="supplement-impact-node">
+                  <li
+                    key={id}
+                    className="ec-pipe-supplement__impact-node"
+                    data-testid="supplement-impact-node"
+                  >
                     {id}
                     {report.paths[id] !== undefined && report.paths[id].length > 1 ? (
-                      <span className="ec-pipe-supplement__impact-path">（路径：{report.paths[id].join(' → ')}）</span>
+                      <span className="ec-pipe-supplement__impact-path">
+                        （路径：{report.paths[id].join(' → ')}）
+                      </span>
                     ) : null}
                   </li>
                 ))}

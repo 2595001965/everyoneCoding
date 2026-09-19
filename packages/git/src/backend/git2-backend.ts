@@ -96,7 +96,8 @@ function adaptNodegit(mod: unknown): Git2Binding | null {
     };
     RepositoryInitOptions?: new () => { initialHead?: string };
   };
-  if (typeof git.Repository?.init !== 'function' || typeof git.Repository?.open !== 'function') return null;
+  if (typeof git.Repository?.init !== 'function' || typeof git.Repository?.open !== 'function')
+    return null;
   const Repository = git.Repository;
 
   const open = (cwd: string): Promise<unknown> => Repository.open(cwd);
@@ -108,7 +109,11 @@ function adaptNodegit(mod: unknown): Git2Binding | null {
         setHead?: (ref: string) => Promise<void>;
         free?: () => void;
       };
-      if (options.branch !== undefined && options.branch !== 'master' && typeof repo.setHead === 'function') {
+      if (
+        options.branch !== undefined &&
+        options.branch !== 'master' &&
+        typeof repo.setHead === 'function'
+      ) {
         await repo.setHead(`refs/heads/${options.branch}`);
       }
       repo.free?.();
@@ -214,7 +219,8 @@ export class Git2GitBackend implements GitBackend {
       }));
     }
     const result = await this.loaded;
-    if (result.detail.length > 0 && !this.notes.includes(result.detail)) this.notes.push(result.detail);
+    if (result.detail.length > 0 && !this.notes.includes(result.detail))
+      this.notes.push(result.detail);
     return result.binding;
   }
 
@@ -228,7 +234,11 @@ export class Git2GitBackend implements GitBackend {
   }
 
   /** 原生优先，失败退 CLI（并把原因登记下来） */
-  private async native<T>(op: string, run: (binding: Git2Binding) => Promise<T>, viaCli: () => Promise<T>): Promise<T> {
+  private async native<T>(
+    op: string,
+    run: (binding: Git2Binding) => Promise<T>,
+    viaCli: () => Promise<T>,
+  ): Promise<T> {
     const binding = await this.binding();
     if (binding === null) {
       this.fallbackCalls += 1;
@@ -239,7 +249,9 @@ export class Git2GitBackend implements GitBackend {
       return await run(binding);
     } catch (error) {
       this.fallbackCalls += 1;
-      this.notes.push(`libgit2 的 ${op} 失败，已自动回退系统 Git CLI：${error instanceof Error ? error.message : String(error)}`);
+      this.notes.push(
+        `libgit2 的 ${op} 失败，已自动回退系统 Git CLI：${error instanceof Error ? error.message : String(error)}`,
+      );
       return viaCli();
     }
   }
@@ -247,39 +259,75 @@ export class Git2GitBackend implements GitBackend {
   /* ---------------- 原生覆盖的能力 ---------------- */
 
   init(cwd: string, options: InitOptions = {}): Promise<void> {
-    return this.native('init', (binding) => binding.init(cwd, options), () => this.fallback.init(cwd, options));
+    return this.native(
+      'init',
+      (binding) => binding.init(cwd, options),
+      () => this.fallback.init(cwd, options),
+    );
   }
 
   isRepo(cwd: string): Promise<boolean> {
-    return this.native('isRepo', (binding) => binding.isRepo(cwd), () => this.fallback.isRepo(cwd));
+    return this.native(
+      'isRepo',
+      (binding) => binding.isRepo(cwd),
+      () => this.fallback.isRepo(cwd),
+    );
   }
 
   currentBranch(cwd: string): Promise<string | null> {
-    return this.native('currentBranch', (binding) => binding.currentBranch(cwd), () => this.fallback.currentBranch(cwd));
+    return this.native(
+      'currentBranch',
+      (binding) => binding.currentBranch(cwd),
+      () => this.fallback.currentBranch(cwd),
+    );
   }
 
   headSha(cwd: string): Promise<string | null> {
-    return this.native('headSha', (binding) => binding.headSha(cwd), () => this.fallback.headSha(cwd));
+    return this.native(
+      'headSha',
+      (binding) => binding.headSha(cwd),
+      () => this.fallback.headSha(cwd),
+    );
   }
 
   status(cwd: string): Promise<StatusEntry[]> {
-    return this.native('status', (binding) => binding.status(cwd), () => this.fallback.status(cwd));
+    return this.native(
+      'status',
+      (binding) => binding.status(cwd),
+      () => this.fallback.status(cwd),
+    );
   }
 
   add(cwd: string, paths: readonly string[]): Promise<void> {
-    return this.native('add', (binding) => binding.add(cwd, paths), () => this.fallback.add(cwd, paths));
+    return this.native(
+      'add',
+      (binding) => binding.add(cwd, paths),
+      () => this.fallback.add(cwd, paths),
+    );
   }
 
   commit(cwd: string, input: CommitInput): Promise<string> {
-    return this.native('commit', (binding) => binding.commit(cwd, input), () => this.fallback.commit(cwd, input));
+    return this.native(
+      'commit',
+      (binding) => binding.commit(cwd, input),
+      () => this.fallback.commit(cwd, input),
+    );
   }
 
   log(cwd: string, options: LogOptions = {}): Promise<GitCommit[]> {
-    return this.native('log', (binding) => binding.log(cwd, options), () => this.fallback.log(cwd, options));
+    return this.native(
+      'log',
+      (binding) => binding.log(cwd, options),
+      () => this.fallback.log(cwd, options),
+    );
   }
 
   diff(cwd: string, options: DiffOptions = {}): Promise<string> {
-    return this.native('diff', (binding) => binding.diff(cwd, options), () => this.fallback.diff(cwd, options));
+    return this.native(
+      'diff',
+      (binding) => binding.diff(cwd, options),
+      () => this.fallback.diff(cwd, options),
+    );
   }
 
   /** 权威清单交给 CLI（原生适配未覆盖，避免给出错误的路径顺序） */
@@ -329,7 +377,11 @@ export class Git2GitBackend implements GitBackend {
   deleteBranch(cwd: string, name: string, options: { force?: boolean } = {}): Promise<void> {
     return this.fallback.deleteBranch(cwd, name, options);
   }
-  merge(cwd: string, branch: string, options: { noFf?: boolean; message?: string; noCommit?: boolean } = {}): Promise<MergeCommandResult> {
+  merge(
+    cwd: string,
+    branch: string,
+    options: { noFf?: boolean; message?: string; noCommit?: boolean } = {},
+  ): Promise<MergeCommandResult> {
     return this.fallback.merge(cwd, branch, options);
   }
   rebase(cwd: string, onto: string): Promise<MergeCommandResult> {
@@ -368,7 +420,11 @@ export class Git2GitBackend implements GitBackend {
   removeRemote(cwd: string, name: string): Promise<void> {
     return this.fallback.removeRemote(cwd, name);
   }
-  lsRemote(cwd: string, remote: string, options: { env?: Record<string, string> | undefined } = {}): Promise<string[]> {
+  lsRemote(
+    cwd: string,
+    remote: string,
+    options: { env?: Record<string, string> | undefined } = {},
+  ): Promise<string[]> {
     return this.fallback.lsRemote(cwd, remote, options);
   }
   push(cwd: string, input: PushInput = {}): Promise<TransferResult> {
@@ -380,7 +436,11 @@ export class Git2GitBackend implements GitBackend {
   fetch(cwd: string, input: FetchInput = {}): Promise<TransferResult> {
     return this.fallback.fetch(cwd, input);
   }
-  blameLite(cwd: string, path: string, range?: { start: number; end: number }): Promise<BlameLine[]> {
+  blameLite(
+    cwd: string,
+    path: string,
+    range?: { start: number; end: number },
+  ): Promise<BlameLine[]> {
     return this.fallback.blameLite(cwd, path, range);
   }
   fileSize(cwd: string, path: string): Promise<number | null> {

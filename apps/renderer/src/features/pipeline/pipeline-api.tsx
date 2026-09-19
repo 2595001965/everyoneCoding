@@ -105,10 +105,7 @@ export interface PipelineApi {
   }): Promise<S5RunResult>;
 
   /** 订阅流水线事件（阶段变化 / 产物更新 / 下游提示 / 回退） */
-  subscribe(
-    event: string,
-    listener: (payload: unknown) => void,
-  ): () => void;
+  subscribe(event: string, listener: (payload: unknown) => void): () => void;
 }
 
 const PipelineContext = createContext<PipelineApi | null>(null);
@@ -136,5 +133,8 @@ export function usePipelineApi(): PipelineApi {
 export function readInjectedPipelineApi(): PipelineApi | null {
   const injected = (globalThis as unknown as { __EC_PIPELINE__?: PipelineApi }).__EC_PIPELINE__;
   if (typeof injected !== 'object' || injected === null) return null;
-  return typeof injected.snapshot === 'function' && typeof injected.generateRequirement === 'function' ? injected : null;
+  return typeof injected.snapshot === 'function' &&
+    typeof injected.generateRequirement === 'function'
+    ? injected
+    : null;
 }

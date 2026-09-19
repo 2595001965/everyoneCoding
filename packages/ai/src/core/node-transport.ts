@@ -34,7 +34,9 @@ export interface NodeTransportOptions {
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-export function createNodeHttpTransport(options: NodeTransportOptions = {}): HttpTransport & { activeCount(): number } {
+export function createNodeHttpTransport(
+  options: NodeTransportOptions = {},
+): HttpTransport & { activeCount(): number } {
   let active = 0;
   const decrement = (): void => {
     active = Math.max(0, active - 1);
@@ -65,7 +67,11 @@ export function createNodeHttpTransport(options: NodeTransportOptions = {}): Htt
             try {
               tunnel = await openTunnel(proxy, target.hostname, port, timeoutMs);
             } catch (error) {
-              reject(new TransportError(error instanceof Error ? error.message : String(error), { cause: error }));
+              reject(
+                new TransportError(error instanceof Error ? error.message : String(error), {
+                  cause: error,
+                }),
+              );
               return;
             }
           }
@@ -107,7 +113,8 @@ export function createNodeHttpTransport(options: NodeTransportOptions = {}): Htt
                 async text(): Promise<string> {
                   const decoder = new TextDecoder('utf8');
                   let out = '';
-                  for await (const chunk of iterable) out += decoder.decode(chunk, { stream: true });
+                  for await (const chunk of iterable)
+                    out += decoder.decode(chunk, { stream: true });
                   out += decoder.decode();
                   return out;
                 },
@@ -160,7 +167,9 @@ export function createNodeHttpTransport(options: NodeTransportOptions = {}): Htt
   };
 }
 
-function flattenHeaders(headers: Record<string, string | string[] | undefined>): Record<string, string> {
+function flattenHeaders(
+  headers: Record<string, string | string[] | undefined>,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) continue;

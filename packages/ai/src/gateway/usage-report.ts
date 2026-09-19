@@ -50,11 +50,33 @@ export interface UsageReport {
   byProject: UsageGroupRow[];
 }
 
-function groupRows(rows: readonly UsageReportRow[], keyOf: (row: UsageReportRow) => string | null): UsageGroupRow[] {
-  const buckets = new Map<string, { requests: number; prompt: number; completion: number; total: number; cost: number; latencySum: number; latencyCount: number }>();
+function groupRows(
+  rows: readonly UsageReportRow[],
+  keyOf: (row: UsageReportRow) => string | null,
+): UsageGroupRow[] {
+  const buckets = new Map<
+    string,
+    {
+      requests: number;
+      prompt: number;
+      completion: number;
+      total: number;
+      cost: number;
+      latencySum: number;
+      latencyCount: number;
+    }
+  >();
   for (const row of rows) {
     const key = keyOf(row) ?? '(未记录)';
-    const bucket = buckets.get(key) ?? { requests: 0, prompt: 0, completion: 0, total: 0, cost: 0, latencySum: 0, latencyCount: 0 };
+    const bucket = buckets.get(key) ?? {
+      requests: 0,
+      prompt: 0,
+      completion: 0,
+      total: 0,
+      cost: 0,
+      latencySum: 0,
+      latencyCount: 0,
+    };
     bucket.requests += 1;
     bucket.prompt += row.promptTokens;
     bucket.completion += row.completionTokens;
@@ -74,7 +96,8 @@ function groupRows(rows: readonly UsageReportRow[], keyOf: (row: UsageReportRow)
       completionTokens: bucket.completion,
       totalTokens: bucket.total,
       cost: bucket.cost,
-      avgLatencyMs: bucket.latencyCount > 0 ? Math.round(bucket.latencySum / bucket.latencyCount) : null,
+      avgLatencyMs:
+        bucket.latencyCount > 0 ? Math.round(bucket.latencySum / bucket.latencyCount) : null,
     }))
     .sort((a, b) => b.totalTokens - a.totalTokens);
 }
@@ -114,7 +137,10 @@ export function buildGlobalReport(rows: readonly UsageReportRow[]): UsageReport 
 }
 
 /** 项目级视图（只聚合该项目的记录） */
-export function buildProjectReport(projectId: string, rows: readonly UsageReportRow[]): UsageReport {
+export function buildProjectReport(
+  projectId: string,
+  rows: readonly UsageReportRow[],
+): UsageReport {
   const scoped = rows.filter((row) => row.projectId === projectId);
   return {
     scope: 'project',
@@ -132,7 +158,9 @@ export function reportToCsv(report: UsageReport): string {
   const lines: string[] = [];
   lines.push(`scope,${report.scope}`);
   if (report.projectId !== null) lines.push(`project,${report.projectId}`);
-  lines.push('group,key,requests,prompt_tokens,completion_tokens,total_tokens,cost_usd,avg_latency_ms');
+  lines.push(
+    'group,key,requests,prompt_tokens,completion_tokens,total_tokens,cost_usd,avg_latency_ms',
+  );
   const sections: Array<[UsageGroup, UsageGroupRow[]]> = [
     ['model', report.byModel],
     ['provider', report.byProvider],
@@ -144,7 +172,16 @@ export function reportToCsv(report: UsageReport): string {
       // CSV 转义：含逗号/引号/换行的字段加引号并双写引号
       const key = /[",\r\n]/.test(row.key) ? `"${row.key.replaceAll('"', '""')}"` : row.key;
       lines.push(
-        [group, key, row.requests, row.promptTokens, row.completionTokens, row.totalTokens, row.cost.toFixed(6), row.avgLatencyMs ?? ''].join(','),
+        [
+          group,
+          key,
+          row.requests,
+          row.promptTokens,
+          row.completionTokens,
+          row.totalTokens,
+          row.cost.toFixed(6),
+          row.avgLatencyMs ?? '',
+        ].join(','),
       );
     }
   }

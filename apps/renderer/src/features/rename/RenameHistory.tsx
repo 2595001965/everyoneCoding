@@ -23,13 +23,14 @@ function formatTime(at: number): string {
 export function RenameHistory(props: RenameHistoryProps): JSX.Element {
   const { entries, onUndo, loading = false } = props;
 
-  const sorted = useMemo(
-    () => [...entries].sort((a, b) => b.at - a.at),
-    [entries],
-  );
+  const sorted = useMemo(() => [...entries].sort((a, b) => b.at - a.at), [entries]);
 
   const handleUndo = (id: string): void => {
-    if (window.confirm('确认撤销该次重命名？该操作会还原文件、文档、记忆与注册表，并生成一次撤销提交。')) {
+    if (
+      window.confirm(
+        '确认撤销该次重命名？该操作会还原文件、文档、记忆与注册表，并生成一次撤销提交。',
+      )
+    ) {
       onUndo(id);
     }
   };
@@ -44,7 +45,10 @@ export function RenameHistory(props: RenameHistoryProps): JSX.Element {
       )}
 
       {!loading && sorted.length === 0 && (
-        <EmptyState title="暂无重命名记录" description="执行过的重命名会出现在这里，可随时一键撤销" />
+        <EmptyState
+          title="暂无重命名记录"
+          description="执行过的重命名会出现在这里，可随时一键撤销"
+        />
       )}
 
       {sorted.length > 0 && (

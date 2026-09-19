@@ -80,7 +80,9 @@ describe('condensePage', () => {
     const summary = condensePage(dsl);
     expect(summary.elementIndex['el-phone']?.boundProps).toContain('value');
     expect(
-      summary.dataFlow.some((d) => d.from === 'el-phone' && d.to === 'phone' && d.field === 'value'),
+      summary.dataFlow.some(
+        (d) => d.from === 'el-phone' && d.to === 'phone' && d.field === 'value',
+      ),
     ).toBe(true);
   });
 

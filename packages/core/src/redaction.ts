@@ -98,7 +98,8 @@ export function mask(input: string): string {
   return output;
 }
 
-const SECRET_KEY_PATTERN = /(key|token|secret|password|passwd|pwd|authorization|cookie|credential)/i;
+const SECRET_KEY_PATTERN =
+  /(key|token|secret|password|passwd|pwd|authorization|cookie|credential)/i;
 
 /**
  * 深拷贝对象并对字符串值脱敏。

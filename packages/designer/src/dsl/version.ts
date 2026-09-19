@@ -29,7 +29,9 @@ function asArray(value: unknown): unknown[] {
 /** v1 → v2：动作别名归一化 + 缺省字段补齐 */
 const migrateV1ToV2: DslMigration = (raw) => {
   const next: Record<string, unknown> = { ...raw };
-  next['apiDeps'] = asArray(raw['apiDeps']).filter((item): item is string => typeof item === 'string');
+  next['apiDeps'] = asArray(raw['apiDeps']).filter(
+    (item): item is string => typeof item === 'string',
+  );
   next['notes'] = asArray(raw['notes']);
   next['anchors'] = isRecord(raw['anchors']) ? raw['anchors'] : {};
   next['state'] = asArray(raw['state']);
@@ -37,7 +39,8 @@ const migrateV1ToV2: DslMigration = (raw) => {
     if (!isRecord(event)) return event;
     const actions = asArray(event['actions']).map((action) => {
       if (!isRecord(action)) return action;
-      const alias = typeof action['kind'] === 'string' ? (action['kind'] as ActionKindInput) : undefined;
+      const alias =
+        typeof action['kind'] === 'string' ? (action['kind'] as ActionKindInput) : undefined;
       if (alias === undefined) return action;
       return { ...action, kind: normalizeActionKind(alias) };
     });
@@ -97,7 +100,11 @@ export class DslVersionError extends Error {
 }
 
 function readVersion(raw: unknown): number {
-  if (isRecord(raw) && typeof raw['dslVersion'] === 'number' && Number.isFinite(raw['dslVersion'])) {
+  if (
+    isRecord(raw) &&
+    typeof raw['dslVersion'] === 'number' &&
+    Number.isFinite(raw['dslVersion'])
+  ) {
     return Math.trunc(raw['dslVersion'] as number);
   }
   // v1 原型没有版本字段
@@ -119,7 +126,10 @@ export interface MigrateOptions {
  * 注意：信封结构（`{ dslVersion, page }`）由 `serialize.ts` 拆开后再调用本函数，
  * 因此 `options.from` 用于显式传入信封声明的版本，避免"对象内没有版本字段 → 误判为 v1"。
  */
-export function migrateDsl(raw: Record<string, unknown>, options: MigrateOptions = {}): MigrationResult {
+export function migrateDsl(
+  raw: Record<string, unknown>,
+  options: MigrateOptions = {},
+): MigrationResult {
   const targetVersion = options.to ?? DSL_VERSION;
   const from = options.from ?? readVersion(raw);
   if (from > targetVersion) throw new DslVersionError(from, targetVersion);

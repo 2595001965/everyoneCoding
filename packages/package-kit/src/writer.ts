@@ -150,7 +150,10 @@ export class EcpkgWriter {
     // ③ 可选签名：对"去掉 signature 字段的 manifest 规范化字节"签名
     //    （必须先写 signature.sig 并记账，再写 checksums.sha256，清单才能覆盖签名文件）
     if (meta.signWithPrivateKeyPem !== undefined) {
-      const signature = signManifest(manifest as unknown as Record<string, unknown>, meta.signWithPrivateKeyPem);
+      const signature = signManifest(
+        manifest as unknown as Record<string, unknown>,
+        meta.signWithPrivateKeyPem,
+      );
       manifest.signature = signature;
       const signatureText = `${signature}\n`;
       this.zip.addText(PKG_SIGNATURE_PATH, signatureText);
@@ -172,7 +175,12 @@ export class EcpkgWriter {
     fs.renameSync(this.tempPath, this.outputPath);
     const archiveSizeBytes = fs.statSync(this.outputPath).size;
 
-    return { outputPath: this.outputPath, entryCount: this.checksums.size, archiveSizeBytes, manifest };
+    return {
+      outputPath: this.outputPath,
+      entryCount: this.checksums.size,
+      archiveSizeBytes,
+      manifest,
+    };
   }
 
   /** 中止：丢弃临时文件（用于导出失败的清理） */

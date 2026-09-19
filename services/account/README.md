@@ -4,16 +4,16 @@
 
 ## 已实现接口（严格按 PRD §8）
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/auth/register` | 邮箱注册，自注册即开通（默认「个人工作区」+ 免费权益包 `free`） |
-| POST | `/api/auth/login` | 邮箱 + 密码登录 |
-| GET | `/api/auth/oauth/:provider/authorize` | 发起 OAuth（provider = `wechat` \| `google` \| `github`），返回授权 URL 与 state |
-| GET | `/api/auth/oauth/:provider/callback` | 回调换令牌；首次授权自动建号 |
-| POST | `/api/auth/refresh` | Refresh Token 换新 Access Token（旧 refresh 轮换失效） |
-| GET/POST/DELETE | `/api/auth/bindings` | 第三方身份绑定：列出 / 绑定 / 解绑 |
-| POST | `/api/usage/report` | 匿名用量上报（需授权） |
-| GET | `/api/release/check` | 版本检查，按 `?form=tauri\|electron` 分别下发版本与增量包清单 |
+| 方法            | 路径                                  | 说明                                                                             |
+| --------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
+| POST            | `/api/auth/register`                  | 邮箱注册，自注册即开通（默认「个人工作区」+ 免费权益包 `free`）                  |
+| POST            | `/api/auth/login`                     | 邮箱 + 密码登录                                                                  |
+| GET             | `/api/auth/oauth/:provider/authorize` | 发起 OAuth（provider = `wechat` \| `google` \| `github`），返回授权 URL 与 state |
+| GET             | `/api/auth/oauth/:provider/callback`  | 回调换令牌；首次授权自动建号                                                     |
+| POST            | `/api/auth/refresh`                   | Refresh Token 换新 Access Token（旧 refresh 轮换失效）                           |
+| GET/POST/DELETE | `/api/auth/bindings`                  | 第三方身份绑定：列出 / 绑定 / 解绑                                               |
+| POST            | `/api/usage/report`                   | 匿名用量上报（需授权）                                                           |
+| GET             | `/api/release/check`                  | 版本检查，按 `?form=tauri\|electron` 分别下发版本与增量包清单                    |
 
 ## 明确边界（验收要求）
 

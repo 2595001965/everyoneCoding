@@ -39,11 +39,7 @@ export const DEFAULT_UPDATE_SETTINGS: UpdateSettings = {
 };
 
 export type CheckDecisionReason =
-  | 'first-run'
-  | 'interval-due'
-  | 'too-soon'
-  | 'disabled'
-  | 'offline';
+  'first-run' | 'interval-due' | 'too-soon' | 'disabled' | 'offline';
 
 export interface CheckDecision {
   shouldCheck: boolean;
@@ -72,7 +68,11 @@ export function decideCheck(input: {
   if (elapsed >= settings.checkIntervalMs) {
     return { shouldCheck: true, reason: 'interval-due', nextCheckInMs: 0 };
   }
-  return { shouldCheck: false, reason: 'too-soon', nextCheckInMs: settings.checkIntervalMs - elapsed };
+  return {
+    shouldCheck: false,
+    reason: 'too-soon',
+    nextCheckInMs: settings.checkIntervalMs - elapsed,
+  };
 }
 
 /** 延迟提醒状态（落设置/本地状态，跨会话保留）。 */
@@ -85,7 +85,11 @@ export interface ReminderState {
   snoozeCount: number;
 }
 
-export const EMPTY_REMINDER: ReminderState = { deferredVersion: null, deferredUntil: null, snoozeCount: 0 };
+export const EMPTY_REMINDER: ReminderState = {
+  deferredVersion: null,
+  deferredUntil: null,
+  snoozeCount: 0,
+};
 
 export type UpdateAction =
   /** 没有更新，或该版本已被用户永久忽略 */

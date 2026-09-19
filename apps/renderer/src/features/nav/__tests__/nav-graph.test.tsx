@@ -25,7 +25,9 @@ describe('RelationGraphView（T6-07 关系图谱）', () => {
     await screen.findByTestId('relation-graph-svg');
 
     const nodeTypes = new Set(
-      [...container.querySelectorAll('[data-testid="relation-node"]')].map((node) => node.getAttribute('data-type')),
+      [...container.querySelectorAll('[data-testid="relation-node"]')].map((node) =>
+        node.getAttribute('data-type'),
+      ),
     );
     expect(nodeTypes).toEqual(new Set(['page', 'element', 'api', 'module', 'table']));
 
@@ -80,10 +82,12 @@ describe('RelationGraphView（T6-07 关系图谱）', () => {
     renderGraph(api);
     await screen.findByTestId('relation-graph-svg');
 
-    for (let index = 0; index < 12; index += 1) await user.click(screen.getByTestId('graph-zoom-out'));
+    for (let index = 0; index < 12; index += 1)
+      await user.click(screen.getByTestId('graph-zoom-out'));
     expect(screen.getByTestId('graph-zoom-value')).toHaveTextContent('0.50');
 
-    for (let index = 0; index < 20; index += 1) await user.click(screen.getByTestId('graph-zoom-in'));
+    for (let index = 0; index < 20; index += 1)
+      await user.click(screen.getByTestId('graph-zoom-in'));
     expect(screen.getByTestId('graph-zoom-value')).toHaveTextContent('3.00');
   });
 
@@ -95,7 +99,9 @@ describe('RelationGraphView（T6-07 关系图谱）', () => {
 
     await user.click(screen.getByTestId('graph-filter-table'));
 
-    await waitFor(() => expect(screen.getByTestId('graph-counts')).toHaveTextContent('5 个节点 / 4 条边'));
+    await waitFor(() =>
+      expect(screen.getByTestId('graph-counts')).toHaveTextContent('5 个节点 / 4 条边'),
+    );
     // 读取 / 写入两条边因端点被筛掉而消失
     const remaining = [...container.querySelectorAll('[data-testid="relation-edge"]')].map((edge) =>
       edge.getAttribute('data-edge'),

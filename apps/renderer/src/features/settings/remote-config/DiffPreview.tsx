@@ -92,7 +92,12 @@ export function DiffPreview({
             >
               应用新默认模型
             </Button>
-            <Button size="sm" variant="ghost" disabled={busy || !revision} onClick={() => revision && onAck(revision)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy || !revision}
+              onClick={() => revision && onAck(revision)}
+            >
               保持原样（不再提示）
             </Button>
           </span>
@@ -107,7 +112,11 @@ export function DiffPreview({
         >
           应用配置
         </Button>
-        <Button variant="secondary" disabled={busy || items.length === 0} onClick={() => onApply({ overwriteLocal: true, ackDefaultModel: false })}>
+        <Button
+          variant="secondary"
+          disabled={busy || items.length === 0}
+          onClick={() => onApply({ overwriteLocal: true, ackDefaultModel: false })}
+        >
           覆盖本地同名服务
         </Button>
       </footer>

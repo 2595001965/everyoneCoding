@@ -32,14 +32,9 @@
   "bundle": {
     "active": true,
     "targets": "nsis",
-    "icon": [
-      "icons/icon.ico"
-    ],
+    "icon": ["icons/icon.ico"],
     "createUpdaterArtifacts": true,
-    "resources": [
-      "../../../LICENSE",
-      "../../../NOTICE"
-    ],
+    "resources": ["../../../LICENSE", "../../../NOTICE"],
     "windows": {
       "nsis": {
         "displayLanguageSelector": false,
@@ -50,9 +45,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://update.everyonecoding.com/{{target}}/{{arch}}/{{current_version}}"
-      ],
+      "endpoints": ["https://update.everyonecoding.com/{{target}}/{{arch}}/{{current_version}}"],
       "pubkey": "REPLACE_WITH_YOUR_TAURI_UPDATER_PUBLIC_KEY"
     }
   }

@@ -59,7 +59,8 @@ export function MemoryTree({
   defaultExpanded = ['group:layers', ...(selectedTags.length > 0 ? ['group:tags'] : [])],
 }: MemoryTreeProps): JSX.Element {
   const data = useMemo<TreeNode[]>(() => {
-    const countOf = (layer: string): number => stats.layers.find((entry) => entry.layer === layer)?.total ?? 0;
+    const countOf = (layer: string): number =>
+      stats.layers.find((entry) => entry.layer === layer)?.total ?? 0;
 
     const layerNodes: TreeNode[] = MEMORY_LAYERS.map((layer) => ({
       id: layerNodeId(layer),
@@ -72,7 +73,11 @@ export function MemoryTree({
       ...(layer === 'issue' && stats.activeIssues > 0
         ? {
             icon: (
-              <span className="ec-memory-tree__dot" title={`${stats.activeIssues} 个进行中问题`} aria-hidden="true">
+              <span
+                className="ec-memory-tree__dot"
+                title={`${stats.activeIssues} 个进行中问题`}
+                aria-hidden="true"
+              >
                 ●
               </span>
             ),

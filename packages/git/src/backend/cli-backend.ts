@@ -1,4 +1,11 @@
-import type { GitBranchInfo, GitCommit, GitRemote, GitStashEntry, GitTagInfo, FileStatus } from '../models';
+import type {
+  GitBranchInfo,
+  GitCommit,
+  GitRemote,
+  GitStashEntry,
+  GitTagInfo,
+  FileStatus,
+} from '../models';
 import {
   GitCommandError,
   type BlameLine,
@@ -73,7 +80,21 @@ export class CliGitBackend implements GitBackend {
   }
 
   capabilities(): readonly GitCapability[] {
-    return ['init', 'status', 'add', 'commit', 'log', 'branch', 'merge', 'rebase', 'stash', 'remote', 'transfer', 'diff', 'blame'];
+    return [
+      'init',
+      'status',
+      'add',
+      'commit',
+      'log',
+      'branch',
+      'merge',
+      'rebase',
+      'stash',
+      'remote',
+      'transfer',
+      'diff',
+      'blame',
+    ];
   }
 
   async probe(): Promise<boolean> {
@@ -93,7 +114,11 @@ export class CliGitBackend implements GitBackend {
   private async exec(
     cwd: string,
     args: readonly string[],
-    options: { env?: Record<string, string> | undefined; input?: string | undefined; allowFailure?: boolean | undefined } = {},
+    options: {
+      env?: Record<string, string> | undefined;
+      input?: string | undefined;
+      allowFailure?: boolean | undefined;
+    } = {},
   ): Promise<GitRunResult> {
     const base: GitRunOptions = { cwd, env: { GIT_TERMINAL_PROMPT: '0' } };
     if (options.env !== undefined) base.env = { ...base.env, ...options.env };
@@ -102,14 +127,19 @@ export class CliGitBackend implements GitBackend {
     const result = await this.runner.run([this.gitPath, ...BASE_ARGS, ...args], base);
     if (result.exitCode !== 0 && options.allowFailure !== true) {
       const stderr = result.stderr.trim();
-      const conflictMarker = /CONFLICT|Automatic merge failed|needs merge|could not apply/i.test(stderr);
-      throw new GitCommandError(`git ${args[0] ?? ''} 执行失败：${stderr || `退出码 ${result.exitCode}`}`, {
-        args: [...args],
-        stderr: result.stderr,
-        stdout: result.stdout,
-        exitCode: result.exitCode,
-        conflict: conflictMarker,
-      });
+      const conflictMarker = /CONFLICT|Automatic merge failed|needs merge|could not apply/i.test(
+        stderr,
+      );
+      throw new GitCommandError(
+        `git ${args[0] ?? ''} 执行失败：${stderr || `退出码 ${result.exitCode}`}`,
+        {
+          args: [...args],
+          stderr: result.stderr,
+          stdout: result.stdout,
+          exitCode: result.exitCode,
+          conflict: conflictMarker,
+        },
+      );
     }
     return result;
   }
@@ -136,7 +166,9 @@ export class CliGitBackend implements GitBackend {
   }
 
   async isRepo(cwd: string): Promise<boolean> {
-    const result = await this.exec(cwd, ['rev-parse', '--is-inside-work-tree'], { allowFailure: true });
+    const result = await this.exec(cwd, ['rev-parse', '--is-inside-work-tree'], {
+      allowFailure: true,
+    });
     return result.exitCode === 0 && result.stdout.trim() === 'true';
   }
 
@@ -145,7 +177,9 @@ export class CliGitBackend implements GitBackend {
   /* ------------------------------------------------------------------ */
 
   async currentBranch(cwd: string): Promise<string | null> {
-    const result = await this.exec(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], { allowFailure: true });
+    const result = await this.exec(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      allowFailure: true,
+    });
     if (result.exitCode !== 0) return null;
     const name = result.stdout.trim();
     if (name.length === 0 || name === 'HEAD') return null;
@@ -153,14 +187,18 @@ export class CliGitBackend implements GitBackend {
   }
 
   async headSha(cwd: string): Promise<string | null> {
-    const result = await this.exec(cwd, ['rev-parse', '--verify', '--quiet', 'HEAD'], { allowFailure: true });
+    const result = await this.exec(cwd, ['rev-parse', '--verify', '--quiet', 'HEAD'], {
+      allowFailure: true,
+    });
     if (result.exitCode !== 0) return null;
     const sha = result.stdout.trim();
     return sha.length > 0 ? sha : null;
   }
 
   async revParse(cwd: string, ref: string): Promise<string | null> {
-    const result = await this.exec(cwd, ['rev-parse', '--verify', '--quiet', ref], { allowFailure: true });
+    const result = await this.exec(cwd, ['rev-parse', '--verify', '--quiet', ref], {
+      allowFailure: true,
+    });
     if (result.exitCode !== 0) return null;
     const sha = result.stdout.trim();
     return sha.length > 0 ? sha : null;
@@ -182,7 +220,12 @@ export class CliGitBackend implements GitBackend {
   /* ------------------------------------------------------------------ */
 
   async status(cwd: string): Promise<StatusEntry[]> {
-    const stdout = await this.execStdout(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+    const stdout = await this.execStdout(cwd, [
+      'status',
+      '--porcelain=v1',
+      '-z',
+      '--untracked-files=all',
+    ]);
     return parsePorcelainZ(stdout);
   }
 
@@ -192,7 +235,8 @@ export class CliGitBackend implements GitBackend {
   }
 
   async unstage(cwd: string, paths: readonly string[]): Promise<void> {
-    if (paths.length === 0) throw new GitCommandError('未指定要取消暂存的文件', { args: ['reset'] });
+    if (paths.length === 0)
+      throw new GitCommandError('未指定要取消暂存的文件', { args: ['reset'] });
     const head = await this.headSha(cwd);
     if (head === null) {
       // 尚无提交：索引里没有 HEAD 可比对，只能把条目从索引移除
@@ -221,23 +265,28 @@ export class CliGitBackend implements GitBackend {
   async commit(cwd: string, input: CommitInput): Promise<string> {
     const args = ['commit', '-q', '--no-edit'];
     if (input.allowEmpty === true) args.push('--allow-empty');
-    if (input.author !== undefined) args.push(`--author=${input.author.name} <${input.author.email}>`);
+    if (input.author !== undefined)
+      args.push(`--author=${input.author.name} <${input.author.email}>`);
     args.push('-m', input.subject);
     if (input.body !== undefined && input.body.length > 0) args.push('-m', input.body);
     if (input.paths !== undefined && input.paths.length > 0) args.push('--', ...input.paths);
     await this.exec(cwd, args);
     const sha = await this.headSha(cwd);
-    if (sha === null) throw new GitCommandError('提交后无法解析 HEAD', { args: ['rev-parse', 'HEAD'] });
+    if (sha === null)
+      throw new GitCommandError('提交后无法解析 HEAD', { args: ['rev-parse', 'HEAD'] });
     return sha;
   }
 
   async log(cwd: string, options: LogOptions = {}): Promise<GitCommit[]> {
-    const format = ['%H', '%h', '%s', '%b', '%an', '%ae', '%at', '%P', '%D'].join(FIELD_SEP) + RECORD_SEP;
+    const format =
+      ['%H', '%h', '%s', '%b', '%an', '%ae', '%at', '%P', '%D'].join(FIELD_SEP) + RECORD_SEP;
     const args = ['log', `--pretty=format:${format}`, '--date-order'];
     if (options.limit !== undefined) args.push(`-n${options.limit}`);
     if (options.skip !== undefined && options.skip > 0) args.push(`--skip=${options.skip}`);
-    if (options.keyword !== undefined && options.keyword.length > 0) args.push('-i', `--grep=${options.keyword}`);
-    if (options.author !== undefined && options.author.length > 0) args.push(`--author=${options.author}`);
+    if (options.keyword !== undefined && options.keyword.length > 0)
+      args.push('-i', `--grep=${options.keyword}`);
+    if (options.author !== undefined && options.author.length > 0)
+      args.push(`--author=${options.author}`);
     if (options.since !== undefined) args.push(`--since=${new Date(options.since).toISOString()}`);
     if (options.until !== undefined) args.push(`--until=${new Date(options.until).toISOString()}`);
     args.push(options.ref ?? 'HEAD');
@@ -246,7 +295,8 @@ export class CliGitBackend implements GitBackend {
     const result = await this.exec(cwd, args, { allowFailure: true });
     if (result.exitCode !== 0) {
       // 无提交的仓库：git log 报 fatal，这里按"空历史"处理而不是错误
-      if (/does not have any commits yet|unknown revision|bad revision/i.test(result.stderr)) return [];
+      if (/does not have any commits yet|unknown revision|bad revision/i.test(result.stderr))
+        return [];
       throw new GitCommandError(`git log 执行失败：${result.stderr.trim()}`, {
         args,
         stderr: result.stderr,
@@ -303,7 +353,8 @@ export class CliGitBackend implements GitBackend {
 
   async switchBranch(cwd: string, name: string, options: { create?: boolean } = {}): Promise<void> {
     // 用 checkout 而不是 switch：兼容更老的 git，且语义在两种情况下一致
-    const args = options.create === true ? ['checkout', '-q', '-b', name] : ['checkout', '-q', name];
+    const args =
+      options.create === true ? ['checkout', '-q', '-b', name] : ['checkout', '-q', name];
     await this.exec(cwd, args);
   }
 
@@ -327,7 +378,8 @@ export class CliGitBackend implements GitBackend {
     const args = ['merge'];
     if (options.noFf === true) args.push('--no-ff');
     if (options.noCommit === true) args.push('--no-commit');
-    if (options.message !== undefined && options.message.length > 0) args.push('-m', options.message);
+    if (options.message !== undefined && options.message.length > 0)
+      args.push('-m', options.message);
     args.push(branch);
     return this.runMergeLike(cwd, args);
   }
@@ -365,7 +417,9 @@ export class CliGitBackend implements GitBackend {
   }
 
   async conflictFiles(cwd: string): Promise<string[]> {
-    const result = await this.exec(cwd, ['diff', '--name-only', '--diff-filter=U', '-z'], { allowFailure: true });
+    const result = await this.exec(cwd, ['diff', '--name-only', '--diff-filter=U', '-z'], {
+      allowFailure: true,
+    });
     if (result.exitCode !== 0) return [];
     return result.stdout.split('\u0000').filter((entry) => entry.length > 0);
   }
@@ -381,9 +435,13 @@ export class CliGitBackend implements GitBackend {
   }
 
   async stashList(cwd: string): Promise<GitStashEntry[]> {
-    const stdout = await this.execStdout(cwd, ['stash', 'list', `--pretty=format:%gd${FIELD_SEP}%s${FIELD_SEP}%at${RECORD_SEP}`], {
-      allowFailure: true,
-    });
+    const stdout = await this.execStdout(
+      cwd,
+      ['stash', 'list', `--pretty=format:%gd${FIELD_SEP}%s${FIELD_SEP}%at${RECORD_SEP}`],
+      {
+        allowFailure: true,
+      },
+    );
     const records = splitRecords(stdout);
     const entries: GitStashEntry[] = [];
     for (const record of records) {
@@ -391,7 +449,11 @@ export class CliGitBackend implements GitBackend {
       const index = Number.parseInt(ref.replace(/[^0-9]/g, ''), 10);
       if (!Number.isFinite(index)) continue;
       const { branch, message } = parseStashSubject(subject);
-      const filesOut = await this.exec(cwd, ['stash', 'show', '--name-only', '-z', `stash@{${index}}`], { allowFailure: true });
+      const filesOut = await this.exec(
+        cwd,
+        ['stash', 'show', '--name-only', '-z', `stash@{${index}}`],
+        { allowFailure: true },
+      );
       const files = filesOut.stdout.split('\u0000').filter((entry) => entry.length > 0).length;
       entries.push({
         index,
@@ -430,7 +492,10 @@ export class CliGitBackend implements GitBackend {
     return [...fetchUrls.entries()].map(([name, url]) => ({
       name,
       url,
-      pushUrl: pushUrls.get(name) !== undefined && pushUrls.get(name) !== url ? (pushUrls.get(name) ?? null) : null,
+      pushUrl:
+        pushUrls.get(name) !== undefined && pushUrls.get(name) !== url
+          ? (pushUrls.get(name) ?? null)
+          : null,
       kind: classifyRemoteUrl(url),
       credentialConfigured: false,
     }));
@@ -448,8 +513,14 @@ export class CliGitBackend implements GitBackend {
     await this.exec(cwd, ['remote', 'remove', name]);
   }
 
-  async lsRemote(cwd: string, remote: string, options: { env?: Record<string, string> | undefined } = {}): Promise<string[]> {
-    const stdout = await this.execStdout(cwd, ['ls-remote', '--heads', remote], { env: options.env });
+  async lsRemote(
+    cwd: string,
+    remote: string,
+    options: { env?: Record<string, string> | undefined } = {},
+  ): Promise<string[]> {
+    const stdout = await this.execStdout(cwd, ['ls-remote', '--heads', remote], {
+      env: options.env,
+    });
     return stdout
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -466,12 +537,15 @@ export class CliGitBackend implements GitBackend {
     if (input.branch !== undefined && input.branch.length > 0) args.push(input.branch);
     const result = await this.exec(cwd, args, { allowFailure: true, env: input.env });
     if (result.exitCode !== 0) {
-      throw new GitCommandError(`推送失败：${result.stderr.trim() || `退出码 ${result.exitCode}`}`, {
-        args,
-        stderr: result.stderr,
-        stdout: result.stdout,
-        exitCode: result.exitCode,
-      });
+      throw new GitCommandError(
+        `推送失败：${result.stderr.trim() || `退出码 ${result.exitCode}`}`,
+        {
+          args,
+          stderr: result.stderr,
+          stdout: result.stdout,
+          exitCode: result.exitCode,
+        },
+      );
     }
     const combined = `${result.stdout}\n${result.stderr}`;
     return {
@@ -498,15 +572,24 @@ export class CliGitBackend implements GitBackend {
     args.push(remote);
     const result = await this.exec(cwd, args, { allowFailure: true, env: input.env });
     if (result.exitCode !== 0) {
-      throw new GitCommandError(`抓取失败：${result.stderr.trim() || `退出码 ${result.exitCode}`}`, {
-        args,
-        stderr: result.stderr,
-        stdout: result.stdout,
-        exitCode: result.exitCode,
-      });
+      throw new GitCommandError(
+        `抓取失败：${result.stderr.trim() || `退出码 ${result.exitCode}`}`,
+        {
+          args,
+          stderr: result.stderr,
+          stdout: result.stdout,
+          exitCode: result.exitCode,
+        },
+      );
     }
     const combined = `${result.stdout}\n${result.stderr}`;
-    return { remote, ref: null, upToDate: combined.trim().length === 0, summary: combined.trim(), forced: false };
+    return {
+      remote,
+      ref: null,
+      upToDate: combined.trim().length === 0,
+      summary: combined.trim(),
+      forced: false,
+    };
   }
 
   private async defaultRemote(cwd: string): Promise<string> {
@@ -539,7 +622,11 @@ export class CliGitBackend implements GitBackend {
     return parseNameStatusZ(stdout);
   }
 
-  async blameLite(cwd: string, path: string, range?: { start: number; end: number }): Promise<BlameLine[]> {
+  async blameLite(
+    cwd: string,
+    path: string,
+    range?: { start: number; end: number },
+  ): Promise<BlameLine[]> {
     const args = ['blame', '--line-porcelain'];
     if (range !== undefined) args.push(`-L${range.start},${range.end}`);
     args.push('--', path);
@@ -639,7 +726,8 @@ export function parsePorcelainZ(stdout: string): StatusEntry[] {
 export function classifyStatus(x: string, y: string): FileStatus {
   if (x === '?' || y === '?') return 'untracked';
   if (x === '!' || y === '!') return 'untracked';
-  if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) return 'conflicted';
+  if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D'))
+    return 'conflicted';
   if (x === 'R' || y === 'R') return 'renamed';
   if (x === 'C' || y === 'C') return 'copied';
   if (x === 'T' || y === 'T') return 'typechange';
@@ -653,8 +741,17 @@ export function parseLog(stdout: string): GitCommit[] {
   const commits: GitCommit[] = [];
   for (const record of splitRecords(stdout)) {
     const parts = record.split(FIELD_SEP);
-    const [sha = '', shortSha = '', subject = '', body = '', authorName = '', authorEmail = '', at = '0', parents = '', refs = ''] =
-      parts;
+    const [
+      sha = '',
+      shortSha = '',
+      subject = '',
+      body = '',
+      authorName = '',
+      authorEmail = '',
+      at = '0',
+      parents = '',
+      refs = '',
+    ] = parts;
     if (sha.length === 0) continue;
     commits.push({
       sha,
@@ -676,7 +773,8 @@ export function parseLog(stdout: string): GitCommit[] {
 
 export function parseBranches(stdout: string): GitBranchInfo[] {
   return splitRecords(stdout).map((record) => {
-    const [name = '', head = '', upstream = '', track = '', sha = '', subject = ''] = record.split(FIELD_SEP);
+    const [name = '', head = '', upstream = '', track = '', sha = '', subject = ''] =
+      record.split(FIELD_SEP);
     const ahead = Number.parseInt(/ahead (\d+)/.exec(track)?.[1] ?? '0', 10);
     const behind = Number.parseInt(/behind (\d+)/.exec(track)?.[1] ?? '0', 10);
     return {
@@ -707,7 +805,12 @@ export function parseBlame(stdout: string): BlameLine[] {
   for (const raw of stdout.split(/\r?\n/)) {
     const header = /^([0-9a-f]{40})\s+(\d+)\s+(\d+)/.exec(raw);
     if (header !== null) {
-      current = { sha: header[1] ?? '', author: '', at: 0, line: Number.parseInt(header[3] ?? '0', 10) };
+      current = {
+        sha: header[1] ?? '',
+        author: '',
+        at: 0,
+        line: Number.parseInt(header[3] ?? '0', 10),
+      };
       continue;
     }
     const author = /^author (.+)$/.exec(raw);
@@ -721,7 +824,13 @@ export function parseBlame(stdout: string): BlameLine[] {
       continue;
     }
     if (raw.startsWith('\t') && current !== null) {
-      lines.push({ line: current.line, sha: current.sha, authorName: current.author, authoredAt: current.at, text: raw.slice(1) });
+      lines.push({
+        line: current.line,
+        sha: current.sha,
+        authorName: current.author,
+        authoredAt: current.at,
+        text: raw.slice(1),
+      });
       current = null;
     }
   }

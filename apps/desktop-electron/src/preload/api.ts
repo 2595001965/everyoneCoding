@@ -48,8 +48,15 @@ export function assertSurface(api: Record<string, unknown>): void {
   }
 }
 
-function assertAiRequest(value: unknown): asserts value is { requestId: string; method?: string; params?: unknown } {
-  if (!value || typeof value !== 'object' || typeof (value as { requestId?: unknown }).requestId !== 'string' || !(value as { requestId: string }).requestId) {
+function assertAiRequest(
+  value: unknown,
+): asserts value is { requestId: string; method?: string; params?: unknown } {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    typeof (value as { requestId?: unknown }).requestId !== 'string' ||
+    !(value as { requestId: string }).requestId
+  ) {
     throw new TypeError('AI 请求必须包含非空 requestId');
   }
 }
@@ -73,7 +80,6 @@ function assertDomainRequest(value: unknown): asserts value is {
   assertString(request.domain, 'domain');
   assertString(request.method, 'method');
 }
-
 
 export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unknown> {
   const fs = {
@@ -144,10 +150,14 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
   };
 
   const dialog = {
-    openFile: (options?: Record<string, unknown>) => ipc.invoke(CHANNELS.dialog.openFile, options ?? {}),
-    openDirectory: (options?: Record<string, unknown>) => ipc.invoke(CHANNELS.dialog.openDirectory, options ?? {}),
-    saveFile: (options?: Record<string, unknown>) => ipc.invoke(CHANNELS.dialog.saveFile, options ?? {}),
-    showMessage: (options: Record<string, unknown>) => ipc.invoke(CHANNELS.dialog.showMessage, options),
+    openFile: (options?: Record<string, unknown>) =>
+      ipc.invoke(CHANNELS.dialog.openFile, options ?? {}),
+    openDirectory: (options?: Record<string, unknown>) =>
+      ipc.invoke(CHANNELS.dialog.openDirectory, options ?? {}),
+    saveFile: (options?: Record<string, unknown>) =>
+      ipc.invoke(CHANNELS.dialog.saveFile, options ?? {}),
+    showMessage: (options: Record<string, unknown>) =>
+      ipc.invoke(CHANNELS.dialog.showMessage, options),
     confirm: (options: Record<string, unknown>) => ipc.invoke(CHANNELS.dialog.confirm, options),
   };
 
@@ -219,7 +229,8 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
     maximize: () => ipc.invoke(CHANNELS.window.maximize),
     unmaximize: () => ipc.invoke(CHANNELS.window.unmaximize),
     isMaximized: () => ipc.invoke(CHANNELS.window.isMaximized),
-    setFullScreen: (fullscreen: boolean) => ipc.invoke(CHANNELS.window.setFullScreen, { fullscreen }),
+    setFullScreen: (fullscreen: boolean) =>
+      ipc.invoke(CHANNELS.window.setFullScreen, { fullscreen }),
     isFullScreen: () => ipc.invoke(CHANNELS.window.isFullScreen),
     setSize: (size: { width: number; height: number }) => ipc.invoke(CHANNELS.window.setSize, size),
     getSize: () => ipc.invoke(CHANNELS.window.getSize),
@@ -232,7 +243,8 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
     set: (namespace: string, key: string, value: string) => {
       assertNamespace(namespace);
       assertString(key, 'key');
-      if (typeof value !== 'string' || value.length === 0) throw new TypeError('value 必须是非空字符串');
+      if (typeof value !== 'string' || value.length === 0)
+        throw new TypeError('value 必须是非空字符串');
       return ipc.invoke(CHANNELS.secureStore.set, { namespace, key, value });
     },
     get: (namespace: string, key: string) => {
@@ -309,7 +321,8 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
       const wrapped = (_event: unknown, payload: unknown) => {
         const envelope = payload as { requestId?: unknown; event?: unknown };
         if (envelope.requestId === requestId) listener(envelope.event);
-      };      ipc.on(CHANNELS.ai.stream, wrapped);
+      };
+      ipc.on(CHANNELS.ai.stream, wrapped);
       void ipc.invoke(CHANNELS.ai.start, request);
       return {
         requestId: (request as { requestId: string }).requestId,

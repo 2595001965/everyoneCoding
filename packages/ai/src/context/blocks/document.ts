@@ -29,7 +29,10 @@ export async function buildDocumentBlock(context: BlockBuildContext): Promise<Co
 
   const port = context.sources.documents;
   if (port === undefined) {
-    return unavailableBlock({ ...base, reason: '未接入文档端口（外壳需装配 @ec/docs 或项目文档索引）' });
+    return unavailableBlock({
+      ...base,
+      reason: '未接入文档端口（外壳需装配 @ec/docs 或项目文档索引）',
+    });
   }
 
   let snippets: readonly ContextDocumentSnippet[] = [];
@@ -51,9 +54,12 @@ export async function buildDocumentBlock(context: BlockBuildContext): Promise<Co
   }
 
   const items: ContextBlockItem[] = snippets.map((snippet) => {
-    const heading = snippet.heading !== undefined && snippet.heading.length > 0 ? ` · ${snippet.heading}` : '';
+    const heading =
+      snippet.heading !== undefined && snippet.heading.length > 0 ? ` · ${snippet.heading}` : '';
     const body =
-      snippet.content.length > SNIPPET_TOKEN_CAP * 3 ? `${snippet.content.slice(0, SNIPPET_TOKEN_CAP * 3)}…` : snippet.content;
+      snippet.content.length > SNIPPET_TOKEN_CAP * 3
+        ? `${snippet.content.slice(0, SNIPPET_TOKEN_CAP * 3)}…`
+        : snippet.content;
     const text = `[${KIND_LABELS[snippet.kind]}《${snippet.title}》${heading}]\n${body}`;
     return {
       key: snippet.id,

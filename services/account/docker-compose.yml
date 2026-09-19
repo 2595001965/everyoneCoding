@@ -8,15 +8,15 @@ services:
     container_name: everyonecoding-account
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
-      ACCOUNT_HOST: "0.0.0.0"
-      ACCOUNT_PORT: "3000"
-      ACCOUNT_DB_PATH: "/data/account.db"
+      ACCOUNT_HOST: '0.0.0.0'
+      ACCOUNT_PORT: '3000'
+      ACCOUNT_DB_PATH: '/data/account.db'
       # 生产务必替换为强随机值
-      ACCOUNT_JWT_SECRET: "change-me-to-a-strong-random-secret"
-      ACCOUNT_LOGIN_LIMIT: "20"
-      ACCOUNT_REGISTER_LIMIT: "20"
+      ACCOUNT_JWT_SECRET: 'change-me-to-a-strong-random-secret'
+      ACCOUNT_LOGIN_LIMIT: '20'
+      ACCOUNT_REGISTER_LIMIT: '20'
     volumes:
       - account-data:/data
 

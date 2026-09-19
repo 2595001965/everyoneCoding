@@ -61,7 +61,8 @@ export function formatMemoryItem(hit: ContextMemoryHit, prefix: string): string 
 }
 
 export function summarizeStructured(structured: unknown): string | null {
-  if (structured === null || structured === undefined || typeof structured !== 'object') return null;
+  if (structured === null || structured === undefined || typeof structured !== 'object')
+    return null;
   const source = structured as Record<string, unknown>;
   const picked: Record<string, unknown> = {};
   for (const key of STRUCTURED_KEYS) {
@@ -74,7 +75,10 @@ export function summarizeStructured(structured: unknown): string | null {
 }
 
 /** 记忆块构建：端口缺失 → 跳过；端口报错 → 也跳过而不是让整次组装失败 */
-export async function buildMemoryBlock(context: BlockBuildContext, config: MemoryBlockConfig): Promise<ContextBlock> {
+export async function buildMemoryBlock(
+  context: BlockBuildContext,
+  config: MemoryBlockConfig,
+): Promise<ContextBlock> {
   const quota = CONTEXT_BLOCK_QUOTAS.find((item) => item.id === config.id);
   const base = {
     id: config.id,

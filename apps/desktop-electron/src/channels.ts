@@ -106,9 +106,9 @@ export const METHOD_CHANNELS = {
   'net.setAllowedHosts': 'ec:net:setAllowedHosts',
   'net.allowedHosts': 'ec:net:allowedHosts',
   // 顶层
-  'openExternal': 'ec:openExternal',
-  'capabilities': 'ec:capabilities',
-  'dispose': 'ec:dispose',
+  openExternal: 'ec:openExternal',
+  capabilities: 'ec:capabilities',
+  dispose: 'ec:dispose',
 } as const;
 
 /** 主进程 → 渲染层事件通道（订阅式） */
@@ -184,9 +184,7 @@ export interface ElectronShellApi {
   'dialog.openDirectory': (options?: OpenDialogOptions) => Promise<string | null>;
   'dialog.saveFile': (options?: SaveDialogOptions) => Promise<string | null>;
   'dialog.showMessage': (options: MessageDialogOptions) => Promise<number>;
-  'dialog.confirm': (
-    options: Omit<MessageDialogOptions, 'level' | 'buttons'>,
-  ) => Promise<boolean>;
+  'dialog.confirm': (options: Omit<MessageDialogOptions, 'level' | 'buttons'>) => Promise<boolean>;
 
   // process
   'process.spawn': (
@@ -241,9 +239,9 @@ export interface ElectronShellApi {
   'net.allowedHosts': () => string[] | '*';
 
   // 顶层
-  'openExternal': (url: string) => Promise<void>;
-  'capabilities': () => Promise<ShellCapabilities>;
-  'dispose': () => Promise<void>;
+  openExternal: (url: string) => Promise<void>;
+  capabilities: () => Promise<ShellCapabilities>;
+  dispose: () => Promise<void>;
 
   // 事件订阅（主进程 → 渲染层）
   'fs.watchEvent': (handler: (id: string, event: FsWatchEvent) => void) => () => void;

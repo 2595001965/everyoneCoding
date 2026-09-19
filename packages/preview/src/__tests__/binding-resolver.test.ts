@@ -10,10 +10,10 @@ import {
   BindingResolver as _BR,
 } from '../binding-resolver';
 
-function makeResolver(opts: {
-  backendAvailable: boolean;
-  fixtureData?: unknown;
-}): { resolver: BindingResolver; logs: PreviewLogCollector } {
+function makeResolver(opts: { backendAvailable: boolean; fixtureData?: unknown }): {
+  resolver: BindingResolver;
+  logs: PreviewLogCollector;
+} {
   const logs = new PreviewLogCollector();
   const backend: BackendRequesterPort = {
     available: opts.backendAvailable,

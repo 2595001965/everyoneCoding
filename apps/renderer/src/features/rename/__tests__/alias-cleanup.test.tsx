@@ -17,7 +17,14 @@ async function seedAlias(
   fake.state.entries.set('reg-1', {
     ...entry,
     aliases: [
-      { name: '登录按钮', kind: 'code', createdAt: now, deprecatedAt: now, cleanupDueAt, note: null },
+      {
+        name: '登录按钮',
+        kind: 'code',
+        createdAt: now,
+        deprecatedAt: now,
+        cleanupDueAt,
+        note: null,
+      },
     ],
   });
   return { fake, items: await fake.pendingCleanup() };

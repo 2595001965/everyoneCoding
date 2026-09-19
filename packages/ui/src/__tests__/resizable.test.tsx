@@ -5,13 +5,21 @@ import { Resizable } from '../index';
 
 describe('Resizable', () => {
   it('渲染内容并提供尺寸手柄', () => {
-    const { container } = render(<Resizable defaultWidth={200} defaultHeight={120}>内容</Resizable>);
+    const { container } = render(
+      <Resizable defaultWidth={200} defaultHeight={120}>
+        内容
+      </Resizable>,
+    );
     expect(container.querySelector('.ec-resizable__content')).toBeTruthy();
     expect(container.querySelector('.ec-resizable__handle--corner')).toBeTruthy();
   });
 
   it('键盘方向键调整宽度（右手柄 role=separator）', async () => {
-    const { container } = render(<Resizable defaultWidth={200} defaultHeight={120}>内容</Resizable>);
+    const { container } = render(
+      <Resizable defaultWidth={200} defaultHeight={120}>
+        内容
+      </Resizable>,
+    );
     const handle = container.querySelector('.ec-resizable__handle--right') as HTMLElement;
     handle.focus();
     await userEvent.keyboard('{ArrowRight}');
@@ -22,7 +30,9 @@ describe('Resizable', () => {
   it('尺寸变化回调', async () => {
     const onResize = vi.fn();
     const { container } = render(
-      <Resizable defaultWidth={200} defaultHeight={120} onResize={onResize}>内容</Resizable>,
+      <Resizable defaultWidth={200} defaultHeight={120} onResize={onResize}>
+        内容
+      </Resizable>,
     );
     const handle = container.querySelector('.ec-resizable__handle--right') as HTMLElement;
     handle.focus();

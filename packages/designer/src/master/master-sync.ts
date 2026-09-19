@@ -43,7 +43,10 @@ export class MasterRegistry {
     return definition;
   }
 
-  update(masterId: string, patch: { tree?: ElementNode; name?: string; note?: string; now?: number }): MasterDefinition | null {
+  update(
+    masterId: string,
+    patch: { tree?: ElementNode; name?: string; note?: string; now?: number },
+  ): MasterDefinition | null {
     const current = this.masters.get(masterId);
     if (current === undefined) return null;
     const next: MasterDefinition = {
@@ -77,7 +80,11 @@ export function instantiateMaster(
   options: { elementId: string; name?: string },
 ): ElementNode {
   const clone = cloneNode(master.tree);
-  const withIds = reid(clone, options.elementId, () => `ec-${Math.random().toString(36).slice(2, 8)}`);
+  const withIds = reid(
+    clone,
+    options.elementId,
+    () => `ec-${Math.random().toString(36).slice(2, 8)}`,
+  );
   if (options.name !== undefined) withIds.name = options.name;
   withIds.masterRef = { masterId: master.id, detached: false } satisfies MasterRef;
   return withIds;
@@ -86,7 +93,8 @@ export function instantiateMaster(
 /** 重新分配 id：根节点沿用指定 id，其余子节点生成新 id */
 function reid(node: ElementNode, rootId: string, childId: () => string): ElementNode {
   const next: ElementNode = { ...node, id: rootId };
-  if (node.children !== undefined) next.children = node.children.map((child) => reid(child, childId(), childId));
+  if (node.children !== undefined)
+    next.children = node.children.map((child) => reid(child, childId(), childId));
   return next;
 }
 
@@ -129,7 +137,9 @@ export function syncInstances(
 ): SyncResult {
   const synced: string[] = [];
   const skipped: string[] = [];
-  const targets = new Set(options.elementIds ?? collectMasterInstances(dsl, master.id).map((ref) => ref.elementId));
+  const targets = new Set(
+    options.elementIds ?? collectMasterInstances(dsl, master.id).map((ref) => ref.elementId),
+  );
 
   const nextTree = mapTree(dsl.tree, (node) => {
     const ref = node.masterRef;
@@ -179,7 +189,10 @@ export function reattachInstance(dsl: PageDsl, elementId: string, masterId: stri
 }
 
 /** 统计母版使用情况（面板展示「N 个实例，其中 M 个已脱离」） */
-export function masterUsage(pages: readonly PageDsl[], masterId: string): { total: number; detached: number; pages: number } {
+export function masterUsage(
+  pages: readonly PageDsl[],
+  masterId: string,
+): { total: number; detached: number; pages: number } {
   let total = 0;
   let detached = 0;
   let pageCount = 0;

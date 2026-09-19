@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -28,7 +36,9 @@ let runtime: DomainControlServiceHost;
 async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   const response = await runtime.invoke({ requestId: 'test', domain: 'workspace', method, params });
   if (!response.ok) {
-    const error = new Error(response.error?.message ?? '域调用失败') as Error & { code?: string | undefined };
+    const error = new Error(response.error?.message ?? '域调用失败') as Error & {
+      code?: string | undefined;
+    };
     error.code = response.error?.code;
     throw error;
   }
@@ -83,9 +93,14 @@ describe('项目 CRUD 与工程目录', () => {
   it('updateProject 改名；改成已存在的名字被拒', async () => {
     const a = await newProject('项目A');
     await newProject('项目B');
-    const renamed = await call<{ name: string }>('updateProject', { id: a.id, patch: { name: '项目A2' } });
+    const renamed = await call<{ name: string }>('updateProject', {
+      id: a.id,
+      patch: { name: '项目A2' },
+    });
     expect(renamed.name).toBe('项目A2');
-    await expect(call('updateProject', { id: a.id, patch: { name: '项目B' } })).rejects.toMatchObject({
+    await expect(
+      call('updateProject', { id: a.id, patch: { name: '项目B' } }),
+    ).rejects.toMatchObject({
       code: 'ALREADY_EXISTS',
     });
   });
@@ -102,7 +117,9 @@ describe('项目 CRUD 与工程目录', () => {
   it('listProjects 支持搜索', async () => {
     await newProject('登陆页改造');
     await newProject('支付流程');
-    const found = await call<Array<{ name: string }>>('listProjects', { query: { search: '支付' } });
+    const found = await call<Array<{ name: string }>>('listProjects', {
+      query: { search: '支付' },
+    });
     expect(found.map((item) => item.name)).toEqual(['支付流程']);
   });
 });
@@ -122,7 +139,9 @@ describe('归档与回收站', () => {
     const a = await newProject('要删的');
     await call('moveToRecycleBin', { id: a.id });
     expect(await call<unknown[]>('listProjects', { query: { view: 'active' } })).toHaveLength(0);
-    expect(await call<unknown[]>('listProjects', { query: { view: 'recycleBin' } })).toHaveLength(1);
+    expect(await call<unknown[]>('listProjects', { query: { view: 'recycleBin' } })).toHaveLength(
+      1,
+    );
     // 仍能按 id 查到（软删除不丢行）
     expect(await call<{ id: string } | null>('getProject', { id: a.id })).not.toBeNull();
 
@@ -146,7 +165,9 @@ describe('归档与回收站', () => {
     await call('purgeProject', { id: a.id });
 
     expect(await call('getProject', { id: a.id })).toBeNull();
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`).get(a.id)).toEqual({ n: 0 });
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`).get(a.id)).toEqual({
+      n: 0,
+    });
     expect(db.prepare(`SELECT COUNT(*) AS n FROM element WHERE id = 'e1'`).get()).toEqual({ n: 0 });
     expect(existsSync(join(projectsDir, a.id))).toBe(false);
   });
@@ -159,7 +180,10 @@ describe('归档与回收站', () => {
     // 把其中一条的删除时间改到 31 天前。
     // 注意：ProjectService 内部有行缓存，绕开它直接改库后必须换一个**新实例**再清，
     // 否则服务读到的仍是旧缓存（这不是缺陷，是缓存的正常语义）。
-    db.prepare(`UPDATE project SET deleted_at = ? WHERE id = ?`).run(Date.now() - 31 * 24 * 60 * 60 * 1000, expired.id);
+    db.prepare(`UPDATE project SET deleted_at = ? WHERE id = ?`).run(
+      Date.now() - 31 * 24 * 60 * 60 * 1000,
+      expired.id,
+    );
     const freshRuntime = createDomainRuntime({
       routers: { workspace: createWorkspaceDomain({ db, dataDir, projectsDir }).router },
     });
@@ -209,10 +233,13 @@ describe('复制项目', () => {
        VALUES ('d1', ?, 'requirement', '需求文档', NULL, 1, ?, ?, 'markdown', '正文', NULL, NULL, NULL, NULL)`,
     ).run(source.id, now, now);
 
-    const result = await call<{ project: { id: string; name: string }; copied: Record<string, number> }>(
-      'duplicateProject',
-      { id: source.id, options: { includeDesign: true, includeMemory: true, includeDocs: true, includeCode: true } },
-    );
+    const result = await call<{
+      project: { id: string; name: string };
+      copied: Record<string, number>;
+    }>('duplicateProject', {
+      id: source.id,
+      options: { includeDesign: true, includeMemory: true, includeDocs: true, includeCode: true },
+    });
 
     expect(result.project.name).toBe('原件-副本');
     expect(result.copied).toEqual({ design: 2, memory: 1, docs: 1, codeFiles: 1 });
@@ -224,7 +251,12 @@ describe('复制项目', () => {
     const source = await newProject('空复制');
     const result = await call<{ copied: Record<string, number> }>('duplicateProject', {
       id: source.id,
-      options: { includeDesign: false, includeMemory: false, includeDocs: false, includeCode: false },
+      options: {
+        includeDesign: false,
+        includeMemory: false,
+        includeDocs: false,
+        includeCode: false,
+      },
     });
     expect(result.copied).toEqual({ design: 0, memory: 0, docs: 0, codeFiles: 0 });
   });
@@ -240,7 +272,9 @@ describe('文档摘要导入（createFromDigest）', () => {
     ],
     pageCandidates: [{ name: '登录页', route: '/login', line: 6, section: '页面' }],
     nonFunctional: ['响应时间 < 1s'],
-    memoryDrafts: [{ scope: 'project', title: '登录约定', content: '邮箱不区分大小写', tags: ['登录'] }],
+    memoryDrafts: [
+      { scope: 'project', title: '登录约定', content: '邮箱不区分大小写', tags: ['登录'] },
+    ],
     warnings: [],
   };
 
@@ -250,8 +284,12 @@ describe('文档摘要导入（createFromDigest）', () => {
     });
     expect(created.sourceKind).toBe('doc_import');
 
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM feature WHERE project_id = ?`).get(created.id)).toEqual({ n: 2 });
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`).get(created.id)).toEqual({ n: 1 });
+    expect(
+      db.prepare(`SELECT COUNT(*) AS n FROM feature WHERE project_id = ?`).get(created.id),
+    ).toEqual({ n: 2 });
+    expect(
+      db.prepare(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`).get(created.id),
+    ).toEqual({ n: 1 });
     const memory = db
       .prepare(`SELECT scope, title FROM memory_item WHERE project_id = ?`)
       .all(created.id) as Array<{ scope: string; title: string }>;
@@ -302,10 +340,19 @@ describe('仪表盘聚合', () => {
     ).run(created.id, now, now);
     const designDir = join(projectsDir, created.id, 'design', 'pages');
     mkdirSync(designDir, { recursive: true });
-    writeFileSync(join(designDir, 'home.dsl.json'), JSON.stringify({ dslVersion: 1, page: { platform: 'web' } }));
-    writeFileSync(join(designDir, 'list.dsl.json'), JSON.stringify({ dslVersion: 1, page: { platform: 'android' } }));
+    writeFileSync(
+      join(designDir, 'home.dsl.json'),
+      JSON.stringify({ dslVersion: 1, page: { platform: 'web' } }),
+    );
+    writeFileSync(
+      join(designDir, 'list.dsl.json'),
+      JSON.stringify({ dslVersion: 1, page: { platform: 'android' } }),
+    );
     // 非法平台名不应被计入（避免把脏数据当端）
-    writeFileSync(join(designDir, 'x.dsl.json'), JSON.stringify({ dslVersion: 1, page: { platform: '往坏里写' } }));
+    writeFileSync(
+      join(designDir, 'x.dsl.json'),
+      JSON.stringify({ dslVersion: 1, page: { platform: '往坏里写' } }),
+    );
 
     // model_id 是外键，这里不造 provider/model 行，走"未标注"分组（同时验证 COALESCE 分支）
     db.prepare(
@@ -317,7 +364,12 @@ describe('仪表盘聚合', () => {
       memory: { total: number; byScope: Record<string, number> };
       pages: { total: number; byPlatform: Record<string, number> };
       features: { done: number; total: number; completion: number };
-      usage: { periodTokens: number; totalTokens: number; totalCost: number; byModel: Array<{ modelId: string }> };
+      usage: {
+        periodTokens: number;
+        totalTokens: number;
+        totalCost: number;
+        byModel: Array<{ modelId: string }>;
+      };
     }>('getDashboardMetrics', { projectId: created.id });
 
     expect(metrics.memory.total).toBe(2);
@@ -338,10 +390,11 @@ describe('仪表盘聚合', () => {
       `INSERT INTO feature (id, project_id, name, description, status, created_at, updated_at) VALUES ('f1', ?, '登录', NULL, 'planned', ?, ?)`,
     ).run(created.id, now, now);
 
-    const detail = await call<{ key: string; title: string; rows: Array<{ label: string; refId?: string }> }>(
-      'getMetricDetail',
-      { projectId: created.id, key: 'features' },
-    );
+    const detail = await call<{
+      key: string;
+      title: string;
+      rows: Array<{ label: string; refId?: string }>;
+    }>('getMetricDetail', { projectId: created.id, key: 'features' });
     expect(detail.key).toBe('features');
     expect(detail.rows).toEqual([{ label: '登录', value: 'planned', refId: 'f1' }]);
 
@@ -418,22 +471,32 @@ describe('按模板新建项目（createFromTemplate）', () => {
 
     const pagesDir = join(projectsDir, created.id, 'design', 'pages');
     const files = readdirSync(pagesDir).filter((name) => name.endsWith('.dsl.json'));
-    const pages = db.prepare(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`).get(created.id) as { n: number };
+    const pages = db
+      .prepare(`SELECT COUNT(*) AS n FROM page WHERE project_id = ?`)
+      .get(created.id) as { n: number };
     expect(files.length).toBe(pages.n);
     expect(files.length).toBeGreaterThan(0);
 
     for (const file of files) {
       const envelope = JSON.parse(readFileSync(join(pagesDir, file), 'utf8')) as {
         dslVersion: number;
-        page: { id: string; projectId: string; platform: string; route: string; tree: { children?: unknown[] } };
+        page: {
+          id: string;
+          projectId: string;
+          platform: string;
+          route: string;
+          tree: { children?: unknown[] };
+        };
       };
       // 封套与版本号：设计器 load 回来必须认
       expect(envelope.dslVersion).toBeGreaterThan(0);
       expect(envelope.page.projectId).toBe(created.id);
       // 平台必须是七端之一（脏值会让仪表盘的按端分组漏计）
-      expect(['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos']).toContain(envelope.page.platform);
+      expect(['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos']).toContain(
+        envelope.page.platform,
+      );
       // 树上有元素（模板页面不是空的）
-      expect((envelope.page.tree.children?.length ?? 0)).toBeGreaterThan(0);
+      expect(envelope.page.tree.children?.length ?? 0).toBeGreaterThan(0);
     }
   });
 
@@ -455,12 +518,14 @@ describe('按模板新建项目（createFromTemplate）', () => {
   });
 
   it('模板不存在时如实报 NOT_FOUND', async () => {
-    await expect(call('createFromTemplate', { input: { templateId: 'no-such', name: 'x' } })).rejects.toMatchObject({
+    await expect(
+      call('createFromTemplate', { input: { templateId: 'no-such', name: 'x' } }),
+    ).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
-    await expect(call('createFromTemplate', { input: { templateId: 'no-such', name: 'x' } })).rejects.toThrowError(
-      /模板不存在/,
-    );
+    await expect(
+      call('createFromTemplate', { input: { templateId: 'no-such', name: 'x' } }),
+    ).rejects.toThrowError(/模板不存在/);
   });
 });
 

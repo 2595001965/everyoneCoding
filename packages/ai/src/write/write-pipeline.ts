@@ -136,7 +136,9 @@ export class WritePipeline {
 
     // ① 冲突检测：计划生成时的 before 与当前磁盘必须一致
     for (const entry of targets) {
-      const current = (await this.fs.exists(entry.path)) ? await this.fs.readText(entry.path) : null;
+      const current = (await this.fs.exists(entry.path))
+        ? await this.fs.readText(entry.path)
+        : null;
       if (current !== entry.before) {
         const reason = `${entry.path} 自上次读取后已被外部修改，已拒绝写入（建议重新生成或回滚到最近提交）`;
         this.logger?.warn('[write-pipeline] 冲突检测拒绝写入', { path: entry.path });
@@ -157,7 +159,9 @@ export class WritePipeline {
         } else {
           if (entry.after === null) throw new Error(`${entry.path} 缺少写入内容`);
           if (this.fs.mkdir !== undefined) {
-            const directory = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : '';
+            const directory = entry.path.includes('/')
+              ? entry.path.slice(0, entry.path.lastIndexOf('/'))
+              : '';
             if (directory.length > 0) await this.fs.mkdir(directory);
           }
           await this.fs.writeAtomic(entry.path, entry.after);
@@ -174,7 +178,10 @@ export class WritePipeline {
           else await this.fs.writeAtomic(snapshot.path, snapshot.before);
           rolledBack.push(snapshot.path);
         } catch (rollbackError) {
-          this.logger?.warn('[write-pipeline] 回滚失败', { path: snapshot.path, error: rollbackError });
+          this.logger?.warn('[write-pipeline] 回滚失败', {
+            path: snapshot.path,
+            error: rollbackError,
+          });
         }
       }
       const reason = cause instanceof Error ? cause.message : String(cause);
@@ -183,9 +190,17 @@ export class WritePipeline {
     }
 
     // ④ 事件：Git 变更视图刷新 / 预览热更新 / Code Anchor 写回
-    this.emit({ type: 'applied', planId: plan.id, paths: applied, anchors: plan.anchors.map((anchor) => ({ ...anchor })) });
+    this.emit({
+      type: 'applied',
+      planId: plan.id,
+      paths: applied,
+      anchors: plan.anchors.map((anchor) => ({ ...anchor })),
+    });
     if (plan.anchors.length > 0) {
-      this.emit({ type: 'anchors-written', anchors: plan.anchors.map((anchor) => ({ ...anchor })) });
+      this.emit({
+        type: 'anchors-written',
+        anchors: plan.anchors.map((anchor) => ({ ...anchor })),
+      });
     }
 
     return { ok: true, planId: plan.id, applied, skipped, rolledBack: [], error: null };
@@ -210,7 +225,9 @@ export class WritePipeline {
 
     const instruction = [
       '请针对以下已生成但我不满意的部分重新生成（仍按原输出契约返回完整 JSON）：',
-      input.comment.trim().length > 0 ? `修改要求：${input.comment.trim()}` : '修改要求：（未填写，请按更简洁/更符合既有约定的方向调整）',
+      input.comment.trim().length > 0
+        ? `修改要求：${input.comment.trim()}`
+        : '修改要求：（未填写，请按更简洁/更符合既有约定的方向调整）',
       `涉及文件：${input.selectedPaths.join('、')}`,
       '',
       '当前差异（供你定位）：',

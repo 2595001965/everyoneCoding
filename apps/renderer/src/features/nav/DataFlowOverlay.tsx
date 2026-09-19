@@ -17,7 +17,14 @@ export interface DataFlowOverlayProps {
 }
 
 /** 环节固定次序（与验收口径一致） */
-const KIND_ORDER: readonly DataFlowStep['kind'][] = ['element', 'event', 'api', 'backend', 'writeback', 'render'];
+const KIND_ORDER: readonly DataFlowStep['kind'][] = [
+  'element',
+  'event',
+  'api',
+  'backend',
+  'writeback',
+  'render',
+];
 
 const KIND_LABELS: Record<DataFlowStep['kind'], string> = {
   element: '元素',
@@ -28,7 +35,11 @@ const KIND_LABELS: Record<DataFlowStep['kind'], string> = {
   render: '元素渲染',
 };
 
-export function DataFlowOverlay({ elementId, open, onOpenChange }: DataFlowOverlayProps): JSX.Element | null {
+export function DataFlowOverlay({
+  elementId,
+  open,
+  onOpenChange,
+}: DataFlowOverlayProps): JSX.Element | null {
   const api = useNavApi();
   const [steps, setSteps] = useState<DataFlowStep[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,18 +74,28 @@ export function DataFlowOverlay({ elementId, open, onOpenChange }: DataFlowOverl
     <Modal open onOpenChange={onOpenChange} title={`数据流链路 · ${elementId ?? ''}`} size="lg">
       <div className="ec-dataflow" data-testid="dataflow-overlay">
         {loading && <span role="status">读取链路中…</span>}
-        {!loading && steps.length === 0 && <span role="status">该元素暂时没有可展示的数据流记录。</span>}
+        {!loading && steps.length === 0 && (
+          <span role="status">该元素暂时没有可展示的数据流记录。</span>
+        )}
 
         {!loading && steps.length > 0 && (
           <>
             <div className="ec-dataflow__summary" role="status" data-testid="dataflow-summary">
               共 {ordered.length} 个环节{failed > 0 ? `，其中 ${failed} 个失败` : '，链路完整'}
             </div>
-            <ol className="ec-dataflow__steps" data-testid="dataflow-steps" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ol
+              className="ec-dataflow__steps"
+              data-testid="dataflow-steps"
+              style={{ listStyle: 'none', padding: 0, margin: 0 }}
+            >
               {ordered.map(({ kind, step }, index) => (
                 <li
                   key={kind}
-                  className={step !== null && !step.ok ? 'ec-dataflow__step ec-dataflow__step--error' : 'ec-dataflow__step'}
+                  className={
+                    step !== null && !step.ok
+                      ? 'ec-dataflow__step ec-dataflow__step--error'
+                      : 'ec-dataflow__step'
+                  }
                   data-testid={`dataflow-step-${kind}`}
                   data-order={index}
                   data-ok={step === null ? 'missing' : String(step.ok)}
@@ -85,16 +106,24 @@ export function DataFlowOverlay({ elementId, open, onOpenChange }: DataFlowOverl
                     padding: '6px 8px',
                     marginBottom: 4,
                     borderRadius: 6,
-                    background: step !== null && !step.ok ? 'var(--ec-color-danger-subtle, #ffebe9)' : 'var(--ec-color-bg-subtle)',
+                    background:
+                      step !== null && !step.ok
+                        ? 'var(--ec-color-danger-subtle, #ffebe9)'
+                        : 'var(--ec-color-bg-subtle)',
                     borderLeft: `3px solid ${step !== null && !step.ok ? 'var(--ec-color-danger)' : 'var(--ec-color-success)'}`,
                     transition: 'background 120ms ease-in-out',
                   }}
                 >
-                  <span style={{ color: 'var(--ec-color-text-secondary)', minWidth: 64 }}>{KIND_LABELS[kind]}</span>
+                  <span style={{ color: 'var(--ec-color-text-secondary)', minWidth: 64 }}>
+                    {KIND_LABELS[kind]}
+                  </span>
                   <span style={{ flex: 1 }} data-testid={`dataflow-label-${kind}`}>
                     {step?.label ?? '（该环节无记录）'}
                     {step?.detail !== null && step?.detail !== undefined && (
-                      <span style={{ color: 'var(--ec-color-text-secondary)' }}> · {step.detail}</span>
+                      <span style={{ color: 'var(--ec-color-text-secondary)' }}>
+                        {' '}
+                        · {step.detail}
+                      </span>
                     )}
                   </span>
                   {step?.at !== null && step?.at !== undefined && (

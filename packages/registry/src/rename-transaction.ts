@@ -70,7 +70,9 @@ export interface RenameTransactionDeps {
   /** 计时器（性能口径 NFR-P-07：≤200 处变更 ≤5s） */
   timer?: (() => number) | undefined;
   /** 成功后是否为旧名生成别名（FR-UNI-10，属 T7-05 的可选项） */
-  alias?: { kind: 'code' | 'api' | 'i18n'; cleanupDueAt?: number | null; note?: string | null } | undefined;
+  alias?:
+    | { kind: 'code' | 'api' | 'i18n'; cleanupDueAt?: number | null; note?: string | null }
+    | undefined;
 }
 
 /* ------------------------------- 结果 ------------------------------- */
@@ -124,12 +126,16 @@ function defaultTimer(): number {
  * `code` 栏的 `file:line:col` 在这里解析成行列，执行器再用它复核位置——
  * **位置不是凭空算出来的，而是索引（AST）给出的**（FR-UNI-06）。
  */
-export function buildChangeRecords(report: ImpactReport, selection: ReadonlySet<string>): ChangeRecord[] {
+export function buildChangeRecords(
+  report: ImpactReport,
+  selection: ReadonlySet<string>,
+): ChangeRecord[] {
   const records: ChangeRecord[] = [];
   for (const group of report.groups) {
     for (const item of group.items) {
       if (!selection.has(item.id)) continue;
-      const parsed = item.kind === 'code' && item.locator !== null ? parseLocator(item.locator) : null;
+      const parsed =
+        item.kind === 'code' && item.locator !== null ? parseLocator(item.locator) : null;
       records.push({
         id: item.id,
         column: item.kind,
@@ -245,9 +251,9 @@ export function executeRename(input: ExecuteRenameInput): RenameTransactionResul
   }
 
   const symbolPairs = buildSymbolPairs(input.report);
-  const ordered = EXECUTION_ORDER.map((id) => executors.find((executor) => executor.id === id)).filter(
-    (executor): executor is RenameExecutor => executor !== undefined,
-  );
+  const ordered = EXECUTION_ORDER.map((id) =>
+    executors.find((executor) => executor.id === id),
+  ).filter((executor): executor is RenameExecutor => executor !== undefined);
 
   const executions: { executor: RenameExecutor; result: ExecutorResult }[] = [];
   const failures: string[] = [];
@@ -289,7 +295,10 @@ export function executeRename(input: ExecuteRenameInput): RenameTransactionResul
   }
 
   /* --------------------- ⑤ 注册表写回 + Git 提交 + 事件 --------------------- */
-  const commitMessage = buildRenameCommitMessage(input.registry.canonicalName, input.newCanonicalName);
+  const commitMessage = buildRenameCommitMessage(
+    input.registry.canonicalName,
+    input.newCanonicalName,
+  );
   const nextEntry = applyRename({
     entry: input.registry,
     newCanonicalName: input.newCanonicalName,
@@ -346,7 +355,8 @@ export function executeRename(input: ExecuteRenameInput): RenameTransactionResul
 
   let commitSha: string | null = null;
   try {
-    commitSha = input.deps.git?.commit({ message: commitMessage, paths: touchedPaths(changeset) }) ?? null;
+    commitSha =
+      input.deps.git?.commit({ message: commitMessage, paths: touchedPaths(changeset) }) ?? null;
   } catch (error) {
     warnings.push(`Git 提交失败（改动已落盘，可稍后在 Git 面板手动提交）：${String(error)}`);
   }
@@ -392,7 +402,9 @@ function dedupeSnapshots(snapshots: readonly FileSnapshot[]): FileSnapshot[] {
   return [...map.values()];
 }
 
-function dedupeStateSnapshots(snapshots: readonly ExecutorStateSnapshot[]): ExecutorStateSnapshot[] {
+function dedupeStateSnapshots(
+  snapshots: readonly ExecutorStateSnapshot[],
+): ExecutorStateSnapshot[] {
   const map = new Map<string, ExecutorStateSnapshot>();
   for (const snapshot of snapshots) map.set(`${snapshot.kind}|${snapshot.id}`, snapshot);
   return [...map.values()];
@@ -467,7 +479,9 @@ export function undoRename(input: UndoRenameInput): UndoResult {
       .map((snapshot) => hydrateSnapshot(snapshot, context.files));
     const stateKind = STATE_KIND_BY_EXECUTOR[executor.id];
     const stateSnapshots =
-      stateKind === null ? [] : changeset.stateSnapshots.filter((snapshot) => snapshot.kind === stateKind);
+      stateKind === null
+        ? []
+        : changeset.stateSnapshots.filter((snapshot) => snapshot.kind === stateKind);
 
     // 无撤销素材的执行器直接跳过（例如本次没有代码改动）
     if (

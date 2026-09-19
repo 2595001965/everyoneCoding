@@ -5,7 +5,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { Telemetry } from '../telemetry';
-import { TelemetryClient, createMemoryBufferStore, type TelemetryBufferStore } from '../telemetry-client';
+import {
+  TelemetryClient,
+  createMemoryBufferStore,
+  type TelemetryBufferStore,
+} from '../telemetry-client';
 import { buildEvent } from '../telemetry-events';
 import type { TelemetrySink } from '../telemetry';
 
@@ -64,7 +68,9 @@ describe('TelemetryClient：缓冲与上报', () => {
         sleeps.push(ms);
       },
     });
-    client.track(buildEvent('package.export', 'success', { durationMs: 9000, dims: { bytes: 2_000_000 } }));
+    client.track(
+      buildEvent('package.export', 'success', { durationMs: 9000, dims: { bytes: 2_000_000 } }),
+    );
     const outcome = await client.flush();
     expect(outcome).toBe('sent');
     expect(sleeps).toEqual([100, 200]); // 100 * 2^0, 100 * 2^1
@@ -77,7 +83,12 @@ describe('TelemetryClient：缓冲与上报', () => {
         throw new Error('持续失败');
       },
     });
-    const client = new TelemetryClient({ telemetry, maxRetries: 1, retryBackoffMs: 1, sleeper: async () => undefined });
+    const client = new TelemetryClient({
+      telemetry,
+      maxRetries: 1,
+      retryBackoffMs: 1,
+      sleeper: async () => undefined,
+    });
     client.track(buildEvent('auth.login', 'success'));
     const outcome = await client.flush();
     expect(outcome).toBe('failed');

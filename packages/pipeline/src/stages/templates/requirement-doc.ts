@@ -65,8 +65,13 @@ export interface RequirementPromptInput {
  * - 系统提示词：角色 + 八项输出契约 + 禁止事项强约束（§13.2 句式："绝不可/必须…"）；
  * - 用户消息：描述 + 偏好 + 相似项目摘要。
  */
-export function buildRequirementPrompt(input: RequirementPromptInput): { system: string; user: string } {
-  const forbiddenLines = input.forbidden.map((item) => `- 【强约束】${item}。此条为禁止事项，违反即返工。`);
+export function buildRequirementPrompt(input: RequirementPromptInput): {
+  system: string;
+  user: string;
+} {
+  const forbiddenLines = input.forbidden.map(
+    (item) => `- 【强约束】${item}。此条为禁止事项，违反即返工。`,
+  );
   const preferenceLines = input.preferences.map((item) => `- ${item}`);
 
   const system = [
@@ -85,7 +90,9 @@ export function buildRequirementPrompt(input: RequirementPromptInput): { system:
     '1. 不要臆造事实：所有功能必须有依据，不确定的需求写进「风险与假设」。',
     '2. 八个小节标题必须逐字出现（## 项目背景 / ## 目标用户 / ## 功能清单 / ## 用户故事 / ## 业务流程图 / ## 验收标准 / ## 非功能要求 / ## 风险与假设），否则视为输出不合格。',
     '3. 业务流程图必须使用 Mermaid 的 flowchart（TD 或 LR 方向）语法。',
-    ...(input.forbidden.length > 0 ? ['', '## 禁止事项（来自长期记忆，违反即返工）', ...forbiddenLines] : []),
+    ...(input.forbidden.length > 0
+      ? ['', '## 禁止事项（来自长期记忆，违反即返工）', ...forbiddenLines]
+      : []),
   ].join('\n');
 
   const userLines = [
@@ -94,11 +101,15 @@ export function buildRequirementPrompt(input: RequirementPromptInput): { system:
     '## 用户想法（自然语言描述）',
     input.description,
   ];
-  if (preferenceLines.length > 0) userLines.push('', '## 长期记忆中的偏好（必须体现）', ...preferenceLines);
+  if (preferenceLines.length > 0)
+    userLines.push('', '## 长期记忆中的偏好（必须体现）', ...preferenceLines);
   if (input.similarProjects !== undefined && input.similarProjects.length > 0) {
     userLines.push('', '## 相似项目记忆（参考其经验与教训，但不照抄）');
     for (const project of input.similarProjects) {
-      userLines.push(`- [${project.name}]（相似度 ${project.score.toFixed(2)}）`, `  ${project.summary}`);
+      userLines.push(
+        `- [${project.name}]（相似度 ${project.score.toFixed(2)}）`,
+        `  ${project.summary}`,
+      );
     }
   }
   if (input.instruction !== undefined && input.instruction.trim().length > 0) {
@@ -135,7 +146,9 @@ export function extractMermaidFlowchart(markdown: string): string | null {
 }
 
 /** 抽取功能清单（P0/P1/P2 优先级解析；供 UI 摘要展示） */
-export function extractFeaturePriorities(markdown: string): { name: string; priority: 'P0' | 'P1' | 'P2' }[] {
+export function extractFeaturePriorities(
+  markdown: string,
+): { name: string; priority: 'P0' | 'P1' | 'P2' }[] {
   const result: { name: string; priority: 'P0' | 'P1' | 'P2' }[] = [];
   for (const line of markdown.replace(/\r\n?/g, '\n').split('\n')) {
     const match = /^[-*]\s*(P[0-2])\s*[:：]?\s*(.+)$/.exec(line.trim());
@@ -155,9 +168,15 @@ export function renderRequirementDoc(input: RequirementPromptInput): string {
   const preferences = input.preferences.length > 0 ? input.preferences.join('；') : '（无）';
   const similar =
     input.similarProjects !== undefined && input.similarProjects.length > 0
-      ? input.similarProjects.map((project) => `- ${project.name}（相似度 ${project.score.toFixed(2)}）：${project.summary}`).join('\n')
+      ? input.similarProjects
+          .map(
+            (project) =>
+              `- ${project.name}（相似度 ${project.score.toFixed(2)}）：${project.summary}`,
+          )
+          .join('\n')
       : '（暂无）';
-  const forbidden = input.forbidden.length > 0 ? input.forbidden.map((item) => `- ${item}`).join('\n') : '（无）';
+  const forbidden =
+    input.forbidden.length > 0 ? input.forbidden.map((item) => `- ${item}`).join('\n') : '（无）';
 
   return [
     `# ${input.projectName} 需求文档`,

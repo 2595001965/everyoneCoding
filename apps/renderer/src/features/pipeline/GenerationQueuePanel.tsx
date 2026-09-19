@@ -61,7 +61,7 @@ export function GenerationQueuePanel({
     return <EmptyState title="流水线未初始化" description="请先注入 PipelineApi 后再执行生成。" />;
   }
 
-  const state = (result !== null ? (result.state as QueueState) : null);
+  const state = result !== null ? (result.state as QueueState) : null;
 
   return (
     <div className="ec-pipe-queue" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -81,16 +81,29 @@ export function GenerationQueuePanel({
       )}
 
       {error !== null && (
-        <div style={{ color: '#dc2626', background: '#fef2f2', borderRadius: 6, padding: '8px 10px' }}>{error}</div>
+        <div
+          style={{ color: '#dc2626', background: '#fef2f2', borderRadius: 6, padding: '8px 10px' }}
+        >
+          {error}
+        </div>
       )}
 
       {!running && result === null && (
-        <EmptyState title="尚未开始生成" description="点击「开始生成」按拓扑序逐个生成功能与页面代码。" />
+        <EmptyState
+          title="尚未开始生成"
+          description="点击「开始生成」按拓扑序逐个生成功能与页面代码。"
+        />
       )}
 
       {result !== null && state !== null && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+              gap: 12,
+            }}
+          >
             {state.nodes.map((node) => (
               <NodeStatusCard key={node.id} node={node} result={result.results[node.id] ?? null} />
             ))}

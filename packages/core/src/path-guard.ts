@@ -38,7 +38,9 @@ export function normalizePath(input: string): string {
   }
   // Windows 盘符只作为前缀出现一次，不能重复拼进路径段
   const dropDrive =
-    drive !== undefined && parts[0] !== undefined && parts[0].toLowerCase() === `${drive.toLowerCase()}:`;
+    drive !== undefined &&
+    parts[0] !== undefined &&
+    parts[0].toLowerCase() === `${drive.toLowerCase()}:`;
   const segments = dropDrive ? parts.slice(1) : parts;
   const prefix = drive ? `${drive}:/` : isAbs ? '/' : '';
   return `${prefix}${segments.join('/')}`;

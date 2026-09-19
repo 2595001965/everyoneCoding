@@ -41,7 +41,11 @@ export function Select({
   className,
   'aria-label': ariaLabel,
 }: SelectProps): React.ReactElement {
-  const [val, setVal] = useControllableState<string>({ value, defaultValue: defaultValue ?? '', onChange });
+  const [val, setVal] = useControllableState<string>({
+    value,
+    defaultValue: defaultValue ?? '',
+    onChange,
+  });
   const [open, setOpen] = React.useState(false);
   const [active, setActive] = React.useState(0);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -130,7 +134,13 @@ export function Select({
   return (
     <div
       ref={rootRef}
-      className={cx('ec-select', `ec-button--${size}`, invalid && 'ec-input--invalid', disabled && 'ec-input--disabled', className)}
+      className={cx(
+        'ec-select',
+        `ec-button--${size}`,
+        invalid && 'ec-input--invalid',
+        disabled && 'ec-input--disabled',
+        className,
+      )}
     >
       <button
         type="button"
@@ -149,7 +159,9 @@ export function Select({
         <span className={cx('ec-select__value', !selected && 'ec-select__value--placeholder')}>
           {selected ? selected.label : placeholder}
         </span>
-        <span className="ec-select__caret" aria-hidden="true">▾</span>
+        <span className="ec-select__caret" aria-hidden="true">
+          ▾
+        </span>
       </button>
       {showClear && (
         <button
@@ -165,7 +177,13 @@ export function Select({
         {ariaLabel ?? placeholder}
       </span>
       {open && (
-        <ul ref={listRef} id={listId} className="ec-select__list" role="listbox" aria-activedescendant={`${listId}-${active}`}>
+        <ul
+          ref={listRef}
+          id={listId}
+          className="ec-select__list"
+          role="listbox"
+          aria-activedescendant={`${listId}-${active}`}
+        >
           {options.map((opt, i) => (
             <li
               key={opt.value}
@@ -173,7 +191,12 @@ export function Select({
               role="option"
               aria-selected={opt.value === val}
               aria-disabled={opt.disabled || undefined}
-              className={cx('ec-select__option', i === active && 'ec-select__option--active', opt.value === val && 'ec-select__option--selected', opt.disabled && 'ec-select__option--disabled')}
+              className={cx(
+                'ec-select__option',
+                i === active && 'ec-select__option--active',
+                opt.value === val && 'ec-select__option--selected',
+                opt.disabled && 'ec-select__option--disabled',
+              )}
               onMouseEnter={() => setActive(i)}
               onClick={() => choose(i)}
             >

@@ -40,29 +40,42 @@ export const ICON_SET: Record<string, React.ReactNode> = {
   // —— 组件图标 ——
   container: icon([p('M3 3h18v18H3z'), p('M3 9h18'), p('M3 15h18'), p('M9 3v18')]),
   text: icon([p('M5 5h14'), p('M12 5v14')]),
-  image: icon([p('M3 3h18v18H3z'), p('M8.5 8.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z'), p('M21 15l-5-5L5 21')]),
+  image: icon([
+    p('M3 3h18v18H3z'),
+    p('M8.5 8.5a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z'),
+    p('M21 15l-5-5L5 21'),
+  ]),
   button: icon([p('M3 8h18v8H3z')]),
   input: icon([p('M3 7h18v10H3z'), dot('M7 12h.01')]),
   select: icon([p('M3 7h18v10H3z'), p('M15 10l2 2 2-2')]),
   table: icon([p('M3 4h18v16H3z'), p('M3 9h18'), p('M3 14h18'), p('M9 4v16')]),
-  list: icon([p('M8 6h13'), p('M8 12h13'), p('M8 18h13'), dot('M3 6h.01'), dot('M3 12h.01'), dot('M3 18h.01')]),
+  list: icon([
+    p('M8 6h13'),
+    p('M8 12h13'),
+    p('M8 18h13'),
+    dot('M3 6h.01'),
+    dot('M3 12h.01'),
+    dot('M3 18h.01'),
+  ]),
   form: icon([p('M4 3h16v18H4z'), p('M8 8h8'), p('M8 12h8'), p('M8 16h5')]),
   modal: icon([p('M3 5h18v14H3z'), p('M3 9h18')]),
   tabs: icon([p('M3 4h7v16H3z'), p('M14 4h7v16h-7z')]),
   navbar: icon([p('M3 5h18v5H3z'), p('M3 15h18')]),
   chart: icon([p('M4 20V12'), p('M9 20V8'), p('M14 20V14'), p('M19 20V6')]),
-  dashboard: icon([
-    p('M3 3h8v8H3z'),
-    p('M13 3h8v8h-8z'),
-    p('M3 13h8v8H3z'),
-    p('M13 13h8v8h-8z'),
-  ]),
+  dashboard: icon([p('M3 3h8v8H3z'), p('M13 3h8v8h-8z'), p('M3 13h8v8H3z'), p('M13 13h8v8h-8z')]),
   // —— 业务组件图标 ——
-  'login-card': icon([p('M3 4h18v16H3z'), p('M9 10a2 2 0 104 0 2 2 0 00-4 0z'), p('M6 16c0-2 2-3 3-3s3 1 3 3')]),
+  'login-card': icon([
+    p('M3 4h18v16H3z'),
+    p('M9 10a2 2 0 104 0 2 2 0 00-4 0z'),
+    p('M6 16c0-2 2-3 3-3s3 1 3 3'),
+  ]),
   'dashboard-template': icon([p('M2 3h20v14H2z'), p('M2 8h20'), p('M8 21h8')]),
   'list-page-template': icon([p('M3 4h18v16H3z'), p('M7 8h10'), p('M7 12h10'), p('M7 16h6')]),
   // —— 常用操作图标 ——
-  eye: icon([p('M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'), p('M12 12a3 3 0 100 6 3 3 0 000-6z')]),
+  eye: icon([
+    p('M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'),
+    p('M12 12a3 3 0 100 6 3 3 0 000-6z'),
+  ]),
   'eye-off': icon([
     p('M9.9 4.2A10.9 10.9 0 0112 4c6.5 0 10 7 10 7a17 17 0 01-3 3.7'),
     p('M6.6 6.6A17 17 0 002 11s3.5 7 10 7a10.9 10.9 0 003.1-.4'),

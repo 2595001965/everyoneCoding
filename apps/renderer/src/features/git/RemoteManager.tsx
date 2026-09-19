@@ -52,7 +52,11 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
     const result = await api.remotes();
     if (result.ok && result.data !== null) {
       setRemotes(result.data);
-      setSelected((current) => (current === '' && result.data !== null && result.data.length > 0 ? result.data[0]?.name ?? '' : current));
+      setSelected((current) =>
+        current === '' && result.data !== null && result.data.length > 0
+          ? (result.data[0]?.name ?? '')
+          : current,
+      );
     }
     const creds = await api.credentialBindings();
     setBindings(creds);
@@ -84,7 +88,8 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
     const name = formName.trim();
     const url = formUrl.trim();
     if (name.length === 0 || url.length === 0) return;
-    const result = editing === null ? await api.addRemote(name, url) : await api.editRemote(name, url);
+    const result =
+      editing === null ? await api.addRemote(name, url) : await api.editRemote(name, url);
     if (result.ok) {
       setFormOpen(false);
       setNotice(editing === null ? `已新增远程 ${name}` : `已更新远程 ${name}`);
@@ -110,7 +115,14 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
     if (selected === '') return;
     setTestResult(null);
     const result = await api.testRemote(selected);
-    setTestResult(result.data ?? { remote: selected, ok: false, branches: 0, message: result.error?.message ?? '连通性测试失败' });
+    setTestResult(
+      result.data ?? {
+        remote: selected,
+        ok: false,
+        branches: 0,
+        message: result.error?.message ?? '连通性测试失败',
+      },
+    );
   }, [api, selected]);
 
   const runPush = useCallback(
@@ -123,7 +135,11 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
         (event) => setProgress(event),
       );
       setTransport('idle');
-      setProgress({ phase: result.ok ? 'done' : 'error', message: result.ok ? '推送完成' : (result.error?.message ?? '推送失败'), percent: 100 });
+      setProgress({
+        phase: result.ok ? 'done' : 'error',
+        message: result.ok ? '推送完成' : (result.error?.message ?? '推送失败'),
+        percent: 100,
+      });
       if (result.ok) onChanged?.();
     },
     [api, selected, onChanged],
@@ -144,7 +160,11 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
     setTransport('idle');
     setProgress({
       phase: result.ok ? 'done' : 'error',
-      message: result.ok ? (result.data?.upToDate === true ? '已是最新' : '拉取完成') : (result.error?.message ?? '拉取失败'),
+      message: result.ok
+        ? result.data?.upToDate === true
+          ? '已是最新'
+          : '拉取完成'
+        : (result.error?.message ?? '拉取失败'),
       percent: 100,
     });
     if (result.ok) onChanged?.();
@@ -153,11 +173,17 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
   const runFetch = useCallback(async () => {
     if (selected === '') return;
     setTransport('fetch');
-    const result = await api.fetch({ remote: selected, prune: true }, (event) => setProgress(event));
+    const result = await api.fetch({ remote: selected, prune: true }, (event) =>
+      setProgress(event),
+    );
     setTransport('idle');
     setProgress({
       phase: result.ok ? 'done' : 'error',
-      message: result.ok ? (result.data?.upToDate === true ? '已是最新' : '抓取完成') : (result.error?.message ?? '抓取失败'),
+      message: result.ok
+        ? result.data?.upToDate === true
+          ? '已是最新'
+          : '抓取完成'
+        : (result.error?.message ?? '抓取失败'),
       percent: 100,
     });
     if (result.ok) onChanged?.();
@@ -171,7 +197,11 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
       // 保存后立刻清空本地明文，避免在组件状态里久留
       setToken('');
     } else if (credentialKind === 'ssh') {
-      await api.saveSshCredential({ remoteName: selected, privateKeyPath: sshKey, passphrase: null });
+      await api.saveSshCredential({
+        remoteName: selected,
+        privateKeyPath: sshKey,
+        passphrase: null,
+      });
     }
     const creds = await api.credentialBindings();
     setBindings(creds);
@@ -181,8 +211,15 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
   const binding = bindings.find((item) => item.remoteName === selected) ?? null;
 
   return (
-    <div className="ec-remote-manager" data-testid="remote-manager" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="ec-remote-manager__toolbar" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+    <div
+      className="ec-remote-manager"
+      data-testid="remote-manager"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
+      <div
+        className="ec-remote-manager__toolbar"
+        style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+      >
         <Button size="sm" variant="primary" onClick={openCreate} data-testid="remote-add">
           新增远程
         </Button>
@@ -190,11 +227,18 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
           aria-label="选择远程"
           value={selected}
           onChange={setSelected}
-          options={remotes.map((remote) => ({ label: `${remote.name}（${remote.url}）`, value: remote.name }))}
+          options={remotes.map((remote) => ({
+            label: `${remote.name}（${remote.url}）`,
+            value: remote.name,
+          }))}
           data-testid="remote-select"
         />
         {notice !== null && (
-          <span role="status" style={{ color: 'var(--ec-color-text-secondary)' }} data-testid="remote-notice">
+          <span
+            role="status"
+            style={{ color: 'var(--ec-color-text-secondary)' }}
+            data-testid="remote-notice"
+          >
             {notice}
           </span>
         )}
@@ -213,10 +257,17 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
               style={{ display: 'flex', gap: 8, alignItems: 'center' }}
             >
               <span style={{ minWidth: 96 }}>{remote.name}</span>
-              <code style={{ fontFamily: 'monospace', color: 'var(--ec-color-text-secondary)' }}>{remote.url}</code>
+              <code style={{ fontFamily: 'monospace', color: 'var(--ec-color-text-secondary)' }}>
+                {remote.url}
+              </code>
               <Tag color="neutral">{remote.kind}</Tag>
               <span style={{ flex: 1 }} />
-              <button type="button" onClick={() => openEdit(remote)} data-testid={`remote-edit-${remote.name}`} style={linkBtn}>
+              <button
+                type="button"
+                onClick={() => openEdit(remote)}
+                data-testid={`remote-edit-${remote.name}`}
+                style={linkBtn}
+              >
                 编辑
               </button>
               <button
@@ -233,52 +284,92 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
       )}
 
       {remotes.length > 0 && (
-        <div className="ec-remote-manager__actions" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div
+          className="ec-remote-manager__actions"
+          style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <Button size="sm" onClick={runTest} data-testid="remote-test">
             测试连通性
           </Button>
-          <Button size="sm" variant="primary" onClick={handlePushClick} loading={transport === 'push'} data-testid="remote-push">
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={handlePushClick}
+            loading={transport === 'push'}
+            data-testid="remote-push"
+          >
             推送
           </Button>
-          <Button size="sm" onClick={runPull} loading={transport === 'pull'} data-testid="remote-pull">
+          <Button
+            size="sm"
+            onClick={runPull}
+            loading={transport === 'pull'}
+            data-testid="remote-pull"
+          >
             拉取
           </Button>
-          <Button size="sm" onClick={runFetch} loading={transport === 'fetch'} data-testid="remote-fetch">
+          <Button
+            size="sm"
+            onClick={runFetch}
+            loading={transport === 'fetch'}
+            data-testid="remote-fetch"
+          >
             抓取
           </Button>
-          <Checkbox
-            checked={force}
-            onChange={setForce}
-            aria-label="强制推送"
-            disabled={false}
-          />
-          <span style={{ color: force ? 'var(--ec-color-danger)' : 'var(--ec-color-text-secondary)' }}>强制推送</span>
+          <Checkbox checked={force} onChange={setForce} aria-label="强制推送" disabled={false} />
+          <span
+            style={{ color: force ? 'var(--ec-color-danger)' : 'var(--ec-color-text-secondary)' }}
+          >
+            强制推送
+          </span>
         </div>
       )}
 
       {testResult !== null && (
-        <div role="status" data-testid="remote-test-result" style={{ color: testResult.ok ? 'var(--ec-color-success)' : 'var(--ec-color-danger)' }}>
-          {testResult.ok ? `连通正常，远端有 ${testResult.branches} 个分支` : `连通失败：${testResult.message}`}
+        <div
+          role="status"
+          data-testid="remote-test-result"
+          style={{ color: testResult.ok ? 'var(--ec-color-success)' : 'var(--ec-color-danger)' }}
+        >
+          {testResult.ok
+            ? `连通正常，远端有 ${testResult.branches} 个分支`
+            : `连通失败：${testResult.message}`}
         </div>
       )}
 
       {progress !== null && (
         <div className="ec-remote-manager__progress" data-testid="remote-progress" role="status">
-          {progress.phase === 'transferring' ? <Progress {...(progress.percent !== null ? { value: progress.percent, max: 100 } : { indeterminate: true })} /> : null}
+          {progress.phase === 'transferring' ? (
+            <Progress
+              {...(progress.percent !== null
+                ? { value: progress.percent, max: 100 }
+                : { indeterminate: true })}
+            />
+          ) : null}
           <span>{progress.message}</span>
         </div>
       )}
 
       {/* 凭据表单：按 URL 推断种类（HTTPS 令牌 / SSH 私钥路径） */}
       {selected !== '' && credentialKind !== 'none' && (
-        <div className="ec-remote-manager__credential" data-testid="remote-credential" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div
+          className="ec-remote-manager__credential"
+          data-testid="remote-credential"
+          style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <span style={{ color: 'var(--ec-color-text-secondary)' }}>
             凭据类型：{credentialKind === 'https' ? 'HTTPS 令牌' : 'SSH 私钥'}
             {binding !== null ? '（已保存）' : '（未保存）'}
           </span>
           {credentialKind === 'https' ? (
             <>
-              <Input aria-label="HTTPS 用户名" placeholder="用户名" value={tokenUser} onChange={setTokenUser} data-testid="cred-username" />
+              <Input
+                aria-label="HTTPS 用户名"
+                placeholder="用户名"
+                value={tokenUser}
+                onChange={setTokenUser}
+                data-testid="cred-username"
+              />
               <Input
                 aria-label="HTTPS 令牌"
                 placeholder="访问令牌"
@@ -317,13 +408,24 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
             <Button size="sm" onClick={() => setFormOpen(false)}>
               取消
             </Button>
-            <Button size="sm" variant="primary" onClick={submitForm} data-testid="remote-form-submit">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={submitForm}
+              data-testid="remote-form-submit"
+            >
               保存
             </Button>
           </>
         }
       >
-        <Input aria-label="远程名称" placeholder="例如 origin" value={formName} onChange={setFormName} data-testid="remote-form-name" />
+        <Input
+          aria-label="远程名称"
+          placeholder="例如 origin"
+          value={formName}
+          onChange={setFormName}
+          data-testid="remote-form-name"
+        />
         <Input
           aria-label="远程地址"
           placeholder="例如 https://example.com/group/repo.git"
@@ -344,14 +446,20 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
             <Button size="sm" onClick={() => setPendingDelete(null)}>
               取消
             </Button>
-            <Button size="sm" variant="danger" onClick={confirmDelete} data-testid="remote-delete-confirm">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={confirmDelete}
+              data-testid="remote-delete-confirm"
+            >
               删除
             </Button>
           </>
         }
       >
         <p>
-          即将删除远程 <strong>{pendingDelete}</strong>，本地仓库内容不受影响，但之后无法再向该远程推送。确认继续？
+          即将删除远程 <strong>{pendingDelete}</strong>
+          ，本地仓库内容不受影响，但之后无法再向该远程推送。确认继续？
         </p>
       </Modal>
 
@@ -381,8 +489,8 @@ export function RemoteManager({ onChanged }: RemoteManagerProps): JSX.Element {
         }
       >
         <p>
-          强制推送会覆盖远程分支上已有的提交（优先使用 <code>--force-with-lease</code> 降低误伤风险）。
-          团队协作分支上这样做可能导致他人提交丢失，确认继续？
+          强制推送会覆盖远程分支上已有的提交（优先使用 <code>--force-with-lease</code>{' '}
+          降低误伤风险）。 团队协作分支上这样做可能导致他人提交丢失，确认继续？
         </p>
       </Modal>
     </div>

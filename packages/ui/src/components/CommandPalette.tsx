@@ -38,7 +38,15 @@ function fuzzy(query: string, text: string): boolean {
 }
 
 export function CommandPalette(props: CommandPaletteProps): React.ReactElement | null {
-  const { open, defaultOpen, onOpenChange, commands, onSelect, placeholder = '输入命令…', className } = props;
+  const {
+    open,
+    defaultOpen,
+    onOpenChange,
+    commands,
+    onSelect,
+    placeholder = '输入命令…',
+    className,
+  } = props;
   const { open: isOpen, setOpen } = useDisclosure({ open, defaultOpen, onOpenChange });
   const [query, setQuery] = React.useState('');
   const [active, setActive] = React.useState(0);
@@ -51,7 +59,10 @@ export function CommandPalette(props: CommandPaletteProps): React.ReactElement |
 
   const results = React.useMemo(() => {
     return commands.filter((c) =>
-      fuzzy(query, `${c.title} ${c.subtitle ?? ''} ${c.group ?? ''} ${(c.keywords ?? []).join(' ')}`),
+      fuzzy(
+        query,
+        `${c.title} ${c.subtitle ?? ''} ${c.group ?? ''} ${(c.keywords ?? []).join(' ')}`,
+      ),
     );
   }, [commands, query]);
 
@@ -118,7 +129,10 @@ export function CommandPalette(props: CommandPaletteProps): React.ReactElement |
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={i === active}
-                className={cx('ec-command-palette__item', i === active && 'ec-command-palette__item--active')}
+                className={cx(
+                  'ec-command-palette__item',
+                  i === active && 'ec-command-palette__item--active',
+                )}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => {
                   onSelect(item.id);

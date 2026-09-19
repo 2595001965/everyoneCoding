@@ -95,7 +95,9 @@ export function buildDdlPrompt(request: DdlRequest): string {
     .map((note, index) => `${index + 1}. ${note}`)
     .join('\n');
   const dependents =
-    request.dependents.length === 0 ? '（无）' : request.dependents.map((item) => `- ${item}`).join('\n');
+    request.dependents.length === 0
+      ? '（无）'
+      : request.dependents.map((item) => `- ${item}`).join('\n');
   return [
     '你是数据库迁移专家。请为下面的字段改名生成**可直接执行**的迁移脚本。',
     '',
@@ -123,7 +125,9 @@ export function buildDdlPrompt(request: DdlRequest): string {
 }
 
 /** 从模型输出中提取两个 sql 代码块（前向 / 回滚） */
-export function parseGeneratedMigration(text: string): { forward: string; rollback: string } | null {
+export function parseGeneratedMigration(
+  text: string,
+): { forward: string; rollback: string } | null {
   const blocks: string[] = [];
   const fence = /```(?:sql)?\s*\n([\s\S]*?)```/g;
   let match = fence.exec(text);
@@ -158,7 +162,8 @@ export async function generateMigration(
       ok: false,
       reason: '未配置可用的 AI 模型，无法生成迁移脚本',
       prompt,
-      guidance: '请在「设置 → 模型接入」中配置一个可用模型后重试；D-08 规定迁移脚本只能由 AI 生成，本产品不提供手写迁移脚本的入口。',
+      guidance:
+        '请在「设置 → 模型接入」中配置一个可用模型后重试；D-08 规定迁移脚本只能由 AI 生成，本产品不提供手写迁移脚本的入口。',
     };
   }
 
@@ -217,6 +222,10 @@ export function isGenerationError(
 }
 
 /** 迁移脚本的提交信息（Conventional Commits） */
-export function buildMigrationCommitMessage(table: string, oldColumn: string, newColumn: string): string {
+export function buildMigrationCommitMessage(
+  table: string,
+  oldColumn: string,
+  newColumn: string,
+): string {
   return `refactor(rename-db): ${table}.${oldColumn} → ${newColumn}`;
 }

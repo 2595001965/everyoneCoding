@@ -41,7 +41,11 @@ export function HunkSelector({ file, onCommitSelected }: HunkSelectorProps): JSX
         选择要提交的代码块（{file.path}）
       </div>
       {file.hunks.map((hunk) => (
-        <label key={hunk.index} className="ec-hunk-selector__hunk" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <label
+          key={hunk.index}
+          className="ec-hunk-selector__hunk"
+          style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+        >
           <input
             type="checkbox"
             checked={selected.has(hunk.index)}
@@ -49,12 +53,21 @@ export function HunkSelector({ file, onCommitSelected }: HunkSelectorProps): JSX
             aria-label={`选择代码块 ${hunk.index}`}
             data-testid={`hunk-check-${hunk.index}`}
           />
-          <span className="ec-hunk-selector__hdr" style={{ fontFamily: 'monospace', color: 'var(--ec-color-text-secondary)' }}>
+          <span
+            className="ec-hunk-selector__hdr"
+            style={{ fontFamily: 'monospace', color: 'var(--ec-color-text-secondary)' }}
+          >
             {hunk.header}
           </span>
         </label>
       ))}
-      <Button size="sm" variant="primary" onClick={commit} disabled={selected.size === 0} data-testid="commit-selected">
+      <Button
+        size="sm"
+        variant="primary"
+        onClick={commit}
+        disabled={selected.size === 0}
+        data-testid="commit-selected"
+      >
         提交选中变更（{selected.size}）
       </Button>
     </div>

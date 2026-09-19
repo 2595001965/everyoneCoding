@@ -1,4 +1,8 @@
-import type { DocumentArchivePort, StageGenerationPort, StageGenerateRequest } from './s1-requirement';
+import type {
+  DocumentArchivePort,
+  StageGenerationPort,
+  StageGenerateRequest,
+} from './s1-requirement';
 import type { TechChoice } from './tech-choice-questionnaire';
 import { techChoiceToStack } from './tech-choice-questionnaire';
 import {
@@ -23,7 +27,9 @@ import {
 
 export interface TechDocMemoryPort {
   /** 项目记忆已声明的技术栈与禁止技术 */
-  getProjectConstraints(projectId: string): Promise<{ declaredStack: string | null; forbidden: string[] }>;
+  getProjectConstraints(
+    projectId: string,
+  ): Promise<{ declaredStack: string | null; forbidden: string[] }>;
 }
 
 export interface S3TechDocRequest extends StageGenerateRequest {
@@ -63,7 +69,9 @@ export class S3TechDocStage {
   }
 
   async generate(input: S3TechDocRequest): Promise<TechDocGenerationResult> {
-    const { declaredStack, forbidden } = await this.deps.memory.getProjectConstraints(input.projectId);
+    const { declaredStack, forbidden } = await this.deps.memory.getProjectConstraints(
+      input.projectId,
+    );
     const stack = techChoiceToStack(input.choice);
 
     const prompt = buildTechDocPrompt({
@@ -73,7 +81,9 @@ export class S3TechDocStage {
       requirementDoc: input.requirementDoc,
       declaredStack,
       forbidden,
-      ...(input.instruction !== undefined && input.instruction.trim().length > 0 ? { instruction: input.instruction } : {}),
+      ...(input.instruction !== undefined && input.instruction.trim().length > 0
+        ? { instruction: input.instruction }
+        : {}),
     });
 
     let { content, degraded } = await this.deps.generate.generate(prompt);
@@ -114,9 +124,22 @@ export class S3TechDocStage {
       kind: 'techdoc',
       content,
       version,
-      note: input.instruction !== undefined && input.instruction.trim().length > 0 ? `追加要求：${input.instruction.trim()}` : '初始生成',
+      note:
+        input.instruction !== undefined && input.instruction.trim().length > 0
+          ? `追加要求：${input.instruction.trim()}`
+          : '初始生成',
     });
 
-    return { content, documentId, version, title, completeness, openApi, forbiddenHit, regenerated, degraded };
+    return {
+      content,
+      documentId,
+      version,
+      title,
+      completeness,
+      openApi,
+      forbiddenHit,
+      regenerated,
+      degraded,
+    };
   }
 }

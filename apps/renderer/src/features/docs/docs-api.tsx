@@ -57,14 +57,26 @@ export interface DocsApi {
   listDocLinks(documentId: string): Promise<DocMemoryLink[]>;
   /** 反查：某记忆被哪些文档引用（双向跳转的反向入口） */
   listMemoryRefs(memoryId: string): Promise<DocMemoryLink[]>;
-  linkToMemory(input: { memoryId: string; documentId: string; linkType: DocLinkType }): Promise<DocMemoryLink>;
+  linkToMemory(input: {
+    memoryId: string;
+    documentId: string;
+    linkType: DocLinkType;
+  }): Promise<DocMemoryLink>;
   removeLink(id: string): Promise<void>;
   /** 记忆卡片"📎 N 篇关联文档"：批量取关联数 */
   countLinksForMemories(memoryIds: string[]): Promise<Record<string, number>>;
 
   /** 一键转记忆：AI 摘要草稿（端口缺失时 crate 侧抛错，UI 展示引导） */
-  previewConvertToMemory(input: { docId: string; scope: DocMemoryScope; anchor?: string }): Promise<ConvertDraft>;
-  commitConvertToMemory(input: { projectId: string; draft: ConvertDraft; scope?: DocMemoryScope }): Promise<DocMemoryNode>;
+  previewConvertToMemory(input: {
+    docId: string;
+    scope: DocMemoryScope;
+    anchor?: string;
+  }): Promise<ConvertDraft>;
+  commitConvertToMemory(input: {
+    projectId: string;
+    draft: ConvertDraft;
+    scope?: DocMemoryScope;
+  }): Promise<DocMemoryNode>;
 
   /** 当前环境可解析的格式（浏览器端仅 markdown/txt；docx/pdf 由外壳在 Node 侧解析） */
   supportedFormats(): DocFormat[];
@@ -100,7 +112,8 @@ export function DocsUnavailable(): JSX.Element {
   return (
     <div className="ec-docs">
       <p className="ec-docs__hint">
-        文档中心尚未连接本地数据库。完成初始化后，这里可以导入 Markdown / Word / PDF / TXT 文档并关联到记忆。
+        文档中心尚未连接本地数据库。完成初始化后，这里可以导入 Markdown / Word / PDF / TXT
+        文档并关联到记忆。
       </p>
     </div>
   );

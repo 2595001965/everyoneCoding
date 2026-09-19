@@ -15,13 +15,22 @@ interface SelectOptionItem {
 
 export function SelectRenderer({ node, mode, scope }: ComponentRenderProps): JSX.Element {
   const placeholder = propString(node, 'placeholder', '请选择');
-  const options = mode === 'preview' ? previewOptions(node, 'options', scope) : propOptions(node, 'options');
-  const selectOptions: SelectOptionItem[] = options.map((option) => ({ label: option.label, value: option.value }));
+  const options =
+    mode === 'preview' ? previewOptions(node, 'options', scope) : propOptions(node, 'options');
+  const selectOptions: SelectOptionItem[] = options.map((option) => ({
+    label: option.label,
+    value: option.value,
+  }));
   const multiple = propBoolean(node, 'multiple', false);
   const searchable = propBoolean(node, 'searchable', false);
 
   return (
-    <span data-component="Select" data-mode={mode} data-multiple={multiple} data-searchable={searchable}>
+    <span
+      data-component="Select"
+      data-mode={mode}
+      data-multiple={multiple}
+      data-searchable={searchable}
+    >
       <Select options={selectOptions} placeholder={placeholder} />
     </span>
   );

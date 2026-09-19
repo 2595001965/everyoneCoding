@@ -64,12 +64,16 @@ export function ChangeLogPanel({
               <Tag color={record.action === 'undo' ? 'warning' : 'info'}>
                 {ACTION_LABELS[record.action] ?? record.action}
               </Tag>
-              {record.policy && <Tag color="neutral">{POLICY_LABELS[record.policy] ?? record.policy}</Tag>}
+              {record.policy && (
+                <Tag color="neutral">{POLICY_LABELS[record.policy] ?? record.policy}</Tag>
+              )}
               <time dateTime={new Date(record.createdAt).toISOString()}>
                 {new Date(record.createdAt).toLocaleString('zh-CN')}
               </time>
             </div>
-            {record.sourceSnippet && <div className="ec-change-log__snippet">“{record.sourceSnippet}”</div>}
+            {record.sourceSnippet && (
+              <div className="ec-change-log__snippet">“{record.sourceSnippet}”</div>
+            )}
             {record.sourceConversationId &&
               (canJump ? (
                 <button
@@ -80,7 +84,9 @@ export function ChangeLogPanel({
                   查看原始对话
                 </button>
               ) : (
-                <span className="ec-change-log__jump ec-change-log__jump--disabled">原始对话暂不可跳转</span>
+                <span className="ec-change-log__jump ec-change-log__jump--disabled">
+                  原始对话暂不可跳转
+                </span>
               ))}
           </div>
         );

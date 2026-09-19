@@ -66,11 +66,14 @@ function createWindow(): BrowserWindow {
   if (isDev) {
     // 渲染层 dev server 没起来时，Electron 只会给一个白窗口，真正的原因藏在 DevTools 里。
     // 这里显式报出来，避免把"忘了起 5173"误判成应用故障。
-    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      if (!isMainFrame) return;
-      console.error(`[main] 渲染层加载失败：${validatedURL}（${errorCode} ${errorDescription}）`);
-      console.error('[main] 请确认渲染层 dev server 已在 http://localhost:5173 运行');
-    });
+    win.webContents.on(
+      'did-fail-load',
+      (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        if (!isMainFrame) return;
+        console.error(`[main] 渲染层加载失败：${validatedURL}（${errorCode} ${errorDescription}）`);
+        console.error('[main] 请确认渲染层 dev server 已在 http://localhost:5173 运行');
+      },
+    );
     void win.loadURL('http://localhost:5173');
     if (shouldAutoOpenDevTools) win.webContents.openDevTools({ mode: 'bottom' });
   } else {
@@ -118,7 +121,10 @@ function buildDependencies(): IpcDependencies {
  *
  * 域内共用**一个**业务库连接（workspace / docs 都要读同一份 SQLite），随域运行时一起释放。
  */
-function buildDomainRuntime(dataDir: string, cacheDir: string): ReturnType<typeof createDomainRuntime> {
+function buildDomainRuntime(
+  dataDir: string,
+  cacheDir: string,
+): ReturnType<typeof createDomainRuntime> {
   const defaultWorkspaceRoot = path.join(app.getPath('userData'), 'workspace');
   const projectsDir = resolveProjectsDir(dataDir, defaultWorkspaceRoot);
   const db = openBusinessDb({ dataDir });
@@ -139,7 +145,9 @@ function buildDomainRuntime(dataDir: string, cacheDir: string): ReturnType<typeo
   // 而不是装配一个"所有动作都报错"的端口。可用时基址取环境变量，缺省为本机自建账号服务。
   let auth: ReturnType<typeof createAuthDomain> | null = null;
   const encryptionAvailable =
-    safeStorage !== null && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable();
+    safeStorage !== null &&
+    typeof safeStorage.isEncryptionAvailable === 'function' &&
+    safeStorage.isEncryptionAvailable();
   if (encryptionAvailable) {
     auth = createAuthDomain({
       baseUrl: process.env['EC_ACCOUNT_BASE_URL'] ?? 'http://127.0.0.1:3000',
@@ -180,14 +188,16 @@ void app.whenReady().then(async () => {
       dataDir: deps.dataDir,
       secureDir: deps.secureDir,
       migrationsDir: isDev
-        // dist/main/index.cjs → 上溯 4 层到仓库根。
-        ? path.join(__dirname, '..', '..', '..', '..', 'packages', 'data', 'migrations')
-        // 打包时由 prepare-production.mjs 复制到 app.asar/dist/migrations。
-        : path.join(__dirname, '..', 'migrations'),
+        ? // dist/main/index.cjs → 上溯 4 层到仓库根。
+          path.join(__dirname, '..', '..', '..', '..', 'packages', 'data', 'migrations')
+        : // 打包时由 prepare-production.mjs 复制到 app.asar/dist/migrations。
+          path.join(__dirname, '..', 'migrations'),
       safeStorage: deps.safeStorage,
     });
   } catch (error) {
-    console.warn(`[AI] 主进程 AI 栈未装配：${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[AI] 主进程 AI 栈未装配：${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   const userData = app.getPath('userData');
@@ -197,7 +207,9 @@ void app.whenReady().then(async () => {
     const installed = descriptors.filter((item) => item.available).map((item) => item.kind);
     console.info(`[domain] 已装配域=[${installed.join(', ') || '无'}]`);
   } catch (error) {
-    console.warn(`[domain] 域运行时未装配：${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[domain] 域运行时未装配：${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   registered = registerAllIpc(ipcMain, buildDependencies());

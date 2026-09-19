@@ -99,7 +99,12 @@ export function createLoginPageDslFixture(): PageDsl {
           name: 'nav',
           children: [
             { id: 'el-nav-logo', type: 'Logo', name: 'brand' },
-            { id: 'el-nav-link', type: 'NavLink', name: 'home', props: { text: '首页', href: '/' } },
+            {
+              id: 'el-nav-link',
+              type: 'NavLink',
+              name: 'home',
+              props: { text: '首页', href: '/' },
+            },
           ],
         },
         {
@@ -109,7 +114,12 @@ export function createLoginPageDslFixture(): PageDsl {
           children: [
             { id: 'el-logo', type: 'Logo', name: 'logo' },
             { id: 'el-title', type: 'Title', name: 'title', props: { text: '欢迎登录' } },
-            { id: 'el-subtitle', type: 'Text', name: 'subtitle', props: { text: '使用手机号登录你的账号' } },
+            {
+              id: 'el-subtitle',
+              type: 'Text',
+              name: 'subtitle',
+              props: { text: '使用手机号登录你的账号' },
+            },
             {
               id: 'el-form',
               type: 'Form',
@@ -121,7 +131,12 @@ export function createLoginPageDslFixture(): PageDsl {
                   type: 'Input',
                   name: 'phone',
                   featureRef: 'F1',
-                  props: { placeholder: '请输入手机号', type: 'tel', name: 'phone', required: true },
+                  props: {
+                    placeholder: '请输入手机号',
+                    type: 'tel',
+                    name: 'phone',
+                    required: true,
+                  },
                   bindings: { value: 'phone' },
                 },
                 {
@@ -129,7 +144,12 @@ export function createLoginPageDslFixture(): PageDsl {
                   type: 'Input',
                   name: 'password',
                   featureRef: 'F1',
-                  props: { placeholder: '请输入密码', type: 'password', name: 'password', required: true },
+                  props: {
+                    placeholder: '请输入密码',
+                    type: 'password',
+                    name: 'password',
+                    required: true,
+                  },
                   bindings: { value: 'password' },
                 },
                 { id: 'el-eye', type: 'Icon', name: 'eye', props: { name: 'eye' } },
@@ -185,7 +205,14 @@ export function createLoginPageDslFixture(): PageDsl {
           id: 'el-footer',
           type: 'Footer',
           name: 'footer',
-          children: [{ id: 'el-copyright', type: 'Text', name: 'copyright', props: { text: '© 2026 EveryoneCoding' } }],
+          children: [
+            {
+              id: 'el-copyright',
+              type: 'Text',
+              name: 'copyright',
+              props: { text: '© 2026 EveryoneCoding' },
+            },
+          ],
         },
       ],
     },

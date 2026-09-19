@@ -41,7 +41,11 @@ export function hydrateSnapshot(snapshot: FileSnapshot, files: FileSystemPort): 
  *
  * 返回备份路径；`backupDir` 为 null 或写入失败时返回 null（不阻断执行）。
  */
-export function writeBackup(context: ExecutionContext, refPath: string, content: string): string | null {
+export function writeBackup(
+  context: ExecutionContext,
+  refPath: string,
+  content: string,
+): string | null {
   if (context.backupDir === null) return null;
   const relative = backupFileName(backupSequence, refPath);
   backupSequence += 1;

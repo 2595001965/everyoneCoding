@@ -31,7 +31,12 @@ const FIELD_LABELS: Record<string, string> = {
   manualPriority: '优先级',
 };
 
-export function NoteHistory({ repository, noteId, onRestored, onClose }: NoteHistoryProps): React.ReactElement {
+export function NoteHistory({
+  repository,
+  noteId,
+  onRestored,
+  onClose,
+}: NoteHistoryProps): React.ReactElement {
   useNotesRevision(repository);
 
   const note = repository.get(noteId);
@@ -62,11 +67,20 @@ export function NoteHistory({ repository, noteId, onRestored, onClose }: NoteHis
 
       <div
         data-testid="ec-note-history-current"
-        style={{ border: `1px solid ${meta.color}`, borderRadius: 6, padding: '8px 10px', marginBottom: 10 }}
+        style={{
+          border: `1px solid ${meta.color}`,
+          borderRadius: 6,
+          padding: '8px 10px',
+          marginBottom: 10,
+        }}
       >
         <div style={{ fontSize: 12, color: meta.color }}>{`v${note.version} · 当前版本`}</div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{note.title.length > 0 ? note.title : '(无标题)'}</div>
-        <p style={{ margin: '4px 0 0', fontSize: 12, whiteSpace: 'pre-wrap' }}>{documentToText(note.content)}</p>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>
+          {note.title.length > 0 ? note.title : '(无标题)'}
+        </div>
+        <p style={{ margin: '4px 0 0', fontSize: 12, whiteSpace: 'pre-wrap' }}>
+          {documentToText(note.content)}
+        </p>
       </div>
 
       {history.length === 0 ? (
@@ -113,7 +127,9 @@ export function NoteHistory({ repository, noteId, onRestored, onClose }: NoteHis
                   ))
                 )}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{revision.title.length > 0 ? revision.title : '(无标题)'}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>
+                {revision.title.length > 0 ? revision.title : '(无标题)'}
+              </div>
               <p style={{ margin: '4px 0 0', fontSize: 12, whiteSpace: 'pre-wrap' }}>
                 {documentToText(revision.content)}
               </p>

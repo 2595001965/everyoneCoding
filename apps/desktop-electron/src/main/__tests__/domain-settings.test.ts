@@ -48,7 +48,8 @@ function makeDomain(): SettingsDomain {
  */
 const DIRECT_CTX: DomainRouterContext = { requestId: 'test-direct', emit: () => undefined };
 
-async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {  const response = await runtime.invoke({ requestId: 'test', domain: 'settings', method, params });
+async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  const response = await runtime.invoke({ requestId: 'test', domain: 'settings', method, params });
   if (!response.ok) {
     const error = new Error(response.error?.message ?? '域调用失败') as Error & { code?: string };
     // exactOptionalPropertyTypes 下不可显式赋值 undefined，故仅在确有 code 时写入
@@ -75,7 +76,11 @@ afterEach(() => {
 
 describe('设置读写与落盘', () => {
   it('getAll 返回带默认值的全局设置', async () => {
-    const settings = await call<{ language: string; theme: string; keymap: Record<string, string> }>('getAll');
+    const settings = await call<{
+      language: string;
+      theme: string;
+      keymap: Record<string, string>;
+    }>('getAll');
     expect(settings.language).toBe('zh-CN');
     expect(settings.theme).toBe('light');
     expect(settings.keymap).toEqual({});
@@ -96,7 +101,9 @@ describe('设置读写与落盘', () => {
   });
 
   it('update 的非法值被 zod 拒绝且不写盘', async () => {
-    await expect(call('update', { patch: { theme: 'neon' } })).rejects.toMatchObject({ code: 'UNKNOWN' });
+    await expect(call('update', { patch: { theme: 'neon' } })).rejects.toMatchObject({
+      code: 'UNKNOWN',
+    });
     const file = join(root, 'data', 'settings.json');
     expect(existsSync(file)).toBe(false);
   });
@@ -108,9 +115,12 @@ describe('设置读写与落盘', () => {
 
 describe('数据目录', () => {
   it('getDataDirs 返回四个真实值且 sqlitePath 落在 dataDir 下', async () => {
-    const dirs = await call<{ workspaceRoot: string; projectsDir: string; sqlitePath: string; cacheDir: string }>(
-      'getDataDirs',
-    );
+    const dirs = await call<{
+      workspaceRoot: string;
+      projectsDir: string;
+      sqlitePath: string;
+      cacheDir: string;
+    }>('getDataDirs');
     expect(dirs.workspaceRoot).toBe(join(root, 'workspace'));
     expect(dirs.projectsDir).toBe(join(root, 'workspace', 'projects'));
     expect(dirs.sqlitePath).toBe(join(root, 'data', 'everyonecoding.sqlite'));
@@ -124,10 +134,11 @@ describe('数据目录', () => {
     writeFileSync(join(source, 'p1', 'b.txt'), 'b');
 
     const target = join(root, 'moved', 'projects');
-    const result = await call<{ ok: boolean; counts: { before: number; after: number }; backupDir?: string }>(
-      'migrateDataDirs',
-      { next: { workspaceRoot: join(root, 'moved'), projectsDir: target } },
-    );
+    const result = await call<{
+      ok: boolean;
+      counts: { before: number; after: number };
+      backupDir?: string;
+    }>('migrateDataDirs', { next: { workspaceRoot: join(root, 'moved'), projectsDir: target } });
 
     expect(result.ok).toBe(true);
     expect(result.counts).toEqual({ before: 2, after: 2 });
@@ -152,9 +163,12 @@ describe('数据目录', () => {
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, 'extra.txt'), 'x');
 
-    const result = await call<{ ok: boolean; error?: string; rolledBack?: boolean }>('migrateDataDirs', {
-      next: { workspaceRoot: join(root, 'moved'), projectsDir: target },
-    });
+    const result = await call<{ ok: boolean; error?: string; rolledBack?: boolean }>(
+      'migrateDataDirs',
+      {
+        next: { workspaceRoot: join(root, 'moved'), projectsDir: target },
+      },
+    );
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain('条目数与迁移前不一致');
@@ -173,7 +187,9 @@ describe('数据目录', () => {
     writeFileSync(join(source, 'p1', 'a.txt'), 'a');
 
     const target = join(root, 'moved', 'projects');
-    await call('migrateDataDirs', { next: { workspaceRoot: join(root, 'moved'), projectsDir: target } });
+    await call('migrateDataDirs', {
+      next: { workspaceRoot: join(root, 'moved'), projectsDir: target },
+    });
 
     const result = await call<{ ok: boolean; rolledBack?: boolean }>('rollbackMigration');
     expect(result.ok).toBe(true);
@@ -187,7 +203,8 @@ describe('数据目录', () => {
 
 describe('命令目录与快捷键', () => {
   it('listCommands 与 @ec/core 的命令目录一致（含唯一的真实默认键位）', async () => {
-    const commands = await call<Array<{ id: string; title: string; defaultKey: string | null }>>('listCommands');
+    const commands =
+      await call<Array<{ id: string; title: string; defaultKey: string | null }>>('listCommands');
     expect(commands).toHaveLength(APP_COMMANDS.length);
     expect(commands.map((item) => item.id)).toEqual(APP_COMMANDS.map((item) => item.id));
     expect(commands.filter((item) => item.defaultKey !== null)).toEqual([
@@ -212,8 +229,12 @@ describe('命令目录与快捷键', () => {
     expect(parsed).toEqual({ 'nav.settings': 'Ctrl+,' });
     expect(JSON.parse(await call<string>('exportKeymap'))).toEqual({ 'nav.settings': 'Ctrl+,' });
 
-    await expect(call('importKeymap', { json: '{坏' })).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
-    await expect(call('importKeymap', { json: '[]' })).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    await expect(call('importKeymap', { json: '{坏' })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT',
+    });
+    await expect(call('importKeymap', { json: '[]' })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT',
+    });
   });
 
   it('saveKeymap 过滤掉非字符串值，避免脏数据落盘', async () => {
@@ -232,22 +253,32 @@ describe('隐私与本地遥测', () => {
     expect(after.privacy.telemetryEnabled).toBe(true);
 
     // 造一条缓冲，验证关闭时确实被清掉
-    writeFileSync(join(root, 'data', 'telemetry-buffer.json'), JSON.stringify([{ seq: 1, recordedAt: 1, name: 'x' }]));
+    writeFileSync(
+      join(root, 'data', 'telemetry-buffer.json'),
+      JSON.stringify([{ seq: 1, recordedAt: 1, name: 'x' }]),
+    );
     await call('setTelemetry', { enabled: false });
     const inspection = await call<{ telemetryRecords: number }>('inspectLocalTelemetry');
     expect(inspection.telemetryRecords).toBe(0);
   });
 
   it('clearLocalTelemetry 清空缓冲与缓存目录并回传全 0', async () => {
-    writeFileSync(join(root, 'data', 'telemetry-buffer.json'), JSON.stringify([{ seq: 1, recordedAt: 1, name: 'x' }]));
+    writeFileSync(
+      join(root, 'data', 'telemetry-buffer.json'),
+      JSON.stringify([{ seq: 1, recordedAt: 1, name: 'x' }]),
+    );
     mkdirSync(join(root, 'cache', 'sub'), { recursive: true });
     writeFileSync(join(root, 'cache', 'sub', 'blob.bin'), 'x'.repeat(64));
 
-    const inspected = await call<{ telemetryRecords: number; cacheBytes: number }>('inspectLocalTelemetry');
+    const inspected = await call<{ telemetryRecords: number; cacheBytes: number }>(
+      'inspectLocalTelemetry',
+    );
     expect(inspected.telemetryRecords).toBe(1);
     expect(inspected.cacheBytes).toBe(64);
 
-    const cleared = await call<{ telemetryRecords: number; cacheBytes: number }>('clearLocalTelemetry');
+    const cleared = await call<{ telemetryRecords: number; cacheBytes: number }>(
+      'clearLocalTelemetry',
+    );
     expect(cleared).toEqual({ telemetryRecords: 0, cacheBytes: 0 });
     expect(existsSync(join(root, 'cache'))).toBe(true);
   });
@@ -259,7 +290,9 @@ describe('隐私与本地遥测', () => {
 
 describe('定时备份配置', () => {
   it('默认值可用；保存后落盘并可回读', async () => {
-    const initial = await call<{ intervalHours: number; dir: string; lastRunAt: number | null }>('getBackupConfig');
+    const initial = await call<{ intervalHours: number; dir: string; lastRunAt: number | null }>(
+      'getBackupConfig',
+    );
     expect(initial.intervalHours).toBe(24);
     expect(initial.lastRunAt).toBeNull();
 
@@ -269,13 +302,17 @@ describe('定时备份配置', () => {
     expect(saved.dir).toBe(join(root, 'bak'));
 
     const reopened = makeDomain();
-    const restored = (await reopened.router('getBackupConfig', {}, DIRECT_CTX)) as { intervalHours: number };
+    const restored = (await reopened.router('getBackupConfig', {}, DIRECT_CTX)) as {
+      intervalHours: number;
+    };
     expect(restored.intervalHours).toBe(6);
   });
 
   it('非法间隔被拒（0 / 负数 / 非数字）', async () => {
     for (const intervalHours of [0, -3, 'abc']) {
-      await expect(call('saveBackupConfig', { config: { intervalHours, dir: 'D:/x' } })).rejects.toMatchObject({
+      await expect(
+        call('saveBackupConfig', { config: { intervalHours, dir: 'D:/x' } }),
+      ).rejects.toMatchObject({
         code: 'INVALID_ARGUMENT',
       });
     }
@@ -296,7 +333,11 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     ).run(projectId, now, now);
 
     mkdirSync(join(projectsDir, projectId, 'code', 'src'), { recursive: true });
-    writeFileSync(join(projectsDir, projectId, 'code', 'src', 'index.ts'), 'export const a = 1;', 'utf8');
+    writeFileSync(
+      join(projectsDir, projectId, 'code', 'src', 'index.ts'),
+      'export const a = 1;',
+      'utf8',
+    );
 
     db.prepare(
       `INSERT INTO memory_item (id, user_id, scope, project_id, title, content, tags, source_type,
@@ -313,9 +354,12 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
 
   it('完整归档：产出 .ecpkg、文件存在且有体积', async () => {
     seedProject();
-    const result = await call<{ ok: boolean; filePath: string; bytes: number; mode: string }>('exportProject', {
-      input: { projectId, mode: 'full', encrypted: false },
-    });
+    const result = await call<{ ok: boolean; filePath: string; bytes: number; mode: string }>(
+      'exportProject',
+      {
+        input: { projectId, mode: 'full', encrypted: false },
+      },
+    );
     expect(result.ok).toBe(true);
     expect(result.mode).toBe('full');
     expect(existsSync(result.filePath)).toBe(true);
@@ -333,9 +377,9 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     await expect(
       call('exportProject', { input: { projectId, mode: 'full', encrypted: true } }),
     ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
-    await expect(call('exportProject', { input: { projectId, mode: 'full', encrypted: true } })).rejects.toThrowError(
-      /不会退化成未加密导出/,
-    );
+    await expect(
+      call('exportProject', { input: { projectId, mode: 'full', encrypted: true } }),
+    ).rejects.toThrowError(/不会退化成未加密导出/);
   });
 
   it('导出 → 导入到**空库**：项目 / 记忆 / 文档 / 代码全部回来', async () => {
@@ -373,13 +417,24 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
       expect(result.conflicted).toBe(0);
 
       // 项目、记忆、文档都真的落库了
-      expect(freshDb.prepare(`SELECT name FROM project WHERE id = ?`).get(projectId)).toEqual({ name: '演示项目' });
-      expect(freshDb.prepare(`SELECT COUNT(*) AS n FROM memory_item WHERE project_id = ?`).get(projectId)).toEqual({ n: 1 });
-      expect(freshDb.prepare(`SELECT COUNT(*) AS n FROM document WHERE project_id = ?`).get(projectId)).toEqual({ n: 1 });
+      expect(freshDb.prepare(`SELECT name FROM project WHERE id = ?`).get(projectId)).toEqual({
+        name: '演示项目',
+      });
+      expect(
+        freshDb
+          .prepare(`SELECT COUNT(*) AS n FROM memory_item WHERE project_id = ?`)
+          .get(projectId),
+      ).toEqual({ n: 1 });
+      expect(
+        freshDb.prepare(`SELECT COUNT(*) AS n FROM document WHERE project_id = ?`).get(projectId),
+      ).toEqual({ n: 1 });
       // 代码文件回到工程目录
-      expect(readFileSync(join(freshRoot, 'workspace', 'projects', projectId, 'code', 'src', 'index.ts'), 'utf8')).toBe(
-        'export const a = 1;',
-      );
+      expect(
+        readFileSync(
+          join(freshRoot, 'workspace', 'projects', projectId, 'code', 'src', 'index.ts'),
+          'utf8',
+        ),
+      ).toBe('export const a = 1;');
       // 文档正文也灌回来了，导入后即可检索
       expect(freshDb.prepare(`SELECT content_text FROM document WHERE id = 'd-1'`).get()).toEqual({
         content_text: '# 登录需求',
@@ -403,11 +458,15 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     });
     expect(result.counts.memory).toBe(1);
     expect(result.conflicted).toBeGreaterThan(0);
-    expect(db.prepare(`SELECT content FROM memory_item WHERE id = 'm-1'`).get()).toEqual({ content: '本地内容' });
+    expect(db.prepare(`SELECT content FROM memory_item WHERE id = 'm-1'`).get()).toEqual({
+      content: '本地内容',
+    });
   });
 
   it('归档文件不存在时报 NOT_FOUND', async () => {
-    await expect(call('importPackage', { input: { filePath: join(root, 'nope.ecpkg') } })).rejects.toMatchObject({
+    await expect(
+      call('importPackage', { input: { filePath: join(root, 'nope.ecpkg') } }),
+    ).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
   });
@@ -449,7 +508,9 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
         params: { input: { filePath: exported.filePath } },
       });
       expect(response.ok, JSON.stringify(response.error)).toBe(true);
-      const result = response.result as { counts: { memory: number; docs: number; codeFiles: number } };
+      const result = response.result as {
+        counts: { memory: number; docs: number; codeFiles: number };
+      };
       expect(result.counts).toEqual({ memory: 0, docs: 0, codeFiles: 1 });
     } finally {
       freshDb.close();

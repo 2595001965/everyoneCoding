@@ -30,7 +30,10 @@ export function advanceCursor(port: CursorSourcePort, now: number): IncrementalC
 }
 
 /** 判断一个对象是否应进入增量包（导出流水线的过滤判据） */
-export function isInIncrementalWindow(updatedAt: number, updatedSince: number | undefined): boolean {
+export function isInIncrementalWindow(
+  updatedAt: number,
+  updatedSince: number | undefined,
+): boolean {
   if (updatedSince === undefined) return true; // 全量
   return updatedAt > updatedSince;
 }
@@ -47,7 +50,10 @@ export interface VolumeComparison {
 }
 
 /** 对比全量与增量包体积（验收：增量包体积与变更量成正比） */
-export function compareIncrementalVolume(fullBytes: number, incrementalBytes: number): VolumeComparison {
+export function compareIncrementalVolume(
+  fullBytes: number,
+  incrementalBytes: number,
+): VolumeComparison {
   const ratio = fullBytes > 0 ? incrementalBytes / fullBytes : 1;
   const percent = (ratio * 100).toFixed(1);
   return {

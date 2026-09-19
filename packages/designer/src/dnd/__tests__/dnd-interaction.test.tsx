@@ -18,36 +18,71 @@ function Harness(): JSX.Element {
   const undoState = useEditorState((state) => state.undoState);
 
   const insert = (resolution: DragResolution): void => {
-    dnd.commitDrag({ source: 'panel', element: createElement({ id: 'new-1', type: 'Button', name: '新按钮' }) }, resolution);
+    dnd.commitDrag(
+      { source: 'panel', element: createElement({ id: 'new-1', type: 'Button', name: '新按钮' }) },
+      resolution,
+    );
   };
 
   return (
     <div>
-      <button data-testid="op-insert" onClick={() => insert({ kind: 'insert', parentId: 'el-9', index: 0, position: 'before' })}>
+      <button
+        data-testid="op-insert"
+        onClick={() => insert({ kind: 'insert', parentId: 'el-9', index: 0, position: 'before' })}
+      >
         拖入
       </button>
       <button
         data-testid="op-move"
-        onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-15' }, { kind: 'insert', parentId: 'el-5', index: 0, position: 'before' })}
+        onClick={() =>
+          dnd.commitDrag(
+            { source: 'canvas', id: 'el-15' },
+            { kind: 'insert', parentId: 'el-5', index: 0, position: 'before' },
+          )
+        }
       >
         移动
       </button>
       <button
         data-testid="op-nest"
-        onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-7' }, { kind: 'insert', parentId: 'el-9', index: undefined, position: 'inside' })}
+        onClick={() =>
+          dnd.commitDrag(
+            { source: 'canvas', id: 'el-7' },
+            { kind: 'insert', parentId: 'el-9', index: undefined, position: 'inside' },
+          )
+        }
       >
         嵌套
       </button>
-      <button data-testid="op-delete" onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-12' }, { kind: 'delete' })}>
+      <button
+        data-testid="op-delete"
+        onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-12' }, { kind: 'delete' })}
+      >
         删除
       </button>
-      <button data-testid="op-cycle" onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-5' }, { kind: 'insert', parentId: 'el-15', index: undefined, position: 'inside' })}>
+      <button
+        data-testid="op-cycle"
+        onClick={() =>
+          dnd.commitDrag(
+            { source: 'canvas', id: 'el-5' },
+            { kind: 'insert', parentId: 'el-15', index: undefined, position: 'inside' },
+          )
+        }
+      >
         循环拖拽
       </button>
-      <button data-testid="op-none" onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-7' }, { kind: 'none' })}>
+      <button
+        data-testid="op-none"
+        onClick={() => dnd.commitDrag({ source: 'canvas', id: 'el-7' }, { kind: 'none' })}
+      >
         无效提交
       </button>
-      <button data-testid="op-resolve" onClick={() => dnd.setResolution({ kind: 'insert', parentId: 'el-9', index: 2, position: 'after' })}>
+      <button
+        data-testid="op-resolve"
+        onClick={() =>
+          dnd.setResolution({ kind: 'insert', parentId: 'el-9', index: 2, position: 'after' })
+        }
+      >
         解析
       </button>
       <button data-testid="op-cancel" onClick={() => dnd.cancelDrag()}>
@@ -56,7 +91,11 @@ function Harness(): JSX.Element {
       <span data-testid="undo-depth">{undoState.undoDepth}</span>
       <span data-testid="undo-label">{undoState.undoLabel ?? ''}</span>
       <span data-testid="resolution">
-        {dnd.resolution === null ? 'none' : dnd.resolution.kind === 'insert' ? dnd.resolution.position : dnd.resolution.kind}
+        {dnd.resolution === null
+          ? 'none'
+          : dnd.resolution.kind === 'insert'
+            ? dnd.resolution.position
+            : dnd.resolution.kind}
       </span>
       <span data-testid="accepts">{dnd.acceptsChildren('Button') ? 'yes' : 'no'}</span>
     </div>
@@ -96,7 +135,9 @@ describe('T3-03 拖拽提交（一次拖拽 = 一步 undo）', () => {
     expect(screen.getByTestId('undo-label')).toHaveTextContent('移动元素');
 
     await user.click(screen.getByTestId('op-nest'));
-    expect(findById(store.getState().dsl.tree, 'el-9')?.children?.some((child) => child.id === 'el-7')).toBe(true);
+    expect(
+      findById(store.getState().dsl.tree, 'el-9')?.children?.some((child) => child.id === 'el-7'),
+    ).toBe(true);
     expect(store.getState().undoState.undoDepth).toBe(2);
   });
 
@@ -171,7 +212,10 @@ describe('T3-03 Esc 取消与插入指示', () => {
   it('插入指示线三种形态：水平 / 垂直 / 容器内', () => {
     const rect = { x: 10, y: 20, width: 100, height: 40 };
     const { rerender } = render(
-      <InsertionIndicator resolution={{ kind: 'insert', parentId: 'p', index: 1, position: 'before' }} targetRect={rect} />,
+      <InsertionIndicator
+        resolution={{ kind: 'insert', parentId: 'p', index: 1, position: 'before' }}
+        targetRect={rect}
+      />,
     );
     expect(screen.getByTestId('insertion-indicator')).toHaveAttribute('data-position', 'before');
     expect(screen.getByTestId('insertion-indicator').style.height).toBe('2px');

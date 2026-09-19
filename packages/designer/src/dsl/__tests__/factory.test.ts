@@ -40,9 +40,9 @@ describe('T3-01 工厂', () => {
 
   it('createElement 只写入显式提供的可选字段', () => {
     expect(Object.keys(createElement({ id: 'a', type: 'Text' }))).toEqual(['id', 'type']);
-    expect(Object.keys(createElement({ id: 'a', type: 'Text', name: '文本', locked: true }))).toEqual([
-      'id', 'type', 'name', 'locked',
-    ]);
+    expect(
+      Object.keys(createElement({ id: 'a', type: 'Text', name: '文本', locked: true })),
+    ).toEqual(['id', 'type', 'name', 'locked']);
   });
 
   it('createPageDsl 补齐数组类字段且页面通过校验', () => {
@@ -80,7 +80,8 @@ describe('T3-01 登录页样例（Wave 3 出口检查基线）', () => {
 
   it('元素类型与业务语义对齐 PRD §13.1', () => {
     const dsl = createLoginPageDsl();
-    const byName = (name: string) => walkElements(dsl.tree).find((walked) => walked.node.name === name)?.node;
+    const byName = (name: string) =>
+      walkElements(dsl.tree).find((walked) => walked.node.name === name)?.node;
     expect(byName('登录表单')?.type).toBe('Form');
     expect(byName('手机号输入框')?.type).toBe('Input');
     expect(byName('登录按钮')?.type).toBe('Button');
@@ -89,7 +90,13 @@ describe('T3-01 登录页样例（Wave 3 出口检查基线）', () => {
 
   it('状态、动作流与接口依赖成套', () => {
     const dsl = createLoginPageDsl();
-    expect(dsl.state.map((item) => item.name)).toEqual(['phone', 'password', 'remember', 'loading', 'errorMsg']);
+    expect(dsl.state.map((item) => item.name)).toEqual([
+      'phone',
+      'password',
+      'remember',
+      'loading',
+      'errorMsg',
+    ]);
     expect(dsl.apiDeps).toEqual(['/api/auth/login']);
     const kinds = dsl.events[0]?.actions.map((action) => action.kind);
     expect(kinds).toEqual(['assign', 'request', 'branch', 'navigate', 'notify']);
@@ -99,7 +106,11 @@ describe('T3-01 登录页样例（Wave 3 出口检查基线）', () => {
 
   it('功能归属可被精简器分层沉淀消费', () => {
     const dsl = createLoginPageDsl();
-    const featureRefs = new Set(walkElements(dsl.tree).map((walked) => walked.node.featureRef).filter(Boolean));
+    const featureRefs = new Set(
+      walkElements(dsl.tree)
+        .map((walked) => walked.node.featureRef)
+        .filter(Boolean),
+    );
     expect([...featureRefs].sort()).toEqual(['F1', 'F2']);
     expect(dsl.featureId).toBe('F1');
   });

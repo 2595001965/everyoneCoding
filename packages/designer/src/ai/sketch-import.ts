@@ -8,7 +8,12 @@ import type { DesignGenerationPort } from '../store/ports';
  */
 
 /** 支持的图片类型 */
-export const SUPPORTED_SKETCH_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'] as const;
+export const SUPPORTED_SKETCH_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+] as const;
 /** 草图上上限（8MB）：过大的图片先提示用户压缩，避免把接口打爆 */
 export const MAX_SKETCH_BYTES = 8 * 1024 * 1024;
 
@@ -37,11 +42,17 @@ export interface SketchValidation {
 export function validateSketchFile(file: SketchFileLike): SketchValidation {
   const mime = file.type.toLowerCase();
   if (!(SUPPORTED_SKETCH_TYPES as readonly string[]).includes(mime)) {
-    return { ok: false, message: `不支持的图片类型「${file.type || '未知'}」，请使用 PNG / JPG / WebP` };
+    return {
+      ok: false,
+      message: `不支持的图片类型「${file.type || '未知'}」，请使用 PNG / JPG / WebP`,
+    };
   }
   if (file.size <= 0) return { ok: false, message: '图片内容为空' };
   if (file.size > MAX_SKETCH_BYTES) {
-    return { ok: false, message: `图片超过 ${Math.round(MAX_SKETCH_BYTES / 1024 / 1024)}MB，请先压缩后再上传` };
+    return {
+      ok: false,
+      message: `图片超过 ${Math.round(MAX_SKETCH_BYTES / 1024 / 1024)}MB，请先压缩后再上传`,
+    };
   }
   return { ok: true };
 }
@@ -55,7 +66,10 @@ export function dataUrlByteLength(value: string): number {
 }
 
 /** dataURL → 载荷（含类型与体积校验） */
-export function createSketchFromDataUrl(value: string, name = 'sketch.png'): { ok: true; payload: SketchPayload } | { ok: false; message: string } {
+export function createSketchFromDataUrl(
+  value: string,
+  name = 'sketch.png',
+): { ok: true; payload: SketchPayload } | { ok: false; message: string } {
   const match = /^data:([^;,]+)[;,]/.exec(value);
   const mime = match?.[1]?.toLowerCase() ?? 'image/png';
   const sizeBytes = dataUrlByteLength(value);
@@ -65,8 +79,11 @@ export function createSketchFromDataUrl(value: string, name = 'sketch.png'): { o
 }
 
 /** 本地路径 → 载荷（体积由外壳读盘时校验） */
-export function createSketchFromPath(path: string, options: { mime?: string; name?: string } = {}): SketchPayload {
-  const name = options.name ?? (path.split(/[\\/]/).pop() ?? 'sketch.png');
+export function createSketchFromPath(
+  path: string,
+  options: { mime?: string; name?: string } = {},
+): SketchPayload {
+  const name = options.name ?? path.split(/[\\/]/).pop() ?? 'sketch.png';
   const mime = options.mime ?? guessMime(name);
   return { kind: 'path', value: path, mime, name, sizeBytes: 0 };
 }
@@ -90,7 +107,9 @@ export function describeSketch(payload: SketchPayload): string {
 }
 
 /** 处理 File 输入：读成 dataURL 后校验（浏览器环境） */
-export async function readSketchFile(file: File): Promise<{ ok: true; payload: SketchPayload } | { ok: false; message: string }> {
+export async function readSketchFile(
+  file: File,
+): Promise<{ ok: true; payload: SketchPayload } | { ok: false; message: string }> {
   const validation = validateSketchFile(file);
   if (!validation.ok) return { ok: false, message: validation.message ?? '草图校验失败' };
   const dataUrl = await new Promise<string>((resolve, reject) => {

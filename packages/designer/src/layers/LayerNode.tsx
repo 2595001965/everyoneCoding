@@ -27,7 +27,15 @@ export interface LayerNodeProps {
 
 function LockIcon(): React.ReactElement {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
       <rect x="5" y="11" width="14" height="9" rx="2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </svg>
@@ -36,7 +44,15 @@ function LockIcon(): React.ReactElement {
 
 function EyeOffIcon(): React.ReactElement {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
       <path d="M9.9 4.2A9.5 9.5 0 0 1 12 4c5 0 9 4.5 10 8a12.6 12.6 0 0 1-2.2 3.3" />
       <path d="M6.5 6.6A12.6 12.6 0 0 0 2 12c1 3.5 5 8 10 8a9.3 9.3 0 0 0 4-.9" />
       <line x1="3" y1="3" x2="21" y2="21" />
@@ -98,12 +114,20 @@ export function LayerNode({
       }}
     >
       {element.locked && (
-        <span className="ec-layer-node__badge ec-layer-node__badge--lock" role="img" aria-label="已锁定">
+        <span
+          className="ec-layer-node__badge ec-layer-node__badge--lock"
+          role="img"
+          aria-label="已锁定"
+        >
           <LockIcon />
         </span>
       )}
       {element.hidden && (
-        <span className="ec-layer-node__badge ec-layer-node__badge--hidden" role="img" aria-label="已隐藏">
+        <span
+          className="ec-layer-node__badge ec-layer-node__badge--hidden"
+          role="img"
+          aria-label="已隐藏"
+        >
           <EyeOffIcon />
         </span>
       )}

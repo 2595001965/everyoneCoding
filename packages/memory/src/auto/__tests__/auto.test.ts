@@ -3,12 +3,7 @@ import { MemoryRepo } from '../../repo/memory-repo';
 import { createEmptyDb, seedGraph, TEST_GRAPH, type TestDb } from '../../__tests__/helpers';
 import type { MemoryCategory, MemoryCandidate, ExtractionModelPort } from '../extractor';
 import { MemoryExtractor, parseCandidates } from '../extractor';
-import {
-  IMPERATIVE_PATTERNS,
-  assessSignal,
-  detectImperatives,
-  levelOf,
-} from '../signal-strength';
+import { IMPERATIVE_PATTERNS, assessSignal, detectImperatives, levelOf } from '../signal-strength';
 import {
   LongTermMemoryWriter,
   SettingsWritePolicyPort,
@@ -37,7 +32,9 @@ afterEach(() => {
 
 /* --------------------------- 测试工具 --------------------------- */
 
-function candidate(partial: Partial<MemoryCandidate> & Pick<MemoryCandidate, 'title' | 'content'>): MemoryCandidate {
+function candidate(
+  partial: Partial<MemoryCandidate> & Pick<MemoryCandidate, 'title' | 'content'>,
+): MemoryCandidate {
   const category: MemoryCategory = partial.category ?? 'naming';
   return {
     title: partial.title,
@@ -54,7 +51,10 @@ function candidate(partial: Partial<MemoryCandidate> & Pick<MemoryCandidate, 'ti
   };
 }
 
-function assessment(level: 'low' | 'medium' | 'high', overrides: Partial<SignalAssessment> = {}): SignalAssessment {
+function assessment(
+  level: 'low' | 'medium' | 'high',
+  overrides: Partial<SignalAssessment> = {},
+): SignalAssessment {
   const confidence = level === 'high' ? 0.9 : level === 'medium' ? 0.6 : 0.2;
   return {
     confidence,
@@ -87,7 +87,22 @@ function seedLongterm(title: string, content: string, sourceRef = 'conversation:
 
 describe('signal-strength', () => {
   it('IMPERATIVE_PATTERNS 覆盖中英文指令词', () => {
-    for (const w of ['以后都', '以后', '不要', '别', '统一用', '统一', '禁止', '必须', '一律', 'always', 'never', 'must', 'do not', 'prefer']) {
+    for (const w of [
+      '以后都',
+      '以后',
+      '不要',
+      '别',
+      '统一用',
+      '统一',
+      '禁止',
+      '必须',
+      '一律',
+      'always',
+      'never',
+      'must',
+      'do not',
+      'prefer',
+    ]) {
       expect(IMPERATIVE_PATTERNS).toContain(w);
     }
   });
@@ -131,7 +146,9 @@ describe('MemoryExtractor 不阻塞主对话', () => {
         await new Promise((r) => setTimeout(r, delayMs));
         return {
           ok: true,
-          text: JSON.stringify([{ title: '统一用 TypeScript', content: 'c', category: 'tech-stack', tags: ['ts'] }]),
+          text: JSON.stringify([
+            { title: '统一用 TypeScript', content: 'c', category: 'tech-stack', tags: ['ts'] },
+          ]),
         };
       },
     };
@@ -197,13 +214,15 @@ describe('parseCandidates 容错', () => {
   });
 
   it('解析前后带解释文字', () => {
-    const raw = '好的，这是结果：[{"title":"A","content":"c","category":"naming","tags":["x"]}] 完毕～';
+    const raw =
+      '好的，这是结果：[{"title":"A","content":"c","category":"naming","tags":["x"]}] 完毕～';
     const r = parseCandidates(raw, turn);
     expect(r).toHaveLength(1);
   });
 
   it('单条非法跳过该条', () => {
-    const raw = '[{"title":"","content":"c","category":"naming"},{"title":"B","content":"c","category":"tech-stack","tags":[]}]';
+    const raw =
+      '[{"title":"","content":"c","category":"naming"},{"title":"B","content":"c","category":"tech-stack","tags":[]}]';
     const r = parseCandidates(raw, turn);
     expect(r).toHaveLength(1);
     expect(r[0]?.title).toBe('B');
@@ -228,7 +247,11 @@ describe('extractOnce 失败静默重试', () => {
         return { ok: false, reason: 'rate-limit' };
       },
     };
-    const ex = new MemoryExtractor({ model, repo, logger: { warn: (message: string) => void warns(message) } });
+    const ex = new MemoryExtractor({
+      model,
+      repo,
+      logger: { warn: (message: string) => void warns(message) },
+    });
     const received: MemoryCandidate[][] = [];
     ex.onCandidates((c) => {
       received.push(c);
@@ -254,7 +277,12 @@ describe('extractOnce 失败静默重试', () => {
     };
     const ex = new MemoryExtractor({ model, repo });
     expect(() =>
-      ex.notify({ conversationId: 'C1', projectId: null, userId: USER, messages: [{ role: 'user', content: 'x' }] }),
+      ex.notify({
+        conversationId: 'C1',
+        projectId: null,
+        userId: USER,
+        messages: [{ role: 'user', content: 'x' }],
+      }),
     ).not.toThrow();
     await expect(ex.drain()).resolves.toBeUndefined();
   });
@@ -293,15 +321,22 @@ describe('decideWrite 三档', () => {
     expect(decideWrite({ confidence: 0.2, level: 'low' }, 'auto').action).toBe('skip');
   });
   it('confirm：非低置信写入+通知，低置信跳过', () => {
-    expect(decideWrite({ confidence: 0.9, level: 'high' }, 'confirm').action).toBe('write-and-notify');
-    expect(decideWrite({ confidence: 0.6, level: 'medium' }, 'confirm').action).toBe('write-and-notify');
+    expect(decideWrite({ confidence: 0.9, level: 'high' }, 'confirm').action).toBe(
+      'write-and-notify',
+    );
+    expect(decideWrite({ confidence: 0.6, level: 'medium' }, 'confirm').action).toBe(
+      'write-and-notify',
+    );
     expect(decideWrite({ confidence: 0.2, level: 'low' }, 'confirm').action).toBe('skip');
   });
   it('manual：仅建议', () => {
     expect(decideWrite({ confidence: 0.9, level: 'high' }, 'manual').action).toBe('suggest-only');
   });
   it('达到上限一律建议归档', () => {
-    const d = decideWrite({ confidence: 0.9, level: 'high' }, 'confirm', { maxLongterm: 2, currentLongtermCount: 2 });
+    const d = decideWrite({ confidence: 0.9, level: 'high' }, 'confirm', {
+      maxLongterm: 2,
+      currentLongtermCount: 2,
+    });
     expect(d.action).toBe('suggest-only');
     expect(d.reason).toContain('上限');
   });
@@ -310,7 +345,11 @@ describe('decideWrite 三档', () => {
 describe('LongTermMemoryWriter 行为', () => {
   it('auto 高置信静默写入且不产生通知(decision=silent-write)', () => {
     const writer = new LongTermMemoryWriter({ repo, policy: fixedPolicy('auto') });
-    const cand = candidate({ title: '统一用 TypeScript', content: '长期约定', sourceConversationId: 'C1' });
+    const cand = candidate({
+      title: '统一用 TypeScript',
+      content: '长期约定',
+      sourceConversationId: 'C1',
+    });
     const res = writer.apply(cand, assessment('high'), { userId: USER });
     expect(res).not.toBeNull();
     if (res && 'record' in res) {
@@ -333,7 +372,11 @@ describe('LongTermMemoryWriter 行为', () => {
 
   it('confirm 自动写入并可撤销；undo 后条目消失', () => {
     const writer = new LongTermMemoryWriter({ repo, policy: fixedPolicy('confirm') });
-    const cand = candidate({ title: '统一命名规范', content: '长期约定', sourceConversationId: 'C1' });
+    const cand = candidate({
+      title: '统一命名规范',
+      content: '长期约定',
+      sourceConversationId: 'C1',
+    });
     const res = writer.apply(cand, assessment('high'), { userId: USER });
     expect(res).not.toBeNull();
     if (!res || !('record' in res)) throw new Error('应为写入结果');
@@ -383,7 +426,12 @@ describe('ConflictCardSource 三选项', () => {
   it('inspect 返回冲突对比卡（conflicts 非空）', () => {
     const localId = seedLongterm('使用 TypeScript', '旧的规范');
     const source = new ConflictCardSource({ repo });
-    const cand = candidate({ title: '使用 TypeScript', content: '新的规范', category: 'tech-stack', sourceConversationId: 'new' });
+    const cand = candidate({
+      title: '使用 TypeScript',
+      content: '新的规范',
+      category: 'tech-stack',
+      sourceConversationId: 'new',
+    });
     const model = source.inspect(cand, { userId: USER });
     expect(model).not.toBeNull();
     expect(model?.memoryId).toBe(localId);
@@ -394,27 +442,45 @@ describe('ConflictCardSource 三选项', () => {
   it('无冲突时 inspect 返回 null', () => {
     seedLongterm('已有的', 'x');
     const source = new ConflictCardSource({ repo });
-    const cand = candidate({ title: '完全不同的新偏好', content: 'y', sourceConversationId: 'new' });
+    const cand = candidate({
+      title: '完全不同的新偏好',
+      content: 'y',
+      sourceConversationId: 'new',
+    });
     expect(source.inspect(cand, { userId: USER })).toBeNull();
   });
 
   it('keepLocal：保留旧条目，写冲突日志', () => {
     seedLongterm('使用 TypeScript', '旧的规范');
     const source = new ConflictCardSource({ repo });
-    const cand = candidate({ title: '使用 TypeScript', content: '新的规范', category: 'tech-stack', sourceConversationId: 'new' });
+    const cand = candidate({
+      title: '使用 TypeScript',
+      content: '新的规范',
+      category: 'tech-stack',
+      sourceConversationId: 'new',
+    });
     const model = source.inspect(cand, { userId: USER });
     expect(model).not.toBeNull();
     const r = source.resolve(model!, 'keepLocal', { userId: USER });
     expect(r.action).toBe('kept-local');
     const stored = repo.findById(model!.memoryId)!;
     expect(stored.content).toBe('旧的规范');
-    expect(repo.changes.list({ userId: USER, memoryId: model!.memoryId }).some((e) => e.action === 'conflict_resolve')).toBe(true);
+    expect(
+      repo.changes
+        .list({ userId: USER, memoryId: model!.memoryId })
+        .some((e) => e.action === 'conflict_resolve'),
+    ).toBe(true);
   });
 
   it('takeNew：采用新内容（保留既有 id），写冲突日志', () => {
     seedLongterm('使用 TypeScript', '旧的规范');
     const source = new ConflictCardSource({ repo });
-    const cand = candidate({ title: '使用 TypeScript', content: '新的规范', category: 'tech-stack', sourceConversationId: 'new' });
+    const cand = candidate({
+      title: '使用 TypeScript',
+      content: '新的规范',
+      category: 'tech-stack',
+      sourceConversationId: 'new',
+    });
     const model = source.inspect(cand, { userId: USER })!;
     const r = source.resolve(model, 'takeNew', { userId: USER });
     expect(r.action).toBe('took-new');
@@ -427,7 +493,12 @@ describe('ConflictCardSource 三选项', () => {
   it('merge：结果保留双方来源引用（sources 长度 2，sourceRef 含两者）', () => {
     seedLongterm('使用 TypeScript', '旧的规范', 'conversation:old');
     const source = new ConflictCardSource({ repo });
-    const cand = candidate({ title: '使用 TypeScript', content: '新的规范', category: 'tech-stack', sourceConversationId: 'new' });
+    const cand = candidate({
+      title: '使用 TypeScript',
+      content: '新的规范',
+      category: 'tech-stack',
+      sourceConversationId: 'new',
+    });
     const model = source.inspect(cand, { userId: USER })!;
     const r = source.resolve(model, 'merge', { userId: USER });
     expect(r.action).toBe('merged');
@@ -456,7 +527,12 @@ describe('ConflictCardSource 三选项', () => {
 describe('MemoryChangeLog', () => {
   it('每次自动写入记录对话片段、来源与策略，且 jumpTarget 可取回 conversationId', () => {
     const writer = new LongTermMemoryWriter({ repo, policy: fixedPolicy('confirm') });
-    const cand = candidate({ title: '统一用 Prettier', content: '长期约定', sourceConversationId: 'CX', snippet: '来自对话的片段' });
+    const cand = candidate({
+      title: '统一用 Prettier',
+      content: '长期约定',
+      sourceConversationId: 'CX',
+      snippet: '来自对话的片段',
+    });
     const res = writer.apply(cand, assessment('high'), { userId: USER });
     expect(res && 'record' in res).toBe(true);
     if (!res || !('record' in res)) throw new Error('预期自动写入并返回 record');
@@ -482,6 +558,8 @@ describe('MemoryChangeLog', () => {
     if (!res || !('record' in res)) throw new Error('应为写入结果');
     writer.undo(res.record.memoryId, { userId: USER });
     const log = new MemoryChangeLog(repo);
-    expect(log.list({ userId: USER, memoryId: res.record.memoryId }).some((e) => e.action === 'undo')).toBe(true);
+    expect(
+      log.list({ userId: USER, memoryId: res.record.memoryId }).some((e) => e.action === 'undo'),
+    ).toBe(true);
   });
 });

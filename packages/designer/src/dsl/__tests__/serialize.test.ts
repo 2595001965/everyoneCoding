@@ -64,7 +64,12 @@ function deepTree(depth: number): ElementNode {
     bindings: { text: 'deepText' },
   });
   for (let level = depth - 2; level >= 0; level -= 1) {
-    node = createElement({ id: `n-${level}`, type: 'Container', name: `第 ${level + 1} 层`, children: [node] });
+    node = createElement({
+      id: `n-${level}`,
+      type: 'Container',
+      name: `第 ${level + 1} 层`,
+      children: [node],
+    });
   }
   return node;
 }
@@ -112,9 +117,9 @@ describe('T3-01 序列化往返', () => {
   it('非法 JSON 与非法结构给出可读错误', () => {
     expect(() => deserializePageDsl('{ not json')).toThrow(DslParseError);
     expect(() => deserializePageDsl('[]')).toThrow(DslParseError);
-    expect(() => deserializePageDsl(JSON.stringify({ dslVersion: DSL_VERSION, page: { id: 'x' } }))).toThrow(
-      /PageDSL 校验失败/,
-    );
+    expect(() =>
+      deserializePageDsl(JSON.stringify({ dslVersion: DSL_VERSION, page: { id: 'x' } })),
+    ).toThrow(/PageDSL 校验失败/);
   });
 
   it('写出前先校验，非法 DSL 不落盘', async () => {

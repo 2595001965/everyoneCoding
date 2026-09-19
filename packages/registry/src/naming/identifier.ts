@@ -155,7 +155,8 @@ function matchAt(
     const custom = dictionary[term];
     if (custom !== undefined && custom.length > 0) return { word: custom, length };
     const glossary = ENGLISH_TERMS[term];
-    if (allowGlossary && glossary !== undefined && glossary.length > 0) return { word: glossary, length };
+    if (allowGlossary && glossary !== undefined && glossary.length > 0)
+      return { word: glossary, length };
   }
   return null;
 }
@@ -191,7 +192,7 @@ export function toIdentifier(input: string, options: ToIdentifierOptions = {}): 
   const words = segmentWords(input, options);
   let result = applyStyle(words, style);
   if (result.length === 0) {
-    result = options.preserveOriginal === true ? (sanitizeIdentifier(input) || fallback) : fallback;
+    result = options.preserveOriginal === true ? sanitizeIdentifier(input) || fallback : fallback;
   }
   // 标识符不得以数字开头
   if (/^[0-9]/.test(result)) result = `_${result}`;

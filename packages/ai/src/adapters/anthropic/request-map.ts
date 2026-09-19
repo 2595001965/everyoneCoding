@@ -18,7 +18,8 @@ export type AnthropicRequestBlock =
   | { type: 'text'; text: string }
   | {
       type: 'image';
-      source: { type: 'base64' | 'url'; media_type: string; data: string } | { type: 'url'; url: string };
+      source:
+        { type: 'base64' | 'url'; media_type: string; data: string } | { type: 'url'; url: string };
     }
   | { type: 'tool_use'; id: string; name: string; input: unknown }
   | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
@@ -81,7 +82,11 @@ export function toAnthropicParts(messages: readonly ChatMessage[]): AnthropicReq
           if (block.source.kind === 'base64') {
             blocks.push({
               type: 'image',
-              source: { type: 'base64', media_type: block.source.mediaType, data: block.source.data },
+              source: {
+                type: 'base64',
+                media_type: block.source.mediaType,
+                data: block.source.data,
+              },
             });
           } else {
             blocks.push({ type: 'image', source: { type: 'url', url: block.source.url } });
@@ -107,7 +112,12 @@ export function toAnthropicParts(messages: readonly ChatMessage[]): AnthropicReq
       for (const block of message.content) {
         if (block.type === 'text') blocks.push({ type: 'text', text: block.text });
         else if (block.type === 'tool_use') {
-          blocks.push({ type: 'tool_use', id: block.id, name: block.name, input: block.input ?? {} });
+          blocks.push({
+            type: 'tool_use',
+            id: block.id,
+            name: block.name,
+            input: block.input ?? {},
+          });
         }
       }
     }
@@ -142,12 +152,16 @@ function mergeContent(
   current: string | AnthropicRequestBlock[],
   incoming: string | AnthropicRequestBlock[],
 ): string | AnthropicRequestBlock[] {
-  const currentBlocks = typeof current === 'string' ? [{ type: 'text' as const, text: current }] : current;
-  const incomingBlocks = typeof incoming === 'string' ? [{ type: 'text' as const, text: incoming }] : incoming;
+  const currentBlocks =
+    typeof current === 'string' ? [{ type: 'text' as const, text: current }] : current;
+  const incomingBlocks =
+    typeof incoming === 'string' ? [{ type: 'text' as const, text: incoming }] : incoming;
   return [...currentBlocks, ...incomingBlocks];
 }
 
-export function toAnthropicTools(tools: readonly ToolDefinition[] | undefined): AnthropicTool[] | undefined {
+export function toAnthropicTools(
+  tools: readonly ToolDefinition[] | undefined,
+): AnthropicTool[] | undefined {
   if (!tools || tools.length === 0) return undefined;
   return tools.map((tool) => ({
     name: tool.name,

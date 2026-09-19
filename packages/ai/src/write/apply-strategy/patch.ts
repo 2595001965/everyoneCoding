@@ -78,7 +78,11 @@ export function hunkSides(hunk: PatchHunk): { oldLines: string[]; newLines: stri
 }
 
 /** 在一行数组中从 from 开始找到 pattern 的位置 */
-function indexOfSequence(haystack: readonly string[], pattern: readonly string[], from: number): number {
+function indexOfSequence(
+  haystack: readonly string[],
+  pattern: readonly string[],
+  from: number,
+): number {
   if (pattern.length === 0) return Math.min(from, haystack.length);
   for (let index = Math.max(0, from); index + pattern.length <= haystack.length; index += 1) {
     let matched = true;
@@ -112,10 +116,19 @@ function applyHunk(
   let position = indexOfSequence(lines, oldLines, declared);
   if (position < 0) position = indexOfSequence(lines, oldLines, 0);
   if (position < 0) {
-    return { ok: false, lines, cursor, error: `补丁片段在文件中找不到对应内容（hunk @@ -${hunk.oldStart}）` };
+    return {
+      ok: false,
+      lines,
+      cursor,
+      error: `补丁片段在文件中找不到对应内容（hunk @@ -${hunk.oldStart}）`,
+    };
   }
 
-  const next = [...lines.slice(0, position), ...newLines, ...lines.slice(position + oldLines.length)];
+  const next = [
+    ...lines.slice(0, position),
+    ...newLines,
+    ...lines.slice(position + oldLines.length),
+  ];
   return { ok: true, lines: next, cursor: position + newLines.length };
 }
 
@@ -137,7 +150,13 @@ export function applyUnifiedPatch(before: string, patch: string): PatchApplyResu
 
   for (const hunk of parsed.hunks) {
     const applied = applyHunk(lines, hunk, cursor);
-    if (!applied.ok) return { ok: false, after: null, hunks: parsed.hunks.length, error: applied.error ?? '补丁应用失败' };
+    if (!applied.ok)
+      return {
+        ok: false,
+        after: null,
+        hunks: parsed.hunks.length,
+        error: applied.error ?? '补丁应用失败',
+      };
     lines = applied.lines;
     cursor = applied.cursor;
   }

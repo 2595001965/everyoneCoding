@@ -11,7 +11,14 @@ import { upsertMemory, type UpsertOptions, type UpsertOutcome } from './upsert';
  * 处置状态：unsolved → solved | mitigated；重开必须显式声明（见 MemoryRepo.setIssueStatus）。
  */
 
-export const ISSUE_SECTIONS = ['phenomenon', 'reproduce', 'environment', 'attempts', 'conclusion', 'codeLocations'] as const;
+export const ISSUE_SECTIONS = [
+  'phenomenon',
+  'reproduce',
+  'environment',
+  'attempts',
+  'conclusion',
+  'codeLocations',
+] as const;
 export type IssueSection = (typeof ISSUE_SECTIONS)[number];
 
 export const ISSUE_SECTION_LABELS: Record<IssueSection, string> = {
@@ -104,10 +111,16 @@ export class IssueMemoryService {
   }
 
   /** 追加一次尝试（去重：同 action + result 不重复写入） */
-  appendAttempt(issueMemoryId: string, attempt: AttemptEntry, options: UpsertOptions = {}): MemoryItem {
+  appendAttempt(
+    issueMemoryId: string,
+    attempt: AttemptEntry,
+    options: UpsertOptions = {},
+  ): MemoryItem {
     const current = this.require(issueMemoryId);
     const attempts = readAttempts(current);
-    const duplicated = attempts.some((item) => item.action === attempt.action && item.result === attempt.result);
+    const duplicated = attempts.some(
+      (item) => item.action === attempt.action && item.result === attempt.result,
+    );
     if (duplicated) return current;
     const structured = {
       ...(current.structured ?? {}),
@@ -120,7 +133,12 @@ export class IssueMemoryService {
   conclude(
     issueMemoryId: string,
     conclusion: string,
-    options: { status?: IssueStatus; commitSha?: string | null; archive?: boolean; expectedVersion?: number } = {},
+    options: {
+      status?: IssueStatus;
+      commitSha?: string | null;
+      archive?: boolean;
+      expectedVersion?: number;
+    } = {},
   ): MemoryItem {
     const current = this.require(issueMemoryId);
     const structured: Record<string, unknown> = { ...(current.structured ?? {}), conclusion };
@@ -160,16 +178,27 @@ export class IssueMemoryService {
   }
 
   /** 关联代码位置（合并去重） */
-  addCodeLocations(issueMemoryId: string, locations: readonly CodeLocation[], commitSha?: string | null): MemoryItem {
+  addCodeLocations(
+    issueMemoryId: string,
+    locations: readonly CodeLocation[],
+    commitSha?: string | null,
+  ): MemoryItem {
     const current = this.require(issueMemoryId);
     const existing = readCodeLocations(current);
     const merged = [...existing];
     for (const location of locations) {
-      if (!merged.some((item) => item.filePath === location.filePath && item.symbol === location.symbol)) {
+      if (
+        !merged.some(
+          (item) => item.filePath === location.filePath && item.symbol === location.symbol,
+        )
+      ) {
         merged.push(location);
       }
     }
-    const structured: Record<string, unknown> = { ...(current.structured ?? {}), codeLocations: merged };
+    const structured: Record<string, unknown> = {
+      ...(current.structured ?? {}),
+      codeLocations: merged,
+    };
     if (commitSha) structured['commitSha'] = commitSha;
     return this.repo.update(issueMemoryId, { structured }, current.version);
   }
@@ -184,7 +213,12 @@ export class IssueMemoryService {
 
   /** 全部问题（含已解决），按处置状态过滤 */
   list(projectId: string, issueStatus?: IssueStatus): MemoryItem[] {
-    const items = this.repo.list({ userId: this.userId, scopes: ['issue'], projectId, ...(issueStatus ? { issueStatus } : {}) });
+    const items = this.repo.list({
+      userId: this.userId,
+      scopes: ['issue'],
+      projectId,
+      ...(issueStatus ? { issueStatus } : {}),
+    });
     return items.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
@@ -195,18 +229,28 @@ export class IssueMemoryService {
   /** 解决后沉淀：把结论提升为项目级/长期级经验（FR-MEM-16 的可选归档） */
   distill(
     issueMemoryId: string,
-    target: { scope: 'project' | 'longterm'; title: string; projectId?: string | null; content?: string },
+    target: {
+      scope: 'project' | 'longterm';
+      title: string;
+      projectId?: string | null;
+      content?: string;
+    },
   ): MemoryItem {
     const issue = this.require(issueMemoryId);
     const structured = issue.structured ?? {};
-    const conclusion = typeof structured['conclusion'] === 'string' ? structured['conclusion'] : issue.content;
+    const conclusion =
+      typeof structured['conclusion'] === 'string' ? structured['conclusion'] : issue.content;
     return this.repo.create({
       userId: this.userId,
       scope: target.scope,
       projectId: target.scope === 'longterm' ? null : (target.projectId ?? issue.projectId),
       title: target.title,
       content: target.content ?? conclusion,
-      structured: { distilledFrom: issue.id, issueId: issue.issueId, phenomenon: structured['phenomenon'] ?? null },
+      structured: {
+        distilledFrom: issue.id,
+        issueId: issue.issueId,
+        phenomenon: structured['phenomenon'] ?? null,
+      },
       tags: ['distilled', ...issue.tags.filter((tag) => tag !== 'issue')],
       sourceType: 'ai_summary',
       sourceRef: `issue:${issue.id}`,

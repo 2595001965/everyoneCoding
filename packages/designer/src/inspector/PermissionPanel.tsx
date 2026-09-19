@@ -29,12 +29,22 @@ export interface PermissionPanelProps {
   suggestions?: readonly string[];
 }
 
-export function PermissionPanel({ value, onChange, suggestions }: PermissionPanelProps): React.ReactElement {
+export function PermissionPanel({
+  value,
+  onChange,
+  suggestions,
+}: PermissionPanelProps): React.ReactElement {
   const rule: PermissionRule = value ?? { mode: 'visible', roles: [] };
 
   return (
-    <div className="ec-permission-panel" data-testid="permission-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p style={{ fontSize: 12, opacity: 0.65 }}>按角色控制可见 / 可编辑；角色留空表示不限制角色。</p>
+    <div
+      className="ec-permission-panel"
+      data-testid="permission-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+    >
+      <p style={{ fontSize: 12, opacity: 0.65 }}>
+        按角色控制可见 / 可编辑；角色留空表示不限制角色。
+      </p>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12 }}>权限类型</span>

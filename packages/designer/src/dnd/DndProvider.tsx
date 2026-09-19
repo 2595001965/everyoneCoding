@@ -29,9 +29,7 @@ import { CONTAINER_TYPES, type ElementNode } from '../dsl/types';
 import { computeInsertion, type CollisionTarget, type DragResolution } from './collision';
 
 /** 拖拽载荷：来自组件面板（新增）或画布内（移动） */
-export type DragData =
-  | { source: 'panel'; element: ElementNode }
-  | { source: 'canvas'; id: string };
+export type DragData = { source: 'panel'; element: ElementNode } | { source: 'canvas'; id: string };
 
 interface DndContextValue {
   /** 拖拽结束提交（一步 undo） */
@@ -66,7 +64,11 @@ export interface DndProviderProps {
  * 拖拽总线：包裹 dnd-kit DndContext，并暴露 useDnd。
  * 需在 DesignerProvider 内使用（以便取到 store）。
  */
-export function DndProvider({ children, acceptsChildren, canvasRectRef }: DndProviderProps): React.ReactElement {
+export function DndProvider({
+  children,
+  acceptsChildren,
+  canvasRectRef,
+}: DndProviderProps): React.ReactElement {
   const store = useDesignerStore();
   const [resolution, setResolutionState] = React.useState<DragResolution | null>(null);
   const accept = acceptsChildren ?? ((type: string) => CONTAINER_TYPES.includes(type));
@@ -88,12 +90,19 @@ export function DndProvider({ children, acceptsChildren, canvasRectRef }: DndPro
   const root = React.useCallback(() => store.getState().dsl.tree, [store]);
 
   const resolveFromOver = React.useCallback(
-    (over: DragOverEvent['over'], pointer: { x: number; y: number } | null): DragResolution | null => {
+    (
+      over: DragOverEvent['over'],
+      pointer: { x: number; y: number } | null,
+    ): DragResolution | null => {
       if (!over) {
         // 指针离开所有 droppable：若同时离开画布表面 → 删除
         if (pointer && canvasRectRef?.current) {
           const r = canvasRectRef.current.getBoundingClientRect();
-          const inside = pointer.x >= r.left && pointer.x <= r.right && pointer.y >= r.top && pointer.y <= r.bottom;
+          const inside =
+            pointer.x >= r.left &&
+            pointer.x <= r.right &&
+            pointer.y >= r.top &&
+            pointer.y <= r.bottom;
           if (!inside) return { kind: 'delete' };
         }
         return null;
@@ -129,9 +138,10 @@ export function DndProvider({ children, acceptsChildren, canvasRectRef }: DndPro
       }
       // insert
       if (data.source === 'panel') {
-        return store
-          .getState()
-          .insertElement(res.parentId, data.element, { ...(res.index !== undefined ? { index: res.index } : {}), select: true });
+        return store.getState().insertElement(res.parentId, data.element, {
+          ...(res.index !== undefined ? { index: res.index } : {}),
+          select: true,
+        });
       }
       return store.getState().moveElement(data.id, res.parentId, res.index);
     },

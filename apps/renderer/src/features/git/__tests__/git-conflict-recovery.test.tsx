@@ -38,7 +38,9 @@ describe('MergePanel（T6-04 合并）', () => {
     await user.click(screen.getByTestId('merge-preview-action'));
 
     await waitFor(() => expect(preview).toHaveBeenCalled());
-    expect(await screen.findByTestId('merge-preview')).toHaveTextContent('将引入 2 个提交，影响 4 个文件');
+    expect(await screen.findByTestId('merge-preview')).toHaveTextContent(
+      '将引入 2 个提交，影响 4 个文件',
+    );
   });
 
   it('合并前弹出确认并说明会创建备份分支；确认后才真正合并', async () => {
@@ -110,7 +112,9 @@ describe('ConflictEditor（T6-04 冲突三栏）', () => {
     expect(screen.getByTestId('conflict-apply')).toBeDisabled();
 
     await user.click(screen.getByTestId(`resolve-ours-${CONFLICT_PATH}-1`));
-    await waitFor(() => expect(screen.getByTestId('conflict-summary')).toHaveTextContent('未解决 1 块'));
+    await waitFor(() =>
+      expect(screen.getByTestId('conflict-summary')).toHaveTextContent('未解决 1 块'),
+    );
   });
 
   it('逐块选择后「结果」栏按选择展开，并显示解决标签', async () => {
@@ -142,7 +146,9 @@ describe('ConflictEditor（T6-04 冲突三栏）', () => {
     await screen.findByTestId('conflict-summary');
     await user.click(screen.getByTestId(`resolve-both-${CONFLICT_PATH}-1`));
 
-    await waitFor(() => expect(request).toHaveBeenCalledWith({ path: CONFLICT_PATH, blockIndex: 1 }));
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith({ path: CONFLICT_PATH, blockIndex: 1 }),
+    );
     const panel = await screen.findByTestId('ai-merge-request');
     expect(panel).toHaveTextContent('交给 AI 合并');
     expect(screen.getByTestId('ai-merge-instruction').textContent).toContain('请合并');
@@ -217,7 +223,9 @@ describe('RollbackDialog（T6-04 回滚）', () => {
 
     await screen.findByTestId('rollback-dialog');
     fireEvent.click(screen.getByLabelText('回滚方式'));
-    const option = screen.getAllByRole('option').find((item) => item.textContent?.includes('反向提交'));
+    const option = screen
+      .getAllByRole('option')
+      .find((item) => item.textContent?.includes('反向提交'));
     expect(option).toBeDefined();
     fireEvent.click(option as HTMLElement);
 
@@ -246,7 +254,9 @@ describe('StashPanel（T6-04 暂存）', () => {
 
     expect(await screen.findByTestId('stash-item-0')).toBeInTheDocument();
     expect(screen.getByText('WIP 登录页样式')).toBeInTheDocument();
-    expect(screen.getByTestId('stash-time-0').textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect(screen.getByTestId('stash-time-0').textContent).toMatch(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
   });
 
   it('新建暂存传说明并刷新列表', async () => {
@@ -299,7 +309,9 @@ describe('RemoteManager（T6-03 远程与凭据）', () => {
     expect(list).toHaveTextContent('https://example.com/group/repo.git');
 
     await user.click(screen.getByTestId('remote-test'));
-    expect(await screen.findByTestId('remote-test-result')).toHaveTextContent('连通正常，远端有 3 个分支');
+    expect(await screen.findByTestId('remote-test-result')).toHaveTextContent(
+      '连通正常，远端有 3 个分支',
+    );
   });
 
   it('删除远程必须二次确认', async () => {
@@ -331,7 +343,11 @@ describe('RemoteManager（T6-03 远程与凭据）', () => {
     expect(push.mock.calls[0]?.[0]).toEqual({ remote: 'origin' });
     // 进度回显
     expect(await screen.findByTestId('remote-progress')).toHaveTextContent('推送完成');
-    expect(api.calls.push[0]?.progress.map((event) => event.phase)).toEqual(['connecting', 'transferring', 'done']);
+    expect(api.calls.push[0]?.progress.map((event) => event.phase)).toEqual([
+      'connecting',
+      'transferring',
+      'done',
+    ]);
   });
 
   it('开启强制推送后必须二次确认，确认才带 forceWithLease', async () => {
@@ -368,7 +384,11 @@ describe('RemoteManager（T6-03 远程与凭据）', () => {
     await user.click(screen.getByTestId('cred-save'));
 
     await waitFor(() =>
-      expect(save).toHaveBeenCalledWith({ remoteName: 'origin', username: 'dev', token: 'ghp_secret_token_value' }),
+      expect(save).toHaveBeenCalledWith({
+        remoteName: 'origin',
+        username: 'dev',
+        token: 'ghp_secret_token_value',
+      }),
     );
     // 保存后输入框清空（明文不在组件状态里久留）
     await waitFor(() => expect(token).toHaveValue(''));

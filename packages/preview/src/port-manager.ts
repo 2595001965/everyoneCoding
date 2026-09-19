@@ -21,7 +21,11 @@ export interface PortAllocation {
 const MAX_PORT = 65535;
 
 /** 纯函数：给定占用集合找下一个可用端口（便于单测）。 */
-export function nextFreePort(start: number, taken: readonly number[], maxAttempts = 20): PortAllocation | null {
+export function nextFreePort(
+  start: number,
+  taken: readonly number[],
+  maxAttempts = 20,
+): PortAllocation | null {
   const occupied = new Set(taken);
   for (let i = 0; i < maxAttempts; i++) {
     const port = start + i;

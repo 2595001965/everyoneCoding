@@ -31,7 +31,14 @@ import { StylePanel } from './StylePanel';
  * - 与画布、图层树共享同一 selection store（三向联动）。
  */
 
-export const INSPECTOR_TABS = ['content', 'style', 'binding', 'event', 'condition', 'permission'] as const;
+export const INSPECTOR_TABS = [
+  'content',
+  'style',
+  'binding',
+  'event',
+  'condition',
+  'permission',
+] as const;
 export type InspectorTab = (typeof INSPECTOR_TABS)[number];
 
 export const INSPECTOR_TAB_LABELS: Record<InspectorTab, string> = {
@@ -70,7 +77,12 @@ export function commonValues(
   return out;
 }
 
-export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, apiCatalog = [], flowHeight = 380 }: InspectorProps): React.ReactElement {
+export function Inspector({
+  store: storeProp,
+  debounceMs = DEFAULT_DEBOUNCE_MS,
+  apiCatalog = [],
+  flowHeight = 380,
+}: InspectorProps): React.ReactElement {
   const contextStore = useDesignerStore();
   const store = storeProp ?? contextStore;
   const dsl = useEditorState((state) => state.dsl);
@@ -88,12 +100,18 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
   );
 
   const elements = React.useMemo(
-    () => selectedIds.map((id) => findById(dsl.tree, id)).filter((node): node is ElementNode => node !== null),
+    () =>
+      selectedIds
+        .map((id) => findById(dsl.tree, id))
+        .filter((node): node is ElementNode => node !== null),
     [dsl.tree, selectedIds],
   );
 
   const catalog = React.useMemo(() => getDataSources(dsl, apiCatalog), [dsl, apiCatalog]);
-  const suggestions = React.useMemo(() => listDataSourcePaths(catalog).map((ref) => ref.path), [catalog]);
+  const suggestions = React.useMemo(
+    () => listDataSourcePaths(catalog).map((ref) => ref.path),
+    [catalog],
+  );
 
   const isMulti = elements.length > 1;
   const single = elements.length === 1 ? (elements[0] as ElementNode) : null;
@@ -101,10 +119,18 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
   const multiType = React.useMemo(() => {
     if (!isMulti) return null;
     const first = elements[0]?.type;
-    return first !== undefined && elements.every((element) => element.type === first) ? first : null;
+    return first !== undefined && elements.every((element) => element.type === first)
+      ? first
+      : null;
   }, [isMulti, elements]);
-  const commonProps = React.useMemo(() => commonValues(elements, (element) => element.props ?? {}), [elements]);
-  const commonStyle = React.useMemo(() => commonValues(elements, (element) => element.style ?? {}), [elements]);
+  const commonProps = React.useMemo(
+    () => commonValues(elements, (element) => element.props ?? {}),
+    [elements],
+  );
+  const commonStyle = React.useMemo(
+    () => commonValues(elements, (element) => element.style ?? {}),
+    [elements],
+  );
 
   /** 批量写入 props（一次 apply = 一步 undo） */
   const patchProps = React.useCallback(
@@ -177,7 +203,9 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
       const current = store.getState().dsl;
       const elementId = store.getState().selectedIds[0] ?? null;
       const id = `ev-${current.events.length + 1}-${trigger}`;
-      store.getState().setPageEvents([...current.events, { id, trigger, elementId, entry: null, actions: [] }]);
+      store
+        .getState()
+        .setPageEvents([...current.events, { id, trigger, elementId, entry: null, actions: [] }]);
     },
     [store],
   );
@@ -185,20 +213,31 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
   if (elements.length === 0) {
     return (
       <div className="ec-inspector ec-inspector--empty" data-testid="inspector">
-        <EmptyState title="未选中元素" description="在画布或图层树中选中元素后，这里显示它的属性。" />
+        <EmptyState
+          title="未选中元素"
+          description="在画布或图层树中选中元素后，这里显示它的属性。"
+        />
       </div>
     );
   }
 
   return (
-    <div className="ec-inspector" data-testid="inspector" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
+    <div
+      className="ec-inspector"
+      data-testid="inspector"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <strong data-testid="inspector-title">
           {isMulti ? `已选 ${elements.length} 个元素` : (single?.name ?? single?.type ?? '元素')}
         </strong>
         {!isMulti && single !== null && <Badge>{single.type}</Badge>}
         <span style={{ flex: 1 }} />
-        <Tooltip content={undoState.undoLabel !== null ? `撤销：${undoState.undoLabel}` : '没有可撤销的操作'}>
+        <Tooltip
+          content={
+            undoState.undoLabel !== null ? `撤销：${undoState.undoLabel}` : '没有可撤销的操作'
+          }
+        >
           <Button
             size="sm"
             variant="ghost"
@@ -209,7 +248,11 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
             撤销
           </Button>
         </Tooltip>
-        <Tooltip content={undoState.redoLabel !== null ? `重做：${undoState.redoLabel}` : '没有可重做的操作'}>
+        <Tooltip
+          content={
+            undoState.redoLabel !== null ? `重做：${undoState.redoLabel}` : '没有可重做的操作'
+          }
+        >
           <Button
             size="sm"
             variant="ghost"
@@ -222,12 +265,23 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
         </Tooltip>
       </header>
 
-      <Tabs items={INSPECTOR_TABS.map((id) => ({ key: id, label: INSPECTOR_TAB_LABELS[id] }))} value={tab} onChange={(next) => setTab(next as InspectorTab)}>
+      <Tabs
+        items={INSPECTOR_TABS.map((id) => ({ key: id, label: INSPECTOR_TAB_LABELS[id] }))}
+        value={tab}
+        onChange={(next) => setTab(next as InspectorTab)}
+      >
         {() => (
           <div data-testid={`inspector-panel-${tab}`} style={{ paddingTop: 8 }}>
             {tab === 'content' && (
               <ContentPanel
-                element={single ?? ({ id: '__multi__', type: multiType ?? 'Multi', props: commonProps } as ElementNode)}
+                element={
+                  single ??
+                  ({
+                    id: '__multi__',
+                    type: multiType ?? 'Multi',
+                    props: commonProps,
+                  } as ElementNode)
+                }
                 debounceMs={debounceMs}
                 onPropChange={(key, value, options) => patchProps(key, value, options)}
                 onPropsReplace={replaceProps}
@@ -237,7 +291,14 @@ export function Inspector({ store: storeProp, debounceMs = DEFAULT_DEBOUNCE_MS, 
 
             {tab === 'style' && (
               <StylePanel
-                element={single ?? ({ id: '__multi__', type: multiType ?? 'Multi', style: commonStyle } as ElementNode)}
+                element={
+                  single ??
+                  ({
+                    id: '__multi__',
+                    type: multiType ?? 'Multi',
+                    style: commonStyle,
+                  } as ElementNode)
+                }
                 debounceMs={debounceMs}
                 onStyleChange={(key, value, options) => patchStyle(key, value, options)}
                 {...(isMulti ? { onlyKeys: Object.keys(commonStyle) } : {})}

@@ -27,5 +27,11 @@ export {
 } from './code-api';
 export { CodeView, describeReadOnlyBlock, type CodeViewProps } from './CodeView';
 export { AiFixEntry, type AiFixEntryProps } from './AiFixEntry';
-export { DiffView, diffLineColor, diffLinePrefix, type DiffLayout, type DiffViewProps } from './DiffView';
+export {
+  DiffView,
+  diffLineColor,
+  diffLinePrefix,
+  type DiffLayout,
+  type DiffViewProps,
+} from './DiffView';
 export { ApplyBar, type ApplyBarProps } from './ApplyBar';

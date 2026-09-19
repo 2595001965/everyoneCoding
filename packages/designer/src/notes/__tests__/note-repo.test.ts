@@ -30,11 +30,24 @@ function makeRepo(options: { clock?: () => number; persistence?: NotePersistence
 describe('NoteRepository CRUD（T4-01）', () => {
   it('三级备注均可创建，字段与版本号正确', () => {
     const { repo } = makeRepo();
-    const element = repo.create({ targetType: 'element', targetId: 'el-btn', title: '需校验图形验证码', text: '登录按钮' });
+    const element = repo.create({
+      targetType: 'element',
+      targetId: 'el-btn',
+      title: '需校验图形验证码',
+      text: '登录按钮',
+    });
     const page = repo.create({ targetType: 'page', targetId: 'page-login', title: '页面备注' });
-    const feature = repo.create({ targetType: 'feature', targetId: 'feat-auth', title: '功能备注' });
+    const feature = repo.create({
+      targetType: 'feature',
+      targetId: 'feat-auth',
+      title: '功能备注',
+    });
 
-    expect([element.targetType, page.targetType, feature.targetType]).toEqual(['element', 'page', 'feature']);
+    expect([element.targetType, page.targetType, feature.targetType]).toEqual([
+      'element',
+      'page',
+      'feature',
+    ]);
     expect(element.version).toBe(1);
     expect(element.status).toBe('open');
     expect(repo.list()).toHaveLength(3);
@@ -43,7 +56,12 @@ describe('NoteRepository CRUD（T4-01）', () => {
 
   it('更新递增版本、写入历史、记录字段级变更，且历史不含当前版本', () => {
     const { repo, tick } = makeRepo();
-    const note = repo.create({ targetType: 'element', targetId: 'el-1', title: '初稿', text: '正文' });
+    const note = repo.create({
+      targetType: 'element',
+      targetId: 'el-1',
+      title: '初稿',
+      text: '正文',
+    });
 
     tick(50);
     const updated = repo.update(note.id, { title: '改后标题' });
@@ -134,10 +152,19 @@ describe('NoteRepository 状态与清单（T4-01）', () => {
 describe('备注上下文注入（T4-01 要点 5）', () => {
   it('getNotesForContext 聚合元素 / 页面 / 功能三级且只取未解决项', () => {
     const { repo } = makeRepo();
-    repo.create({ targetType: 'element', targetId: 'el-btn', title: '元素备注', text: '需校验图形验证码' });
+    repo.create({
+      targetType: 'element',
+      targetId: 'el-btn',
+      title: '元素备注',
+      text: '需校验图形验证码',
+    });
     repo.create({ targetType: 'page', targetId: 'page-login', title: '页面备注' });
     repo.create({ targetType: 'feature', targetId: 'feat-auth', title: '功能备注' });
-    const resolvedNote = repo.create({ targetType: 'element', targetId: 'el-btn', title: '已解决备注' });
+    const resolvedNote = repo.create({
+      targetType: 'element',
+      targetId: 'el-btn',
+      title: '已解决备注',
+    });
     repo.resolve(resolvedNote.id);
 
     const context = repo.getNotesForContext({
@@ -154,8 +181,18 @@ describe('备注上下文注入（T4-01 要点 5）', () => {
   it('禁止事项在上下文中置顶，并带强约束前缀', () => {
     const { repo } = makeRepo();
     repo.create({ targetType: 'element', targetId: 'el-1', type: 'validation', title: '校验要求' });
-    repo.create({ targetType: 'element', targetId: 'el-1', type: 'forbidden', title: '不得明文存 Key' });
-    repo.create({ targetType: 'element', targetId: 'el-1', type: 'business_rule', title: '业务规则' });
+    repo.create({
+      targetType: 'element',
+      targetId: 'el-1',
+      type: 'forbidden',
+      title: '不得明文存 Key',
+    });
+    repo.create({
+      targetType: 'element',
+      targetId: 'el-1',
+      type: 'business_rule',
+      title: '业务规则',
+    });
 
     const context = repo.getNotesForContext({ projectId: 'P1', elementId: 'el-1' });
     expect(context[0]?.title).toBe('不得明文存 Key');
@@ -172,17 +209,29 @@ describe('备注上下文注入（T4-01 要点 5）', () => {
 
   it('hasNoteUpdatedSince 能对比出「备注已更新」', () => {
     const { repo, tick, now } = makeRepo();
-    const note = repo.create({ targetType: 'element', targetId: 'el-btn', title: '需校验图形验证码' });
+    const note = repo.create({
+      targetType: 'element',
+      targetId: 'el-btn',
+      title: '需校验图形验证码',
+    });
     const generatedAt = now();
 
-    expect(repo.hasNoteUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toBe(false);
-    expect(repo.noteIdsUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toEqual([]);
+    expect(repo.hasNoteUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toBe(
+      false,
+    );
+    expect(repo.noteIdsUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toEqual(
+      [],
+    );
 
     tick(20);
     repo.update(note.id, { title: '需校验图形验证码（滑动）' });
 
-    expect(repo.hasNoteUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toBe(true);
-    expect(repo.noteIdsUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toEqual([note.id]);
+    expect(repo.hasNoteUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toBe(
+      true,
+    );
+    expect(repo.noteIdsUpdatedSince({ projectId: 'P1', elementId: 'el-btn' }, generatedAt)).toEqual(
+      [note.id],
+    );
     expect(repo.isNoteUpdatedSince(note.id, generatedAt)).toBe(true);
     expect(repo.isNoteUpdatedSince(note.id, now() + 10)).toBe(false);
   });
@@ -194,7 +243,12 @@ describe('备注上下文注入（T4-01 要点 5）', () => {
     const since = now();
     tick(5);
     repo.update(pageNote.id, { title: 'B2' });
-    expect(repo.hasNoteUpdatedSince({ projectId: 'P1', elementId: 'el-btn', pageId: 'page-login' }, since)).toBe(true);
+    expect(
+      repo.hasNoteUpdatedSince(
+        { projectId: 'P1', elementId: 'el-btn', pageId: 'page-login' },
+        since,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -204,7 +258,12 @@ describe('备注统计与角标（T4-01 要点 3）', () => {
     repo.create({ targetType: 'element', targetId: 'el-1', type: 'todo', title: 'A' });
     repo.create({ targetType: 'element', targetId: 'el-1', type: 'forbidden', title: 'B' });
     repo.create({ targetType: 'element', targetId: 'el-2', type: 'validation', title: 'C' });
-    const resolved = repo.create({ targetType: 'element', targetId: 'el-2', type: 'todo', title: 'D' });
+    const resolved = repo.create({
+      targetType: 'element',
+      targetId: 'el-2',
+      type: 'todo',
+      title: 'D',
+    });
     repo.resolve(resolved.id);
 
     const map = repo.badgeMap('element');
@@ -217,7 +276,12 @@ describe('备注统计与角标（T4-01 要点 3）', () => {
     repo.create({ targetType: 'element', targetId: 'el-1', type: 'todo', title: 'A' });
     repo.create({ targetType: 'element', targetId: 'el-1', type: 'todo', title: 'B' });
     repo.create({ targetType: 'page', targetId: 'p1', type: 'forbidden', title: 'C' });
-    const updated = repo.create({ targetType: 'page', targetId: 'p1', type: 'question', title: 'D' });
+    const updated = repo.create({
+      targetType: 'page',
+      targetId: 'p1',
+      type: 'question',
+      title: 'D',
+    });
     repo.resolve(updated.id);
 
     expect(repo.countsByType().todo).toBe(2);
@@ -251,7 +315,11 @@ describe('备注持久化端口（T4-01）', () => {
       },
     };
     const { repo } = makeRepo({ persistence: port });
-    const note = repo.create({ targetType: 'element', targetId: 'el-1', title: '需校验图形验证码' });
+    const note = repo.create({
+      targetType: 'element',
+      targetId: 'el-1',
+      title: '需校验图形验证码',
+    });
     expect(stored).toHaveLength(1);
 
     const second = new NoteRepository({ projectId: 'P1', persistence: port });

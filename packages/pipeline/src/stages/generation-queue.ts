@@ -41,7 +41,14 @@ export interface QueueState {
   /** 本次执行的拓扑序 */
   order: string[];
   /** 汇总统计 */
-  stats: { total: number; success: number; failed: number; skipped: number; pending: number; running: number };
+  stats: {
+    total: number;
+    success: number;
+    failed: number;
+    skipped: number;
+    pending: number;
+    running: number;
+  };
 }
 
 export interface GenerationQueueDeps<T> {
@@ -181,7 +188,8 @@ export class GenerationQueue<T> {
   async rollback(nodeId: string): Promise<void> {
     const node = this.nodes.get(nodeId);
     if (node === undefined) throw new Error(`未知节点：${nodeId}`);
-    if (this.deps.rollbackNode === undefined) throw new Error(`节点 ${nodeId} 的回退能力未注入（rollbackNode 缺失）`);
+    if (this.deps.rollbackNode === undefined)
+      throw new Error(`节点 ${nodeId} 的回退能力未注入（rollbackNode 缺失）`);
     await this.deps.rollbackNode(node);
     node.status = 'pending';
     node.attempts = 0;
@@ -221,13 +229,16 @@ export class GenerationQueue<T> {
   private remaining(): number {
     let count = 0;
     for (const node of this.nodes.values()) {
-      if (node.status === 'pending' || node.status === 'running' || node.status === 'failed') count += 1;
+      if (node.status === 'pending' || node.status === 'running' || node.status === 'failed')
+        count += 1;
     }
     return count;
   }
 
   private toState(): QueueState {
-    const list = this.order.map((id) => this.nodes.get(id)).filter((node) => node !== undefined) as QueueNode<T>[];
+    const list = this.order
+      .map((id) => this.nodes.get(id))
+      .filter((node) => node !== undefined) as QueueNode<T>[];
     const stats = {
       total: list.length,
       success: list.filter((node) => node.status === 'success').length,
@@ -262,15 +273,24 @@ export interface QueueProgressSnapshot {
 export function serializeProgress(state: QueueState): QueueProgressSnapshot {
   return {
     version: 1,
-    nodes: state.nodes.map((node) => ({ id: node.id, status: node.status, attempts: node.attempts, error: node.error })),
+    nodes: state.nodes.map((node) => ({
+      id: node.id,
+      status: node.status,
+      attempts: node.attempts,
+      error: node.error,
+    })),
   };
 }
 
-export function deserializeProgress<T>(raw: string | null, fallback: readonly QueueNode<T>[]): QueueNode<T>[] {
+export function deserializeProgress<T>(
+  raw: string | null,
+  fallback: readonly QueueNode<T>[],
+): QueueNode<T>[] {
   if (raw === null || raw.length === 0) return fallback.map((node) => ({ ...node }));
   try {
     const parsed = JSON.parse(raw) as QueueProgressSnapshot;
-    if (parsed.version !== 1 || !Array.isArray(parsed.nodes)) return fallback.map((node) => ({ ...node }));
+    if (parsed.version !== 1 || !Array.isArray(parsed.nodes))
+      return fallback.map((node) => ({ ...node }));
     const progress = new Map(parsed.nodes.map((node) => [node.id, node]));
     return fallback.map((node) => {
       const saved = progress.get(node.id);
@@ -281,7 +301,9 @@ export function deserializeProgress<T>(raw: string | null, fallback: readonly Qu
         attempts: saved.attempts,
         error: saved.error,
         // 已完成的节点保留原时间
-        ...(saved.status === 'success' || saved.status === 'skipped' ? { finishedAt: node.finishedAt ?? Date.now() } : {}),
+        ...(saved.status === 'success' || saved.status === 'skipped'
+          ? { finishedAt: node.finishedAt ?? Date.now() }
+          : {}),
       };
     });
   } catch {

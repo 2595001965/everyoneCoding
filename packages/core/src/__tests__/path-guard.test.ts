@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { PathEscapeError, PathGuard, hasIllegalChars, normalizePath, resolveInWorkspace } from '../path-guard';
+import {
+  PathEscapeError,
+  PathGuard,
+  hasIllegalChars,
+  normalizePath,
+  resolveInWorkspace,
+} from '../path-guard';
 
 const CTRL = String.fromCharCode(0);
 const BELL = String.fromCharCode(7);

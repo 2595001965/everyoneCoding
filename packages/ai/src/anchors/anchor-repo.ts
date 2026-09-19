@@ -9,7 +9,12 @@ import {
   type CodeAnchorRow,
 } from './anchor-model';
 import { hasMarker } from './comment-marker';
-import { defaultAstAdapter, verifyDeclaration, type AnchorVerification, type AstAdapter } from './ast-verify';
+import {
+  defaultAstAdapter,
+  verifyDeclaration,
+  type AnchorVerification,
+  type AstAdapter,
+} from './ast-verify';
 
 /**
  * Code Anchor 仓库（T4-06 要点 1、2）。
@@ -113,7 +118,9 @@ export class AnchorRepository {
 
   hydrate(rows: readonly CodeAnchorRow[]): void {
     this.anchors = new Map(
-      rows.filter((row) => row.project_id === this.projectId).map((row) => [row.id, fromCodeAnchorRow(row)]),
+      rows
+        .filter((row) => row.project_id === this.projectId)
+        .map((row) => [row.id, fromCodeAnchorRow(row)]),
     );
     this.emit();
   }
@@ -144,11 +151,20 @@ export class AnchorRepository {
               reason: '锚点声明的文件不存在',
               resolved: null,
             } satisfies AnchorVerification)
-          : verifyDeclaration({ declaration, path: declaration.filePath, content, adapter: this.adapter });
+          : verifyDeclaration({
+              declaration,
+              path: declaration.filePath,
+              content,
+              adapter: this.adapter,
+            });
 
       const markerFound = content === null ? false : hasMarker(content, declaration.elementId);
       const syncState: AnchorSyncState =
-        verification.status === 'ok' ? 'synced' : verification.status === 'drift' ? 'drift_detected' : 'missing';
+        verification.status === 'ok'
+          ? 'synced'
+          : verification.status === 'drift'
+            ? 'drift_detected'
+            : 'missing';
 
       const existing = this.findExisting(declaration);
       const anchor: CodeAnchor =
@@ -177,12 +193,21 @@ export class AnchorRepository {
         endLine: verification.resolved?.endLine ?? anchor.endLine,
         syncState,
         syncDetail: verification.status === 'ok' ? null : verification.reason,
-        evidence: { declared: true, commentMarker: markerFound, astVerified: verification.status === 'ok' },
+        evidence: {
+          declared: true,
+          commentMarker: markerFound,
+          astVerified: verification.status === 'ok',
+        },
         updatedAt: now,
       };
 
       this.anchors.set(updated.id, updated);
-      registrations.push({ anchor: updated, verification, markerFound, created: existing === null });
+      registrations.push({
+        anchor: updated,
+        verification,
+        markerFound,
+        created: existing === null,
+      });
     }
 
     this.persist();
@@ -254,7 +279,10 @@ export class AnchorRepository {
   /* ------------------------------ 状态更新 ------------------------------ */
 
   /** 行号漂移后按新位置更新（由 reassociate 调用） */
-  updateLocation(id: string, patch: { startLine: number; endLine: number; symbol?: string | null }): CodeAnchor | null {
+  updateLocation(
+    id: string,
+    patch: { startLine: number; endLine: number; symbol?: string | null },
+  ): CodeAnchor | null {
     const current = this.anchors.get(id);
     if (current === null || current === undefined) return null;
     const next: CodeAnchor = {
@@ -284,7 +312,12 @@ export class AnchorRepository {
   private markState(id: string, state: AnchorSyncState, detail: string): CodeAnchor | null {
     const current = this.anchors.get(id);
     if (current === null || current === undefined) return null;
-    const next: CodeAnchor = { ...current, syncState: state, syncDetail: detail, updatedAt: this.clock() };
+    const next: CodeAnchor = {
+      ...current,
+      syncState: state,
+      syncDetail: detail,
+      updatedAt: this.clock(),
+    };
     this.anchors.set(id, next);
     this.persist();
     this.emit();

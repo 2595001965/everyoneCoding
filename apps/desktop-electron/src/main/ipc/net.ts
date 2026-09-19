@@ -63,7 +63,9 @@ export function registerNetIpc(ipc: IpcMainLike): void {
 
     const host = extractHost(request.url);
     if (!host) {
-      throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: `非法 URL: ${request.url}` }));
+      throw new Error(
+        JSON.stringify({ code: 'INVALID_ARGUMENT', message: `非法 URL: ${request.url}` }),
+      );
     }
     if (!allowlist.isHostAllowed(host)) {
       throw new Error(JSON.stringify({ code: 'NET_BLOCKED', message: `主机未放行: ${host}` }));
@@ -71,7 +73,9 @@ export function registerNetIpc(ipc: IpcMainLike): void {
 
     const method = request.method ?? 'GET';
     if (!ALLOWED_METHODS.has(method)) {
-      throw new Error(JSON.stringify({ code: 'INVALID_ARGUMENT', message: `不支持的 HTTP 方法: ${method}` }));
+      throw new Error(
+        JSON.stringify({ code: 'INVALID_ARGUMENT', message: `不支持的 HTTP 方法: ${method}` }),
+      );
     }
 
     const controller = new AbortController();

@@ -267,7 +267,11 @@ export interface GitBackend {
   deleteBranch(cwd: string, name: string, options?: { force?: boolean }): Promise<void>;
 
   /* 合并与变基 */
-  merge(cwd: string, branch: string, options?: { noFf?: boolean; message?: string; noCommit?: boolean }): Promise<MergeCommandResult>;
+  merge(
+    cwd: string,
+    branch: string,
+    options?: { noFf?: boolean; message?: string; noCommit?: boolean },
+  ): Promise<MergeCommandResult>;
   rebase(cwd: string, onto: string): Promise<MergeCommandResult>;
   abortMerge(cwd: string): Promise<void>;
   abortRebase(cwd: string): Promise<void>;
@@ -286,7 +290,11 @@ export interface GitBackend {
   setRemoteUrl(cwd: string, name: string, url: string): Promise<void>;
   removeRemote(cwd: string, name: string): Promise<void>;
   /** 连通性测试（`ls-remote --heads`）：返回远端分支引用，失败抛错 */
-  lsRemote(cwd: string, remote: string, options?: { env?: Record<string, string> | undefined }): Promise<string[]>;
+  lsRemote(
+    cwd: string,
+    remote: string,
+    options?: { env?: Record<string, string> | undefined },
+  ): Promise<string[]>;
 
   push(cwd: string, input: PushInput): Promise<TransferResult>;
   pull(cwd: string, input: FetchInput): Promise<MergeCommandResult>;
@@ -296,7 +304,11 @@ export interface GitBackend {
   diff(cwd: string, options: DiffOptions): Promise<string>;
   /** 权威的文件级变更清单（含重命名识别），与 `diff` 的输出顺序一一对应 */
   diffNameStatus(cwd: string, options: DiffOptions): Promise<DiffFileEntry[]>;
-  blameLite(cwd: string, path: string, range?: { start: number; end: number }): Promise<BlameLine[]>;
+  blameLite(
+    cwd: string,
+    path: string,
+    range?: { start: number; end: number },
+  ): Promise<BlameLine[]>;
 
   /** 文件体积（用于 >1MB 跳过内容 diff） */
   fileSize(cwd: string, path: string): Promise<number | null>;

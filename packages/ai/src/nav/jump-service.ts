@@ -98,7 +98,12 @@ function groupByLayer(targets: readonly NavTarget[]): JumpLayerOption[] {
 export class JumpService {
   private readonly source: NavSourcePort;
   private readonly clock: () => number;
-  private readonly records: { at: number; elementId: string; targetId: string | null; success: boolean }[] = [];
+  private readonly records: {
+    at: number;
+    elementId: string;
+    targetId: string | null;
+    success: boolean;
+  }[] = [];
   private readonly listeners = new Set<
     (event: { type: 'jumped' | 'failed'; elementId: string; targetId: string | null }) => void
   >();
@@ -113,7 +118,9 @@ export class JumpService {
   /** Ctrl+点击元素名 / 页面名 → 解析跳转目标（不产生副作用） */
   resolve(request: JumpRequest): JumpResolution {
     this.lastElementId = request.element.elementId;
-    const anchors = this.source.listAnchors().filter((candidate) => candidate.elementId === request.element.elementId);
+    const anchors = this.source
+      .listAnchors()
+      .filter((candidate) => candidate.elementId === request.element.elementId);
     const currentFile = request.currentFile ?? null;
 
     const built: NavTarget[] = [];
@@ -130,14 +137,26 @@ export class JumpService {
       const anchor = anchors.find((candidate) => `anchor:${candidate.id}` === target.id) ?? null;
       const confidence = anchor === null ? 0 : anchorConfidenceOf(anchor);
       const sameFile = anchor !== null && anchor.filePath === currentFile;
-      const sameDir = !sameFile && anchor !== null && currentFile !== null && inSameDir(anchor.filePath, currentFile);
-      const { score, reasons } = scoreTarget({ target, keyword, anchorConfidence: confidence, sameFile, sameDir });
+      const sameDir =
+        !sameFile &&
+        anchor !== null &&
+        currentFile !== null &&
+        inSameDir(anchor.filePath, currentFile);
+      const { score, reasons } = scoreTarget({
+        target,
+        keyword,
+        anchorConfidence: confidence,
+        sameFile,
+        sameDir,
+      });
       return { ...target, score, reasons };
     });
 
     const kinds = request.kinds;
     const filtered =
-      kinds !== undefined && kinds.length > 0 ? scored.filter((target) => kinds.includes(target.kind)) : scored;
+      kinds !== undefined && kinds.length > 0
+        ? scored.filter((target) => kinds.includes(target.kind))
+        : scored;
     const sorted = [...filtered].sort((a, b) => b.score - a.score);
 
     const layers = groupByLayer(sorted);
@@ -173,13 +192,22 @@ export class JumpService {
       ? `已跳转到 ${target.filePath}:${target.startLine ?? '?'}（高亮 ${highlightMs}ms）`
       : `无法定位：${target.filePath ?? '无文件路径'}`;
     this.records.push({ at: this.clock(), elementId, targetId: target.id, success });
-    const event = { type: (success ? 'jumped' : 'failed') as 'jumped' | 'failed', elementId, targetId: target.id };
+    const event = {
+      type: (success ? 'jumped' : 'failed') as 'jumped' | 'failed',
+      elementId,
+      targetId: target.id,
+    };
     for (const listener of this.listeners) listener(event);
     return { success, target, message };
   }
 
   /** 跳转历史（成功率统计用） */
-  history(): readonly { at: number; elementId: string; targetId: string | null; success: boolean }[] {
+  history(): readonly {
+    at: number;
+    elementId: string;
+    targetId: string | null;
+    success: boolean;
+  }[] {
     return this.records;
   }
 
@@ -193,7 +221,11 @@ export class JumpService {
 
   /** 订阅跳转事件（jumped / failed），返回取消订阅函数 */
   subscribe(
-    listener: (event: { type: 'jumped' | 'failed'; elementId: string; targetId: string | null }) => void,
+    listener: (event: {
+      type: 'jumped' | 'failed';
+      elementId: string;
+      targetId: string | null;
+    }) => void,
   ): () => void {
     this.listeners.add(listener);
     return () => {

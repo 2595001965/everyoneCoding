@@ -32,7 +32,10 @@ export function buildElementChainBlock(context: BlockBuildContext): ContextBlock
 
   const source = context.sources.elements;
   if (source === undefined) {
-    return unavailableBlock({ ...base, reason: '未接入设计器端口（外壳需装配 PageDsl / editor store）' });
+    return unavailableBlock({
+      ...base,
+      reason: '未接入设计器端口（外壳需装配 PageDsl / editor store）',
+    });
   }
 
   const chain = source.getElementChain({ projectId: context.request.projectId, elementId });
@@ -43,10 +46,15 @@ export function buildElementChainBlock(context: BlockBuildContext): ContextBlock
   const items: ContextBlockItem[] = chain.map((node, index) => {
     const depth = index + 1;
     const indent = '  '.repeat(Math.max(0, chain.length - depth));
-    const title = node.name !== undefined && node.name.length > 0 ? `${node.type}「${node.name}」` : node.type;
+    const title =
+      node.name !== undefined && node.name.length > 0 ? `${node.type}「${node.name}」` : node.type;
     const lines = [`${indent}${depth}. ${title} (id=${node.id})`];
     if (node.bindings !== undefined && Object.keys(node.bindings).length > 0) {
-      lines.push(`${indent}   绑定：${Object.entries(node.bindings).map(([key, value]) => `${key}←${value}`).join('，')}`);
+      lines.push(
+        `${indent}   绑定：${Object.entries(node.bindings)
+          .map(([key, value]) => `${key}←${value}`)
+          .join('，')}`,
+      );
     }
     const props = summarizeRelevantProps(node.props);
     if (props !== null) lines.push(`${indent}   属性：${props}`);

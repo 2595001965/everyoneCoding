@@ -52,7 +52,9 @@ export function TechDocPanel({
   };
 
   if (api === null) {
-    return <EmptyState title="流水线未初始化" description="请先注入 PipelineApi 后再生成技术文档。" />;
+    return (
+      <EmptyState title="流水线未初始化" description="请先注入 PipelineApi 后再生成技术文档。" />
+    );
   }
 
   return (
@@ -96,7 +98,9 @@ export function TechDocPanel({
       )}
 
       {error !== null && (
-        <div style={{ color: '#dc2626', background: '#fef2f2', borderRadius: 6, padding: '8px 10px' }}>
+        <div
+          style={{ color: '#dc2626', background: '#fef2f2', borderRadius: 6, padding: '8px 10px' }}
+        >
           {error}
         </div>
       )}
@@ -146,7 +150,14 @@ export function TechDocPanel({
           )}
 
           {result.forbiddenHit.length > 0 && (
-            <div style={{ background: '#fef2f2', borderRadius: 6, padding: '8px 10px', color: '#dc2626' }}>
+            <div
+              style={{
+                background: '#fef2f2',
+                borderRadius: 6,
+                padding: '8px 10px',
+                color: '#dc2626',
+              }}
+            >
               <div style={{ fontWeight: 600 }}>命中禁止技术：</div>
               <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
                 {result.forbiddenHit.map((tech) => (

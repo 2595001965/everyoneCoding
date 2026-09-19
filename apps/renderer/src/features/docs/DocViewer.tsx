@@ -139,10 +139,17 @@ export function DocViewer({ documentId, onChanged }: DocViewerProps): JSX.Elemen
 
         <div className="ec-docs__content" ref={bodyRef}>
           {doc.sections.map((section) => (
-            <section key={section.anchor} id={section.anchor} data-anchor={section.anchor} className="ec-docs__section">
+            <section
+              key={section.anchor}
+              id={section.anchor}
+              data-anchor={section.anchor}
+              className="ec-docs__section"
+            >
               {section.heading ? <h3 data-level={section.level}>{section.heading}</h3> : null}
               {section.text ? <p>{section.text}</p> : null}
-              {section.page !== undefined ? <span className="ec-docs__page">{`第 ${section.page} 页`}</span> : null}
+              {section.page !== undefined ? (
+                <span className="ec-docs__page">{`第 ${section.page} 页`}</span>
+              ) : null}
             </section>
           ))}
         </div>

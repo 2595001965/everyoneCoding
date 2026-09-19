@@ -167,6 +167,10 @@ export function computeExcludeStats(
     totalFiles,
     totalBytes,
     reductionRatio,
-    hitsByPattern: [...hits.entries()].map(([pattern, value]) => ({ pattern, files: value.files, bytes: value.bytes })),
+    hitsByPattern: [...hits.entries()].map(([pattern, value]) => ({
+      pattern,
+      files: value.files,
+      bytes: value.bytes,
+    })),
   };
 }

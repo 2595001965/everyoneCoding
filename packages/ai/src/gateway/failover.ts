@@ -88,8 +88,14 @@ export class FailoverController {
    * 在候选列表里挑下一个可用 Provider。
    * 顺序：当前 Provider 未降级则用它，否则按 sort_order 找第一个未降级的。
    */
-  next(providers: readonly Provider[], preferredId?: string, now: number = Date.now()): Provider | null {
-    const sorted = [...providers].filter((provider) => provider.enabled).sort((a, b) => a.order - b.order);
+  next(
+    providers: readonly Provider[],
+    preferredId?: string,
+    now: number = Date.now(),
+  ): Provider | null {
+    const sorted = [...providers]
+      .filter((provider) => provider.enabled)
+      .sort((a, b) => a.order - b.order);
     if (sorted.length === 0) return null;
     if (preferredId) {
       const preferred = sorted.find((provider) => provider.id === preferredId);

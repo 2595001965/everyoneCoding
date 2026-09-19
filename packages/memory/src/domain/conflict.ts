@@ -145,7 +145,12 @@ export function deepMergeStructured(
   return { value: value as Record<string, unknown>, mergedPaths };
 }
 
-function mergeNode(local: unknown, incoming: unknown, path: string, mergedPaths: string[]): unknown {
+function mergeNode(
+  local: unknown,
+  incoming: unknown,
+  path: string,
+  mergedPaths: string[],
+): unknown {
   if (incoming === undefined) return local;
   if (local === undefined) {
     collectMergedPaths(incoming, path, mergedPaths);
@@ -165,7 +170,12 @@ function mergeNode(local: unknown, incoming: unknown, path: string, mergedPaths:
     const result: Record<string, unknown> = { ...local };
     for (const [key, entry] of Object.entries(incoming)) {
       const childPath = path ? `${path}.${key}` : key;
-      result[key] = mergeNode((local as Record<string, unknown>)[key], entry, childPath, mergedPaths);
+      result[key] = mergeNode(
+        (local as Record<string, unknown>)[key],
+        entry,
+        childPath,
+        mergedPaths,
+      );
     }
     return result;
   }
@@ -194,7 +204,10 @@ export function mergeContent(local: string, incoming: string): string {
 }
 
 /** 合并双方来源引用（FR-MEM-11 验收：合并结果保留双方来源引用） */
-export function mergeSourceRefs(local: MemoryItem, incoming: MemoryItem): { sourceRef: string | null; sources: string[] } {
+export function mergeSourceRefs(
+  local: MemoryItem,
+  incoming: MemoryItem,
+): { sourceRef: string | null; sources: string[] } {
   const sources = [local.sourceRef, incoming.sourceRef].filter(
     (ref): ref is string => typeof ref === 'string' && ref.length > 0,
   );
@@ -223,7 +236,11 @@ export interface MergeOutcome {
  * 合并两条记忆：保留 local 的身份（id / 归属），融合 incoming 的内容。
  * 标题保留 local（避免命名抖动），正文与结构化数据合并，标签并集，重要度取大。
  */
-export function mergeMemoryItems(local: MemoryItem, incoming: MemoryItem, now: number = Date.now()): MergeOutcome {
+export function mergeMemoryItems(
+  local: MemoryItem,
+  incoming: MemoryItem,
+  now: number = Date.now(),
+): MergeOutcome {
   const structured = deepMergeStructured(local.structured, incoming.structured);
   const { sourceRef, sources } = mergeSourceRefs(local, incoming);
   const item: MemoryItem = {
@@ -234,7 +251,8 @@ export function mergeMemoryItems(local: MemoryItem, incoming: MemoryItem, now: n
     sourceRef,
     confidence: clamp01(Math.max(local.confidence, incoming.confidence)),
     importance: clampImportance(Math.max(local.importance, incoming.importance)),
-    issueStatus: local.scope === 'issue' ? mergeIssueStatus(local.issueStatus, incoming.issueStatus) : null,
+    issueStatus:
+      local.scope === 'issue' ? mergeIssueStatus(local.issueStatus, incoming.issueStatus) : null,
     pinned: local.pinned || incoming.pinned,
     updatedAt: now,
   };
@@ -260,7 +278,13 @@ export const CONFLICT_STRATEGY_LABELS: Record<ConflictStrategy, string> = {
 export type ConflictResolution =
   | { strategy: 'keepLocal'; item: MemoryItem; discarded: MemoryItem }
   | { strategy: 'takeNew'; item: MemoryItem; superseded: MemoryItem }
-  | { strategy: 'merge'; item: MemoryItem; mergedFields: string[]; sources: string[]; absorbed: MemoryItem };
+  | {
+      strategy: 'merge';
+      item: MemoryItem;
+      mergedFields: string[];
+      sources: string[];
+      absorbed: MemoryItem;
+    };
 
 export interface ResolveConflictInput {
   strategy: ConflictStrategy;
@@ -283,7 +307,11 @@ export function applyConflictStrategy(input: ResolveConflictInput): ConflictReso
     case 'keepLocal':
       return { strategy: 'keepLocal', item: input.local, discarded: input.incoming };
     case 'takeNew':
-      return { strategy: 'takeNew', item: { ...input.incoming, updatedAt: now }, superseded: input.local };
+      return {
+        strategy: 'takeNew',
+        item: { ...input.incoming, updatedAt: now },
+        superseded: input.local,
+      };
     case 'merge': {
       const outcome = mergeMemoryItems(input.local, input.incoming, now);
       return {

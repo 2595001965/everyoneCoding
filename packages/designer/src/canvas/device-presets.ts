@@ -62,10 +62,38 @@ export interface FoldableState {
 }
 
 const webBreakpoints: DevicePreset[] = [
-  { id: 'web-1920', platform: 'web', label: '桌面 1920', width: 1920, height: 1080, kind: 'web-breakpoint' },
-  { id: 'web-1440', platform: 'web', label: '桌面 1440', width: 1440, height: 900, kind: 'web-breakpoint' },
-  { id: 'web-768', platform: 'web', label: '平板 768', width: 768, height: 1024, kind: 'web-breakpoint' },
-  { id: 'web-375', platform: 'web', label: '手机 375', width: 375, height: 667, kind: 'web-breakpoint' },
+  {
+    id: 'web-1920',
+    platform: 'web',
+    label: '桌面 1920',
+    width: 1920,
+    height: 1080,
+    kind: 'web-breakpoint',
+  },
+  {
+    id: 'web-1440',
+    platform: 'web',
+    label: '桌面 1440',
+    width: 1440,
+    height: 900,
+    kind: 'web-breakpoint',
+  },
+  {
+    id: 'web-768',
+    platform: 'web',
+    label: '平板 768',
+    width: 768,
+    height: 1024,
+    kind: 'web-breakpoint',
+  },
+  {
+    id: 'web-375',
+    platform: 'web',
+    label: '手机 375',
+    width: 375,
+    height: 667,
+    kind: 'web-breakpoint',
+  },
 ];
 
 const androidPresets: DevicePreset[] = [
@@ -319,7 +347,12 @@ export function canvasSizeOf(preset: DevicePreset): { width: number; height: num
  * 桌面窗口的内容区（扣除标题栏与边框占位）；非桌面预设即整块画布。
  * 供画布渲染「窗口标题栏 / 边框」占位使用。
  */
-export function contentBoxOf(preset: DevicePreset): { x: number; y: number; width: number; height: number } {
+export function contentBoxOf(preset: DevicePreset): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
   const chrome = preset.windowChrome;
   if (chrome === undefined) return { x: 0, y: 0, width: preset.width, height: preset.height };
   const border = chrome.borderWidth;

@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import { describeMode, previewMode, MODE_PARTICIPATING_TYPES } from '../import/mode-selector';
-import type { PackageDiffItem, PackageDiffPreview, PackageObjectType } from '../import/import-types';
+import type {
+  PackageDiffItem,
+  PackageDiffPreview,
+  PackageObjectType,
+} from '../import/import-types';
 
-function item(type: PackageObjectType, classification: PackageDiffItem['classification'], id = `${type}-1`): PackageDiffItem {
+function item(
+  type: PackageObjectType,
+  classification: PackageDiffItem['classification'],
+  id = `${type}-1`,
+): PackageDiffItem {
   return {
     incoming: { id, type, projectId: null, name: id, updatedAt: 1, payload: '{}' },
     local: null,

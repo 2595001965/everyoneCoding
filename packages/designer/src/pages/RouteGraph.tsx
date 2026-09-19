@@ -77,7 +77,15 @@ export function RouteGraph({ pages, height, onUpdateAction }: RouteGraphProps): 
         aria-label="路由跳转关系图"
       >
         <defs>
-          <marker id="ec-route-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <marker
+            id="ec-route-arrow"
+            markerWidth="10"
+            markerHeight="10"
+            refX="8"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
             <path d="M0,0 L8,3 L0,6 Z" fill="currentColor" />
           </marker>
         </defs>
@@ -91,8 +99,16 @@ export function RouteGraph({ pages, height, onUpdateAction }: RouteGraphProps): 
           const ty = to ? to.y + NODE_H / 2 : sy;
           const d = edgePath(sx, sy, tx, ty);
           return (
-            <g key={`${edge.fromPageId}-${edge.eventId}-${edge.actionId}-${i}`} className="ec-route-graph__edge">
-              <path d={d} className="ec-route-graph__line" fill="none" markerEnd="url(#ec-route-arrow)" />
+            <g
+              key={`${edge.fromPageId}-${edge.eventId}-${edge.actionId}-${i}`}
+              className="ec-route-graph__edge"
+            >
+              <path
+                d={d}
+                className="ec-route-graph__line"
+                fill="none"
+                markerEnd="url(#ec-route-arrow)"
+              />
               <path
                 d={d}
                 className="ec-route-graph__hit"
@@ -119,7 +135,11 @@ export function RouteGraph({ pages, height, onUpdateAction }: RouteGraphProps): 
                 rx={6}
                 className="ec-route-graph__unmatched"
               />
-              <text x={canvasW + UNMATCHED_X} y={(boxes.get(edge.fromPageId)?.y ?? 0) + NODE_H / 2} className="ec-route-graph__unmatched-text">
+              <text
+                x={canvasW + UNMATCHED_X}
+                y={(boxes.get(edge.fromPageId)?.y ?? 0) + NODE_H / 2}
+                className="ec-route-graph__unmatched-text"
+              >
                 未匹配
               </text>
             </g>

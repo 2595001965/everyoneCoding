@@ -27,7 +27,8 @@ export const IMPORT_MODE_LABELS: Record<ImportMode, string> = {
 export type PackageDiffClassification = 'added' | 'conflicted' | 'unchanged' | 'missing';
 
 /** 包内对象类别（冲突按类型批量决策的分组键） */
-export type PackageObjectType = 'memory' | 'document' | 'design' | 'registry' | 'code' | 'anchor' | 'pipeline';
+export type PackageObjectType =
+  'memory' | 'document' | 'design' | 'registry' | 'code' | 'anchor' | 'pipeline';
 
 /** 包内一个可比较对象（通用镜像，避免渲染层 / 包间运行时依赖） */
 export interface PackageObject {
@@ -196,7 +197,9 @@ export interface ImportJobRequest {
   batchDecisions?: Partial<Record<PackageObjectType, ConflictResolution>> | undefined;
   /** 差异预览结果由调用方传入（先 preview 再导入，两段式） */
   preview?: PackageDiffPreview | undefined;
-  onProgress?: ((stage: string, processed: number, total: number, currentFile: string | null) => void) | undefined;
+  onProgress?:
+    | ((stage: string, processed: number, total: number, currentFile: string | null) => void)
+    | undefined;
 }
 
 /** 模式影响预览（mode-selector：导入前展示将新增/覆盖/跳过多少对象） */

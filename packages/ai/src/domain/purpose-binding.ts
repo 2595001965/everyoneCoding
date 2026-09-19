@@ -61,7 +61,11 @@ export function resolveModelId(binding: PurposeBinding, purpose: AiPurpose): str
 }
 
 /** 设置某用途的绑定；传入 null 表示回到默认模型 */
-export function withBinding(binding: PurposeBinding, purpose: AiPurpose, modelId: string | null): PurposeBinding {
+export function withBinding(
+  binding: PurposeBinding,
+  purpose: AiPurpose,
+  modelId: string | null,
+): PurposeBinding {
   const bindings: PurposeModelMap = { ...binding.bindings };
   if (modelId === null) delete bindings[purpose];
   else bindings[purpose] = modelId;

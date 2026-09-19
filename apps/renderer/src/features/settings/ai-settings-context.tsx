@@ -37,7 +37,10 @@ export interface AiSettingsApi {
   reorderProviders(orderedIds: readonly string[]): void;
   testConnection(providerId: string): Promise<ConnectionTestResult>;
   /** @param keyRef 渲染层写入密钥环后拿到的引用名；为 null 表示沿用已保存的 Key */
-  testDraftConnection(input: ProviderFormInput, keyRef: string | null): Promise<ConnectionTestResult>;
+  testDraftConnection(
+    input: ProviderFormInput,
+    keyRef: string | null,
+  ): Promise<ConnectionTestResult>;
 
   /** 把明文 Key 写入本机密钥环，只回传引用名（Key 永不跨 IPC 明文传递） */
   persistApiKey(input: { keyRef?: string | null; apiKey: string }): Promise<string>;
@@ -77,12 +80,26 @@ export interface AiSettingsApi {
   }): RemoteConfigSource;
   updateRemoteSource(
     id: string,
-    patch: { name?: string; url?: string; publicKey?: string | null; enabled?: boolean; updateIntervalMin?: number },
+    patch: {
+      name?: string;
+      url?: string;
+      publicKey?: string | null;
+      enabled?: boolean;
+      updateIntervalMin?: number;
+    },
   ): RemoteConfigSource | null;
   removeRemoteSource(id: string): boolean;
   fetchRemoteSource(id: string): Promise<RemoteFetchResult>;
-  previewRemoteSource(id: string): Promise<{ items: ConfigDiffItem[]; summary: string; revision: string | null; plan?: ApplyPlan | null }>;
-  applyRemoteSource(id: string, options?: { overwriteLocal?: boolean; ackDefaultModel?: boolean }): Promise<ApplyPlan>;
+  previewRemoteSource(id: string): Promise<{
+    items: ConfigDiffItem[];
+    summary: string;
+    revision: string | null;
+    plan?: ApplyPlan | null;
+  }>;
+  applyRemoteSource(
+    id: string,
+    options?: { overwriteLocal?: boolean; ackDefaultModel?: boolean },
+  ): Promise<ApplyPlan>;
   ackRemoteRevision(id: string, revision: string): RemoteConfigSource | null;
 }
 

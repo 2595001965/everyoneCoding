@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { S1RequirementStage, type DocumentArchivePort, type RequirementMemoryPort, type StageGenerationPort } from '../stages/s1-requirement';
+import {
+  S1RequirementStage,
+  type DocumentArchivePort,
+  type RequirementMemoryPort,
+  type StageGenerationPort,
+} from '../stages/s1-requirement';
 import {
   buildRequirementPrompt,
   checkRequirementDocCompleteness,
@@ -61,14 +66,28 @@ function createFakeMemory(): RequirementMemoryPort {
     },
     async findSimilarProjects(_userId, _description, limit): Promise<SimilarProjectSummary[]> {
       return [
-        { projectId: 'P-SIM-1', name: '轻量看板', summary: '使用 SQLite 本地存储，未做多端 (id:mem-sim1)', score: 0.9 },
-        { projectId: 'P-SIM-2', name: '内部工具台', summary: 'AI 生成代码，界面只读 (id:mem-sim2)', score: 0.8 },
+        {
+          projectId: 'P-SIM-1',
+          name: '轻量看板',
+          summary: '使用 SQLite 本地存储，未做多端 (id:mem-sim1)',
+          score: 0.9,
+        },
+        {
+          projectId: 'P-SIM-2',
+          name: '内部工具台',
+          summary: 'AI 生成代码，界面只读 (id:mem-sim2)',
+          score: 0.8,
+        },
       ].slice(0, limit);
     },
   };
 }
 
-function createFakeArchive(): DocumentArchivePort & { saved: unknown[]; links: unknown[]; versions: Record<string, number> } {
+function createFakeArchive(): DocumentArchivePort & {
+  saved: unknown[];
+  links: unknown[];
+  versions: Record<string, number>;
+} {
   const saved: unknown[] = [];
   const links: unknown[] = [];
   const versions: Record<string, number> = { requirement: 0, techdoc: 0 };
@@ -166,8 +185,15 @@ describe('S1RequirementStage（生成 + 入档 + 关联）', () => {
   it('长期记忆偏好体现：必须有单元测试出现在非功能要求', async () => {
     const memory = createFakeMemory();
     const archive = createFakeArchive();
-    const docWithPreference = EIGHT_SECTIONS_DOC.replace('## 非功能要求\n- 必须有单元测试', '## 非功能要求\n- 必须有单元测试（来自长期记忆偏好）');
-    const stage = new S1RequirementStage({ memory, archive, generate: createFakeGenerator(docWithPreference) });
+    const docWithPreference = EIGHT_SECTIONS_DOC.replace(
+      '## 非功能要求\n- 必须有单元测试',
+      '## 非功能要求\n- 必须有单元测试（来自长期记忆偏好）',
+    );
+    const stage = new S1RequirementStage({
+      memory,
+      archive,
+      generate: createFakeGenerator(docWithPreference),
+    });
 
     const result = await stage.generate({
       userId: 'U-TEST',
@@ -183,7 +209,11 @@ describe('S1RequirementStage（生成 + 入档 + 关联）', () => {
   it('产物入档文档库并关联项目记忆（document + memory_doc_link 记录）', async () => {
     const memory = createFakeMemory();
     const archive = createFakeArchive();
-    const stage = new S1RequirementStage({ memory, archive, generate: createFakeGenerator(EIGHT_SECTIONS_DOC) });
+    const stage = new S1RequirementStage({
+      memory,
+      archive,
+      generate: createFakeGenerator(EIGHT_SECTIONS_DOC),
+    });
 
     const result = await stage.generate({
       userId: 'U-TEST',
@@ -194,7 +224,12 @@ describe('S1RequirementStage（生成 + 入档 + 关联）', () => {
 
     // 入档：kind=requirement，版本 1
     expect(archive.saved).toHaveLength(1);
-    const saved = archive.saved[0] as { title: string; kind: string; version: number; content: string };
+    const saved = archive.saved[0] as {
+      title: string;
+      kind: string;
+      version: number;
+      content: string;
+    };
     expect(saved.kind).toBe('requirement');
     expect(saved.version).toBe(1);
     // 命名规范 <项目>-需求文档-v<版本>.md
@@ -211,10 +246,25 @@ describe('S1RequirementStage（生成 + 入档 + 关联）', () => {
   it('版本递增：第二次生成 v2 且不覆盖 v1', async () => {
     const memory = createFakeMemory();
     const archive = createFakeArchive();
-    const stage = new S1RequirementStage({ memory, archive, generate: createFakeGenerator(EIGHT_SECTIONS_DOC) });
+    const stage = new S1RequirementStage({
+      memory,
+      archive,
+      generate: createFakeGenerator(EIGHT_SECTIONS_DOC),
+    });
 
-    const first = await stage.generate({ userId: 'U-TEST', projectId: 'P1', projectName: '商城', description: DESCRIPTION_200 });
-    const second = await stage.generate({ userId: 'U-TEST', projectId: 'P1', projectName: '商城', description: DESCRIPTION_200, instruction: '追加：增加权限管理' });
+    const first = await stage.generate({
+      userId: 'U-TEST',
+      projectId: 'P1',
+      projectName: '商城',
+      description: DESCRIPTION_200,
+    });
+    const second = await stage.generate({
+      userId: 'U-TEST',
+      projectId: 'P1',
+      projectName: '商城',
+      description: DESCRIPTION_200,
+      instruction: '追加：增加权限管理',
+    });
 
     expect(first.version).toBe(1);
     expect(second.version).toBe(2);

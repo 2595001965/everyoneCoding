@@ -28,7 +28,11 @@ interface SectionProps {
 
 function Section({ testId, title, color, count, children }: SectionProps): React.ReactElement {
   return (
-    <section data-testid={testId} data-count={count} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <section
+      data-testid={testId}
+      data-count={count}
+      style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <strong style={{ fontSize: 13 }}>{title}</strong>
         <Tag color={color}>{count}</Tag>
@@ -55,7 +59,13 @@ export function DiffView({ diff, onLocate, className }: DiffViewProps): React.Re
         type="button"
         data-testid={`diff-entry-${id}`}
         onClick={() => onLocate?.(id)}
-        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ec-color-link, #1971c2)', cursor: 'pointer' }}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          color: 'var(--ec-color-link, #1971c2)',
+          cursor: 'pointer',
+        }}
       >
         {label}
       </button>
@@ -64,7 +74,11 @@ export function DiffView({ diff, onLocate, className }: DiffViewProps): React.Re
   );
 
   return (
-    <div className={className} data-testid="diff-view" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div
+      className={className}
+      data-testid="diff-view"
+      style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <strong style={{ fontSize: 13 }}>版本差异</strong>
         <Tag color="info">{describeDiff(diff)}</Tag>
@@ -72,7 +86,13 @@ export function DiffView({ diff, onLocate, className }: DiffViewProps): React.Re
 
       <Section testId="diff-added" title="新增元素" color="success" count={diff.added.length}>
         <ul style={{ margin: 0, paddingLeft: 16 }}>
-          {diff.added.map((item) => entry(item.id, `${item.name ?? item.id}（${item.type}）`, `插入到 ${item.parentId ?? '根'} 第 ${item.index + 1} 位`))}
+          {diff.added.map((item) =>
+            entry(
+              item.id,
+              `${item.name ?? item.id}（${item.type}）`,
+              `插入到 ${item.parentId ?? '根'} 第 ${item.index + 1} 位`,
+            ),
+          )}
         </ul>
       </Section>
 
@@ -90,13 +110,25 @@ export function DiffView({ diff, onLocate, className }: DiffViewProps): React.Re
 
       <Section testId="diff-modified" title="修改元素" color="info" count={diff.modified.length}>
         <ul style={{ margin: 0, paddingLeft: 16 }}>
-          {diff.modified.map((item) => entry(item.id, `${item.name ?? item.id}（${item.type}）`, `字段：${item.changedKeys.join('、')}`))}
+          {diff.modified.map((item) =>
+            entry(
+              item.id,
+              `${item.name ?? item.id}（${item.type}）`,
+              `字段：${item.changedKeys.join('、')}`,
+            ),
+          )}
         </ul>
       </Section>
 
       <Section testId="diff-removed" title="删除元素" color="danger" count={diff.removed.length}>
         <ul style={{ margin: 0, paddingLeft: 16 }}>
-          {diff.removed.map((item) => entry(item.id, `${item.name ?? item.id}（${item.type}）`, `来自 ${item.parentId ?? '根'} 第 ${item.index + 1} 位`))}
+          {diff.removed.map((item) =>
+            entry(
+              item.id,
+              `${item.name ?? item.id}（${item.type}）`,
+              `来自 ${item.parentId ?? '根'} 第 ${item.index + 1} 位`,
+            ),
+          )}
         </ul>
       </Section>
 
@@ -112,7 +144,13 @@ export function DiffView({ diff, onLocate, className }: DiffViewProps): React.Re
           color="info"
           count={
             diff.pageChanged.length +
-            [diff.stateChanged, diff.eventsChanged, diff.apiDepsChanged, diff.anchorsChanged, diff.notesChanged].filter(Boolean).length
+            [
+              diff.stateChanged,
+              diff.eventsChanged,
+              diff.apiDepsChanged,
+              diff.anchorsChanged,
+              diff.notesChanged,
+            ].filter(Boolean).length
           }
         >
           <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>

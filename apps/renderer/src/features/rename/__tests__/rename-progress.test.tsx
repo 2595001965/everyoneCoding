@@ -74,7 +74,10 @@ describe('RenameProgress', () => {
   });
 
   it('失败未回滚时显示失败原因', () => {
-    renderProgress({ result: failureResult({ rolledBack: false, failures: ['boom'] }), running: false });
+    renderProgress({
+      result: failureResult({ rolledBack: false, failures: ['boom'] }),
+      running: false,
+    });
     const root = screen.getByTestId('rename-progress');
     expect(root).toHaveAttribute('data-state', 'failed');
     expect(screen.getByText('boom')).toBeInTheDocument();

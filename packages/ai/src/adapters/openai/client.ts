@@ -137,7 +137,11 @@ export class OpenAiAdapter implements ProviderAdapter {
 
     // [DONE] 必须产出 done；见到 finish_reason 也视为完整（部分中转省略 [DONE]）
     const complete = sawDone || pendingFinishReason !== null;
-    yield { type: 'done', finishReason: finishReasonFromOpenAi(pendingFinishReason), partial: !complete };
+    yield {
+      type: 'done',
+      finishReason: finishReasonFromOpenAi(pendingFinishReason),
+      partial: !complete,
+    };
   }
 
   async listModels(provider: Provider, context: AdapterContext): Promise<ModelDiscovery> {

@@ -45,7 +45,9 @@ describe('MockResponseGenerator', () => {
   });
 
   it('errorRate=1 触发错误响应', () => {
-    const g = new MockResponseGenerator({ settings: { rules: [], delayMs: 0, errorRate: 1, errorStatus: 503 } });
+    const g = new MockResponseGenerator({
+      settings: { rules: [], delayMs: 0, errorRate: 1, errorStatus: 503 },
+    });
     const route = createFallbackOpenApi().routes[0]!;
     const r = g.generate({ route });
     expect(r.status).toBe(503);

@@ -58,8 +58,10 @@ export function toDecisionCard(
   const missing: string[] = [];
   if (referencedMemory.length === 0) missing.push('引用记忆');
   if (decision.rationale.trim().length === 0) missing.push('选型理由');
-  if (decision.risks.filter((risk) => risk.trim().length > 0).length === 0) missing.push('潜在风险');
-  if (decision.uncovered.filter((item) => item.trim().length > 0).length === 0) missing.push('未覆盖点');
+  if (decision.risks.filter((risk) => risk.trim().length > 0).length === 0)
+    missing.push('潜在风险');
+  if (decision.uncovered.filter((item) => item.trim().length > 0).length === 0)
+    missing.push('未覆盖点');
 
   return {
     referencedMemory,

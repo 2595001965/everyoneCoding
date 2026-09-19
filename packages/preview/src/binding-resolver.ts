@@ -76,14 +76,18 @@ export class BindingResolver {
 
   setOpenApi(spec: LoadedOpenApi): void {
     this.openapi = spec;
-    this.logs.info(`已加载 OpenAPI：${spec.title} v${spec.version}（${spec.routes.length} 条路由）`);
+    this.logs.info(
+      `已加载 OpenAPI：${spec.title} v${spec.version}（${spec.routes.length} 条路由）`,
+    );
   }
 
   /** 优先级：真实运行中的后端 > 内置 Mock Server > 静态假数据（FR-PRV-02）。 */
   async resolve(input: ResolveInput): Promise<ResolvedResponse> {
     const method: HttpMethodName = input.method ?? 'GET';
     const start = this.clock();
-    const finish = (partial: Omit<ResolvedResponse, 'latencyMs' | 'url' | 'method'>): ResolvedResponse => ({
+    const finish = (
+      partial: Omit<ResolvedResponse, 'latencyMs' | 'url' | 'method'>,
+    ): ResolvedResponse => ({
       ...partial,
       latencyMs: this.clock() - start,
       url: input.url,
@@ -105,7 +109,9 @@ export class BindingResolver {
     // 2) 内置 Mock Server
     const matched = matchRoute(this.openapi.routes, method, input.url);
     if (matched) {
-      this.logs.debug(`走 Mock 数据源：${method} ${input.url} -> ${matched.route.operationId ?? matched.route.path}`);
+      this.logs.debug(
+        `走 Mock 数据源：${method} ${input.url} -> ${matched.route.operationId ?? matched.route.path}`,
+      );
       const mock = this.mock.generate({
         route: matched.route,
         ...(matched.params !== undefined ? { params: matched.params } : {}),

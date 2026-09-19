@@ -4,13 +4,22 @@
 import type * as React from 'react';
 
 import type { ComponentMeta, ComponentRenderProps } from '../registry/component-registry';
-import { propBoolean, propOptions, propString, previewOptions, previewString, withNodeStyle } from './render-utils';
+import {
+  propBoolean,
+  propOptions,
+  propString,
+  previewOptions,
+  previewString,
+  withNodeStyle,
+} from './render-utils';
 
 export function NavbarRenderer({ node, mode, scope, children }: ComponentRenderProps): JSX.Element {
-  const title = mode === 'preview' ? previewString(node, 'title', scope, '') : propString(node, 'title', '');
+  const title =
+    mode === 'preview' ? previewString(node, 'title', scope, '') : propString(node, 'title', '');
   const logo = propString(node, 'logo', '');
   const sticky = propBoolean(node, 'sticky', false);
-  const links = mode === 'preview' ? previewOptions(node, 'links', scope) : propOptions(node, 'links');
+  const links =
+    mode === 'preview' ? previewOptions(node, 'links', scope) : propOptions(node, 'links');
   const style: React.CSSProperties = withNodeStyle(
     {
       display: 'flex',
@@ -23,7 +32,13 @@ export function NavbarRenderer({ node, mode, scope, children }: ComponentRenderP
   );
 
   return (
-    <nav className="ecd-navbar" style={style} data-sticky={sticky} data-component="Navbar" data-mode={mode}>
+    <nav
+      className="ecd-navbar"
+      style={style}
+      data-sticky={sticky}
+      data-component="Navbar"
+      data-mode={mode}
+    >
       <div className="ecd-navbar__brand">
         {logo ? <img src={logo} alt="logo" className="ecd-navbar__logo" /> : null}
         <span className="ecd-navbar__title">{title || '导航栏'}</span>

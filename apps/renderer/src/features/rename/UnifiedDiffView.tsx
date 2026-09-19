@@ -40,7 +40,15 @@ function ColumnView(props: {
   onToggleColumn: (column: OccurrenceKind, selected: boolean) => void;
   onToggleRevisionMarks: (next: boolean) => void;
 }): JSX.Element {
-  const { column, entries, showRevisionMarks, busy, onToggleEntry, onToggleColumn, onToggleRevisionMarks } = props;
+  const {
+    column,
+    entries,
+    showRevisionMarks,
+    busy,
+    onToggleEntry,
+    onToggleColumn,
+    onToggleRevisionMarks,
+  } = props;
   const selected = entries.filter((entry) => entry.selected).length;
   const allSelected = entries.length > 0 && selected === entries.length;
 
@@ -86,7 +94,8 @@ function DiffEntryRow(props: {
 }): JSX.Element {
   const { entry, busy, onToggle } = props;
   const [expanded, setExpanded] = useState(false);
-  const projectionLabel = entry.matchedSymbol !== null ? PROJECTION_LABELS[entry.matchedSymbol] : null;
+  const projectionLabel =
+    entry.matchedSymbol !== null ? PROJECTION_LABELS[entry.matchedSymbol] : null;
   const context = entry.context;
 
   return (
@@ -113,7 +122,9 @@ function DiffEntryRow(props: {
             <span className="ec-rename-muted">→</span>
             <code className="ec-rename-entry__after">{entry.after}</code>
             <Badge color="neutral">{RISK_LEVEL_LABELS[entry.riskLevel]}</Badge>
-            {projectionLabel !== null && <span className="ec-rename-muted">命中：{projectionLabel}</span>}
+            {projectionLabel !== null && (
+              <span className="ec-rename-muted">命中：{projectionLabel}</span>
+            )}
           </span>
           {entry.detail !== null && <span className="ec-rename-muted">{entry.detail}</span>}
           {entry.column === 'doc' && entry.revision !== null && (
@@ -124,7 +135,11 @@ function DiffEntryRow(props: {
         </div>
       </div>
       {context !== null && (
-        <button type="button" className="ec-rename-muted" onClick={() => setExpanded((value) => !value)}>
+        <button
+          type="button"
+          className="ec-rename-muted"
+          onClick={() => setExpanded((value) => !value)}
+        >
           上下文 ±3 行
         </button>
       )}

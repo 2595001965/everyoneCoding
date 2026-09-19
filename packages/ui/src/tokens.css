@@ -40,7 +40,8 @@
   --ec-radius-md: 6px;
   --ec-radius-lg: 10px;
 
-  --ec-font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
+  --ec-font-family:
+    'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
   --ec-font-family-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
   --ec-font-size-xs: 12px;
   --ec-font-size-sm: 13px;

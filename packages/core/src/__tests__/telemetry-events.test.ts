@@ -59,11 +59,37 @@ describe('telemetry-events：事件目录与白名单', () => {
   });
 
   it('白名单拒绝内容类字段', () => {
-    expect(() => assertEventPayloadSafe({ name: 'project.create', result: 'success', dims: { content: '用户想法正文' } })).toThrow();
-    expect(() => assertEventPayloadSafe({ name: 'ai.request', result: 'success', dims: { prompt: '提示词正文' } })).toThrow();
-    expect(() => assertEventPayloadSafe({ name: 'ai.request', result: 'success', dims: { code: 'const x = 1' } })).toThrow();
-    expect(() => assertEventPayloadSafe({ name: 'memory.capture', result: 'success', dims: { memoryText: '记忆正文' } })).toThrow();
-    expect(() => assertEventPayloadSafe({ name: 'ai.request', result: 'success', dims: { apiKey: 'sk-xxx' } })).toThrow();
+    expect(() =>
+      assertEventPayloadSafe({
+        name: 'project.create',
+        result: 'success',
+        dims: { content: '用户想法正文' },
+      }),
+    ).toThrow();
+    expect(() =>
+      assertEventPayloadSafe({
+        name: 'ai.request',
+        result: 'success',
+        dims: { prompt: '提示词正文' },
+      }),
+    ).toThrow();
+    expect(() =>
+      assertEventPayloadSafe({
+        name: 'ai.request',
+        result: 'success',
+        dims: { code: 'const x = 1' },
+      }),
+    ).toThrow();
+    expect(() =>
+      assertEventPayloadSafe({
+        name: 'memory.capture',
+        result: 'success',
+        dims: { memoryText: '记忆正文' },
+      }),
+    ).toThrow();
+    expect(() =>
+      assertEventPayloadSafe({ name: 'ai.request', result: 'success', dims: { apiKey: 'sk-xxx' } }),
+    ).toThrow();
   });
 
   it('白名单接受维度 id / 耗时 / 结果状态', () => {
@@ -89,7 +115,10 @@ describe('telemetry-events：事件目录与白名单', () => {
   });
 
   it('buildEvent 构造合法事件并自动校验', () => {
-    const event = buildEvent('git.commit', 'success', { durationMs: 820, dims: { projectId: 'p1' } });
+    const event = buildEvent('git.commit', 'success', {
+      durationMs: 820,
+      dims: { projectId: 'p1' },
+    });
     expect(event).toEqual({
       name: 'git.commit',
       result: 'success',
@@ -101,12 +130,27 @@ describe('telemetry-events：事件目录与白名单', () => {
 
   it('白名单字段大小写不敏感（result/durationMs 等）', () => {
     expect(() =>
-      assertEventPayloadSafe({ name: 'ai.request', result: 'success', durationMs: 5, dims: { ModelId: 'm1' } }),
+      assertEventPayloadSafe({
+        name: 'ai.request',
+        result: 'success',
+        durationMs: 5,
+        dims: { ModelId: 'm1' },
+      }),
     ).not.toThrow();
   });
 
   it('PAYLOAD_FIELD_ALLOWLIST 不含任何内容语义字段', () => {
-    const banned = ['content', 'text', 'body', 'prompt', 'messages', 'code', 'password', 'apikey', 'secret'];
+    const banned = [
+      'content',
+      'text',
+      'body',
+      'prompt',
+      'messages',
+      'code',
+      'password',
+      'apikey',
+      'secret',
+    ];
     for (const field of banned) {
       expect(PAYLOAD_FIELD_ALLOWLIST.has(field)).toBe(false);
     }

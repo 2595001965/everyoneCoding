@@ -143,7 +143,8 @@ export class RevisionStore {
 
   /** 追加一轮（自动与上一轮做差异） */
   add(input: AddRevisionInput): RevisionRecord {
-    const parent = input.parentId === undefined ? this.current() : this.findById(input.parentId ?? null);
+    const parent =
+      input.parentId === undefined ? this.current() : this.findById(input.parentId ?? null);
     const index = this.revisions.length + 1;
     const record: RevisionRecord = {
       id: this.idFactory(index),

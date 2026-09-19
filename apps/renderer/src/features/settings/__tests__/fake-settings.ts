@@ -37,7 +37,9 @@ export interface FakeSettingsEnvironment {
   imports: string[];
 }
 
-export function createFakeSettings(options: { failMigration?: boolean } = {}): FakeSettingsEnvironment {
+export function createFakeSettings(
+  options: { failMigration?: boolean } = {},
+): FakeSettingsEnvironment {
   const state: FakeSettingsState = {
     settings: { ...DEFAULT_GLOBAL_SETTINGS },
     dirs: {
@@ -104,7 +106,11 @@ export function createFakeSettings(options: { failMigration?: boolean } = {}): F
     },
     importPackage: (input): Promise<ImportResult> => {
       imports.push(input.filePath);
-      return Promise.resolve({ ok: true, counts: { memory: 12, docs: 3, codeFiles: 40 }, conflicted: 2 });
+      return Promise.resolve({
+        ok: true,
+        counts: { memory: 12, docs: 3, codeFiles: 40 },
+        conflicted: 2,
+      });
     },
     setTelemetry: (enabled) => {
       state.telemetryEnabled = enabled;

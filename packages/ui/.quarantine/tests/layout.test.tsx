@@ -2,7 +2,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { List, Resizable, SplitPane, Table, Tabs, Tree, type TreeNodeData } from '../components/layout';
+import {
+  List,
+  Resizable,
+  SplitPane,
+  Table,
+  Tabs,
+  Tree,
+  type TreeNodeData,
+} from '../components/layout';
 
 describe('Tabs', () => {
   const items = [
@@ -116,7 +124,12 @@ describe('Table', () => {
 describe('SplitPane', () => {
   it('键盘方向键微调分栏比例', async () => {
     render(
-      <SplitPane initialRatio={0.5} first={<div>左</div>} second={<div>右</div>} dividerLabel="调整分栏" />,
+      <SplitPane
+        initialRatio={0.5}
+        first={<div>左</div>}
+        second={<div>右</div>}
+        dividerLabel="调整分栏"
+      />,
     );
     const divider = screen.getByRole('separator', { name: '调整分栏' });
     divider.focus();

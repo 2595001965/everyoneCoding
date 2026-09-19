@@ -25,7 +25,7 @@ export function PreviewWorkspace(): JSX.Element {
     });
     void api.pages().then((p) => {
       setPages(p);
-      setRoute((cur) => (cur === '' && p.length > 0 ? p[0]?.route ?? '' : cur));
+      setRoute((cur) => (cur === '' && p.length > 0 ? (p[0]?.route ?? '') : cur));
     });
   }, [api]);
 

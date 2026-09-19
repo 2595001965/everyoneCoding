@@ -128,8 +128,12 @@ export function pruneSnapshots(
   const deletedUnknownNames: string[] = [];
   const kept: string[] = [];
 
-  const parsable = snapshots.filter((snapshot) => parseSnapshotCreatedAt(snapshot.fileName) !== null);
-  const unparsable = snapshots.filter((snapshot) => parseSnapshotCreatedAt(snapshot.fileName) === null);
+  const parsable = snapshots.filter(
+    (snapshot) => parseSnapshotCreatedAt(snapshot.fileName) !== null,
+  );
+  const unparsable = snapshots.filter(
+    (snapshot) => parseSnapshotCreatedAt(snapshot.fileName) === null,
+  );
 
   // 倒序（最新在前），保留前 keepCount 个
   parsable.forEach((snapshot, index) => {

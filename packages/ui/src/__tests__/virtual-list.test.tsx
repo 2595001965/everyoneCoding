@@ -10,7 +10,10 @@ const ROW_COUNT = 10_000;
 const ITEM_HEIGHT = 32;
 
 function bigRows() {
-  return Array.from({ length: ROW_COUNT }, (_, index) => ({ id: `row-${index}`, label: `条目 ${index}` }));
+  return Array.from({ length: ROW_COUNT }, (_, index) => ({
+    id: `row-${index}`,
+    label: `条目 ${index}`,
+  }));
 }
 
 describe('虚拟化渲染', () => {
@@ -41,7 +44,9 @@ describe('虚拟化渲染', () => {
         label: `节点 ${group}-${index}`,
       })),
     }));
-    const { container } = render(<Tree data={data} defaultExpanded={['group-0']} height={320} aria-label="大索引树" />);
+    const { container } = render(
+      <Tree data={data} defaultExpanded={['group-0']} height={320} aria-label="大索引树" />,
+    );
     const rendered = container.querySelectorAll('[role="treeitem"]');
     expect(rendered.length).toBeGreaterThan(0);
     // 只展开第一组：可见 = 1 + 1000 中窗口内的部分
@@ -49,7 +54,10 @@ describe('虚拟化渲染', () => {
   });
 
   it('Table 1 万行只渲染窗口内行', () => {
-    const rows = Array.from({ length: ROW_COUNT }, (_, index) => ({ id: `r${index}`, name: `页面 ${index}` }));
+    const rows = Array.from({ length: ROW_COUNT }, (_, index) => ({
+      id: `r${index}`,
+      name: `页面 ${index}`,
+    }));
     const { container } = render(
       <Table
         rows={rows}

@@ -127,9 +127,8 @@ export function reconstructFromSummary(summary: CondensedSummary): PageDsl {
     if (node) node.children = kids;
   }
 
-  const root: PageDslElement = rootId && nodes.get(rootId)
-    ? nodes.get(rootId)!
-    : { id: 'synthetic-root', type: 'Container' };
+  const root: PageDslElement =
+    rootId && nodes.get(rootId) ? nodes.get(rootId)! : { id: 'synthetic-root', type: 'Container' };
 
   return {
     id: 'reconstructed',

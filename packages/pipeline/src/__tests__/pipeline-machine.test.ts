@@ -166,8 +166,22 @@ describe('PipelineMachine 状态机', () => {
     const fx = createFixture();
     try {
       const snapshot = blankSnapshot();
-      snapshot.S1 = { stage: 'S1', status: 'confirmed', activeVersion: 2, latestVersion: 2, skippedAt: null, updatedAt: 5 };
-      snapshot.S2 = { stage: 'S2', status: 'bogus' as never, activeVersion: null, latestVersion: -1, skippedAt: null, updatedAt: 0 };
+      snapshot.S1 = {
+        stage: 'S1',
+        status: 'confirmed',
+        activeVersion: 2,
+        latestVersion: 2,
+        skippedAt: null,
+        updatedAt: 5,
+      };
+      snapshot.S2 = {
+        stage: 'S2',
+        status: 'bogus' as never,
+        activeVersion: null,
+        latestVersion: -1,
+        skippedAt: null,
+        updatedAt: 0,
+      };
       fx.machine.loadSnapshot(snapshot);
       expect(fx.machine.statusOf('S1')).toBe('confirmed');
       expect(fx.machine.statusOf('S2')).toBe('pending');

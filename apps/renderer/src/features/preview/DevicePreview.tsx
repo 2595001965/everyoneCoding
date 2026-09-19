@@ -24,7 +24,9 @@ export function DevicePreview(): JSX.Element {
   const [devices, setDevices] = React.useState<readonly DeviceChannel[]>([]);
   const [lanEnabled, setLanEnabled] = React.useState(false);
   const [riskOpen, setRiskOpen] = React.useState(false);
-  const [qr, setQr] = React.useState<{ channelId: string; url: string; qrText: string } | null>(null);
+  const [qr, setQr] = React.useState<{ channelId: string; url: string; qrText: string } | null>(
+    null,
+  );
 
   const reload = React.useCallback(() => {
     void api.devices().then(setDevices);
@@ -62,11 +64,7 @@ export function DevicePreview(): JSX.Element {
       <header className="ec-device-preview__header">
         <h3>多端预览</h3>
         <label className="ec-device-preview__lan">
-          <Switch
-            aria-label="局域网分享"
-            checked={lanEnabled}
-            onChange={handleLanChange}
-          />
+          <Switch aria-label="局域网分享" checked={lanEnabled} onChange={handleLanChange} />
           <span>局域网分享</span>
         </label>
       </header>
@@ -80,13 +78,19 @@ export function DevicePreview(): JSX.Element {
             {group.map((channel) => (
               <div
                 key={channel.id}
-                className={channel.available ? 'ec-device-preview__channel' : 'ec-device-preview__channel ec-device-preview__channel--missing'}
+                className={
+                  channel.available
+                    ? 'ec-device-preview__channel'
+                    : 'ec-device-preview__channel ec-device-preview__channel--missing'
+                }
                 data-channel={channel.id}
               >
                 <div className="ec-device-preview__channel-head">
                   <span className="ec-device-preview__channel-label">{channel.label}</span>
                   {channel.available ? (
-                    <span className="ec-device-preview__ok">可用{channel.toolchain !== null ? `（${channel.toolchain}）` : ''}</span>
+                    <span className="ec-device-preview__ok">
+                      可用{channel.toolchain !== null ? `（${channel.toolchain}）` : ''}
+                    </span>
                   ) : (
                     <span className="ec-device-preview__missing-tag">工具链缺失</span>
                   )}

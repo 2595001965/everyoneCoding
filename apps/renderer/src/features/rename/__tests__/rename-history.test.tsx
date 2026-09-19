@@ -7,9 +7,36 @@ import { RenameHistory, type RenameHistoryProps } from '../RenameHistory';
 import type { RenameHistoryEntry } from '@ec/registry';
 
 const ENTRIES: readonly RenameHistoryEntry[] = [
-  { id: 'e1', oldName: 'A按钮', newName: 'A提交', at: Date.UTC(2026, 0, 1), commitSha: 'sha-1', undone: false, changes: 3, projections: [] },
-  { id: 'e2', oldName: 'C按钮', newName: 'C提交', at: Date.UTC(2026, 0, 2), commitSha: 'sha-2', undone: true, changes: 2, projections: [] },
-  { id: 'e3', oldName: 'E按钮', newName: 'E提交', at: Date.UTC(2026, 0, 3), commitSha: null, undone: false, changes: 1, projections: [] },
+  {
+    id: 'e1',
+    oldName: 'A按钮',
+    newName: 'A提交',
+    at: Date.UTC(2026, 0, 1),
+    commitSha: 'sha-1',
+    undone: false,
+    changes: 3,
+    projections: [],
+  },
+  {
+    id: 'e2',
+    oldName: 'C按钮',
+    newName: 'C提交',
+    at: Date.UTC(2026, 0, 2),
+    commitSha: 'sha-2',
+    undone: true,
+    changes: 2,
+    projections: [],
+  },
+  {
+    id: 'e3',
+    oldName: 'E按钮',
+    newName: 'E提交',
+    at: Date.UTC(2026, 0, 3),
+    commitSha: null,
+    undone: false,
+    changes: 1,
+    projections: [],
+  },
 ];
 
 function renderHistory(props: RenameHistoryProps): ReturnType<typeof render> {

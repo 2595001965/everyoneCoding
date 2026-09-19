@@ -44,7 +44,12 @@ export class BackendRunner {
   private readonly startPort: number;
   private readonly probe: PortProbe;
   private readonly clock: () => number;
-  private current: { handle: Awaited<ReturnType<ProcessHostPort['spawn']>>; proc: ManagedProcess; profile: ProjectProfile; cwd: string } | null = null;
+  private current: {
+    handle: Awaited<ReturnType<ProcessHostPort['spawn']>>;
+    proc: ManagedProcess;
+    profile: ProjectProfile;
+    cwd: string;
+  } | null = null;
   private running = false;
   private listeners = new Set<(event: RunnerEvent) => void>();
 
@@ -65,7 +70,11 @@ export class BackendRunner {
   async start(profile: ProjectProfile, cwd: string): Promise<PreviewResult<ManagedProcess>> {
     if (profile.startCmd === null) {
       this.logs.warn(`该项目无法自动启动：${profile.label}`);
-      return fail('START_UNSUPPORTED', `项目类型 ${profile.label} 暂不支持自动启动，请手动配置启动命令`, this.logsEntries());
+      return fail(
+        'START_UNSUPPORTED',
+        `项目类型 ${profile.label} 暂不支持自动启动，请手动配置启动命令`,
+        this.logsEntries(),
+      );
     }
     const alloc = await allocatePort({ start: this.startPort, probe: this.probe });
     if (alloc.log) this.logs.info(alloc.log);
@@ -139,7 +148,11 @@ export class BackendRunner {
     });
   }
 
-  private ingest(chunk: string, stream: 'stdout' | 'stderr', source: 'run' | 'install' | 'build' | 'task'): void {
+  private ingest(
+    chunk: string,
+    stream: 'stdout' | 'stderr',
+    source: 'run' | 'install' | 'build' | 'task',
+  ): void {
     for (const line of chunk.split(/\r?\n/)) {
       if (line.trim() === '') continue;
       this.logs.push({ source, text: line, stream });

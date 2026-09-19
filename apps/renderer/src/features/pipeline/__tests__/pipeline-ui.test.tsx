@@ -288,7 +288,9 @@ describe('SupplementDialog（补充需求 + 影响清单）', () => {
         <SupplementDialog
           open
           stage="S1"
-          onEvaluate={(_text) => api.evaluateImpact('P1', { type: 'supplement', targets: ['f-auth'] })}
+          onEvaluate={(_text) =>
+            api.evaluateImpact('P1', { type: 'supplement', targets: ['f-auth'] })
+          }
           onSubmit={onSubmit}
           onClose={vi.fn()}
         />
@@ -312,7 +314,12 @@ describe('SupplementDialog（补充需求 + 影响清单）', () => {
 describe('VersionSwitcher + DiffPanel（版本切换与 diff）', () => {
   it('v2 的 diff 显示新增内容', async () => {
     const api = createFakeApi('P1');
-    await api.saveArtifact({ projectId: 'P1', stage: 'S1', artifactType: 'requirement_doc', content: EIGHT_SECTIONS_DOC });
+    await api.saveArtifact({
+      projectId: 'P1',
+      stage: 'S1',
+      artifactType: 'requirement_doc',
+      content: EIGHT_SECTIONS_DOC,
+    });
     await api.saveArtifact({
       projectId: 'P1',
       stage: 'S1',
@@ -325,7 +332,14 @@ describe('VersionSwitcher + DiffPanel（版本切换与 diff）', () => {
 
     render(
       <PipelineProvider api={api}>
-        <VersionSwitcher projectId="P1" stage="S1" versions={versions} activeVersion={2} viewingVersion={2} onSwitch={vi.fn()} />
+        <VersionSwitcher
+          projectId="P1"
+          stage="S1"
+          versions={versions}
+          activeVersion={2}
+          viewingVersion={2}
+          onSwitch={vi.fn()}
+        />
         <DiffPanel projectId="P1" stage="S1" version={2} />
       </PipelineProvider>,
     );
@@ -338,7 +352,12 @@ describe('VersionSwitcher + DiffPanel（版本切换与 diff）', () => {
 
   it('v1 无 diff（首个版本）', async () => {
     const api = createFakeApi('P1');
-    await api.saveArtifact({ projectId: 'P1', stage: 'S1', artifactType: 'requirement_doc', content: EIGHT_SECTIONS_DOC });
+    await api.saveArtifact({
+      projectId: 'P1',
+      stage: 'S1',
+      artifactType: 'requirement_doc',
+      content: EIGHT_SECTIONS_DOC,
+    });
     render(
       <PipelineProvider api={api}>
         <DiffPanel projectId="P1" stage="S1" version={1} />

@@ -16,7 +16,10 @@ export function exportAll(
   repo: MemoryRepo,
   options: { userId: string; projectId?: string | null; format: 'json' | 'jsonl' | 'markdown' },
 ): { files: ExportedMarkdownFile[] } | { json: string } {
-  const items: MemoryItem[] = repo.list({ userId: options.userId, projectId: options.projectId ?? null });
+  const items: MemoryItem[] = repo.list({
+    userId: options.userId,
+    projectId: options.projectId ?? null,
+  });
   const meta: ExportMeta = { userId: options.userId, projectId: options.projectId ?? null };
 
   switch (options.format) {

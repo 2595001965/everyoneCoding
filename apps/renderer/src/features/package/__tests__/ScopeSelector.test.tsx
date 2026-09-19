@@ -51,9 +51,13 @@ function Harness(props: {
       <ScopeSelector
         selection={selection}
         projects={PROJECTS}
-        presets={(props.presets ?? []).map(
-          (p): ExportPlanPreset => ({ name: p.name, selection: FULL_SELECTION, useDefaultExcludes: true, redact: true, savedAt: 0 }),
-        )}
+        presets={(props.presets ?? []).map((p): ExportPlanPreset => ({
+          name: p.name,
+          selection: FULL_SELECTION,
+          useDefaultExcludes: true,
+          redact: true,
+          savedAt: 0,
+        }))}
         useDefaultExcludes
         onChange={onChange}
         onToggleDefaultExcludes={vi.fn()}
@@ -75,7 +79,19 @@ describe('ScopeSelector', () => {
   it('渲染范围三选与记忆五层级 / 内容勾选', () => {
     setup();
     expect(screen.getByLabelText('导出范围')).toBeInTheDocument();
-    for (const label of ['长期记忆', '项目记忆', '功能记忆', '页面记忆', '问题记忆', '文档', '代码', '流水线产物', '代码锚点', '统一标识注册表', '附件']) {
+    for (const label of [
+      '长期记忆',
+      '项目记忆',
+      '功能记忆',
+      '页面记忆',
+      '问题记忆',
+      '文档',
+      '代码',
+      '流水线产物',
+      '代码锚点',
+      '统一标识注册表',
+      '附件',
+    ]) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
   });
@@ -87,14 +103,18 @@ describe('ScopeSelector', () => {
     await user.click(await screen.findByRole('option', { name: '自定义勾选' }));
     expect(screen.getByTestId('project-list')).toBeInTheDocument();
     await user.click(screen.getByLabelText('项目一'));
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ scope: 'selected', projectIds: ['p1'] }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'selected', projectIds: ['p1'] }),
+    );
   });
 
   it('勾选/取消内容类型回调新 selection', async () => {
     const user = userEvent.setup();
     const { onChange } = setup();
     await user.click(screen.getByLabelText('代码'));
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ content: expect.objectContaining({ code: false }) }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.objectContaining({ code: false }) }),
+    );
   });
 
   it('记忆层级勾选回调', async () => {
@@ -102,7 +122,9 @@ describe('ScopeSelector', () => {
     const { onChange } = setup();
     await user.click(screen.getByLabelText('长期记忆'));
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.objectContaining({ memory: expect.objectContaining({ longterm: false }) }) }),
+      expect.objectContaining({
+        content: expect.objectContaining({ memory: expect.objectContaining({ longterm: false }) }),
+      }),
     );
   });
 
@@ -138,7 +160,15 @@ describe('ScopeSelector', () => {
         <ScopeSelector
           selection={FULL_SELECTION}
           projects={PROJECTS}
-          presets={[{ name: '备份全量', selection: FULL_SELECTION, useDefaultExcludes: true, redact: true, savedAt: 0 }]}
+          presets={[
+            {
+              name: '备份全量',
+              selection: FULL_SELECTION,
+              useDefaultExcludes: true,
+              redact: true,
+              savedAt: 0,
+            },
+          ]}
           useDefaultExcludes
           onChange={vi.fn()}
           onToggleDefaultExcludes={vi.fn()}

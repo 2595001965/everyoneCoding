@@ -26,15 +26,7 @@ export interface TechChoiceWizardProps {
 
 /** 题目 id → TechChoice 字段（问卷结果回填映射） */
 type ChoiceValueField =
-  | 'web'
-  | 'mobile'
-  | 'harmony'
-  | 'desktop'
-  | 'frontend'
-  | 'backend'
-  | 'database'
-  | 'orm'
-  | 'deploy';
+  'web' | 'mobile' | 'harmony' | 'desktop' | 'frontend' | 'backend' | 'database' | 'orm' | 'deploy';
 
 const FIELD_FOR_QUESTION: Record<string, ChoiceValueField> = {
   'platform-web': 'web',
@@ -54,7 +46,12 @@ const FIELD_FOR_QUESTION: Record<string, ChoiceValueField> = {
 const STEPS = ['选择目标端', '技术选型', '确认'] as const;
 
 /** 技术选型问卷向导（T5-04）：多选目标端 → 动态出题 → 确认栈文本 */
-export function TechChoiceWizard({ open, initial, onComplete, onClose }: TechChoiceWizardProps): ReactElement {
+export function TechChoiceWizard({
+  open,
+  initial,
+  onComplete,
+  onClose,
+}: TechChoiceWizardProps): ReactElement {
   const [choice, setChoice] = useState<TechChoice>(() => initial ?? defaultChoice([]));
   const [step, setStep] = useState<number>(1);
   const [issues, setIssues] = useState<string[]>([]);
@@ -189,7 +186,9 @@ export function TechChoiceWizard({ open, initial, onComplete, onClose }: TechCho
 
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {questions.length === 0 && <p style={{ color: '#6b7280' }}>请先在第一步选择至少一个目标端。</p>}
+            {questions.length === 0 && (
+              <p style={{ color: '#6b7280' }}>请先在第一步选择至少一个目标端。</p>
+            )}
             {questions.map((q) => {
               const field = FIELD_FOR_QUESTION[q.id];
               if (field === undefined) return null;
@@ -197,11 +196,7 @@ export function TechChoiceWizard({ open, initial, onComplete, onClose }: TechCho
               return (
                 <div key={q.id}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>{q.label}</div>
-                  <RadioGroup
-                    name={q.id}
-                    value={value}
-                    onChange={(val) => applyAnswer(field, val)}
-                  >
+                  <RadioGroup name={q.id} value={value} onChange={(val) => applyAnswer(field, val)}>
                     {q.options.map((opt) => (
                       <Radio
                         key={opt.value}

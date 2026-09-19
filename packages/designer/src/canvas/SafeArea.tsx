@@ -20,7 +20,11 @@ export interface SafeAreaOverlayProps {
  * 安全区覆盖层。移动端 / 鸿蒙预设才渲染（有 safeArea 时）。
  * 不拦截交互（pointer-events:none）。
  */
-export function SafeAreaOverlay({ preset, zoom = 1, className }: SafeAreaOverlayProps): React.ReactElement | null {
+export function SafeAreaOverlay({
+  preset,
+  zoom = 1,
+  className,
+}: SafeAreaOverlayProps): React.ReactElement | null {
   const safe: SafeArea | undefined = preset?.safeArea;
   if (!safe) return null;
 
@@ -39,7 +43,14 @@ export function SafeAreaOverlay({ preset, zoom = 1, className }: SafeAreaOverlay
       {top > 0 && (
         <div
           data-testid="safe-area-top"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: top, background: 'rgba(0,0,0,0.04)' }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: top,
+            background: 'rgba(0,0,0,0.04)',
+          }}
         />
       )}
       {safe.notch && (
@@ -48,7 +59,9 @@ export function SafeAreaOverlay({ preset, zoom = 1, className }: SafeAreaOverlay
           style={{
             position: 'absolute',
             top: 0,
-            ...(safe.notch.position === 'left' ? { left: 0 } : { left: '50%', transform: 'translateX(-50%)' }),
+            ...(safe.notch.position === 'left'
+              ? { left: 0 }
+              : { left: '50%', transform: 'translateX(-50%)' }),
             width: safe.notch.width * zoom,
             height: safe.notch.height * zoom,
             background: '#111',
@@ -59,7 +72,14 @@ export function SafeAreaOverlay({ preset, zoom = 1, className }: SafeAreaOverlay
       {bottom > 0 && (
         <div
           data-testid="safe-area-bottom"
-          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: bottom, background: 'rgba(0,0,0,0.04)' }}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: bottom,
+            background: 'rgba(0,0,0,0.04)',
+          }}
         />
       )}
       {indicator > 0 && (

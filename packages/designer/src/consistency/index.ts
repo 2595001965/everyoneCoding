@@ -1,7 +1,11 @@
 /**
  * 多端一致性校验（T3-11）公共 API。
  */
-export { ConsistencyPanel, CONSISTENCY_CODE_LABELS, type ConsistencyPanelProps } from './ConsistencyPanel';
+export {
+  ConsistencyPanel,
+  CONSISTENCY_CODE_LABELS,
+  type ConsistencyPanelProps,
+} from './ConsistencyPanel';
 
 export {
   checkConsistency,

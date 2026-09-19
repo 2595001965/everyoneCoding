@@ -130,8 +130,18 @@ describe('parseSplitFromTechDoc（规则解析拆分）', () => {
   it('解析出功能树与页面清单，依赖关系正确', () => {
     const { features, pages } = parseSplitFromTechDoc(doc);
     expect(features).toHaveLength(2);
-    expect(features[0]).toMatchObject({ id: 'f-auth', name: '认证', pageIds: ['p-login', 'p-register'], dependsOn: [] });
-    expect(features[1]).toMatchObject({ id: 'f-order', name: '订单', pageIds: ['p-order-list'], dependsOn: ['f-auth'] });
+    expect(features[0]).toMatchObject({
+      id: 'f-auth',
+      name: '认证',
+      pageIds: ['p-login', 'p-register'],
+      dependsOn: [],
+    });
+    expect(features[1]).toMatchObject({
+      id: 'f-order',
+      name: '订单',
+      pageIds: ['p-order-list'],
+      dependsOn: ['f-auth'],
+    });
     expect(pages).toHaveLength(3);
     expect(pages[2]).toMatchObject({ id: 'p-order-list', featureId: 'f-order' });
   });

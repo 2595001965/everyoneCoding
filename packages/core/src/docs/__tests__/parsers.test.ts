@@ -246,7 +246,10 @@ describe('图片 OCR 解析', () => {
 
   it('注入端口后返回结构化结果', async () => {
     const port: OcrPort = {
-      recognize: async () => ({ title: '截图文档', sections: [{ index: 0, level: 1, heading: '标题', anchor: 't', text: '内容' }] }),
+      recognize: async () => ({
+        title: '截图文档',
+        sections: [{ index: 0, level: 1, heading: '标题', anchor: 't', text: '内容' }],
+      }),
     };
     const result = await parseImageOcr({ raw: new Uint8Array([1]), fileName: 'a.png' }, port);
     expect(result.supported).toBe(true);

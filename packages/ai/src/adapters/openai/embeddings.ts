@@ -57,7 +57,10 @@ export function parseOpenAiEmbeddingResponse(raw: string): OpenAiEmbeddingRespon
 }
 
 /** 按 index 排序取回向量，保证与输入顺序一致 */
-export function vectorsFromEmbeddingResponse(response: OpenAiEmbeddingResponse, expected: number): number[][] | null {
+export function vectorsFromEmbeddingResponse(
+  response: OpenAiEmbeddingResponse,
+  expected: number,
+): number[][] | null {
   const entries = response.data ?? [];
   if (entries.length !== expected) return null;
   const ordered = [...entries].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
@@ -103,15 +106,26 @@ export async function embedWithOpenAi(input: {
 
   const text = await response.text();
   if (response.status >= 400) {
-    const mapped = mapHttpError(response.status, text, { providerId: provider.id, modelId: model.id, headers: response.headers });
+    const mapped = mapHttpError(response.status, text, {
+      providerId: provider.id,
+      modelId: model.id,
+      headers: response.headers,
+    });
     // 404 / 400 往往意味着该中转不提供 /embeddings：归为「不支持」而非「失败」
-    const code: EmbeddingUnavailable['code'] = response.status === 404 ? 'unsupported-model' : 'failed';
-    return embeddingUnavailable(code, `向量化不可用（HTTP ${response.status}）：${mapped.userMessage}`);
+    const code: EmbeddingUnavailable['code'] =
+      response.status === 404 ? 'unsupported-model' : 'failed';
+    return embeddingUnavailable(
+      code,
+      `向量化不可用（HTTP ${response.status}）：${mapped.userMessage}`,
+    );
   }
 
   const payload = parseOpenAiEmbeddingResponse(text);
   if (!payload) {
-    const protocolError = new ProtocolError('向量化响应不是合法 JSON', { providerId: provider.id, snippet: text });
+    const protocolError = new ProtocolError('向量化响应不是合法 JSON', {
+      providerId: provider.id,
+      snippet: text,
+    });
     return embeddingUnavailable('failed', protocolError.userMessage);
   }
 

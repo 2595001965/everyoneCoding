@@ -12,7 +12,14 @@ import { Button, EmptyState, IconButton } from '@ec/ui';
 import { useDesignerStore, useEditorState } from '../store/designer-context';
 import type { ActionKind, EventDef } from '../dsl/types';
 import { ActionNode } from './ActionNode';
-import { EdgeLayer, NODE_HEIGHT, NODE_WIDTH, type NodePositions, type OutPort, type Point } from './EdgeLayer';
+import {
+  EdgeLayer,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  type NodePositions,
+  type OutPort,
+  type Point,
+} from './EdgeLayer';
 import { NodePalette } from './NodePalette';
 import {
   ACTION_LABELS,
@@ -84,7 +91,9 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
   const [nodes, setNodes] = React.useState<FlowNode[]>([]);
   const [positions, setPositions] = React.useState<NodePositions>({});
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [drag, setDrag] = React.useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [drag, setDrag] = React.useState<{ id: string; offsetX: number; offsetY: number } | null>(
+    null,
+  );
   const [connect, setConnect] = React.useState<{ fromId: string; port: OutPort } | null>(null);
   const [pointer, setPointer] = React.useState<Point | null>(null);
 
@@ -177,9 +186,13 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
 
   const save = (): void => {
     const actions = serializeFlow(nodes);
-    const events = effectiveStore.getState().dsl.events.map((e) =>
-      e.id === eventId ? { ...e, actions, ...(nodes[0]?.id !== undefined ? { entry: nodes[0].id } : {}) } : e,
-    );
+    const events = effectiveStore
+      .getState()
+      .dsl.events.map((e) =>
+        e.id === eventId
+          ? { ...e, actions, ...(nodes[0]?.id !== undefined ? { entry: nodes[0].id } : {}) }
+          : e,
+      );
     effectiveStore.getState().setPageEvents(events);
   };
 
@@ -194,7 +207,10 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
   const onContainerPointerMove = (e: React.PointerEvent): void => {
     if (drag) {
       const local = toLocal(e.clientX, e.clientY);
-      setPositions((prev) => ({ ...prev, [drag.id]: { x: local.x - drag.offsetX, y: local.y - drag.offsetY } }));
+      setPositions((prev) => ({
+        ...prev,
+        [drag.id]: { x: local.x - drag.offsetX, y: local.y - drag.offsetY },
+      }));
     } else if (connect) {
       setPointer(toLocal(e.clientX, e.clientY));
     }
@@ -202,7 +218,9 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
 
   const onContainerPointerUp = (e: React.PointerEvent): void => {
     if (connect) {
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-node-id]') as HTMLElement | null;
+      const target = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest('[data-node-id]') as HTMLElement | null;
       const targetId = target?.getAttribute('data-node-id') ?? null;
       if (targetId) applyEdge(connect.fromId, connect.port, targetId);
       setConnect(null);
@@ -242,8 +260,26 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
   const tempStart = connect ? portPointSafe(connect.fromId, connect.port, positions) : null;
 
   return (
-    <div className="ec-flow-editor" style={{ display: 'flex', flexDirection: 'column', height, border: '1px solid #ced4da', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: '1px solid #e3e8ef' }}>
+    <div
+      className="ec-flow-editor"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height,
+        border: '1px solid #ced4da',
+        borderRadius: 8,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          borderBottom: '1px solid #e3e8ef',
+        }}
+      >
         <strong style={{ fontSize: 13 }}>动作流编辑器</strong>
         <div style={{ flex: 1 }} />
         <Button size="sm" variant="ghost" onClick={relayout}>
@@ -275,7 +311,14 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
             onPointerUp={onContainerPointerUp}
             style={{ position: 'relative', flex: 1, overflow: 'auto', background: '#f8f9fa' }}
           >
-            <EdgeLayer nodes={nodes} positions={positions} width={maxX} height={maxY} tempStart={tempStart} tempEnd={pointer} />
+            <EdgeLayer
+              nodes={nodes}
+              positions={positions}
+              width={maxX}
+              height={maxY}
+              tempStart={tempStart}
+              tempEnd={pointer}
+            />
             {nodes.map((node) => (
               <ActionNode
                 key={node.id}
@@ -298,7 +341,13 @@ export function FlowEditor(props: FlowEditorProps): React.ReactElement {
             <div
               data-testid="flow-issues"
               role="alert"
-              style={{ borderTop: '1px solid #e3e8ef', maxHeight: 120, overflow: 'auto', padding: 8, fontSize: 12 }}
+              style={{
+                borderTop: '1px solid #e3e8ef',
+                maxHeight: 120,
+                overflow: 'auto',
+                padding: 8,
+                fontSize: 12,
+              }}
             >
               {issues.map((issue, index) => (
                 <div

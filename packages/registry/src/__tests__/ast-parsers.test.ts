@@ -60,7 +60,7 @@ describe('ts-parser (ts/tsx/js/jsx)', () => {
     const content = [
       "import { UserLoginButton } from './x';",
       '// UserLoginButton',
-      "const a = new UserLoginButton(); /* userLoginButton */",
+      'const a = new UserLoginButton(); /* userLoginButton */',
     ].join('\n');
     const { hits } = parser.parse({ path: 'a.tsx', content, targets: COMPONENT });
     // 只应有 import 与 new 两处
@@ -146,7 +146,9 @@ describe('python-parser (builtin scope tokenizer)', () => {
   const parser = createPythonParser();
 
   it('基本命中：def 声明名作为 declaration', () => {
-    const content = ['def handle_login_button():', '    return', 'handle_login_button = 1'].join('\n');
+    const content = ['def handle_login_button():', '    return', 'handle_login_button = 1'].join(
+      '\n',
+    );
     const { hits } = parser.parse({ path: 'a.py', content, targets: METHOD_PY });
     const decl = hits.filter((h) => h.role === 'declaration');
     expect(decl.length).toBeGreaterThanOrEqual(1);
@@ -175,7 +177,7 @@ describe('python-parser (builtin scope tokenizer)', () => {
   });
 
   it('字符串投影：整串精确匹配', () => {
-    const content = ['x = \'/user-login-button\'', "y = '''/user-login-button'''"].join('\n');
+    const content = ["x = '/user-login-button'", "y = '''/user-login-button'''"].join('\n');
     const { hits } = parser.parse({ path: 'a.py', content, targets: STRING_PY });
     const strs = hits.filter((h) => h.role === 'string-literal');
     expect(strs).toHaveLength(2);

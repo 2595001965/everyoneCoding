@@ -53,7 +53,9 @@ describe('ImportReport', () => {
 
   it('展示冲突决策摘要（默认不覆盖：keepLocal 占多数）', () => {
     render(<ImportReport report={okReport()} onRetry={vi.fn()} onExportReport={vi.fn()} />);
-    expect(screen.getByTestId('report-resolutions')).toHaveTextContent('保留本地 1 / 采用包内 0 / 两者都保留 1');
+    expect(screen.getByTestId('report-resolutions')).toHaveTextContent(
+      '保留本地 1 / 采用包内 0 / 两者都保留 1',
+    );
   });
 
   it('失败清单 + 重试按钮回调 onRetry', async () => {

@@ -31,7 +31,12 @@ function createFakeUpdateApi(initial: Partial<UpdateViewState> = {}) {
     },
     async check() {
       calls.push('check');
-      state = { ...state, lastCheckAt: 1_700_000_000_000, phase: 'available', available: { version: '0.2.0', notes: '修了几个问题' } };
+      state = {
+        ...state,
+        lastCheckAt: 1_700_000_000_000,
+        phase: 'available',
+        available: { version: '0.2.0', notes: '修了几个问题' },
+      };
       return state;
     },
     async install() {
@@ -53,7 +58,13 @@ function createFakeUpdateApi(initial: Partial<UpdateViewState> = {}) {
       return () => undefined;
     },
   };
-  return { api, calls, setState: (next: Partial<UpdateViewState>) => { state = { ...state, ...next }; } };
+  return {
+    api,
+    calls,
+    setState: (next: Partial<UpdateViewState>) => {
+      state = { ...state, ...next };
+    },
+  };
 }
 
 function renderPanel(api: UpdateApi | null) {
@@ -169,7 +180,9 @@ describe('更新面板（T10-04 / FR-SET-05）', () => {
     const autoDownload = await screen.findByRole('switch', { name: '自动下载更新' });
     fireEvent.click(autoDownload);
     await waitFor(() => expect(fake.calls).toContain('save:{"autoDownload":true}'));
-    expect(screen.getByRole('switch', { name: '自动下载更新' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('switch', { name: '自动下载更新' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
   });
 
   it('检查更新可读地反映离线跳过（不报错）', async () => {

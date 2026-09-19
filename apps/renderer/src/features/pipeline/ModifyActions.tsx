@@ -53,10 +53,20 @@ export function ModifyActions({
   const artifactLabel = STAGE_DEFS[stage].artifactLabel;
   return (
     <div className="ec-pipe-actions" data-testid="modify-actions">
-      <Button size="sm" variant={actionVariant('regenerate')} data-testid="action-regenerate" onClick={onRegenerate}>
+      <Button
+        size="sm"
+        variant={actionVariant('regenerate')}
+        data-testid="action-regenerate"
+        onClick={onRegenerate}
+      >
         重新生成{artifactLabel}
       </Button>
-      <Button size="sm" variant={actionVariant('local-edit')} data-testid="action-local-edit" onClick={onLocalEdit}>
+      <Button
+        size="sm"
+        variant={actionVariant('local-edit')}
+        data-testid="action-local-edit"
+        onClick={onLocalEdit}
+      >
         局部修改
       </Button>
       <Button
@@ -65,11 +75,18 @@ export function ModifyActions({
         data-testid="action-manual-edit"
         onClick={onManualEdit}
         disabled={!allowManualEdit}
-        title={allowManualEdit ? '文档类产物允许手动编辑' : '代码类产物只读（D-04：代码仅由 AI 写入）'}
+        title={
+          allowManualEdit ? '文档类产物允许手动编辑' : '代码类产物只读（D-04：代码仅由 AI 写入）'
+        }
       >
         手动编辑
       </Button>
-      <Button size="sm" variant={actionVariant('supplement')} data-testid="action-supplement" onClick={onSupplement}>
+      <Button
+        size="sm"
+        variant={actionVariant('supplement')}
+        data-testid="action-supplement"
+        onClick={onSupplement}
+      >
         追加要求
       </Button>
     </div>

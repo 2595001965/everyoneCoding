@@ -49,7 +49,9 @@ export async function selectBackend(options: SelectBackendOptions): Promise<Sele
   });
   const cliAvailable = await cli.probe();
   if (!cliAvailable) {
-    notes.push('未检测到可用的系统 Git（git --version 失败），Git 能力将不可用；请安装 Git 2.40+ 后重试');
+    notes.push(
+      '未检测到可用的系统 Git（git --version 失败），Git 能力将不可用；请安装 Git 2.40+ 后重试',
+    );
   } else {
     notes.push('系统 Git CLI 可用');
   }

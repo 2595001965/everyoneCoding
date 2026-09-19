@@ -9,7 +9,12 @@ export type { StateListener, Unsubscribe } from './StateStore';
 export { StateEditor, validateStateVar, STATE_TYPE_LABELS } from './StateEditor';
 export type { StateEditorProps, StateVarDraft } from './StateEditor';
 
-export { BindingPicker, expandStateShape, valueToField, listAllBindingPaths } from './BindingPicker';
+export {
+  BindingPicker,
+  expandStateShape,
+  valueToField,
+  listAllBindingPaths,
+} from './BindingPicker';
 export type { BindingPickerProps } from './BindingPicker';
 
 export { StatePanel } from './StatePanel';

@@ -54,7 +54,12 @@ export function propColumns(node: ElementNode, key: string): ColumnDef[] {
 }
 
 /** 预览态：若属性绑定了 scope 路径，则解析该路径，否则回退到字面量 */
-export function previewString(node: ElementNode, key: string, scope: Record<string, unknown> | undefined, fallback = ''): string {
+export function previewString(
+  node: ElementNode,
+  key: string,
+  scope: Record<string, unknown> | undefined,
+  fallback = '',
+): string {
   const binding = node.bindings?.[key];
   if (binding !== undefined && scope !== undefined) {
     const value = resolveExpression(binding, scope);
@@ -63,7 +68,12 @@ export function previewString(node: ElementNode, key: string, scope: Record<stri
   return propString(node, key, fallback);
 }
 
-export function previewBoolean(node: ElementNode, key: string, scope: Record<string, unknown> | undefined, fallback = false): boolean {
+export function previewBoolean(
+  node: ElementNode,
+  key: string,
+  scope: Record<string, unknown> | undefined,
+  fallback = false,
+): boolean {
   const binding = node.bindings?.[key];
   if (binding !== undefined && scope !== undefined) {
     const value = resolveExpression(binding, scope);
@@ -72,7 +82,12 @@ export function previewBoolean(node: ElementNode, key: string, scope: Record<str
   return propBoolean(node, key, fallback);
 }
 
-export function previewNumber(node: ElementNode, key: string, scope: Record<string, unknown> | undefined, fallback = 0): number {
+export function previewNumber(
+  node: ElementNode,
+  key: string,
+  scope: Record<string, unknown> | undefined,
+  fallback = 0,
+): number {
   const binding = node.bindings?.[key];
   if (binding !== undefined && scope !== undefined) {
     const value = resolveExpression(binding, scope);
@@ -81,7 +96,11 @@ export function previewNumber(node: ElementNode, key: string, scope: Record<stri
   return propNumber(node, key, fallback);
 }
 
-export function previewOptions(node: ElementNode, key: string, scope: Record<string, unknown> | undefined): OptionItem[] {
+export function previewOptions(
+  node: ElementNode,
+  key: string,
+  scope: Record<string, unknown> | undefined,
+): OptionItem[] {
   const binding = node.bindings?.[key];
   if (binding !== undefined && scope !== undefined) {
     const value = resolveExpression(binding, scope);
@@ -91,7 +110,10 @@ export function previewOptions(node: ElementNode, key: string, scope: Record<str
 }
 
 /** 解析绑定的数据数组（Table / List / ListPage 预览用） */
-export function resolveBoundRows(node: ElementNode, scope: Record<string, unknown> | undefined): Record<string, unknown>[] {
+export function resolveBoundRows(
+  node: ElementNode,
+  scope: Record<string, unknown> | undefined,
+): Record<string, unknown>[] {
   const binding = node.bindings?.data;
   if (binding === undefined || scope === undefined) return [];
   const value = resolveExpression(binding, scope);

@@ -19,7 +19,14 @@ export function FormRenderer({ node, mode, children }: ComponentRenderProps): JS
   );
   const isEmpty = children === undefined || children === null;
   return (
-    <form className="ecd-form" style={style} data-layout={layout} data-colon={colon} data-component="Form" data-mode={mode}>
+    <form
+      className="ecd-form"
+      style={style}
+      data-layout={layout}
+      data-colon={colon}
+      data-component="Form"
+      data-mode={mode}
+    >
       {isEmpty ? <span className="ecd-placeholder">拖入表单字段</span> : children}
     </form>
   );
@@ -36,11 +43,18 @@ export const FormMeta: ComponentMeta = {
   acceptsChildren: true,
   propSchema: {
     fields: [
-      { key: 'layout', label: '布局', type: 'enum', group: '布局', default: 'vertical', options: [
-        { value: 'vertical', label: '纵向' },
-        { value: 'horizontal', label: '横向' },
-        { value: 'inline', label: '行内' },
-      ] },
+      {
+        key: 'layout',
+        label: '布局',
+        type: 'enum',
+        group: '布局',
+        default: 'vertical',
+        options: [
+          { value: 'vertical', label: '纵向' },
+          { value: 'horizontal', label: '横向' },
+          { value: 'inline', label: '行内' },
+        ],
+      },
       { key: 'labelWidth', label: '标签宽度', type: 'size', group: '布局', default: '80px' },
       { key: 'colon', label: '标签冒号', type: 'boolean', group: '布局', default: true },
     ],

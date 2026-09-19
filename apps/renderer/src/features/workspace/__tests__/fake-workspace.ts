@@ -76,7 +76,12 @@ export interface FakeWorkspaceEnvironment {
   /** 记录 Git 克隆调用 */
   gitClones: string[];
   /** 模板创建落库内容 */
-  templateArtifacts: Array<{ projectId: string; templateId: string; pages: number; memory: number }>;
+  templateArtifacts: Array<{
+    projectId: string;
+    templateId: string;
+    pages: number;
+    memory: number;
+  }>;
   /** 由文档导入落库的功能与页面 */
   digestArtifacts: Array<{ projectId: string; features: number; pages: number }>;
   setNow(ms: number): void;
@@ -135,7 +140,8 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
     const byScope: Record<string, number> = {};
     for (const item of source.memory) byScope[item.scope] = (byScope[item.scope] ?? 0) + 1;
     const byPlatform: Record<string, number> = {};
-    for (const page of source.pages) byPlatform[page.platform] = (byPlatform[page.platform] ?? 0) + 1;
+    for (const page of source.pages)
+      byPlatform[page.platform] = (byPlatform[page.platform] ?? 0) + 1;
 
     const period = source.usage.filter((record) => record.at >= source.periodStart);
     const byModelMap = new Map<string, { tokens: number; cost: number }>();
@@ -152,7 +158,10 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
       features: {
         done: source.features.filter((feature) => feature.done).length,
         total: source.features.length,
-        completion: source.features.length === 0 ? 0 : source.features.filter((f) => f.done).length / source.features.length,
+        completion:
+          source.features.length === 0
+            ? 0
+            : source.features.filter((f) => f.done).length / source.features.length,
       },
       usage: {
         periodLabel: '近 30 天',
@@ -180,7 +189,11 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
       return {
         key,
         title: '页面明细',
-        rows: source.pages.map((page) => ({ label: page.id, value: page.platform, refId: page.id })),
+        rows: source.pages.map((page) => ({
+          label: page.id,
+          value: page.platform,
+          refId: page.id,
+        })),
       };
     }
     if (key === 'usage') {
@@ -197,7 +210,11 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
       return {
         key,
         title: '最近提交明细',
-        rows: source.commits.map((commit) => ({ label: commit.sha.slice(0, 7), value: commit.message, refId: commit.sha })),
+        rows: source.commits.map((commit) => ({
+          label: commit.sha.slice(0, 7),
+          value: commit.message,
+          refId: commit.sha,
+        })),
       };
     }
     return {
@@ -223,7 +240,8 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
     restoreFromRecycleBin: (id) => service.restoreFromRecycleBin(id),
     purgeProject: (id) => service.purgeProject(id),
     cleanupExpiredRecycleBin: async () => (await service.cleanupExpiredRecycleBin()).length,
-    duplicateProject: (id, options): Promise<DuplicateResult> => service.duplicateProject(id, options),
+    duplicateProject: (id, options): Promise<DuplicateResult> =>
+      service.duplicateProject(id, options),
 
     createFromTemplate: async (input) => {
       const template = findTemplate(input.templateId);
@@ -238,10 +256,16 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
       });
       // 落初始页面与项目记忆（真实装配由外壳写 page / memory_item 表）
       source.pages.push(
-        ...template.pages.map((page) => ({ id: `${project.id}-${page.route}`, platform: page.platform as string })),
+        ...template.pages.map((page) => ({
+          id: `${project.id}-${page.route}`,
+          platform: page.platform as string,
+        })),
       );
       source.memory.push(
-        ...template.memoryDrafts.map((draft, index) => ({ id: `${project.id}-m${index}`, scope: draft.scope })),
+        ...template.memoryDrafts.map((draft, index) => ({
+          id: `${project.id}-m${index}`,
+          scope: draft.scope,
+        })),
       );
       templateArtifacts.push({
         projectId: project.id,
@@ -276,7 +300,10 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
         ...(plan.defaultBranch ? {} : {}),
       });
       source.memory.push(
-        ...plan.profile.memoryDrafts.map((draft, index) => ({ id: `${project.id}-g${index}`, scope: draft.scope })),
+        ...plan.profile.memoryDrafts.map((draft, index) => ({
+          id: `${project.id}-g${index}`,
+          scope: draft.scope,
+        })),
       );
       return project;
     },
@@ -284,13 +311,22 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
     createFromDigest: async (input: { digest: RequirementDigest; name: string }) => {
       const project = await service.createProject({ name: input.name, sourceKind: 'doc_import' });
       source.features.push(
-        ...input.digest.features.map((_feature, index) => ({ id: `${project.id}-f${index}`, done: false })),
+        ...input.digest.features.map((_feature, index) => ({
+          id: `${project.id}-f${index}`,
+          done: false,
+        })),
       );
       source.pages.push(
-        ...input.digest.pageCandidates.map((page) => ({ id: `${project.id}${page.route}`, platform: 'web' })),
+        ...input.digest.pageCandidates.map((page) => ({
+          id: `${project.id}${page.route}`,
+          platform: 'web',
+        })),
       );
       source.memory.push(
-        ...input.digest.memoryDrafts.map((draft, index) => ({ id: `${project.id}-d${index}`, scope: draft.scope })),
+        ...input.digest.memoryDrafts.map((draft, index) => ({
+          id: `${project.id}-d${index}`,
+          scope: draft.scope,
+        })),
       );
       digestArtifacts.push({
         projectId: project.id,
@@ -302,7 +338,9 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
 
     getProjectStage: (projectId): Promise<ProjectStageInfo | null> =>
       Promise.resolve(
-        store.rows.has(projectId) ? { stage: 'S2', status: 'running', confirmed: 2, total: 7 } : null,
+        store.rows.has(projectId)
+          ? { stage: 'S2', status: 'running', confirmed: 2, total: 7 }
+          : null,
       ),
     getThumbnailUrl: (projectId) =>
       Promise.resolve(projectId.endsWith('0') ? `https://cdn.example.com/${projectId}.png` : null),
@@ -325,7 +363,10 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
 }
 
 /** 快速造 N 个项目（性能测试用） */
-export async function seedProjects(env: FakeWorkspaceEnvironment, count: number): Promise<ProjectSummary[]> {
+export async function seedProjects(
+  env: FakeWorkspaceEnvironment,
+  count: number,
+): Promise<ProjectSummary[]> {
   const created: ProjectSummary[] = [];
   for (let index = 0; index < count; index += 1) {
     created.push(

@@ -69,7 +69,10 @@ export class StructureCondenser {
   }
 
   /** 精简 + 预算裁剪 + 分层推导（不落库） */
-  async condense(dsl: PageDsl, options?: { layerOverride?: MemoryLayer | null }): Promise<CondenseResult> {
+  async condense(
+    dsl: PageDsl,
+    options?: { layerOverride?: MemoryLayer | null },
+  ): Promise<CondenseResult> {
     const summary = condensePage(dsl, this.rules);
     const budget = enforceTokenBudget(summary, this.tokenBudget);
     const assignments = deriveLayerAssignments(
@@ -77,7 +80,12 @@ export class StructureCondenser {
       budget.summary,
       options?.layerOverride !== undefined ? { layerOverride: options.layerOverride } : {},
     );
-    return { summary: budget.summary, tokens: budget.tokens, truncated: budget.truncated, assignments };
+    return {
+      summary: budget.summary,
+      tokens: budget.tokens,
+      truncated: budget.truncated,
+      assignments,
+    };
   }
 
   /** 落库：页面记忆 + 增量 revision + 项目/功能分层沉淀 */
@@ -149,11 +157,15 @@ export class StructureCondenser {
         const ps = new ProjectMemoryService(this.repo, this.userId);
         const routes = a.payload['routes'];
         if (Array.isArray(routes) && routes.length > 0) {
-          ps.upsertSection(dsl.projectId, 'routes', routes as string[], { sourceType: 'auto_design' });
+          ps.upsertSection(dsl.projectId, 'routes', routes as string[], {
+            sourceType: 'auto_design',
+          });
         }
         const modules = a.payload['modules'];
         if (Array.isArray(modules) && modules.length > 0) {
-          ps.upsertSection(dsl.projectId, 'modules', modules as string[], { sourceType: 'auto_design' });
+          ps.upsertSection(dsl.projectId, 'modules', modules as string[], {
+            sourceType: 'auto_design',
+          });
         }
       } else if (a.layer === 'feature') {
         const fid = a.payload['featureId'];

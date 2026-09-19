@@ -28,7 +28,12 @@ function masterFixture(): MasterDefinition {
       style: { padding: 24, borderRadius: 12 },
       children: [
         createElement({ id: 'M1-title', type: 'Text', name: '标题', props: { text: '欢迎登录' } }),
-        createElement({ id: 'M1-submit', type: 'Button', name: '提交按钮', props: { text: '登录' } }),
+        createElement({
+          id: 'M1-submit',
+          type: 'Button',
+          name: '提交按钮',
+          props: { text: '登录' },
+        }),
       ],
     }),
   };
@@ -79,7 +84,12 @@ describe('T3-11 母版同步与脱离', () => {
           ...(master.tree.children ?? []).map((child) =>
             child.id === 'M1-submit' ? { ...child, props: { text: '立即登录' } } : child,
           ),
-          createElement({ id: 'M1-tip', type: 'Text', name: '提示', props: { text: '登录即同意用户协议' } }),
+          createElement({
+            id: 'M1-tip',
+            type: 'Text',
+            name: '提示',
+            props: { text: '登录即同意用户协议' },
+          }),
         ],
       },
     };
@@ -103,11 +113,16 @@ describe('T3-11 母版同步与脱离', () => {
     let dsl = basePage;
 
     dsl = detachInstance(dsl, 'inst-b');
-    expect(collectMasterInstances(dsl, 'M1').find((ref) => ref.elementId === 'inst-b')?.detached).toBe(true);
+    expect(
+      collectMasterInstances(dsl, 'M1').find((ref) => ref.elementId === 'inst-b')?.detached,
+    ).toBe(true);
 
     const updated: MasterDefinition = {
       ...master,
-      tree: { ...master.tree, children: [{ ...(master.tree.children![0] as ElementNode), props: { text: '改版标题' } }] },
+      tree: {
+        ...master.tree,
+        children: [{ ...(master.tree.children![0] as ElementNode), props: { text: '改版标题' } }],
+      },
     };
     const result = syncInstances(dsl, updated);
     expect(result.synced).toEqual(['inst-a']);
@@ -119,7 +134,9 @@ describe('T3-11 母版同步与脱离', () => {
     const { page, master } = pageWithInstances();
     let dsl = detachInstance(page, 'inst-a');
     dsl = reattachInstance(dsl, 'inst-a', master.id);
-    expect(collectMasterInstances(dsl, 'M1').find((ref) => ref.elementId === 'inst-a')?.detached).toBe(false);
+    expect(
+      collectMasterInstances(dsl, 'M1').find((ref) => ref.elementId === 'inst-a')?.detached,
+    ).toBe(false);
   });
 
   it('母版注册表：注册 / 更新 / 查询 / 统计使用情况', () => {
@@ -128,7 +145,11 @@ describe('T3-11 母版同步与脱离', () => {
     expect(registry.get('M1')?.name).toBe('登录卡片母版');
     expect(registry.get('nope')).toBeNull();
 
-    const updated = registry.update('M1', { name: '登录卡片母版 v2', note: '新增协议提示', now: 3000 });
+    const updated = registry.update('M1', {
+      name: '登录卡片母版 v2',
+      note: '新增协议提示',
+      now: 3000,
+    });
     expect(updated?.name).toBe('登录卡片母版 v2');
     expect(updated?.updatedAt).toBe(3000);
     expect(registry.update('nope', { name: 'x' })).toBeNull();
@@ -145,10 +166,24 @@ describe('T3-11 母版面板', () => {
     const { page } = pageWithInstances();
     let dsl = page;
 
-    const view = render(<MasterPanel registry={registry} page={dsl} onChange={(next) => {
-      dsl = next;
-      view.rerender(<MasterPanel registry={registry} page={dsl} onChange={(next2) => { dsl = next2; }} />);
-    }} />);
+    const view = render(
+      <MasterPanel
+        registry={registry}
+        page={dsl}
+        onChange={(next) => {
+          dsl = next;
+          view.rerender(
+            <MasterPanel
+              registry={registry}
+              page={dsl}
+              onChange={(next2) => {
+                dsl = next2;
+              }}
+            />,
+          );
+        }}
+      />,
+    );
 
     expect(screen.getByTestId('master-M1')).toBeInTheDocument();
     expect(screen.getByTestId('master-instance-inst-a')).toHaveAttribute('data-detached', 'false');

@@ -6,7 +6,11 @@ import { Modal } from '../index';
 
 describe('Modal', () => {
   it('打开时渲染 role=dialog 与标题', () => {
-    render(<Modal defaultOpen title="编辑">内容</Modal>);
+    render(
+      <Modal defaultOpen title="编辑">
+        内容
+      </Modal>,
+    );
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute('aria-modal', 'true');

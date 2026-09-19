@@ -120,7 +120,9 @@ export function toContextPanelModel(
   context: AssembledContext,
   selection: ContextPanelSelection = { disabledBlocks: [], overrides: {} },
 ): ContextPanelModel {
-  const allBlocks = context.blocks.map((block) => toContextPanelBlock(block, context.totalTokens, selection));
+  const allBlocks = context.blocks.map((block) =>
+    toContextPanelBlock(block, context.totalTokens, selection),
+  );
   const blocks = allBlocks.filter((block) => block.tokens > 0);
 
   const warnings: string[] = [];
@@ -128,16 +130,20 @@ export function toContextPanelModel(
     warnings.push(describeTruncation(context.truncation));
   }
   if (context.totalTokens > context.budget) {
-    warnings.push(`上下文 ${context.totalTokens} token 仍超出预算 ${context.budget}（请减少勾选或缩短指令）`);
+    warnings.push(
+      `上下文 ${context.totalTokens} token 仍超出预算 ${context.budget}（请减少勾选或缩短指令）`,
+    );
   }
   const disabled = selection.disabledBlocks;
   if (disabled.length > 0) warnings.push(`已手动取消勾选 ${disabled.length} 个上下文块`);
-  if (context.aggressive) warnings.push('本次为超限重试后的激进裁剪结果（仅保留元素链 + 备注 + 页面记忆）');
+  if (context.aggressive)
+    warnings.push('本次为超限重试后的激进裁剪结果（仅保留元素链 + 备注 + 页面记忆）');
 
   return {
     totalTokens: context.totalTokens,
     budget: context.budget,
-    usagePercent: context.budget <= 0 ? 0 : Math.round((context.totalTokens / context.budget) * 1000) / 10,
+    usagePercent:
+      context.budget <= 0 ? 0 : Math.round((context.totalTokens / context.budget) * 1000) / 10,
     blocks,
     allBlocks,
     truncation: context.truncation,
@@ -157,7 +163,10 @@ export function emptySelection(): ContextPanelSelection {
 }
 
 /** 面板勾选变化 → 新选择（不可变） */
-export function toggleBlock(selection: ContextPanelSelection, id: ContextBlockId): ContextPanelSelection {
+export function toggleBlock(
+  selection: ContextPanelSelection,
+  id: ContextBlockId,
+): ContextPanelSelection {
   const disabled = selection.disabledBlocks.includes(id)
     ? selection.disabledBlocks.filter((item) => item !== id)
     : [...selection.disabledBlocks, id];
@@ -185,7 +194,9 @@ export function applyPanelSelection(
   const hasOverrides = Object.keys(selection.overrides).length > 0;
   return {
     ...request,
-    ...(selection.disabledBlocks.length > 0 ? { disabledBlocks: [...selection.disabledBlocks] } : {}),
+    ...(selection.disabledBlocks.length > 0
+      ? { disabledBlocks: [...selection.disabledBlocks] }
+      : {}),
     ...(hasOverrides ? { overrides: { ...selection.overrides } } : {}),
   };
 }
@@ -206,7 +217,8 @@ export function tokenDistributionRows(model: ContextPanelModel): TokenDistributi
       id: block.id,
       label: block.label,
       tokens: block.tokens,
-      percent: model.totalTokens <= 0 ? 0 : Math.round((block.tokens / model.totalTokens) * 1000) / 10,
+      percent:
+        model.totalTokens <= 0 ? 0 : Math.round((block.tokens / model.totalTokens) * 1000) / 10,
       quota: block.quota,
       overQuota: block.quota > 0 && block.tokens > block.quota,
     }))

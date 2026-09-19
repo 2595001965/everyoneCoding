@@ -4,15 +4,15 @@
 
 ## 1. 环境要求
 
-| 依赖 | 版本 | 用途 | 本机状态（2026-09-15） |
-| --- | --- | --- | --- |
-| Node.js | ≥ 22 | 构建 / Electron 主进程 / 测试 | ✅ v24.20.0 / v22.22.2 |
-| pnpm | ≥ 9（`packageManager` 已锁定 9.15.9） | monorepo 包管理 | ✅ 经 corepack 调用 |
-| Rust 工具链（stable） | ≥ 1.77 | 仅构建 Tauri 外壳时需要 | ❌ 未安装（需管理员，见 §2.3） |
-| MSVC C++ 生成工具 + Windows 10/11 SDK | 最新 | Tauri 与原生模块编译 | ❌ 未安装（需管理员，见 §2.3） |
-| WebView2 Runtime | 常青版 | Tauri 版渲染（缺失时应用内引导安装） | ✅ 152.0.4191.66 |
-| Git | ≥ 2.40 | 仓库管理 | ✅ 2.55.0 |
-| Electron 运行时二进制 | 33.4.11 | Electron 版外壳 | ✅ 已就位（见 §2.1） |
+| 依赖                                  | 版本                                  | 用途                                 | 本机状态（2026-09-15）         |
+| ------------------------------------- | ------------------------------------- | ------------------------------------ | ------------------------------ |
+| Node.js                               | ≥ 22                                  | 构建 / Electron 主进程 / 测试        | ✅ v24.20.0 / v22.22.2         |
+| pnpm                                  | ≥ 9（`packageManager` 已锁定 9.15.9） | monorepo 包管理                      | ✅ 经 corepack 调用            |
+| Rust 工具链（stable）                 | ≥ 1.77                                | 仅构建 Tauri 外壳时需要              | ❌ 未安装（需管理员，见 §2.3） |
+| MSVC C++ 生成工具 + Windows 10/11 SDK | 最新                                  | Tauri 与原生模块编译                 | ❌ 未安装（需管理员，见 §2.3） |
+| WebView2 Runtime                      | 常青版                                | Tauri 版渲染（缺失时应用内引导安装） | ✅ 152.0.4191.66               |
+| Git                                   | ≥ 2.40                                | 仓库管理                             | ✅ 2.55.0                      |
+| Electron 运行时二进制                 | 33.4.11                               | Electron 版外壳                      | ✅ 已就位（见 §2.1）           |
 
 ## 2. 安装依赖
 
@@ -41,10 +41,10 @@ Electron 形态除了 `pnpm install` 外还需要两样东西，两者都**不�
    Node ABI，而 Electron 内置 Node 版本不同（Electron 33 → Node 20.18 → ABI 130），两者不能共用
    同一份 `.node`。仓库的做法是**两套共存、互不影响**：
 
-   | 使用方 | 绑定位置 |
-   | --- | --- |
+   | 使用方                       | 绑定位置                                                                       |
+   | ---------------------------- | ------------------------------------------------------------------------------ |
    | Node 侧（vitest / 各包单测） | `node_modules/.pnpm/better-sqlite3@<版本>/…/build/Release/better_sqlite3.node` |
-   | Electron 主进程 | `apps/desktop-electron/build/Release/better_sqlite3.node` |
+   | Electron 主进程              | `apps/desktop-electron/build/Release/better_sqlite3.node`                      |
 
    > 为什么是后者：esbuild 会把 better-sqlite3 的 JS 内联进主进程产物，`bindings` 的
    > `module_root` 因此解析为应用根目录，该路径正是它的候选之一。
@@ -113,23 +113,23 @@ powershell -ExecutionPolicy Bypass -File apps\desktop-tauri\scripts\setup-rust-t
 
 ## 3. 常用命令
 
-| 命令 | 作用 |
-| --- | --- |
-| `pnpm dev:renderer` | 启动渲染层 dev server（http://localhost:5173，mock 外壳） |
-| `pnpm dev:tauri` | 启动 Tauri 2 桌面外壳（需要 Rust 工具链） |
-| `pnpm dev:electron` | 构建 main/preload 并启动 Electron 外壳（自动准备原生绑定，见 §2.1/§2.2） |
-| `pnpm build:renderer` | 构建渲染层产物（`apps/renderer/dist`） |
-| `pnpm build:tauri` | 产出 Tauri NSIS 安装包 |
-| `pnpm build:electron` | 产出 Electron NSIS 安装包 |
-| `pnpm typecheck` | 全仓库 TypeScript strict 类型检查（`pnpm -r typecheck`） |
-| `pnpm test` | 全仓库单元测试（Vitest，`pnpm -r test`） |
-| `pnpm test:coverage` | 覆盖率（核心模块门禁 ≥ 70%） |
-| `pnpm test:e2e` | 21 条 E2E 验收用例（独立工程 `e2e/`，见 `docs/E2E-CHECKLIST.md`） |
-| `pnpm quality-gate` | 六核心模块逐模块覆盖率门禁（≥70%，低于即失败） |
-| `pnpm perf` | 性能基准（7 项可复现基准，结果写 `perf/last-run.md`） |
-| `pnpm version:check` / `version:sync` | 校验 / 同步双形态版本号（单一事实源在根 `package.json`） |
-| `pnpm release:manifest` | 生成发布清单与分发页（含体积门禁） |
-| `pnpm lint` / `pnpm format` | ESLint / Prettier |
+| 命令                                  | 作用                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| `pnpm dev:renderer`                   | 启动渲染层 dev server（http://localhost:5173，mock 外壳）                |
+| `pnpm dev:tauri`                      | 启动 Tauri 2 桌面外壳（需要 Rust 工具链）                                |
+| `pnpm dev:electron`                   | 构建 main/preload 并启动 Electron 外壳（自动准备原生绑定，见 §2.1/§2.2） |
+| `pnpm build:renderer`                 | 构建渲染层产物（`apps/renderer/dist`）                                   |
+| `pnpm build:tauri`                    | 产出 Tauri NSIS 安装包                                                   |
+| `pnpm build:electron`                 | 产出 Electron NSIS 安装包                                                |
+| `pnpm typecheck`                      | 全仓库 TypeScript strict 类型检查（`pnpm -r typecheck`）                 |
+| `pnpm test`                           | 全仓库单元测试（Vitest，`pnpm -r test`）                                 |
+| `pnpm test:coverage`                  | 覆盖率（核心模块门禁 ≥ 70%）                                             |
+| `pnpm test:e2e`                       | 21 条 E2E 验收用例（独立工程 `e2e/`，见 `docs/E2E-CHECKLIST.md`）        |
+| `pnpm quality-gate`                   | 六核心模块逐模块覆盖率门禁（≥70%，低于即失败）                           |
+| `pnpm perf`                           | 性能基准（7 项可复现基准，结果写 `perf/last-run.md`）                    |
+| `pnpm version:check` / `version:sync` | 校验 / 同步双形态版本号（单一事实源在根 `package.json`）                 |
+| `pnpm release:manifest`               | 生成发布清单与分发页（含体积门禁）                                       |
+| `pnpm lint` / `pnpm format`           | ESLint / Prettier                                                        |
 
 ## 4. 目录约定
 

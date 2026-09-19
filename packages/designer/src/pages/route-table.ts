@@ -13,7 +13,15 @@
  */
 import * as React from 'react';
 
-import type { ActionNode, EventDef, PageDsl, Platform, RouteEntry, RouteIssue, RouteParam } from '../dsl/types';
+import type {
+  ActionNode,
+  EventDef,
+  PageDsl,
+  Platform,
+  RouteEntry,
+  RouteIssue,
+  RouteParam,
+} from '../dsl/types';
 import { useDesignerPorts } from '../store/designer-context';
 
 /** 提取路径中的 `:param` 参数名 */

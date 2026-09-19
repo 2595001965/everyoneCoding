@@ -23,7 +23,8 @@ export function JumpOverlay({ pageId, element, currentFile }: JumpOverlayProps):
       : { pageId, element, currentFile },
   );
 
-  const showLayers = jump.resolution !== null && jump.resolution.needsChoice && jump.resolution.layers.length > 0;
+  const showLayers =
+    jump.resolution !== null && jump.resolution.needsChoice && jump.resolution.layers.length > 0;
 
   return (
     <span className="ec-jump-overlay" style={{ position: 'relative', display: 'inline-block' }}>
@@ -66,14 +67,21 @@ export function JumpOverlay({ pageId, element, currentFile }: JumpOverlayProps):
               onClick={() => jump.choose(target)}
               style={itemStyle}
             >
-              <span className="ec-jump-overlay__kind" data-testid={`jump-kind-${target.id}`} style={{ color: 'var(--ec-color-text-secondary)' }}>
+              <span
+                className="ec-jump-overlay__kind"
+                data-testid={`jump-kind-${target.id}`}
+                style={{ color: 'var(--ec-color-text-secondary)' }}
+              >
                 {NAV_TARGET_LABELS[target.kind]}
               </span>
               <span style={{ flex: 1 }}>
                 {target.label}
                 <span style={{ color: 'var(--ec-color-text-secondary)' }}> · {target.detail}</span>
               </span>
-              <span data-testid={`jump-score-${target.id}`} style={{ color: 'var(--ec-color-info)' }}>
+              <span
+                data-testid={`jump-score-${target.id}`}
+                style={{ color: 'var(--ec-color-info)' }}
+              >
                 {target.score.toFixed(2)}
               </span>
             </button>
@@ -93,7 +101,11 @@ export function JumpOverlay({ pageId, element, currentFile }: JumpOverlayProps):
             该元素有多个候选，请选择层级：
           </div>
           {jump.resolution.layers.map((layer) => (
-            <div key={layer.layer} className="ec-jump-overlay__layer" data-testid={`jump-layer-${layer.layer}`}>
+            <div
+              key={layer.layer}
+              className="ec-jump-overlay__layer"
+              data-testid={`jump-layer-${layer.layer}`}
+            >
               <div style={{ fontWeight: 600 }}>{layer.label}</div>
               {layer.targets.map((target) => (
                 <button
@@ -107,9 +119,14 @@ export function JumpOverlay({ pageId, element, currentFile }: JumpOverlayProps):
                 >
                   <span style={{ flex: 1 }}>
                     {target.label}
-                    <span style={{ color: 'var(--ec-color-text-secondary)' }}> · {target.detail}</span>
+                    <span style={{ color: 'var(--ec-color-text-secondary)' }}>
+                      {' '}
+                      · {target.detail}
+                    </span>
                   </span>
-                  <span style={{ color: 'var(--ec-color-text-secondary)' }}>{NAV_TARGET_LABELS[target.kind]}</span>
+                  <span style={{ color: 'var(--ec-color-text-secondary)' }}>
+                    {NAV_TARGET_LABELS[target.kind]}
+                  </span>
                 </button>
               ))}
             </div>

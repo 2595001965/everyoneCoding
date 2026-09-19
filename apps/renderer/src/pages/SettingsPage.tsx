@@ -17,19 +17,22 @@ import { useAppStore } from '../store/useAppStore';
  */
 
 function readInjectedAiApi(): AiSettingsApi | null {
-  const injected = (globalThis as unknown as { __EC_AI_SETTINGS__?: AiSettingsApi }).__EC_AI_SETTINGS__;
+  const injected = (globalThis as unknown as { __EC_AI_SETTINGS__?: AiSettingsApi })
+    .__EC_AI_SETTINGS__;
   return typeof injected === 'object' && injected !== null ? injected : null;
 }
 
 export function SettingsPage(): JSX.Element {
   const shellReady = useAppStore((state) => state.shellReady);
   const ports = useMemo(
-    () =>
-      (void shellReady, {
+    () => (
+      void shellReady,
+      {
         settingsApi: readInjectedSettingsApi(),
         aiApi: readInjectedAiApi(),
         usageApi: readInjectedUsageApi(),
-      }),
+      }
+    ),
     [shellReady],
   );
 

@@ -27,7 +27,16 @@ describe('Table 虚拟化', () => {
 
   it('点击行触发 onRowSelect', async () => {
     const onSelect = vi.fn();
-    render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} rowHeight={32} height={300} onRowSelect={onSelect} />);
+    render(
+      <Table
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowHeight={32}
+        height={300}
+        onRowSelect={onSelect}
+      />,
+    );
     const firstRow = screen.getByText('项0').closest('[role="row"]') as HTMLElement;
     await userEvent.click(firstRow);
     expect(onSelect).toHaveBeenCalledWith(0, rows[0]);
@@ -35,7 +44,16 @@ describe('Table 虚拟化', () => {
 
   it('键盘 ↓ + Enter 选择行', async () => {
     const onSelect = vi.fn();
-    render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} rowHeight={32} height={300} onRowSelect={onSelect} />);
+    render(
+      <Table
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowHeight={32}
+        height={300}
+        onRowSelect={onSelect}
+      />,
+    );
     const body = screen.getAllByRole('rowgroup')[1] as HTMLElement;
     body.focus();
     await userEvent.keyboard('{ArrowDown}');

@@ -13,17 +13,23 @@
 import { describe, expect, it } from 'vitest';
 
 import { createLoginPageDsl } from '@ec/designer';
+import { condensePage, DebugLoopDetector, IssueDraftBuilder, WindowQueue } from '@ec/memory';
 import {
-  condensePage,
-  DebugLoopDetector,
-  IssueDraftBuilder,
-  WindowQueue,
-} from '@ec/memory';
-import { createContextEngine, type ContextSources, type GenerationOutput, createWritePipeline, createReadOnlyGuard, JumpService, type CodeAnchor } from '@ec/ai';
+  createContextEngine,
+  type ContextSources,
+  type GenerationOutput,
+  createWritePipeline,
+  createReadOnlyGuard,
+  JumpService,
+  type CodeAnchor,
+} from '@ec/ai';
 import { BindingResolver, MockResponseGenerator, parseOpenApiDocument } from '@ec/preview';
 
 // 保真度评估器在 memory 包的测试工具目录（非出口），按路径直引
-import { evaluateFidelity, reconstructFromSummary } from '../../packages/memory/src/condenser/__tests__/fidelity';
+import {
+  evaluateFidelity,
+  reconstructFromSummary,
+} from '../../packages/memory/src/condenser/__tests__/fidelity';
 
 /* ------------------------------ E2E-04 拖拽设计 ------------------------------ */
 
@@ -173,8 +179,21 @@ describe('E2E-06 Ctrl 跳转：登录按钮 → AuthController.login', () => {
     });
     const resolution = service.resolve({
       projectId: 'P-E2E',
-      page: { pageId: 'page-login', name: '登录页', route: '/login', featureId: null, elements: [], apiDeps: [] },
-      element: { elementId: 'el-btn', name: '登录按钮', type: 'button', pageId: 'page-login', pageName: '登录页' },
+      page: {
+        pageId: 'page-login',
+        name: '登录页',
+        route: '/login',
+        featureId: null,
+        elements: [],
+        apiDeps: [],
+      },
+      element: {
+        elementId: 'el-btn',
+        name: '登录按钮',
+        type: 'button',
+        pageId: 'page-login',
+        pageName: '登录页',
+      },
       currentFile: 'src/pages/Login.tsx',
     });
     const top = resolution.targets[0];
@@ -218,7 +237,11 @@ describe('E2E-08 联动预览：请求打到真实后端并返回正确结果', 
       fixture: { get: () => null },
       clock: () => (now += 1),
     });
-    const hit = await resolver.resolve({ url: '/api/login', method: 'POST', body: { username: 'u', password: 'p' } });
+    const hit = await resolver.resolve({
+      url: '/api/login',
+      method: 'POST',
+      body: { username: 'u', password: 'p' },
+    });
     expect(hit.source).toBe('backend');
     expect(hit.status).toBe(200);
     expect((hit.data as { token: string }).token).toBe('real-jwt');
@@ -227,7 +250,12 @@ describe('E2E-08 联动预览：请求打到真实后端并返回正确结果', 
     const fallback = new BindingResolver({
       openapi,
       mock: new MockResponseGenerator({ clock: () => (now += 1) }),
-      backend: { available: false, async request() { return { status: 0, data: null }; } },
+      backend: {
+        available: false,
+        async request() {
+          return { status: 0, data: null };
+        },
+      },
       fixture: { get: () => null },
       clock: () => (now += 1),
     });
@@ -311,7 +339,9 @@ describe('E2E-18 代码只读约束：AI 唯一写入口 + 外部改动检测', 
       },
       async stat(path) {
         const content = files.get(path);
-        return content === undefined ? null : { size: Buffer.byteLength(content, 'utf8'), mtimeMs: 0 };
+        return content === undefined
+          ? null
+          : { size: Buffer.byteLength(content, 'utf8'), mtimeMs: 0 };
       },
       async mkdir() {
         /* 目录惰性 */
@@ -364,12 +394,20 @@ describe('E2E-18 代码只读约束：AI 唯一写入口 + 外部改动检测', 
     expect(guard.lastBlock()?.reason).toBe('keydown');
 
     // 粘贴同样被拦截
-    guard.props.onPaste({ preventDefault: () => prevented.push('paste'), stopPropagation: () => undefined });
+    guard.props.onPaste({
+      preventDefault: () => prevented.push('paste'),
+      stopPropagation: () => undefined,
+    });
     expect(guard.blockedCount()).toBe(2);
 
     // 浏览类组合键（Ctrl+C 复制）不拦截——用户仍可复制代码
     const copy: string[] = [];
-    guard.props.onKeyDown({ key: 'c', ctrlKey: true, preventDefault: () => copy.push('x'), stopPropagation: () => undefined });
+    guard.props.onKeyDown({
+      key: 'c',
+      ctrlKey: true,
+      preventDefault: () => copy.push('x'),
+      stopPropagation: () => undefined,
+    });
     expect(copy).toHaveLength(0);
   });
 });

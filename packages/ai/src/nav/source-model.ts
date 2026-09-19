@@ -11,13 +11,7 @@ import type { CodeAnchor } from '../anchors';
 
 /** 跳转目标类型（FR-NAV-02 的四类 + 元素 / 页面 / 后端模块） */
 export type NavTargetKind =
-  | 'backend-api'
-  | 'backend-module'
-  | 'db-table'
-  | 'test-case'
-  | 'doc-section'
-  | 'element'
-  | 'page';
+  'backend-api' | 'backend-module' | 'db-table' | 'test-case' | 'doc-section' | 'element' | 'page';
 
 /** 跳转目标类型中文标签 */
 export const NAV_TARGET_LABELS: Record<NavTargetKind, string> = {
@@ -74,7 +68,8 @@ export function filterNavTargets(
     const keyword = options.keyword.trim().toLowerCase();
     if (keyword.length > 0) {
       result = result.filter((target) => {
-        const haystack = `${target.label} ${target.detail} ${target.kind} ${target.reasons.join(' ')}`.toLowerCase();
+        const haystack =
+          `${target.label} ${target.detail} ${target.kind} ${target.reasons.join(' ')}`.toLowerCase();
         return haystack.includes(keyword);
       });
     }

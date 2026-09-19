@@ -78,5 +78,11 @@ export { RegisterForm } from './RegisterForm';
 export { WechatQR } from './WechatQR';
 export { BindingPanel } from './BindingPanel';
 export { OfflineBanner } from './OfflineBanner';
-export { AuthApiProvider, AuthUnavailable, useAuth, useAuthOptional, readInjectedAuthApi } from './auth-api';
+export {
+  AuthApiProvider,
+  AuthUnavailable,
+  useAuth,
+  useAuthOptional,
+  readInjectedAuthApi,
+} from './auth-api';
 export type { AuthApi } from './auth-api';

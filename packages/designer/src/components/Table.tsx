@@ -16,19 +16,30 @@ export function TableRenderer({ node, mode, scope, children }: ComponentRenderPr
   if (mode === 'design') {
     const colCount = Math.max(1, columns.length);
     return (
-      <div className="ecd-table" data-bordered={bordered} data-striped={striped} data-component="Table" data-mode={mode}>
+      <div
+        className="ecd-table"
+        data-bordered={bordered}
+        data-striped={striped}
+        data-component="Table"
+        data-mode={mode}
+      >
         <table className="ecd-table__preview">
           <thead>
             <tr>
-              {columns.length > 0
-                ? columns.map((column) => <th key={column.key}>{column.title}</th>)
-                : <th>列</th>}
+              {columns.length > 0 ? (
+                columns.map((column) => <th key={column.key}>{column.title}</th>)
+              ) : (
+                <th>列</th>
+              )}
             </tr>
           </thead>
           <tbody>
             <tr>
               <td colSpan={colCount}>
-                <EmptyState title="暂无数据" description={`每页 ${pageSize} 条，预览时绑定数据源`} />
+                <EmptyState
+                  title="暂无数据"
+                  description={`每页 ${pageSize} 条，预览时绑定数据源`}
+                />
               </td>
             </tr>
           </tbody>
@@ -38,7 +49,13 @@ export function TableRenderer({ node, mode, scope, children }: ComponentRenderPr
   }
 
   return (
-    <div className="ecd-table" data-bordered={bordered} data-striped={striped} data-component="Table" data-mode={mode}>
+    <div
+      className="ecd-table"
+      data-bordered={bordered}
+      data-striped={striped}
+      data-component="Table"
+      data-mode={mode}
+    >
       <BoundTable node={node} scope={scope} columns={columns} />
       {children}
     </div>
@@ -59,7 +76,15 @@ export const TableMeta: ComponentMeta = {
       { key: 'columns', label: '列定义', type: 'columns', group: '数据', default: [] },
       { key: 'bordered', label: '边框', type: 'boolean', group: '外观', default: false },
       { key: 'striped', label: '斑马纹', type: 'boolean', group: '外观', default: false },
-      { key: 'pageSize', label: '每页条数', type: 'number', group: '数据', default: 20, min: 5, max: 200 },
+      {
+        key: 'pageSize',
+        label: '每页条数',
+        type: 'number',
+        group: '数据',
+        default: 20,
+        min: 5,
+        max: 200,
+      },
     ],
   },
 };

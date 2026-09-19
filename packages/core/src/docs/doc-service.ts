@@ -38,7 +38,12 @@ import {
   serializeSections,
   sectionsToText,
 } from './doc-types';
-import { buildVersionSnapshot, evaluateUpdateStatus, nextVersion, type DocUpdateStatus } from './versioning';
+import {
+  buildVersionSnapshot,
+  evaluateUpdateStatus,
+  nextVersion,
+  type DocUpdateStatus,
+} from './versioning';
 
 /** 文档服务依赖 */
 export interface DocServiceDeps {
@@ -92,7 +97,9 @@ export interface ArchiveArtifactInput {
 }
 
 export class DocService {
-  private readonly deps: Required<Pick<DocServiceDeps, 'store' | 'parsers' | 'memory' | 'clock' | 'newId'>> &
+  private readonly deps: Required<
+    Pick<DocServiceDeps, 'store' | 'parsers' | 'memory' | 'clock' | 'newId'>
+  > &
     Pick<DocServiceDeps, 'extraction'>;
 
   constructor(deps: DocServiceDeps) {
@@ -136,7 +143,9 @@ export class DocService {
       title: row.title,
       sections: deserializeSections(row.sections_json),
       contentText: row.content_text,
-      createdBy: (['user', 'pipeline', 'import'] as const).includes(row.created_by as DocVersionAuthor)
+      createdBy: (['user', 'pipeline', 'import'] as const).includes(
+        row.created_by as DocVersionAuthor,
+      )
         ? (row.created_by as DocVersionAuthor)
         : 'user',
       createdAt: row.created_at,
@@ -163,7 +172,8 @@ export class DocService {
 
   async importDocument(input: ImportDocumentInput): Promise<DocSummary> {
     const parser = this.deps.parsers.get(input.format);
-    if (!parser) throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${input.format}`);
+    if (!parser)
+      throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${input.format}`);
     const parsed = await parser.parse({ raw: input.raw, fileName: undefined });
     if (!parsed.sections || parsed.sections.length === 0) {
       throw new DocDomainError('empty_content', '解析结果为空，无法导入');
@@ -209,7 +219,8 @@ export class DocService {
     const parser = this.deps.parsers.get(format);
     if (!parser) throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${format}`);
 
-    const parsed = input.raw !== undefined ? await parser.parse({ raw: input.raw, fileName: undefined }) : null;
+    const parsed =
+      input.raw !== undefined ? await parser.parse({ raw: input.raw, fileName: undefined }) : null;
     const now = this.deps.clock();
     const next = nextVersion(row.version);
     const patch: Partial<DocumentRowSnapshot> = { version: next, updated_at: now };
@@ -242,7 +253,10 @@ export class DocService {
   }
 
   /** 列出项目文档（默认不含回收站） */
-  async listDocuments(projectId: string, opts: { includeDeleted?: boolean | undefined } = {}): Promise<DocSummary[]> {
+  async listDocuments(
+    projectId: string,
+    opts: { includeDeleted?: boolean | undefined } = {},
+  ): Promise<DocSummary[]> {
     const rows = await this.deps.store.loadAll(projectId);
     return rows
       .filter((row) => (opts.includeDeleted ? true : row.deleted_at === null))
@@ -389,7 +403,11 @@ export class DocService {
       content: `${input.draft.content}${refLine}`,
       sourceRef: ref,
     });
-    await this.deps.memory.link({ memoryId: node.id, documentId: ref.docId, linkType: 'derived_from' });
+    await this.deps.memory.link({
+      memoryId: node.id,
+      documentId: ref.docId,
+      linkType: 'derived_from',
+    });
     return node;
   }
 
@@ -432,7 +450,11 @@ export class DocService {
       }),
     );
     if (input.memoryId) {
-      await this.deps.memory.link({ memoryId: input.memoryId, documentId: id, linkType: 'derived_from' });
+      await this.deps.memory.link({
+        memoryId: input.memoryId,
+        documentId: id,
+        linkType: 'derived_from',
+      });
     }
     return this.rowToSummary(row);
   }
@@ -444,7 +466,9 @@ export function linkRowToSummary(row: MemoryDocLinkRowSnapshot): DocMemoryLink {
     id: row.id,
     memoryId: row.memory_id,
     documentId: row.document_id,
-    linkType: (['related', 'supports', 'derived_from'] as const).includes(row.link_type as DocLinkType)
+    linkType: (['related', 'supports', 'derived_from'] as const).includes(
+      row.link_type as DocLinkType,
+    )
       ? (row.link_type as DocLinkType)
       : 'related',
     createdAt: row.created_at,

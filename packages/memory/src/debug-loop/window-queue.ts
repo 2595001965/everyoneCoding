@@ -100,7 +100,10 @@ export function normalizeErrorSignature(raw: string): string {
   // 10~13 位时间戳（毫秒/秒级），避免误伤普通短数字
   s = s.replace(/\b\d{10,13}\b/g, ' ');
   // 引号内的变量值（单/双/反引号）
-  s = s.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""').replace(/`[^`]*`/g, '``');
+  s = s
+    .replace(/'[^']*'/g, "''")
+    .replace(/"[^"]*"/g, '""')
+    .replace(/`[^`]*`/g, '``');
   // 收尾
   s = s.replace(/\s+/g, ' ').trim();
   return s;

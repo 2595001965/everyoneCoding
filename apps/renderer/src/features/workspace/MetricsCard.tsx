@@ -16,7 +16,14 @@ export interface MetricsCardProps {
   onDrilldown: (key: MetricKey) => void;
 }
 
-export function MetricsCard({ metricKey, title, value, caption, breakdown, onDrilldown }: MetricsCardProps): JSX.Element {
+export function MetricsCard({
+  metricKey,
+  title,
+  value,
+  caption,
+  breakdown,
+  onDrilldown,
+}: MetricsCardProps): JSX.Element {
   return (
     <article className="ec-ws__metric" data-metric={metricKey}>
       <header className="ec-ws__metric-head">

@@ -1,10 +1,12 @@
-import {
-  renderItems,
-  type ContextBlock,
-  type ContextBlockItem,
-} from './context-types';
+import { renderItems, type ContextBlock, type ContextBlockItem } from './context-types';
 import { createAggressiveBudget, cutItemsByLimit, type TokenBudget } from './token-budget';
-import { buildTruncateReport, summarizePreview, type OmitReason, type OmittedItem, type TruncateReport } from './truncate-report';
+import {
+  buildTruncateReport,
+  summarizePreview,
+  type OmitReason,
+  type OmittedItem,
+  type TruncateReport,
+} from './truncate-report';
 
 /**
  * 上下文裁剪（T4-03 要点 2）。
@@ -29,7 +31,11 @@ export function assembledTokens(blocks: readonly ContextBlock[]): number {
   return blocks.reduce((sum, block) => sum + block.tokens, 0);
 }
 
-function rebuild(block: ContextBlock, kept: ContextBlockItem[], extraOmitted: OmittedItem[]): {
+function rebuild(
+  block: ContextBlock,
+  kept: ContextBlockItem[],
+  extraOmitted: OmittedItem[],
+): {
   block: ContextBlock;
   omitted: OmittedItem[];
 } {
@@ -48,7 +54,11 @@ function rebuild(block: ContextBlock, kept: ContextBlockItem[], extraOmitted: Om
   };
 }
 
-function omit(block: ContextBlock, items: readonly ContextBlockItem[], reason: OmitReason): OmittedItem[] {
+function omit(
+  block: ContextBlock,
+  items: readonly ContextBlockItem[],
+  reason: OmitReason,
+): OmittedItem[] {
   return items.map((item) => ({
     block: block.id,
     blockLabel: block.label,
@@ -70,7 +80,11 @@ function enforceQuotas(
     if (block.tokens === 0) return block;
     const quota = budget.quotas[block.id];
     if (quota === undefined || quota.quota <= 0) {
-      const dropped = omit(block, block.items, quota?.quota === 0 ? 'block-disabled' : 'block-over-quota');
+      const dropped = omit(
+        block,
+        block.items,
+        quota?.quota === 0 ? 'block-disabled' : 'block-over-quota',
+      );
       omitted.push(...dropped);
       return { ...block, items: [], content: '', tokens: 0, omittedCount: block.items.length };
     }
@@ -103,7 +117,13 @@ function enforceBudget(
     if (current === undefined || current.tokens === 0) continue;
     omitted.push(...omit(current, current.items, 'block-over-budget'));
     total -= current.tokens;
-    next[entry.index] = { ...current, items: [], content: '', tokens: 0, omittedCount: (current.omittedCount ?? 0) + current.items.length };
+    next[entry.index] = {
+      ...current,
+      items: [],
+      content: '',
+      tokens: 0,
+      omittedCount: (current.omittedCount ?? 0) + current.items.length,
+    };
   }
   return next;
 }
@@ -129,18 +149,32 @@ export function trimToBudget(blocks: readonly ContextBlock[], budget: TokenBudge
  * 激进裁剪：上下文超限后的兜底。
  * 严格按 T4-03 要点 3 只保留「元素链 + 备注 + 页面记忆」，其余整块丢弃。
  */
-export function aggressiveTrim(blocks: readonly ContextBlock[], baseBudget: TokenBudget): TrimResult {
+export function aggressiveTrim(
+  blocks: readonly ContextBlock[],
+  baseBudget: TokenBudget,
+): TrimResult {
   const beforeTokens = assembledTokens(blocks);
   const kept: ContextBlock[] = [];
   const omitted: OmittedItem[] = [];
 
   for (const block of blocks) {
-    if (block.id === 'instruction' || block.id === 'element-chain' || block.id === 'note' || block.id === 'page') {
+    if (
+      block.id === 'instruction' ||
+      block.id === 'element-chain' ||
+      block.id === 'note' ||
+      block.id === 'page'
+    ) {
       kept.push(block);
       continue;
     }
     omitted.push(...omit(block, block.items, 'aggressive-trim'));
-    kept.push({ ...block, items: [], content: '', tokens: 0, omittedCount: (block.omittedCount ?? 0) + block.items.length });
+    kept.push({
+      ...block,
+      items: [],
+      content: '',
+      tokens: 0,
+      omittedCount: (block.omittedCount ?? 0) + block.items.length,
+    });
   }
 
   const budget = createAggressiveBudget(baseBudget);
@@ -151,7 +185,12 @@ export function aggressiveTrim(blocks: readonly ContextBlock[], baseBudget: Toke
 
   return {
     blocks: phase2,
-    report: buildTruncateReport({ items: omitted, beforeTokens, afterTokens: totalTokens, aggressive: true }),
+    report: buildTruncateReport({
+      items: omitted,
+      beforeTokens,
+      afterTokens: totalTokens,
+      aggressive: true,
+    }),
     totalTokens,
   };
 }

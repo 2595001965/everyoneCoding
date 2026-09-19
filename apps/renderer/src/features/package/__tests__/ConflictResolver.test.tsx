@@ -30,7 +30,10 @@ function renderResolver(opts: {
 }
 
 describe('ConflictResolver', () => {
-  const items = [conflictItem('M1', 'memory', '记忆一', 10, 5), conflictItem('M2', 'memory', '记忆二', 10, 5)];
+  const items = [
+    conflictItem('M1', 'memory', '记忆一', 10, 5),
+    conflictItem('M2', 'memory', '记忆二', 10, 5),
+  ];
 
   it('展示冲突计数与未决策徽标（默认全部未决策）', () => {
     renderResolver({ items });
@@ -47,7 +50,9 @@ describe('ConflictResolver', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderResolver({ items, onChange });
-    await user.click(within(screen.getByTestId('conflict-M1')).getByRole('button', { name: '保留本地' }));
+    await user.click(
+      within(screen.getByTestId('conflict-M1')).getByRole('button', { name: '保留本地' }),
+    );
     expect(onChange).toHaveBeenCalledWith('M1', 'keepLocal');
   });
 
@@ -55,7 +60,9 @@ describe('ConflictResolver', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderResolver({ items, onChange });
-    await user.click(within(screen.getByTestId('conflict-M2')).getByRole('button', { name: '采用包内' }));
+    await user.click(
+      within(screen.getByTestId('conflict-M2')).getByRole('button', { name: '采用包内' }),
+    );
     expect(onChange).toHaveBeenCalledWith('M2', 'takeNew');
   });
 
@@ -63,7 +70,9 @@ describe('ConflictResolver', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     renderResolver({ items, onChange });
-    await user.click(within(screen.getByTestId('conflict-M1')).getByRole('button', { name: '两者都保留' }));
+    await user.click(
+      within(screen.getByTestId('conflict-M1')).getByRole('button', { name: '两者都保留' }),
+    );
     expect(onChange).toHaveBeenCalledWith('M1', 'keepBoth');
   });
 
@@ -80,8 +89,17 @@ describe('ConflictResolver', () => {
     renderResolver({ items });
     // 未决策时按钮均未激活（没有自动选中 takeNew/keepBoth）
     const m1 = screen.getByTestId('conflict-M1');
-    expect(within(m1).getByRole('button', { name: '保留本地' })).not.toHaveAttribute('aria-pressed', 'true');
-    expect(within(m1).getByRole('button', { name: '采用包内' })).not.toHaveAttribute('aria-pressed', 'true');
-    expect(within(m1).getByRole('button', { name: '两者都保留' })).not.toHaveAttribute('aria-pressed', 'true');
+    expect(within(m1).getByRole('button', { name: '保留本地' })).not.toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(m1).getByRole('button', { name: '采用包内' })).not.toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(m1).getByRole('button', { name: '两者都保留' })).not.toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

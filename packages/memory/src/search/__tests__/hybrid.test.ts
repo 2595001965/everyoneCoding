@@ -10,7 +10,11 @@ import { fakeEmbedding, makeFakeEmbedder, makeFailingEmbedder } from './testkit'
 
 const DIMS = 8;
 
-function buildSearcher(db: Database.Database, embedder: EmbeddingPort, vector?: VecSearcher): HybridSearcher {
+function buildSearcher(
+  db: Database.Database,
+  embedder: EmbeddingPort,
+  vector?: VecSearcher,
+): HybridSearcher {
   return new HybridSearcher({ db, embedder, ...(vector ? { vector } : {}), dimensions: DIMS });
 }
 
@@ -61,10 +65,38 @@ describe('HybridSearcher —— 降级（语义不可用仍返回关键词结果
 describe('HybridSearcher —— 过滤条件生效', () => {
   function seedItems(db: Database.Database): MemoryRepo {
     const repo = new MemoryRepo(db);
-    repo.create({ userId: TEST_GRAPH.userId, scope: 'project', projectId: TEST_GRAPH.projectId, tags: ['vue'], title: '命名规范', content: 'P1 的命名规范' });
-    repo.create({ userId: TEST_GRAPH.userId, scope: 'project', projectId: TEST_GRAPH.otherProjectId, tags: ['react'], title: '命名规范', content: 'P2 的命名规范' });
-    repo.create({ userId: TEST_GRAPH.userId, scope: 'longterm', tags: ['vue'], title: '命名规范', content: '长期命名规范' });
-    repo.create({ userId: TEST_GRAPH.userId, scope: 'project', projectId: TEST_GRAPH.projectId, tags: ['vue'], status: 'archived', title: '命名规范', content: '已归档的命名规范' });
+    repo.create({
+      userId: TEST_GRAPH.userId,
+      scope: 'project',
+      projectId: TEST_GRAPH.projectId,
+      tags: ['vue'],
+      title: '命名规范',
+      content: 'P1 的命名规范',
+    });
+    repo.create({
+      userId: TEST_GRAPH.userId,
+      scope: 'project',
+      projectId: TEST_GRAPH.otherProjectId,
+      tags: ['react'],
+      title: '命名规范',
+      content: 'P2 的命名规范',
+    });
+    repo.create({
+      userId: TEST_GRAPH.userId,
+      scope: 'longterm',
+      tags: ['vue'],
+      title: '命名规范',
+      content: '长期命名规范',
+    });
+    repo.create({
+      userId: TEST_GRAPH.userId,
+      scope: 'project',
+      projectId: TEST_GRAPH.projectId,
+      tags: ['vue'],
+      status: 'archived',
+      title: '命名规范',
+      content: '已归档的命名规范',
+    });
     return repo;
   }
 
@@ -73,7 +105,10 @@ describe('HybridSearcher —— 过滤条件生效', () => {
     seedGraph(db);
     seedItems(db);
     const hybrid = buildSearcher(db, new NullEmbedder());
-    const res = await hybrid.search('命名规范', { userId: TEST_GRAPH.userId, scopes: ['longterm'] });
+    const res = await hybrid.search('命名规范', {
+      userId: TEST_GRAPH.userId,
+      scopes: ['longterm'],
+    });
     expect(res.hits).toHaveLength(1);
     expect(res.hits[0]?.item?.scope).toBe('longterm');
   });
@@ -83,7 +118,10 @@ describe('HybridSearcher —— 过滤条件生效', () => {
     seedGraph(db);
     seedItems(db);
     const hybrid = buildSearcher(db, new NullEmbedder());
-    const res = await hybrid.search('命名规范', { userId: TEST_GRAPH.userId, projectId: TEST_GRAPH.projectId });
+    const res = await hybrid.search('命名规范', {
+      userId: TEST_GRAPH.userId,
+      projectId: TEST_GRAPH.projectId,
+    });
     const scopes = res.hits.map((h) => h.item?.projectId);
     expect(scopes.every((p) => p === TEST_GRAPH.projectId)).toBe(true);
     expect(res.hits.length).toBeGreaterThanOrEqual(2); // 含 archived
@@ -104,7 +142,11 @@ describe('HybridSearcher —— 过滤条件生效', () => {
     seedGraph(db);
     seedItems(db);
     const hybrid = buildSearcher(db, new NullEmbedder());
-    const res = await hybrid.search('命名规范', { userId: TEST_GRAPH.userId, projectId: TEST_GRAPH.projectId, status: 'active' });
+    const res = await hybrid.search('命名规范', {
+      userId: TEST_GRAPH.userId,
+      projectId: TEST_GRAPH.projectId,
+      status: 'active',
+    });
     expect(res.hits.every((h) => h.item?.status === 'active')).toBe(true);
     expect(res.hits.every((h) => h.item?.projectId === TEST_GRAPH.projectId)).toBe(true);
   });
@@ -119,9 +161,26 @@ describe('HybridSearcher —— 双路召回（仅在 sqlite-vec 可用时执行
 
     const repo = new MemoryRepo(db);
     const items = [
-      repo.create({ userId: TEST_GRAPH.userId, scope: 'project', projectId: TEST_GRAPH.projectId, title: '登录页面设计', content: '登录页面的表单与按钮布局' }),
-      repo.create({ userId: TEST_GRAPH.userId, scope: 'project', projectId: TEST_GRAPH.projectId, title: '注册流程', content: '注册的字段校验逻辑' }),
-      repo.create({ userId: TEST_GRAPH.userId, scope: 'longterm', title: '通用命名规范', content: '统一的命名规范建议' }),
+      repo.create({
+        userId: TEST_GRAPH.userId,
+        scope: 'project',
+        projectId: TEST_GRAPH.projectId,
+        title: '登录页面设计',
+        content: '登录页面的表单与按钮布局',
+      }),
+      repo.create({
+        userId: TEST_GRAPH.userId,
+        scope: 'project',
+        projectId: TEST_GRAPH.projectId,
+        title: '注册流程',
+        content: '注册的字段校验逻辑',
+      }),
+      repo.create({
+        userId: TEST_GRAPH.userId,
+        scope: 'longterm',
+        title: '通用命名规范',
+        content: '统一的命名规范建议',
+      }),
     ];
     ensureVecTable(db, { table: 'memory_item_vec', dimensions: DIMS });
     const vector = new VecSearcher(db, { table: 'memory_item_vec', dimensions: DIMS });

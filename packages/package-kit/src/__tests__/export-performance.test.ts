@@ -28,10 +28,13 @@ function makePerfPort(): ExportSourcePort {
   // 单行 30KB 内容（无换行 → 自检 split 成本低；无密钥 → 不命中脱敏规则）
   const shared = Buffer.alloc(ENTRY_SIZE, 0x78); // 'x' repeated
   const files: string[] = [];
-  for (let i = 0; i < ENTRY_COUNT; i += 1) files.push(`src/module_${i.toString().padStart(5, '0')}.ts`);
+  for (let i = 0; i < ENTRY_COUNT; i += 1)
+    files.push(`src/module_${i.toString().padStart(5, '0')}.ts`);
 
   return {
-    listProjects: () => [{ id: 'proj-perf', name: 'perf', metaJson: JSON.stringify({ id: 'proj-perf' }) }],
+    listProjects: () => [
+      { id: 'proj-perf', name: 'perf', metaJson: JSON.stringify({ id: 'proj-perf' }) },
+    ],
     listMemory: () => [],
     listMemoryLinks: () => [],
     listDocuments: () => [],
@@ -58,7 +61,15 @@ describe('1 万文件导出性能（T8-02）', () => {
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: allFalse(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: allFalse(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: false,
       useDefaultExcludes: false,

@@ -20,9 +20,9 @@ describe('T3-02 多端视口预设', () => {
   });
 
   it('Android / iOS 机型预设符合 PRD 举例', () => {
-    expect(presetsForPlatform('android').map((preset) => `${preset.width}x${preset.height}`)).toEqual(
-      expect.arrayContaining(['360x800', '412x915']),
-    );
+    expect(
+      presetsForPlatform('android').map((preset) => `${preset.width}x${preset.height}`),
+    ).toEqual(expect.arrayContaining(['360x800', '412x915']));
     expect(presetsForPlatform('ios').map((preset) => `${preset.width}x${preset.height}`)).toEqual(
       expect.arrayContaining(['390x844', '430x932']),
     );
@@ -85,7 +85,12 @@ describe('T3-02 多端视口预设', () => {
     expect(box.y).toBe(32);
     expect(box.height).toBe(900 - 32 - 1);
     // 无窗口占位的预设内容区即整块画布
-    expect(contentBoxOf(findPreset('web-1440') as never)).toEqual({ x: 0, y: 0, width: 1440, height: 900 });
+    expect(contentBoxOf(findPreset('web-1440') as never)).toEqual({
+      x: 0,
+      y: 0,
+      width: 1440,
+      height: 900,
+    });
   });
 
   it('栅格常量为 8px；断点标签可用于响应式规则', () => {

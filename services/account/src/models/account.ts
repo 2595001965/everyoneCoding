@@ -86,16 +86,14 @@ export class AccountDb {
   getUserByEmail(email: string): UserRow | null {
     return (
       (this.db.prepare('SELECT * FROM account_user WHERE email = ?').get(email) as
-        | UserRow
-        | undefined) ?? null
+        UserRow | undefined) ?? null
     );
   }
 
   getUserById(id: string): UserRow | null {
     return (
-      (this.db.prepare('SELECT * FROM account_user WHERE id = ?').get(id) as
-        | UserRow
-        | undefined) ?? null
+      (this.db.prepare('SELECT * FROM account_user WHERE id = ?').get(id) as UserRow | undefined) ??
+      null
     );
   }
 
@@ -172,7 +170,9 @@ export class AccountDb {
   getPrimaryWorkspace(userId: string): WorkspaceRow | null {
     return (
       (this.db
-        .prepare('SELECT * FROM account_workspace WHERE owner_id = ? ORDER BY created_at ASC LIMIT 1')
+        .prepare(
+          'SELECT * FROM account_workspace WHERE owner_id = ? ORDER BY created_at ASC LIMIT 1',
+        )
         .get(userId) as WorkspaceRow | undefined) ?? null
     );
   }
@@ -241,8 +241,7 @@ export class AccountDb {
   getIdempotency(key: string): IdempotencyRow | null {
     return (
       (this.db.prepare('SELECT * FROM account_idempotency WHERE key = ?').get(key) as
-        | IdempotencyRow
-        | undefined) ?? null
+        IdempotencyRow | undefined) ?? null
     );
   }
 

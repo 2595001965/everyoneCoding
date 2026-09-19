@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { createElement, createLoginPageDsl, createPageDsl } from '../../dsl/factory';
 import type { PageDsl, Platform } from '../../dsl/types';
 import { ConsistencyPanel } from '../ConsistencyPanel';
-import { checkConsistency, groupByFeature, skeletonSignature, workbenchHint } from '../consistency-check';
+import {
+  checkConsistency,
+  groupByFeature,
+  skeletonSignature,
+  workbenchHint,
+} from '../consistency-check';
 
 /** 同一功能在同路由下的两个端版本（结构一致） */
 function pair(options: { sameStructure?: boolean; sameName?: boolean } = {}): PageDsl[] {
@@ -12,12 +17,21 @@ function pair(options: { sameStructure?: boolean; sameName?: boolean } = {}): Pa
   const web: PageDsl = { ...base, id: 'login-web', platform: 'web', route: '/login' };
   const androidTree = JSON.parse(JSON.stringify(base.tree)) as PageDsl['tree'];
   if (options.sameStructure === false) {
-    androidTree.children = [...(androidTree.children ?? []), createElement({ id: 'extra', type: 'Text', name: '额外区块' })];
+    androidTree.children = [
+      ...(androidTree.children ?? []),
+      createElement({ id: 'extra', type: 'Text', name: '额外区块' }),
+    ];
   }
   if (options.sameName === false) {
     androidTree.children![0]!.children![0]!.name = '站点图标';
   }
-  const android: PageDsl = { ...base, id: 'login-android', platform: 'android', route: '/login', tree: androidTree };
+  const android: PageDsl = {
+    ...base,
+    id: 'login-android',
+    platform: 'android',
+    route: '/login',
+    tree: androidTree,
+  };
   return [web, android];
 }
 
@@ -43,17 +57,37 @@ describe('T3-11 多端一致性：缺失端与缺失页面', () => {
       route: '/home',
       featureId: 'F1',
     });
-    const report = checkConsistency({ pages: [web, android], targetPlatforms: ['web', 'android', 'ios'] });
-    const featureIssues = report.issues.filter((issue) => issue.code === 'MISSING_PLATFORM' && issue.featureId !== null);
+    const report = checkConsistency({
+      pages: [web, android],
+      targetPlatforms: ['web', 'android', 'ios'],
+    });
+    const featureIssues = report.issues.filter(
+      (issue) => issue.code === 'MISSING_PLATFORM' && issue.featureId !== null,
+    );
     expect(featureIssues.map((issue) => issue.platform)).toContain('ios');
     expect(featureIssues.every((issue) => issue.featureId !== null)).toBe(true);
   });
 
   it('某端有页面但缺少某个路由时提示缺失页面', () => {
     const web = createLoginPageDsl();
-    const webDetail = createPageDsl({ id: 'detail-web', projectId: 'P1', name: '详情页', platform: 'web', route: '/detail' });
-    const androidHome = createPageDsl({ id: 'home-android', projectId: 'P1', name: '移动首页', platform: 'android', route: '/home' });
-    const report = checkConsistency({ pages: [web, webDetail, androidHome], targetPlatforms: ['web', 'android'] });
+    const webDetail = createPageDsl({
+      id: 'detail-web',
+      projectId: 'P1',
+      name: '详情页',
+      platform: 'web',
+      route: '/detail',
+    });
+    const androidHome = createPageDsl({
+      id: 'home-android',
+      projectId: 'P1',
+      name: '移动首页',
+      platform: 'android',
+      route: '/home',
+    });
+    const report = checkConsistency({
+      pages: [web, webDetail, androidHome],
+      targetPlatforms: ['web', 'android'],
+    });
     const missing = report.issues.filter((issue) => issue.code === 'MISSING_PAGE');
     // android 缺 /login、/detail；web 缺 /home —— 双向都要报
     expect(missing.map((issue) => `${issue.platform}${issue.path}`).sort()).toEqual([
@@ -74,7 +108,10 @@ describe('T3-11 多端一致性：结构差异与命名差异', () => {
   });
 
   it('骨架层结构不同时给出结构差异', () => {
-    const report = checkConsistency({ pages: pair({ sameStructure: false }), targetPlatforms: ['web', 'android'] });
+    const report = checkConsistency({
+      pages: pair({ sameStructure: false }),
+      targetPlatforms: ['web', 'android'],
+    });
     const structure = report.issues.filter((issue) => issue.code === 'STRUCTURE_DIFF');
     expect(structure).toHaveLength(1);
     expect(structure[0]?.message).toContain('骨架结构');
@@ -82,7 +119,10 @@ describe('T3-11 多端一致性：结构差异与命名差异', () => {
   });
 
   it('同 id 元素显示名不同时给出命名差异（severity=info）', () => {
-    const report = checkConsistency({ pages: pair({ sameName: false }), targetPlatforms: ['web', 'android'] });
+    const report = checkConsistency({
+      pages: pair({ sameName: false }),
+      targetPlatforms: ['web', 'android'],
+    });
     const naming = report.issues.filter((issue) => issue.code === 'NAMING_DIFF');
     expect(naming).toHaveLength(1);
     expect(naming[0]?.severity).toBe('info');
@@ -98,7 +138,15 @@ describe('T3-11 多端一致性：结构差异与命名差异', () => {
   it('完成度统计与工作台提示', () => {
     const report = checkConsistency({
       pages: [createLoginPageDsl()],
-      targetPlatforms: ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos'] as Platform[],
+      targetPlatforms: [
+        'web',
+        'android',
+        'ios',
+        'harmonyos',
+        'windows',
+        'linux',
+        'macos',
+      ] as Platform[],
     });
     expect(report.summary.coveredPlatforms).toEqual(['web']);
     expect(report.summary.missingPlatforms).toHaveLength(6);
@@ -115,12 +163,22 @@ describe('T3-11 多端一致性：结构差异与命名差异', () => {
 
   it('groupByFeature 按功能分组：有功能归属的归到功能，无归属的归到项目级', () => {
     // 有 featureId → 功能级提示
-    const withFeature = groupByFeature(checkConsistency({ pages: [createLoginPageDsl()], targetPlatforms: ['web', 'ios'] }));
+    const withFeature = groupByFeature(
+      checkConsistency({ pages: [createLoginPageDsl()], targetPlatforms: ['web', 'ios'] }),
+    );
     expect(withFeature.map((group) => group.featureId)).toEqual(['F1']);
 
     // 无 featureId → 项目级（null）
-    const orphan = createPageDsl({ id: 'orphan', projectId: 'P1', name: '无归属页', platform: 'web', route: '/orphan' });
-    const withoutFeature = groupByFeature(checkConsistency({ pages: [orphan], targetPlatforms: ['web', 'ios'] }));
+    const orphan = createPageDsl({
+      id: 'orphan',
+      projectId: 'P1',
+      name: '无归属页',
+      platform: 'web',
+      route: '/orphan',
+    });
+    const withoutFeature = groupByFeature(
+      checkConsistency({ pages: [orphan], targetPlatforms: ['web', 'ios'] }),
+    );
     expect(withoutFeature.map((group) => group.featureId)).toEqual([null]);
     expect(withoutFeature[0]?.issues.length).toBeGreaterThan(0);
   });
@@ -128,8 +186,16 @@ describe('T3-11 多端一致性：结构差异与命名差异', () => {
 
 describe('T3-11 一致性面板', () => {
   it('展示四类计数、缺失端标签与分组清单', () => {
-    const report = checkConsistency({ pages: pair({ sameStructure: false, sameName: false }), targetPlatforms: ['web', 'android', 'ios'] });
-    render(<ConsistencyPanel pages={pair({ sameStructure: false, sameName: false })} targetPlatforms={['web', 'android', 'ios']} />);
+    const report = checkConsistency({
+      pages: pair({ sameStructure: false, sameName: false }),
+      targetPlatforms: ['web', 'android', 'ios'],
+    });
+    render(
+      <ConsistencyPanel
+        pages={pair({ sameStructure: false, sameName: false })}
+        targetPlatforms={['web', 'android', 'ios']}
+      />,
+    );
 
     expect(screen.getByTestId('consistency-panel')).toBeInTheDocument();
     expect(screen.getByTestId('missing-platforms')).toHaveTextContent('ios');

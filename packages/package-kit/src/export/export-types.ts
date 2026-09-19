@@ -104,7 +104,8 @@ export interface RedactionFinding {
 
 /* ------------------------------ 进度 ------------------------------ */
 
-export type ExportStage = 'enumerating' | 'excluding' | 'redacting' | 'writing' | 'encrypting' | 'done' | 'failed';
+export type ExportStage =
+  'enumerating' | 'excluding' | 'redacting' | 'writing' | 'encrypting' | 'done' | 'failed';
 
 /** 导出进度快照（进度条 / 计数 / 错误清单，UI 轮询或订阅） */
 export interface ExportProgressSnapshot {

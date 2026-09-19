@@ -138,7 +138,9 @@ export function normalizePackagePath(path: string): string {
   if (segments.includes('..')) {
     throw new Error(`包内路径不允许上跳（..）：${path}`);
   }
-  if (segments.some((segment) => segment.length === 0 && segment !== segments[segments.length - 1]!)) {
+  if (
+    segments.some((segment) => segment.length === 0 && segment !== segments[segments.length - 1]!)
+  ) {
     throw new Error(`包内路径含空段：${path}`);
   }
   return segments.join('/');
@@ -153,7 +155,8 @@ export function classifyLayoutPath(path: string): LayoutSection {
   if (normalized === DIR_MEMORY || normalized.startsWith(DIR_MEMORY)) return 'memory';
   if (normalized === DIR_DOCUMENTS || normalized.startsWith(DIR_DOCUMENTS)) return 'documents';
   if (normalized === DIR_PROJECTS || normalized.startsWith(DIR_PROJECTS)) return 'project';
-  if (normalized === DIR_ATTACHMENTS || normalized.startsWith(DIR_ATTACHMENTS)) return 'attachments';
+  if (normalized === DIR_ATTACHMENTS || normalized.startsWith(DIR_ATTACHMENTS))
+    return 'attachments';
   return 'unknown';
 }
 
@@ -201,12 +204,18 @@ export function assertLayoutStructure(paths: readonly string[]): LayoutViolation
     const prefix = projectMemoryDir(projectId);
     const hasJsonl = normalized.some((p) => p.startsWith(prefix) && p.endsWith('project.jsonl'));
     if (!hasJsonl) {
-      violations.push({ path: `${prefix}project.jsonl`, reason: `项目 ${projectId} 的记忆目录缺少 project.jsonl` });
+      violations.push({
+        path: `${prefix}project.jsonl`,
+        reason: `项目 ${projectId} 的记忆目录缺少 project.jsonl`,
+      });
     }
   }
   for (const projectId of seenCodeProjects) {
     if (!normalized.includes(projectMetaPath(projectId))) {
-      violations.push({ path: projectMetaPath(projectId), reason: `项目 ${projectId} 缺少 meta.json` });
+      violations.push({
+        path: projectMetaPath(projectId),
+        reason: `项目 ${projectId} 缺少 meta.json`,
+      });
     }
   }
 

@@ -62,14 +62,20 @@ export class EventBus<M extends object = EventMapShape> {
 
   off<K extends keyof M & string>(event: K, handler: EventHandler<M[K]>): void {
     for (const listener of [...this.listeners]) {
-      if (listener.pattern === event && listener.handler === (handler as unknown as Listener['handler'])) {
+      if (
+        listener.pattern === event &&
+        listener.handler === (handler as unknown as Listener['handler'])
+      ) {
         this.listeners.delete(listener);
       }
     }
   }
 
   /** 通配符订阅：`*` 监听全部，`domain:*` 监听某域 */
-  onAny(pattern: string, handler: (event: string, payload: unknown) => void | Promise<void>): Unsubscribe {
+  onAny(
+    pattern: string,
+    handler: (event: string, payload: unknown) => void | Promise<void>,
+  ): Unsubscribe {
     const listener: Listener = {
       pattern,
       handler: (payload, event) => handler(event, payload),

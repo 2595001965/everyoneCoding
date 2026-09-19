@@ -31,11 +31,23 @@ export interface BlockQuota {
 }
 
 export const CONTEXT_BLOCK_QUOTAS: readonly BlockQuota[] = [
-  { id: 'instruction', label: '任务指令与输出契约', quota: 16_000, priority: 1_000, trimmable: false },
+  {
+    id: 'instruction',
+    label: '任务指令与输出契约',
+    quota: 16_000,
+    priority: 1_000,
+    trimmable: false,
+  },
   { id: 'element-chain', label: '元素及祖先链', quota: 3_000, priority: 900, trimmable: true },
   { id: 'note', label: '元素备注', quota: 5_000, priority: 880, trimmable: true },
   { id: 'code', label: '已有代码与锚点', quota: 40_000, priority: 860, trimmable: true },
-  { id: 'dependency-contract', label: '依赖接口契约', quota: 8_000, priority: 850, trimmable: true },
+  {
+    id: 'dependency-contract',
+    label: '依赖接口契约',
+    quota: 8_000,
+    priority: 850,
+    trimmable: true,
+  },
   { id: 'page', label: '页面记忆', quota: 16_000, priority: 700, trimmable: true },
   { id: 'feature', label: '功能记忆', quota: 16_000, priority: 600, trimmable: true },
   { id: 'project', label: '项目记忆', quota: 24_000, priority: 500, trimmable: true },
@@ -104,7 +116,9 @@ export interface CreateBudgetOptions {
 }
 
 export function createTokenBudget(options: CreateBudgetOptions = {}): TokenBudget {
-  const profile = options.profile ?? (options.purpose !== undefined ? profileForPurpose(options.purpose) : 'code-generation');
+  const profile =
+    options.profile ??
+    (options.purpose !== undefined ? profileForPurpose(options.purpose) : 'code-generation');
   const total = options.total ?? PURPOSE_PROFILE_BUDGETS[profile];
 
   const quotas = {} as Record<ContextBlockId, BlockQuota>;

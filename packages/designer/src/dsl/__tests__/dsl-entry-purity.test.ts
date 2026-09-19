@@ -35,9 +35,7 @@ const FORBIDDEN_PREFIXES = [
 
 /** 剥掉块注释与行注释，避免文档文字自命中 */
 function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
 /** 收集一个模块文件的全部 import 描述符（只看静态 import / export from） */
@@ -67,13 +65,15 @@ function resolveLocal(fromFile: string, specifier: string): string | null {
     join(dirname(fromFile), `${withoutExt}.ts`),
     join(dirname(fromFile), withoutExt, 'index.ts'),
   ];
-  return candidates.find((candidate) => {
-    try {
-      return readFileSync(candidate, 'utf8').length >= 0;
-    } catch {
-      return false;
-    }
-  }) ?? null;
+  return (
+    candidates.find((candidate) => {
+      try {
+        return readFileSync(candidate, 'utf8').length >= 0;
+      } catch {
+        return false;
+      }
+    }) ?? null
+  );
 }
 
 /** 从入口出发做依赖闭包遍历，返回 { 模块文件 → 该文件的 import 描述符 } */
@@ -98,9 +98,9 @@ describe('@ec/designer/dsl 子入口纯度', () => {
 
   it('入口确实存在且 re-export 了 dsl 模块', () => {
     const source = stripComments(readFileSync(entryFile, 'utf8'));
-    expect(source).toContain("./dsl/types");
-    expect(source).toContain("./dsl/factory");
-    expect(source).toContain("./dsl/serialize");
+    expect(source).toContain('./dsl/types');
+    expect(source).toContain('./dsl/factory');
+    expect(source).toContain('./dsl/serialize');
   });
 
   it('依赖闭包不引 UI 依赖与 Node 内置模块', () => {
@@ -112,7 +112,9 @@ describe('@ec/designer/dsl 子入口纯度', () => {
         }
       }
     }
-    expect(offenders, `以下 import 会把 UI/Node 依赖带进主进程：\n${offenders.join('\n')}`).toEqual([]);
+    expect(offenders, `以下 import 会把 UI/Node 依赖带进主进程：\n${offenders.join('\n')}`).toEqual(
+      [],
+    );
   });
 
   it('依赖闭包只落在入口文件与 dsl/、shared/ 之内', () => {

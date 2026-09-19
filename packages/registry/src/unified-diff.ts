@@ -81,7 +81,12 @@ export interface UnifiedDiff {
   newName: string;
   oldProjections: ProjectionSet;
   newProjections: ProjectionSet;
-  projectionChanges: { kind: ProjectionKind; oldValue: string; newValue: string; changed: boolean }[];
+  projectionChanges: {
+    kind: ProjectionKind;
+    oldValue: string;
+    newValue: string;
+    changed: boolean;
+  }[];
   columns: DiffColumnView[];
   /** 文档栏是否显示修订标记（FR-UNI-09） */
   showRevisionMarks: boolean;
@@ -105,7 +110,11 @@ export interface BuildUnifiedDiffOptions {
 }
 
 /** 生成 doc 栏的修订说明文本（`show` 只影响展示，不改变 before/after） */
-export function revisionNote(entry: Pick<DiffEntry, 'before' | 'after'>, show: boolean, now: number): DocRevision | null {
+export function revisionNote(
+  entry: Pick<DiffEntry, 'before' | 'after'>,
+  show: boolean,
+  now: number,
+): DocRevision | null {
   if (!show) return null;
   return {
     oldText: entry.before,
@@ -193,23 +202,31 @@ export function toggleEntry(diff: UnifiedDiff, id: string, selected: boolean): U
   return {
     ...diff,
     columns: diff.columns.map((column) => {
-      const entries = column.entries.map((entry) => (entry.id === id ? { ...entry, selected } : entry));
-      return { ...column, entries, selectedCount: entries.filter((entry) => entry.selected).length };
+      const entries = column.entries.map((entry) =>
+        entry.id === id ? { ...entry, selected } : entry,
+      );
+      return {
+        ...column,
+        entries,
+        selectedCount: entries.filter((entry) => entry.selected).length,
+      };
     }),
     summary: updateSelected(diff, id, selected),
   };
 }
 
 function updateSelected(diff: UnifiedDiff, id: string, selected: boolean): UnifiedDiff['summary'] {
-  const current = diff.columns
-    .flatMap((column) => column.entries)
-    .find((entry) => entry.id === id);
+  const current = diff.columns.flatMap((column) => column.entries).find((entry) => entry.id === id);
   if (current === undefined || current.selected === selected) return diff.summary;
   return { ...diff.summary, selected: diff.summary.selected + (selected ? 1 : -1) };
 }
 
 /** 整栏全选 / 全不选 */
-export function toggleColumn(diff: UnifiedDiff, column: OccurrenceKind, selected: boolean): UnifiedDiff {
+export function toggleColumn(
+  diff: UnifiedDiff,
+  column: OccurrenceKind,
+  selected: boolean,
+): UnifiedDiff {
   let next = diff;
   for (const entry of diff.columns.find((view) => view.column === column)?.entries ?? []) {
     next = toggleEntry(next, entry.id, selected);
@@ -238,7 +255,14 @@ export function searchEntries(diff: UnifiedDiff, query: string): DiffEntry[] {
   const all = diff.columns.flatMap((column) => column.entries);
   if (keyword.length === 0) return all;
   return all.filter((entry) =>
-    [entry.refPath, entry.locator ?? '', entry.before, entry.after, entry.detail ?? '', entry.matchedSymbol ?? '']
+    [
+      entry.refPath,
+      entry.locator ?? '',
+      entry.before,
+      entry.after,
+      entry.detail ?? '',
+      entry.matchedSymbol ?? '',
+    ]
       .join(' ')
       .toLowerCase()
       .includes(keyword),
@@ -256,7 +280,9 @@ export function applyDiffStatus(
     ...diff,
     columns: diff.columns.map((column) => ({
       ...column,
-      entries: column.entries.map((entry) => (entry.id === id ? { ...entry, status, failure } : entry)),
+      entries: column.entries.map((entry) =>
+        entry.id === id ? { ...entry, status, failure } : entry,
+      ),
     })),
   };
 }

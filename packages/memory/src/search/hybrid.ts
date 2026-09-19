@@ -66,7 +66,10 @@ function nowMs(): number {
 }
 
 /** 把一路命中的有序列表（按 score 降序）转成带 rank 的 RankedList */
-function toRankedList(source: 'keyword' | 'semantic', hits: Array<{ id: string; score: number }>): RankedList {
+function toRankedList(
+  source: 'keyword' | 'semantic',
+  hits: Array<{ id: string; score: number }>,
+): RankedList {
   const sorted = [...hits].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -152,8 +155,14 @@ export class HybridSearcher {
 
     // 4) RRF 融合
     const lists: RankedList[] = [
-      toRankedList('keyword', keywordHits.map((hit) => ({ id: hit.id, score: hit.score }))),
-      toRankedList('semantic', semanticHits.map((hit) => ({ id: hit.id, score: hit.similarity }))),
+      toRankedList(
+        'keyword',
+        keywordHits.map((hit) => ({ id: hit.id, score: hit.score })),
+      ),
+      toRankedList(
+        'semantic',
+        semanticHits.map((hit) => ({ id: hit.id, score: hit.similarity })),
+      ),
     ];
     const fused = reciprocalRankFusion(lists, options.rrf);
 
@@ -165,7 +174,8 @@ export class HybridSearcher {
       if (f.fusedScore < minScore) continue;
       const inKeyword = keywordById.has(f.id);
       const inSemantic = semanticById.has(f.id);
-      const matchedBy: HybridHit['matchedBy'] = inKeyword && inSemantic ? 'both' : inKeyword ? 'keyword' : 'semantic';
+      const matchedBy: HybridHit['matchedBy'] =
+        inKeyword && inSemantic ? 'both' : inKeyword ? 'keyword' : 'semantic';
       const kwHit = keywordById.get(f.id);
       hits.push({
         id: f.id,

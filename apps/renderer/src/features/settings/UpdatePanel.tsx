@@ -96,7 +96,14 @@ export function UpdatePanel({ api }: { api?: UpdateApi | null }): JSX.Element {
           <dd aria-live="polite">{PHASE_TEXT[state.phase]}</dd>
         </dl>
         {state.phase === 'downloading' && state.percent !== undefined ? (
-          <div className="ec-update__progress" role="progressbar" aria-valuenow={state.percent} aria-valuemin={0} aria-valuemax={100} aria-label="下载进度">
+          <div
+            className="ec-update__progress"
+            role="progressbar"
+            aria-valuenow={state.percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="下载进度"
+          >
             <div className="ec-update__progress-bar" style={{ width: `${state.percent}%` }} />
             <span>{state.percent}%</span>
           </div>
@@ -107,7 +114,11 @@ export function UpdatePanel({ api }: { api?: UpdateApi | null }): JSX.Element {
       <section className="ec-update__block">
         <h3>检查与安装</h3>
         <div className="ec-update__actions">
-          <Button variant="ghost" disabled={busy} onClick={() => void run((target) => target.check())}>
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={() => void run((target) => target.check())}
+          >
             检查更新
           </Button>
           {state.available !== null ? (

@@ -58,7 +58,12 @@ export {
   parseOpenAiEvent,
   usageFromOpenAi,
 } from './adapters/openai/response-map';
-export type { OpenAiResponse, OpenAiChoice, OpenAiDelta, OpenAiUsage } from './adapters/openai/response-map';
+export type {
+  OpenAiResponse,
+  OpenAiChoice,
+  OpenAiDelta,
+  OpenAiUsage,
+} from './adapters/openai/response-map';
 export { fetchOpenAiModels } from './adapters/openai/models';
 export {
   buildOpenAiEmbeddingBody,
@@ -66,7 +71,10 @@ export {
   parseOpenAiEmbeddingResponse,
   vectorsFromEmbeddingResponse,
 } from './adapters/openai/embeddings';
-export type { OpenAiEmbeddingResponse, OpenAiEmbeddingRequestBody } from './adapters/openai/embeddings';
+export type {
+  OpenAiEmbeddingResponse,
+  OpenAiEmbeddingRequestBody,
+} from './adapters/openai/embeddings';
 
 export { AnthropicAdapter } from './adapters/anthropic/client';
 export * from './adapters/anthropic/request-map';
@@ -77,7 +85,11 @@ export {
   parseAnthropicEvent,
   usageFromAnthropic,
 } from './adapters/anthropic/response-map';
-export type { AnthropicResponse, AnthropicStreamEvent, AnthropicUsage } from './adapters/anthropic/response-map';
+export type {
+  AnthropicResponse,
+  AnthropicStreamEvent,
+  AnthropicUsage,
+} from './adapters/anthropic/response-map';
 export { fetchAnthropicModels } from './adapters/anthropic/models';
 
 /* ------------------------------ gateway ----------------------------- */

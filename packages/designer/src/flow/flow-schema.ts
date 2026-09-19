@@ -114,7 +114,11 @@ export function nodeToAction(node: FlowNode): ActionNode {
       const route = typeof node.params.route === 'string' ? node.params.route : '';
       if (route.length > 0) action.target = route;
       const routeParams = node.params.params;
-      if (routeParams && typeof routeParams === 'object' && Object.keys(routeParams as object).length > 0) {
+      if (
+        routeParams &&
+        typeof routeParams === 'object' &&
+        Object.keys(routeParams as object).length > 0
+      ) {
         action.params = { ...(routeParams as Record<string, unknown>) };
       }
       break;
@@ -123,9 +127,11 @@ export function nodeToAction(node: FlowNode): ActionNode {
       const api = typeof node.params.api === 'string' ? node.params.api : '';
       if (api.length > 0) action.target = api;
       const params: Record<string, unknown> = {};
-      if (node.params.body !== undefined && node.params.body !== null) params.body = node.params.body;
+      if (node.params.body !== undefined && node.params.body !== null)
+        params.body = node.params.body;
       if (typeof node.params.method === 'string') params.method = node.params.method;
-      if (node.params.headers !== undefined && node.params.headers !== null) params.headers = node.params.headers;
+      if (node.params.headers !== undefined && node.params.headers !== null)
+        params.headers = node.params.headers;
       if (Object.keys(params).length > 0) action.params = params;
       break;
     }
@@ -168,7 +174,10 @@ export function actionToNode(action: ActionNode): FlowNode {
     case 'request':
       node.params.api = typeof action.target === 'string' ? action.target : '';
       node.params.body = action.params?.['body'];
-      node.params.method = typeof action.params?.['method'] === 'string' ? (action.params?.['method'] as string) : 'POST';
+      node.params.method =
+        typeof action.params?.['method'] === 'string'
+          ? (action.params?.['method'] as string)
+          : 'POST';
       node.params.headers = action.params?.['headers'];
       break;
     case 'assign':
@@ -176,7 +185,8 @@ export function actionToNode(action: ActionNode): FlowNode {
       node.params.value = action.value;
       break;
     case 'notify':
-      node.params.type = typeof action.params?.['type'] === 'string' ? (action.params?.['type'] as string) : 'info';
+      node.params.type =
+        typeof action.params?.['type'] === 'string' ? (action.params?.['type'] as string) : 'info';
       node.params.message = action.value;
       break;
     case 'branch':
@@ -205,7 +215,10 @@ export interface CreateFlowNodeOptions {
 }
 
 /** 创建单个节点（带规范默认值），接受别名 kind */
-export function createFlowNode(kind: ActionKindInput, options: CreateFlowNodeOptions = {}): FlowNode {
+export function createFlowNode(
+  kind: ActionKindInput,
+  options: CreateFlowNodeOptions = {},
+): FlowNode {
   const normalized = normalizeActionKind(kind);
   const spec = FLOW_NODE_SPECS[normalized];
   const node: FlowNode = {

@@ -88,10 +88,22 @@ function createJourney(): Journey {
   ]);
   const docs = new Map([['doc-1', DOC]]);
   const memories: Map<string, { structured: unknown; content: string }> = new Map([
-    ['mem-1', { structured: { logic: { states: [{ key: entry.projections.variable }] } }, content: MEMORY_CONTENT }],
+    [
+      'mem-1',
+      {
+        structured: { logic: { states: [{ key: entry.projections.variable }] } },
+        content: MEMORY_CONTENT,
+      },
+    ],
   ]);
   const logicDocs: Map<string, unknown> = new Map([
-    ['page-login', { id: 'page-login', nodes: [{ id: 'btn-1', name: '登录按钮', identifier: entry.projections.variable }] }],
+    [
+      'page-login',
+      {
+        id: 'page-login',
+        nodes: [{ id: 'btn-1', name: '登录按钮', identifier: entry.projections.variable }],
+      },
+    ],
   ]);
   const anchors = new Map<string, string>([['anchor-1', entry.projections.component]]);
   const events = createInMemoryRenameEventStore();
@@ -141,8 +153,7 @@ function createJourney(): Journey {
       },
       rename: (input) => {
         const doc = logicDocs.get(input.documentId) as
-          | { nodes?: { id: string; name?: string; identifier?: string }[] }
-          | undefined;
+          { nodes?: { id: string; name?: string; identifier?: string }[] } | undefined;
         const node = doc?.nodes?.find((item) => item.id === input.nodeId);
         if (node === undefined) throw new Error(`DSL 节点不存在：${input.nodeId}`);
         if (input.field === 'name') node.name = input.to;
@@ -256,7 +267,9 @@ describe('E2E-15/16/17 重命名用户旅程：触发 → 分析 → 执行 → 
     const report = analyze(journey);
     expect(report.totals.total).toBeGreaterThan(0);
     expect(report.groups.length).toBeGreaterThan(0);
-    expect(report.groups.every((group) => ['auto', 'confirm', 'warn'].includes(group.level))).toBe(true);
+    expect(report.groups.every((group) => ['auto', 'confirm', 'warn'].includes(group.level))).toBe(
+      true,
+    );
 
     // ② 执行统一变更：代码/文档/记忆/逻辑/锚点/注册表/Git 全部同步（E2E-15）
     const result = executeRename({

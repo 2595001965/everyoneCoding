@@ -96,7 +96,12 @@ export function IssueMemoryDraft({
 
         <label className="ec-issue-draft__field">
           <span>复现步骤（一行一步）</span>
-          <Textarea value={reproduceText} onChange={setReproduceText} rows={4} aria-label="复现步骤" />
+          <Textarea
+            value={reproduceText}
+            onChange={setReproduceText}
+            rows={4}
+            aria-label="复现步骤"
+          />
         </label>
 
         <label className="ec-issue-draft__field">
@@ -115,7 +120,9 @@ export function IssueMemoryDraft({
             <span className="ec-issue-draft__label">已尝试：</span>
             {value.attempts.length === 0
               ? '暂无记录'
-              : value.attempts.map((attempt) => `${attempt.action}（${attempt.result}）`).join('；')}
+              : value.attempts
+                  .map((attempt) => `${attempt.action}（${attempt.result}）`)
+                  .join('；')}
           </p>
           <p>
             <span className="ec-issue-draft__label">关联位置：</span>

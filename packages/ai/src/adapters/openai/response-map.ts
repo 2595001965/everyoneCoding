@@ -61,7 +61,10 @@ export function finishReasonFromOpenAi(reason: string | null | undefined): Finis
 }
 
 /** 非流式：整包响应 → chunk 序列 */
-export function chunksFromOpenAiResponse(payload: OpenAiResponse, providerId?: string): StreamChunk[] {
+export function chunksFromOpenAiResponse(
+  payload: OpenAiResponse,
+  providerId?: string,
+): StreamChunk[] {
   if (!payload || typeof payload !== 'object' || !Array.isArray(payload.choices)) {
     throw new ProtocolError('响应缺少 choices 字段', {
       ...(providerId ? { providerId } : {}),
@@ -87,7 +90,11 @@ export function chunksFromOpenAiResponse(payload: OpenAiResponse, providerId?: s
   const usage = usageFromOpenAi(payload.usage);
   if (usage) chunks.push({ type: 'usage', usage });
   // 非流式必须尊重服务端 finish_reason（length / tool_calls / content_filter …）
-  chunks.push({ type: 'done', finishReason: finishReasonFromOpenAi(choice?.finish_reason), partial: false });
+  chunks.push({
+    type: 'done',
+    finishReason: finishReasonFromOpenAi(choice?.finish_reason),
+    partial: false,
+  });
   return chunks;
 }
 
@@ -113,7 +120,11 @@ export function chunksFromOpenAiStreamEvent(payload: OpenAiResponse): StreamChun
   if (usage) chunks.push({ type: 'usage', usage });
 
   if (choice?.finish_reason) {
-    chunks.push({ type: 'done', finishReason: finishReasonFromOpenAi(choice.finish_reason), partial: false });
+    chunks.push({
+      type: 'done',
+      finishReason: finishReasonFromOpenAi(choice.finish_reason),
+      partial: false,
+    });
   }
   return chunks;
 }

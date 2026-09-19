@@ -145,7 +145,12 @@ export class RequestQueue {
         entry.abortCleanup = () => signal.removeEventListener('abort', onAbort);
       }
       state.waiting.push(entry);
-      this.emit({ type: 'enqueued', providerId, position: state.waiting.length, waiting: state.waiting.length });
+      this.emit({
+        type: 'enqueued',
+        providerId,
+        position: state.waiting.length,
+        waiting: state.waiting.length,
+      });
       this.pump(providerId);
     });
   }
@@ -178,7 +183,12 @@ export class RequestQueue {
   private ensure(providerId: string): ProviderState {
     const existing = this.states.get(providerId);
     if (existing) return existing;
-    const created: ProviderState = { limits: { ...UNLIMITED }, running: 0, waiting: [], recentStarts: [] };
+    const created: ProviderState = {
+      limits: { ...UNLIMITED },
+      running: 0,
+      waiting: [],
+      recentStarts: [],
+    };
     this.states.set(providerId, created);
     return created;
   }
@@ -217,7 +227,12 @@ export class RequestQueue {
       entry.settled = true;
       entry.abortCleanup?.();
       entry.abortCleanup = null;
-      this.emit({ type: 'started', providerId, waiting: state.waiting.length, running: state.running });
+      this.emit({
+        type: 'started',
+        providerId,
+        waiting: state.waiting.length,
+        running: state.running,
+      });
       entry.resolve(release);
       for (const waiter of entry.waiters) waiter.resolve(release);
     }

@@ -18,18 +18,27 @@ const { fakeApi } = vi.hoisted(() => {
   const allowedHosts = { value: [] as string[] | '*' };
   const external: string[] = [];
   let processSeq = 0;
-  const processListeners = new Map<string, { stdout: Array<(chunk: string) => void>; stderr: Array<(chunk: string) => void>; exit: Array<(result: { code: number | null; signal: string | null }) => void> }>();
+  const processListeners = new Map<
+    string,
+    {
+      stdout: Array<(chunk: string) => void>;
+      stderr: Array<(chunk: string) => void>;
+      exit: Array<(result: { code: number | null; signal: string | null }) => void>;
+    }
+  >();
 
   const fakeApi = {
     fs: {
       readText: async (filePath: string) => {
         const content = files.get(filePath);
-        if (content === undefined) throw new Error(JSON.stringify({ code: 'NOT_FOUND', message: '文件不存在' }));
+        if (content === undefined)
+          throw new Error(JSON.stringify({ code: 'NOT_FOUND', message: '文件不存在' }));
         return content;
       },
       readBinary: async (filePath: string) => {
         const content = files.get(filePath);
-        if (content === undefined) throw new Error(JSON.stringify({ code: 'NOT_FOUND', message: '文件不存在' }));
+        if (content === undefined)
+          throw new Error(JSON.stringify({ code: 'NOT_FOUND', message: '文件不存在' }));
         return Array.from(Buffer.from(content, 'utf8'));
       },
       writeAtomic: async (filePath: string, data: string | number[]) => {
@@ -41,13 +50,26 @@ const { fakeApi } = vi.hoisted(() => {
       stat: async (filePath: string) => {
         const content = files.get(filePath);
         if (content === undefined) return null;
-        return { path: filePath, size: content.length, isFile: true, isDirectory: false, mtimeMs: 0, ctimeMs: 0, readonly: false };
+        return {
+          path: filePath,
+          size: content.length,
+          isFile: true,
+          isDirectory: false,
+          mtimeMs: 0,
+          ctimeMs: 0,
+          readonly: false,
+        };
       },
       readdir: async (dirPath: string) => {
         const prefix = `${dirPath}\\`;
         return [...files.keys()]
           .filter((key) => key.startsWith(prefix))
-          .map((key) => ({ name: key.slice(prefix.length), path: key, isFile: true, isDirectory: false }));
+          .map((key) => ({
+            name: key.slice(prefix.length),
+            path: key,
+            isFile: true,
+            isDirectory: false,
+          }));
       },
       mkdir: async (dirPath: string) => {
         dirs.add(dirPath);
@@ -108,7 +130,10 @@ const { fakeApi } = vi.hoisted(() => {
         processListeners.get(id)?.stderr.push(cb);
         return () => undefined;
       },
-      onExit: (id: string, cb: (result: { code: number | null; signal: string | null }) => void) => {
+      onExit: (
+        id: string,
+        cb: (result: { code: number | null; signal: string | null }) => void,
+      ) => {
         processListeners.get(id)?.exit.push(cb);
         return () => undefined;
       },
@@ -142,7 +167,9 @@ const { fakeApi } = vi.hoisted(() => {
       },
       has: async (namespace: string, key: string) => secure.has(`${namespace}:${key}`),
       listKeys: async (namespace: string) =>
-        [...secure.keys()].filter((k) => k.startsWith(`${namespace}:`)).map((k) => k.slice(namespace.length + 1)),
+        [...secure.keys()]
+          .filter((k) => k.startsWith(`${namespace}:`))
+          .map((k) => k.slice(namespace.length + 1)),
     },
     updater: {
       check: async () => null,
@@ -176,13 +203,15 @@ const { fakeApi } = vi.hoisted(() => {
     net: {
       fetch: async (request: { url: string }) => {
         const host = new URL(request.url).host;
-        const allowed = allowedHosts.value === '*' || (allowedHosts.value as string[]).includes(host);
+        const allowed =
+          allowedHosts.value === '*' || (allowedHosts.value as string[]).includes(host);
         if (!allowed) {
           throw new Error(JSON.stringify({ code: 'NET_BLOCKED', message: `主机未放行: ${host}` }));
         }
         return { status: 200, statusText: 'OK', headers: {}, body: '' };
       },
-      isHostAllowed: async (host: string) => allowedHosts.value === '*' || (allowedHosts.value as string[]).includes(host),
+      isHostAllowed: async (host: string) =>
+        allowedHosts.value === '*' || (allowedHosts.value as string[]).includes(host),
       setAllowedHosts: async (hosts: string[] | '*') => {
         allowedHosts.value = hosts;
       },
@@ -197,8 +226,10 @@ const { fakeApi } = vi.hoisted(() => {
 
 vi.stubGlobal('ecShell', fakeApi);
 
-runShellContract(
-  'ElectronShell',
-  () => createElectronShell(fakeApi as unknown as EcShellPreload),
-  { describe, it, expect, beforeEach, afterEach } as unknown as ContractHarness,
-);
+runShellContract('ElectronShell', () => createElectronShell(fakeApi as unknown as EcShellPreload), {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+} as unknown as ContractHarness);

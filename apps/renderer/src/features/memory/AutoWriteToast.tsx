@@ -72,7 +72,9 @@ export function AutoWriteToast({
           已记入长期记忆：{record.title}
           {record.category && <Tag color="info">{record.category}</Tag>}
         </div>
-        {record.snippet && <div className="ec-auto-write-toast__desc">来源：“{record.snippet}”</div>}
+        {record.snippet && (
+          <div className="ec-auto-write-toast__desc">来源：“{record.snippet}”</div>
+        )}
       </div>
       <div className="ec-auto-write-toast__actions">
         {onOpen && (

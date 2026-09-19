@@ -119,7 +119,11 @@ export class AuthClient {
       }
       if (response.status >= 400) {
         const payload = (response.json ?? {}) as { code?: string; message?: string };
-        throw new AuthError(payload.code ?? 'http_error', payload.message ?? `请求失败（${response.status}）`, response.status);
+        throw new AuthError(
+          payload.code ?? 'http_error',
+          payload.message ?? `请求失败（${response.status}）`,
+          response.status,
+        );
       }
       return response.json as T;
     });
@@ -212,7 +216,10 @@ export class AuthClient {
     } catch {
       const protocolOk = await this.system.registerProtocol(() => undefined);
       if (!protocolOk) {
-        throw new AuthError('oauth_channel_unavailable', '本地回环监听与自定义协议均不可用，无法完成第三方登录。');
+        throw new AuthError(
+          'oauth_channel_unavailable',
+          '本地回环监听与自定义协议均不可用，无法完成第三方登录。',
+        );
       }
       redirectUri = 'everyonecoding://oauth';
       channel = 'protocol';
@@ -230,7 +237,15 @@ export class AuthClient {
       state,
     });
     await this.system.openExternal(authorizeUrl);
-    return { provider, state, codeVerifier: pkce.verifier, redirectUri, authorizeUrl, channel, stop };
+    return {
+      provider,
+      state,
+      codeVerifier: pkce.verifier,
+      redirectUri,
+      authorizeUrl,
+      channel,
+      stop,
+    };
   }
 
   private buildAuthorizeUrl(
@@ -239,7 +254,11 @@ export class AuthClient {
   ): string {
     if (provider === GOOGLE_PROVIDER) return buildGoogleAuthorizeUrl(input);
     if (provider === GITHUB_PROVIDER) return buildGithubAuthorizeUrl(input);
-    return buildWechatQrUrl({ appId: input.clientId, redirectUri: input.redirectUri, state: input.state });
+    return buildWechatQrUrl({
+      appId: input.clientId,
+      redirectUri: input.redirectUri,
+      state: input.state,
+    });
   }
 
   /** 完成 OAuth：解析回调 → 服务端换令牌 → 保存会话（首次授权自动建号） */
@@ -275,7 +294,12 @@ export class AuthClient {
   /** 微信扫码轮询（5 分钟超时自动过期，由 UI 重新取码） */
   async waitWechatScan(
     state: string,
-    options: { intervalMs?: number; timeoutMs?: number; clock?: () => number; sleep?: (ms: number) => Promise<void> } = {},
+    options: {
+      intervalMs?: number;
+      timeoutMs?: number;
+      clock?: () => number;
+      sleep?: (ms: number) => Promise<void>;
+    } = {},
   ): Promise<WechatPollResult> {
     return pollWechatQr(
       () =>

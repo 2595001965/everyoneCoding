@@ -10,14 +10,16 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  DOCUMENT_COLUMNS,
-  DOC_VERSION_COLUMNS,
-  MEMORY_DOC_LINK_COLUMNS,
-} from '../doc-types';
+import { DOCUMENT_COLUMNS, DOC_VERSION_COLUMNS, MEMORY_DOC_LINK_COLUMNS } from '../doc-types';
 
-const INIT_SQL = readFileSync(new URL('../../../../data/migrations/0001_init.sql', import.meta.url), 'utf8');
-const DOCS_SQL = readFileSync(new URL('../../../../data/migrations/0005_workspace_docs.sql', import.meta.url), 'utf8');
+const INIT_SQL = readFileSync(
+  new URL('../../../../data/migrations/0001_init.sql', import.meta.url),
+  'utf8',
+);
+const DOCS_SQL = readFileSync(
+  new URL('../../../../data/migrations/0005_workspace_docs.sql', import.meta.url),
+  'utf8',
+);
 
 /** 从 `CREATE TABLE <name> (...)` 抽取列名（跳过约束行与注释） */
 function columnsOf(sql: string, table: string): string[] {

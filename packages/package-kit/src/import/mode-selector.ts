@@ -22,8 +22,24 @@ import {
 
 /** 各模式参与的包内对象类别 */
 export const MODE_PARTICIPATING_TYPES: Record<ImportMode, ReadonlySet<PackageObjectType>> = {
-  'full-restore': new Set<PackageObjectType>(['memory', 'document', 'design', 'registry', 'code', 'anchor', 'pipeline']),
-  merge: new Set<PackageObjectType>(['memory', 'document', 'design', 'registry', 'code', 'anchor', 'pipeline']),
+  'full-restore': new Set<PackageObjectType>([
+    'memory',
+    'document',
+    'design',
+    'registry',
+    'code',
+    'anchor',
+    'pipeline',
+  ]),
+  merge: new Set<PackageObjectType>([
+    'memory',
+    'document',
+    'design',
+    'registry',
+    'code',
+    'anchor',
+    'pipeline',
+  ]),
   'memory-only': new Set<PackageObjectType>(['memory']),
   'documents-only': new Set<PackageObjectType>(['document']),
   'code-only': new Set<PackageObjectType>(['code', 'design', 'registry', 'anchor', 'pipeline']),
@@ -39,7 +55,10 @@ export function describeMode(mode: ImportMode): string {
   return IMPORT_MODE_LABELS[mode];
 }
 
-function emptyByType(): Record<PackageObjectType, { apply: number; overwrite: number; skip: number }> {
+function emptyByType(): Record<
+  PackageObjectType,
+  { apply: number; overwrite: number; skip: number }
+> {
   return {
     memory: { apply: 0, overwrite: 0, skip: 0 },
     document: { apply: 0, overwrite: 0, skip: 0 },

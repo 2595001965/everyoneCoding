@@ -47,7 +47,12 @@ export class ShellError extends Error {
   readonly shell: ShellKind | 'unknown';
   override readonly cause?: string;
 
-  constructor(code: ShellErrorCode, message?: string, cause?: unknown, shell: ShellKind | 'unknown' = 'unknown') {
+  constructor(
+    code: ShellErrorCode,
+    message?: string,
+    cause?: unknown,
+    shell: ShellKind | 'unknown' = 'unknown',
+  ) {
     super(message ?? CODE_MESSAGE[code]);
     this.name = 'ShellError';
     this.code = code;
@@ -71,11 +76,14 @@ export function toShellError(
 ): ShellError {
   if (isShellError(error)) return error;
   const message = error instanceof Error ? error.message : String(error);
-  if (/ENOENT|not found|找不到/i.test(message)) return new ShellError('NOT_FOUND', message, error, shell);
+  if (/ENOENT|not found|找不到/i.test(message))
+    return new ShellError('NOT_FOUND', message, error, shell);
   if (/EACCES|EPERM|denied|拒绝访问/i.test(message)) {
     return new ShellError('PERMISSION_DENIED', message, error, shell);
   }
-  if (/EEXIST|already exists/i.test(message)) return new ShellError('ALREADY_EXISTS', message, error, shell);
-  if (/ETIMEDOUT|timeout|超时/i.test(message)) return new ShellError('TIMEOUT', message, error, shell);
+  if (/EEXIST|already exists/i.test(message))
+    return new ShellError('ALREADY_EXISTS', message, error, shell);
+  if (/ETIMEDOUT|timeout|超时/i.test(message))
+    return new ShellError('TIMEOUT', message, error, shell);
   return new ShellError(fallbackCode, message, error, shell);
 }

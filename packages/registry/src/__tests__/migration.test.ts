@@ -56,7 +56,9 @@ const ROLLBACK = 'ALTER TABLE users RENAME COLUMN login_submit TO login_button;'
 const FORWARD_STMT = FORWARD.replace(/;$/, '');
 const ROLLBACK_STMT = ROLLBACK.replace(/;$/, '');
 
-const MODEL_OUTPUT = ['说明文字', '', '```sql', FORWARD, '```', '', '```sql', ROLLBACK, '```'].join('\n');
+const MODEL_OUTPUT = ['说明文字', '', '```sql', FORWARD, '```', '', '```sql', ROLLBACK, '```'].join(
+  '\n',
+);
 
 function fakeModel(output = MODEL_OUTPUT): MigrationModelPort {
   return { modelId: 'fake-model', complete: async () => output };
@@ -90,10 +92,16 @@ describe('T7-05 SQL 安全检测（D-08 / FR-UNI-07）', () => {
   it('四类高危识别：DROP / 类型变更 / NOT NULL 收紧 / 列改名', () => {
     expect(classifyStatement('DROP COLUMN legacy')?.kind).toBe('drop');
     expect(classifyStatement('ALTER TABLE t ALTER COLUMN c TYPE text')?.kind).toBe('type_change');
-    expect(classifyStatement('ALTER TABLE t ALTER COLUMN c SET NOT NULL')?.kind).toBe('not_null_tighten');
-    expect(classifyStatement('ALTER TABLE t ADD COLUMN c TEXT NOT NULL')?.kind).toBe('not_null_tighten');
+    expect(classifyStatement('ALTER TABLE t ALTER COLUMN c SET NOT NULL')?.kind).toBe(
+      'not_null_tighten',
+    );
+    expect(classifyStatement('ALTER TABLE t ADD COLUMN c TEXT NOT NULL')?.kind).toBe(
+      'not_null_tighten',
+    );
     expect(classifyStatement('ALTER TABLE t RENAME COLUMN a TO b')?.kind).toBe('rename_column');
-    expect(classifyStatement('ALTER TABLE t ADD COLUMN c TEXT DEFAULT \'\'')?.kind).toBe('add_column');
+    expect(classifyStatement("ALTER TABLE t ADD COLUMN c TEXT DEFAULT ''")?.kind).toBe(
+      'add_column',
+    );
     expect(classifyStatement('CREATE INDEX idx ON t (c)')?.kind).toBe('index');
     expect(classifyStatement('SELECT 1')).toBeNull();
   });
@@ -218,7 +226,10 @@ describe('T7-05 迁移预览与执行（E2E-20）', () => {
   });
 
   it('影响行数估算：精确 → 统计 → unknown 三级降级', async () => {
-    const exact = await estimateAffectedRows('users', { countRows: async () => 10, estimateRows: async () => 8 });
+    const exact = await estimateAffectedRows('users', {
+      countRows: async () => 10,
+      estimateRows: async () => 8,
+    });
     expect(exact.method).toBe('exact');
     const statistics = await estimateAffectedRows('users', {
       countRows: async () => null,
@@ -414,8 +425,18 @@ describe('T7-05 别名与兼容期（FR-UNI-10）', () => {
     const withAliases: RegistryEntry = {
       ...entry,
       aliases: [
-        createAliasEntry({ kind: 'code', oldName: '旧名A', cleanupDueAt: NOW + 2 * 24 * 3600 * 1000, now: NOW }),
-        createAliasEntry({ kind: 'api', oldName: '旧名B', cleanupDueAt: NOW - 24 * 3600 * 1000, now: NOW }),
+        createAliasEntry({
+          kind: 'code',
+          oldName: '旧名A',
+          cleanupDueAt: NOW + 2 * 24 * 3600 * 1000,
+          now: NOW,
+        }),
+        createAliasEntry({
+          kind: 'api',
+          oldName: '旧名B',
+          cleanupDueAt: NOW - 24 * 3600 * 1000,
+          now: NOW,
+        }),
         createAliasEntry({ kind: 'i18n', oldName: '旧名C', cleanupDueAt: null, now: NOW }),
       ],
     };
@@ -441,7 +462,11 @@ describe('T7-05 别名与兼容期（FR-UNI-10）', () => {
     expect(alias.cleanupDueAt).toBe(NOW + 7 * 24 * 3600 * 1000);
 
     const withAlias = { ...entry, aliases: [alias] };
-    const result = cleanAliases([withAlias], [{ registryId: entry.id, kind: 'code', name: '旧名A' }], NOW + 1);
+    const result = cleanAliases(
+      [withAlias],
+      [{ registryId: entry.id, kind: 'code', name: '旧名A' }],
+      NOW + 1,
+    );
     expect(result.cleaned).toHaveLength(1);
     expect(result.cleanedKeys).toEqual(['code|旧名A']);
     expect(result.entries[0]?.aliases).toEqual([]);
@@ -456,7 +481,12 @@ const FILE_B = 'const y = <RegisterButton />;\n';
 
 describe('T7-05 批处理与命名规范化（FR-UNI-14）', () => {
   /** 代码命中：行列号由真实内容现算，执行器才能复核通过 */
-  const codeHit = (registryId: string, symbol: string, refPath: string, content: string): Occurrence => {
+  const codeHit = (
+    registryId: string,
+    symbol: string,
+    refPath: string,
+    content: string,
+  ): Occurrence => {
     const cursor = content.indexOf(symbol);
     const line = cursor < 0 ? 1 : content.slice(0, cursor).split('\n').length;
     const column = cursor < 0 ? 1 : cursor - content.slice(0, cursor).lastIndexOf('\n');
@@ -520,7 +550,9 @@ describe('T7-05 批处理与命名规范化（FR-UNI-14）', () => {
     });
     expect(plan.steps).toHaveLength(0);
     expect(plan.blocked).toHaveLength(1);
-    expect(plan.blocked[0]?.violations.some((violation) => violation.kind === 'reserved_word')).toBe(true);
+    expect(
+      plan.blocked[0]?.violations.some((violation) => violation.kind === 'reserved_word'),
+    ).toBe(true);
 
     const executed = executeBatchRename({ plan, deps: dummyDeps() });
     expect(executed.ok).toBe(false);

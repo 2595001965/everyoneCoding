@@ -2,12 +2,7 @@ import { z } from 'zod';
 import { newUlid } from '@ec/data';
 import type { MemoryItemRow } from '@ec/data';
 
-import {
-  ownershipWarnings,
-  validateOwnership,
-  MEMORY_SCOPES,
-  type MemoryScope,
-} from './scope';
+import { ownershipWarnings, validateOwnership, MEMORY_SCOPES, type MemoryScope } from './scope';
 
 /**
  * 五层记忆条目（FR-MEM-01 ~ FR-MEM-07，字段对齐 PRD §6.2 的 `memory_item`）。
@@ -25,7 +20,13 @@ export type MemoryStatus = (typeof MEMORY_STATUSES)[number];
 export const ISSUE_STATUSES = ['unsolved', 'solved', 'mitigated'] as const;
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
-export const MEMORY_SOURCE_TYPES = ['manual', 'auto_chat', 'auto_design', 'doc_import', 'ai_summary'] as const;
+export const MEMORY_SOURCE_TYPES = [
+  'manual',
+  'auto_chat',
+  'auto_design',
+  'doc_import',
+  'ai_summary',
+] as const;
 export type MemorySourceType = (typeof MEMORY_SOURCE_TYPES)[number];
 
 export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
@@ -150,13 +151,25 @@ export const memoryItemSchema = z
       element_id: item.elementId,
       issue_id: item.issueId,
     })) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [violation.field], message: violation.message });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [violation.field],
+        message: violation.message,
+      });
     }
     if (item.scope === 'issue' && item.issueStatus === null) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['issueStatus'], message: '问题记忆必须带 issueStatus' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['issueStatus'],
+        message: '问题记忆必须带 issueStatus',
+      });
     }
     if (item.scope !== 'issue' && item.issueStatus !== null) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['issueStatus'], message: '仅问题记忆可带 issueStatus' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['issueStatus'],
+        message: '仅问题记忆可带 issueStatus',
+      });
     }
   });
 
@@ -216,11 +229,17 @@ export function canTransitionIssueStatus(from: IssueStatus, to: IssueStatus): bo
  * @param explicit 显式重开（solved/mitigated → unsolved）必须由调用方声明，
  *                 普通入口不得隐式把已解决的问题打回未解决。
  */
-export function assertStatusTransition(from: MemoryStatus, to: MemoryStatus, options: { explicit?: boolean } = {}): void {
+export function assertStatusTransition(
+  from: MemoryStatus,
+  to: MemoryStatus,
+  options: { explicit?: boolean } = {},
+): void {
   if (canTransitionStatus(from, to)) return;
   // 唯一需要显式声明的非法路径：superseded → archived 之外，其余均为硬拒绝
   if (options.explicit) return;
-  throw new MemoryStateError(`非法状态流转：${MEMORY_STATUS_LABELS[from]} → ${MEMORY_STATUS_LABELS[to]}`);
+  throw new MemoryStateError(
+    `非法状态流转：${MEMORY_STATUS_LABELS[from]} → ${MEMORY_STATUS_LABELS[to]}`,
+  );
 }
 
 export function assertIssueStatusTransition(
@@ -248,7 +267,9 @@ export function parseStructured(raw: string | null | undefined): Record<string, 
   }
 }
 
-export function serializeStructured(value: Record<string, unknown> | null | undefined): string | null {
+export function serializeStructured(
+  value: Record<string, unknown> | null | undefined,
+): string | null {
   if (!value) return null;
   return JSON.stringify(value);
 }
@@ -274,7 +295,9 @@ export function blobToEmbedding(blob: Uint8Array | null | undefined): number[] |
   return Array.from(new Float32Array(buffer));
 }
 
-export function embeddingToBlob(embedding: readonly number[] | null | undefined): Uint8Array | null {
+export function embeddingToBlob(
+  embedding: readonly number[] | null | undefined,
+): Uint8Array | null {
   if (!embedding || embedding.length === 0) return null;
   return new Uint8Array(new Float32Array(embedding).buffer);
 }
@@ -358,7 +381,9 @@ export function createMemoryItem(input: CreateMemoryInput): MemoryItem {
     sourceType: input.sourceType ?? 'manual',
     sourceRef: input.sourceRef ?? null,
     // 手动写入默认为满置信度（FR-MEM-07 / PRD §6.2）
-    confidence: clamp01(input.confidence ?? (input.sourceType && input.sourceType !== 'manual' ? 0.6 : 1)),
+    confidence: clamp01(
+      input.confidence ?? (input.sourceType && input.sourceType !== 'manual' ? 0.6 : 1),
+    ),
     importance: clampImportance(input.importance ?? 3),
     status: input.status ?? 'active',
     issueStatus: input.scope === 'issue' ? (input.issueStatus ?? 'unsolved') : null,
@@ -372,7 +397,9 @@ export function createMemoryItem(input: CreateMemoryInput): MemoryItem {
   return item;
 }
 
-export function describeMemoryWarnings(item: Pick<MemoryItem, 'scope' | 'projectId' | 'featureId' | 'pageId' | 'elementId' | 'issueId'>): string[] {
+export function describeMemoryWarnings(
+  item: Pick<MemoryItem, 'scope' | 'projectId' | 'featureId' | 'pageId' | 'elementId' | 'issueId'>,
+): string[] {
   return ownershipWarnings(item.scope, {
     project_id: item.projectId,
     feature_id: item.featureId,

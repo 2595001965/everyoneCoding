@@ -16,7 +16,14 @@ import type { PackageObject } from '../import/import-types';
 
 function memPkg(id: string, content: string, updatedAt: number): PackageObject {
   const m = makeMemoryItem({ id, content, updatedAt });
-  return { id, type: 'memory', projectId: null, name: content.slice(0, 20), updatedAt, payload: JSON.stringify(m) };
+  return {
+    id,
+    type: 'memory',
+    projectId: null,
+    name: content.slice(0, 20),
+    updatedAt,
+    payload: JSON.stringify(m),
+  };
 }
 
 const baseSpec = {
@@ -111,7 +118,9 @@ describe('runImport：五种模式集成', () => {
 
 describe('runImport：冲突与决策', () => {
   it('merge + takeNew：覆盖本地记忆并取代旧 id', async () => {
-    const pkg = buildPackage({ memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })] });
+    const pkg = buildPackage({
+      memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })],
+    });
     const ft = makeTargetPort();
     const decisions: ConflictDecision[] = [{ id: 'M1', resolution: 'takeNew' }];
     const report = await runImport(jobReq({ packagePath: pkg, mode: 'merge', decisions }), {
@@ -126,7 +135,9 @@ describe('runImport：冲突与决策', () => {
   });
 
   it('默认 keepLocal：不覆盖本地（本地内容保留）', async () => {
-    const pkg = buildPackage({ memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })] });
+    const pkg = buildPackage({
+      memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })],
+    });
     const ft = makeTargetPort();
     // 先写入本地版本
     ft.memory.set('M1', JSON.stringify(memPkg('M1', 'local-内容', 100)));
@@ -140,7 +151,9 @@ describe('runImport：冲突与决策', () => {
   });
 
   it('未决策冲突：整体拒绝（抛错）', async () => {
-    const pkg = buildPackage({ memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })] });
+    const pkg = buildPackage({
+      memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })],
+    });
     await expect(
       runImport(jobReq({ packagePath: pkg, mode: 'merge' }), {
         local: makeLocalPort([memPkg('M1', 'local-内容', 100)]),
@@ -150,7 +163,9 @@ describe('runImport：冲突与决策', () => {
   });
 
   it('keepBoth：生成新 id 落库，原本地保留', async () => {
-    const pkg = buildPackage({ memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })] });
+    const pkg = buildPackage({
+      memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'incoming-内容' })],
+    });
     const ft = makeTargetPort();
     const decisions: ConflictDecision[] = [{ id: 'M1', resolution: 'keepBoth' }];
     const report = await runImport(jobReq({ packagePath: pkg, mode: 'merge', decisions }), {
@@ -186,7 +201,16 @@ describe('runImport：冲突与决策', () => {
         batchDecisions: { document: 'takeNew' },
       }),
       {
-        local: makeLocalPort([{ id: 'D1', type: 'document', projectId: 'P1', name: '文档', updatedAt: 10, payload: 'local-doc' }]),
+        local: makeLocalPort([
+          {
+            id: 'D1',
+            type: 'document',
+            projectId: 'P1',
+            name: '文档',
+            updatedAt: 10,
+            payload: 'local-doc',
+          },
+        ]),
         target: ft.port,
       },
     );
@@ -198,15 +222,23 @@ describe('runImport：冲突与决策', () => {
 
 describe('runImport：校验失败与失败重试', () => {
   it('包被篡改：抛出 ImportVerifyError', async () => {
-    const pkg = buildPackage({ memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'x' })] });
+    const pkg = buildPackage({
+      memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'x' })],
+    });
     const bad = tamperPackage(pkg);
     await expect(
-      runImport(jobReq({ packagePath: bad }), { local: makeLocalPort(), target: makeTargetPort().port }),
+      runImport(jobReq({ packagePath: bad }), {
+        local: makeLocalPort(),
+        target: makeTargetPort().port,
+      }),
     ).rejects.toBeInstanceOf(ImportVerifyError);
   });
 
   it('加密包口令错误：ImportVerifyError 且 failureCode=password', async () => {
-    const enc = buildEncryptedPackage({ memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'x' })] }, 'secret');
+    const enc = buildEncryptedPackage(
+      { memoryLongterm: [makeMemoryItem({ id: 'M1', updatedAt: 100, content: 'x' })] },
+      'secret',
+    );
     try {
       await runImport(jobReq({ packagePath: enc, password: 'wrong' }), {
         local: makeLocalPort(),
@@ -229,10 +261,13 @@ describe('runImport：校验失败与失败重试', () => {
         return ft.port.putObject(object);
       },
     };
-    const report = await runImport(jobReq({ packagePath: pkg, mode: 'full-restore', onProgress: (s) => calls.push(s) }), {
-      local: makeLocalPort(),
-      target: failingTarget,
-    });
+    const report = await runImport(
+      jobReq({ packagePath: pkg, mode: 'full-restore', onProgress: (s) => calls.push(s) }),
+      {
+        local: makeLocalPort(),
+        target: failingTarget,
+      },
+    );
     expect(report.failures.some((f) => f.path === 'code:P1:src/app.ts')).toBe(true);
     expect(calls).toContain('verifying');
     expect(calls).toContain('done');

@@ -87,7 +87,8 @@ export class RemoteConfigRepo {
 
   update(id: string, patch: Partial<RemoteConfigSourceInput>): RemoteConfigSource | null {
     const next: Partial<RemoteConfigSourceRow> = {};
-    if (patch.name !== undefined) next['name'] = z.string().trim().min(1).max(128).parse(patch.name);
+    if (patch.name !== undefined)
+      next['name'] = z.string().trim().min(1).max(128).parse(patch.name);
     if (patch.url !== undefined) next['url'] = httpUrlSchema.parse(patch.url);
     if (patch.publicKey !== undefined) next['public_key'] = patch.publicKey?.trim() || null;
     if (patch.enabled !== undefined) next['enabled'] = patch.enabled ? 1 : 0;
@@ -104,7 +105,12 @@ export class RemoteConfigRepo {
   /** 记录一次拉取结果（成功与失败都记，UI 展示"上次拉取"） */
   recordFetch(
     id: string,
-    result: { status: RemoteFetchStatus; error?: string | null; payloadJson?: string | null; appliedRevision?: string | null },
+    result: {
+      status: RemoteFetchStatus;
+      error?: string | null;
+      payloadJson?: string | null;
+      appliedRevision?: string | null;
+    },
   ): RemoteConfigSource | null {
     const patch: Partial<RemoteConfigSourceRow> = {
       last_fetch_at: Date.now(),

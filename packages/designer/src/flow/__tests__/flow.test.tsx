@@ -19,14 +19,33 @@ describe('T3-09 五类动作节点序列化', () => {
   it('navigate / request / assign / notify / branch 均可无损映射到 ActionNode 并还原', () => {
     const actions: ActionNode[] = [
       { id: 'n1', kind: 'navigate', target: '/dashboard', params: { tab: 'overview' }, next: 'n2' },
-      { id: 'n2', kind: 'request', target: '/api/login', async: true, params: { method: 'POST', body: { phone: '${phone}' } }, next: 'n3' },
+      {
+        id: 'n2',
+        kind: 'request',
+        target: '/api/login',
+        async: true,
+        params: { method: 'POST', body: { phone: '${phone}' } },
+        next: 'n3',
+      },
       { id: 'n3', kind: 'assign', target: 'loading', value: true, next: 'n4' },
       { id: 'n4', kind: 'notify', value: '登录失败', params: { type: 'error' } },
-      { id: 'n5', kind: 'branch', params: { expression: { op: 'eq', left: 'code', right: 0 } }, branchTrue: 'n1', branchFalse: 'n4' },
+      {
+        id: 'n5',
+        kind: 'branch',
+        params: { expression: { op: 'eq', left: 'code', right: 0 } },
+        branchTrue: 'n1',
+        branchFalse: 'n4',
+      },
     ];
 
     const nodes = parseFlow(actions);
-    expect(nodes.map((node) => node.kind)).toEqual(['navigate', 'request', 'assign', 'notify', 'branch']);
+    expect(nodes.map((node) => node.kind)).toEqual([
+      'navigate',
+      'request',
+      'assign',
+      'notify',
+      'branch',
+    ]);
 
     const back = serializeFlow(nodes);
     for (const original of actions) {
@@ -81,16 +100,26 @@ describe('T3-09 动作流校验', () => {
   });
 
   it('跳转目标不存在被报出；存在时不报', () => {
-    const bad = validateFlow({ nodes: [createFlowNode('navigate', { id: 'a', params: { route: '/nowhere' } })], routes: pages });
+    const bad = validateFlow({
+      nodes: [createFlowNode('navigate', { id: 'a', params: { route: '/nowhere' } })],
+      routes: pages,
+    });
     expect(bad.map((issue) => issue.code)).toContain('TARGET_PAGE_NOT_FOUND');
-    const good = validateFlow({ nodes: [createFlowNode('navigate', { id: 'a', params: { route: '/dashboard' } })], routes: pages });
+    const good = validateFlow({
+      nodes: [createFlowNode('navigate', { id: 'a', params: { route: '/dashboard' } })],
+      routes: pages,
+    });
     expect(good.map((issue) => issue.code)).not.toContain('TARGET_PAGE_NOT_FOUND');
   });
 
   it('接口未定义被报出；已定义放行', () => {
     const nodes = [createFlowNode('request', { id: 'a', params: { api: '/api/login' } })];
-    expect(validateFlow({ nodes, knownApis: ['/api/other'] }).map((issue) => issue.code)).toContain('API_NOT_DEFINED');
-    expect(validateFlow({ nodes, knownApis: ['/api/login'] }).map((issue) => issue.code)).not.toContain('API_NOT_DEFINED');
+    expect(validateFlow({ nodes, knownApis: ['/api/other'] }).map((issue) => issue.code)).toContain(
+      'API_NOT_DEFINED',
+    );
+    expect(
+      validateFlow({ nodes, knownApis: ['/api/login'] }).map((issue) => issue.code),
+    ).not.toContain('API_NOT_DEFINED');
   });
 
   it('孤立节点被报出', () => {
@@ -105,7 +134,12 @@ describe('T3-09 动作流校验', () => {
 
   it('条件分支回环：允许但标注 warning，并列出参与节点', () => {
     const nodes = [
-      createFlowNode('branch', { id: 'b1', params: { expression: { op: 'truthy', left: 'again' } }, branchTrue: 'a1', branchFalse: 'b2' }),
+      createFlowNode('branch', {
+        id: 'b1',
+        params: { expression: { op: 'truthy', left: 'again' } },
+        branchTrue: 'a1',
+        branchFalse: 'b2',
+      }),
       createFlowNode('assign', { id: 'a1', params: { name: 'count', value: 1 }, next: 'b1' }),
       createFlowNode('notify', { id: 'b2', params: { message: '结束' } }),
     ];
@@ -118,7 +152,11 @@ describe('T3-09 动作流校验', () => {
 
   it('条件分支缺一侧分支 / 赋值引用不存在状态被报出', () => {
     const nodes = [
-      createFlowNode('branch', { id: 'b1', params: { expression: { op: 'truthy', left: 'x' } }, branchTrue: 'a1' }),
+      createFlowNode('branch', {
+        id: 'b1',
+        params: { expression: { op: 'truthy', left: 'x' } },
+        branchTrue: 'a1',
+      }),
       createFlowNode('assign', { id: 'a1', params: { name: 'notDeclared', value: 1 } }),
     ];
     const codes = validateFlow({ nodes, stateNames: ['x'] }).map((issue) => issue.code);
@@ -138,7 +176,9 @@ describe('T3-09 动作流运行时', () => {
     return createFlowRuntime({
       store,
       ports: {
-        ...(hooks.request ? { requester: { request: ({ url, body }) => hooks.request!(url, body) } } : {}),
+        ...(hooks.request
+          ? { requester: { request: ({ url, body }) => hooks.request!(url, body) } }
+          : {}),
         ...(hooks.notify ? { notify: hooks.notify as never } : {}),
         ...(hooks.navigate ? { navigate: hooks.navigate as never } : {}),
       },
@@ -160,7 +200,11 @@ describe('T3-09 动作流运行时', () => {
 
     const actions = serializeFlow([
       createFlowNode('assign', { id: 'a1', params: { name: 'loading', value: true }, next: 'a2' }),
-      createFlowNode('request', { id: 'a2', params: { api: '/api/login', body: { phone: '${phone}' } }, next: 'a3' }),
+      createFlowNode('request', {
+        id: 'a2',
+        params: { api: '/api/login', body: { phone: '${phone}' } },
+        next: 'a3',
+      }),
       createFlowNode('branch', {
         id: 'a3',
         params: { expression: { op: 'eq', left: 'response.code', right: 0 } },
@@ -213,14 +257,18 @@ describe('T3-09 动作流运行时', () => {
 
   it('缺少 requester 时请求节点失败并给出中文原因', async () => {
     const flow = runtime({});
-    const result = await flow.execute(serializeFlow([createFlowNode('request', { id: 'r1', params: { api: '/api/x' } })]));
+    const result = await flow.execute(
+      serializeFlow([createFlowNode('request', { id: 'r1', params: { api: '/api/x' } })]),
+    );
     expect(result.status).toBe('failed');
     expect(result.error).toContain('requester');
   });
 
   it('死循环（自回环）被中断为 aborted', async () => {
     const flow = runtime({});
-    const actions: ActionNode[] = [{ id: 'a1', kind: 'notify', value: '循环', params: { type: 'info' }, next: 'a1' }];
+    const actions: ActionNode[] = [
+      { id: 'a1', kind: 'notify', value: '循环', params: { type: 'info' }, next: 'a1' },
+    ];
     const result = await flow.execute(actions);
     expect(result.status).toBe('aborted');
     expect(result.visited.length).toBeLessThanOrEqual(21);
@@ -294,7 +342,12 @@ describe('T3-09 动作流编辑器', () => {
     const store = setup();
     act(() => {
       store.getState().setPageEvents([
-        { id: 'ev-submit', trigger: 'click', entry: 'act-1', actions: [{ id: 'act-1', kind: 'notify', value: 'x', params: { type: 'info' } }] },
+        {
+          id: 'ev-submit',
+          trigger: 'click',
+          entry: 'act-1',
+          actions: [{ id: 'act-1', kind: 'notify', value: 'x', params: { type: 'info' } }],
+        },
       ]);
     });
     fireEvent.click(screen.getByRole('button', { name: '清空' }));

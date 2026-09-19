@@ -76,7 +76,10 @@ export function computeInsertion(input: CollisionInput): DragResolution {
   if (input.canvasRect) {
     const cr = input.canvasRect;
     const inside =
-      pointer.x >= cr.x && pointer.x <= cr.x + cr.width && pointer.y >= cr.y && pointer.y <= cr.y + cr.height;
+      pointer.x >= cr.x &&
+      pointer.x <= cr.x + cr.width &&
+      pointer.y >= cr.y &&
+      pointer.y <= cr.y + cr.height;
     if (!inside) return { kind: 'delete' };
   }
 
@@ -90,19 +93,37 @@ export function computeInsertion(input: CollisionInput): DragResolution {
 
   if (inInsideZone && target.acceptsChildren) {
     // 嵌套插入：目标是「被拖拽元素的后代」时禁止（否则会把祖先塞进自己的子树）
-    if (input.draggedId !== undefined && input.isDescendant && input.isDescendant(input.draggedId, target.id)) {
+    if (
+      input.draggedId !== undefined &&
+      input.isDescendant &&
+      input.isDescendant(input.draggedId, target.id)
+    ) {
       return { kind: 'none' };
     }
     return { kind: 'insert', parentId: target.id, index: undefined, position: 'inside' };
   }
 
   // 同级前后插入：拖拽元素若是目标祖先则禁止（否则目标将进入自身子树）
-  if (input.draggedId !== undefined && input.isDescendant && input.isDescendant(input.draggedId, target.id)) {
+  if (
+    input.draggedId !== undefined &&
+    input.isDescendant &&
+    input.isDescendant(input.draggedId, target.id)
+  ) {
     return { kind: 'none' };
   }
 
   if (ratio <= margin) {
-    return { kind: 'insert', parentId: target.parentId, index: target.indexInParent, position: 'before' };
+    return {
+      kind: 'insert',
+      parentId: target.parentId,
+      index: target.indexInParent,
+      position: 'before',
+    };
   }
-  return { kind: 'insert', parentId: target.parentId, index: target.indexInParent + 1, position: 'after' };
+  return {
+    kind: 'insert',
+    parentId: target.parentId,
+    index: target.indexInParent + 1,
+    position: 'after',
+  };
 }

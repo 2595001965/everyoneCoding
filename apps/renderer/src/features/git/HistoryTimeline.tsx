@@ -108,7 +108,11 @@ export function HistoryTimeline({
       )}
 
       {selected !== null && (
-        <div className="ec-history-timeline__detail" data-testid="commit-detail" style={{ marginTop: 8 }}>
+        <div
+          className="ec-history-timeline__detail"
+          data-testid="commit-detail"
+          style={{ marginTop: 8 }}
+        >
           {detailLoading && <span role="status">读取提交详情中…</span>}
           {!detailLoading && detail === null && <span role="status">未找到该提交的详情。</span>}
           {!detailLoading && detail !== null && (
@@ -166,11 +170,15 @@ function CommitRow({
         cursor: 'pointer',
       }}
     >
-      <span style={{ fontFamily: 'monospace', color: 'var(--ec-color-text-secondary)' }}>{commit.shortSha}</span>
+      <span style={{ fontFamily: 'monospace', color: 'var(--ec-color-text-secondary)' }}>
+        {commit.shortSha}
+      </span>
       <span style={{ flex: 1 }}>{commit.subject}</span>
       {commit.parents.length > 1 && <Tag color="warning">合并</Tag>}
       <span style={{ color: 'var(--ec-color-text-secondary)' }}>{commit.authorName}</span>
-      <span style={{ color: 'var(--ec-color-text-secondary)' }}>{formatTime(commit.authoredAt)}</span>
+      <span style={{ color: 'var(--ec-color-text-secondary)' }}>
+        {formatTime(commit.authoredAt)}
+      </span>
     </button>
   );
 }

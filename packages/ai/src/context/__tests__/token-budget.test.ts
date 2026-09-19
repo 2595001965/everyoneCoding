@@ -96,9 +96,42 @@ describe('Token 预算（T4-03 要点 1）', () => {
 describe('单块内部裁剪策略（T4-03 要点 4）', () => {
   it('记忆按 importance × confidence 排序（含时间衰减）', () => {
     const now = 1_760_000_000_000;
-    const high = memoryItemWeight({ id: 'h', scope: 'project', title: '高', content: '', importance: 5, confidence: 1, updatedAt: now }, now);
-    const low = memoryItemWeight({ id: 'l', scope: 'project', title: '低', content: '', importance: 2, confidence: 0.5, updatedAt: now }, now);
-    const stale = memoryItemWeight({ id: 's', scope: 'project', title: '旧', content: '', importance: 5, confidence: 1, updatedAt: now - 180 * 24 * 3600 * 1000 }, now);
+    const high = memoryItemWeight(
+      {
+        id: 'h',
+        scope: 'project',
+        title: '高',
+        content: '',
+        importance: 5,
+        confidence: 1,
+        updatedAt: now,
+      },
+      now,
+    );
+    const low = memoryItemWeight(
+      {
+        id: 'l',
+        scope: 'project',
+        title: '低',
+        content: '',
+        importance: 2,
+        confidence: 0.5,
+        updatedAt: now,
+      },
+      now,
+    );
+    const stale = memoryItemWeight(
+      {
+        id: 's',
+        scope: 'project',
+        title: '旧',
+        content: '',
+        importance: 5,
+        confidence: 1,
+        updatedAt: now - 180 * 24 * 3600 * 1000,
+      },
+      now,
+    );
     expect(high).toBeGreaterThan(low);
     expect(high).toBeGreaterThan(stale);
     // 半衰期 30 天：180 天后仍保留 1/4 的衰减因子，不会归零
@@ -107,11 +140,30 @@ describe('单块内部裁剪策略（T4-03 要点 4）', () => {
 
   it('代码按 Code Anchor 命中度排序（命中锚点额外加权）', () => {
     const anchored = codeWeight(
-      { filePath: 'a.ts', symbol: 'A', kind: 'service', startLine: 1, endLine: 2, language: 'ts', snippet: '', score: 0.5, anchorId: 'anchor-el-btn' },
+      {
+        filePath: 'a.ts',
+        symbol: 'A',
+        kind: 'service',
+        startLine: 1,
+        endLine: 2,
+        language: 'ts',
+        snippet: '',
+        score: 0.5,
+        anchorId: 'anchor-el-btn',
+      },
       'el-btn',
     );
     const plain = codeWeight(
-      { filePath: 'b.ts', symbol: 'B', kind: 'service', startLine: 1, endLine: 2, language: 'ts', snippet: '', score: 0.5 },
+      {
+        filePath: 'b.ts',
+        symbol: 'B',
+        kind: 'service',
+        startLine: 1,
+        endLine: 2,
+        language: 'ts',
+        snippet: '',
+        score: 0.5,
+      },
       null,
     );
     expect(anchored).toBeGreaterThan(plain);
@@ -120,11 +172,27 @@ describe('单块内部裁剪策略（T4-03 要点 4）', () => {
 
   it('文档按相关段落截断：标题命中的章节权重更高', () => {
     const hit = documentWeight(
-      { id: 'd1', documentId: 'D', title: '技术文档', kind: 'techdoc', heading: '登录鉴权', content: '登录接口契约', score: 0.6 },
+      {
+        id: 'd1',
+        documentId: 'D',
+        title: '技术文档',
+        kind: 'techdoc',
+        heading: '登录鉴权',
+        content: '登录接口契约',
+        score: 0.6,
+      },
       '登录 鉴权',
     );
     const miss = documentWeight(
-      { id: 'd2', documentId: 'D', title: '技术文档', kind: 'techdoc', heading: '部署', content: '构建流程', score: 0.6 },
+      {
+        id: 'd2',
+        documentId: 'D',
+        title: '技术文档',
+        kind: 'techdoc',
+        heading: '部署',
+        content: '构建流程',
+        score: 0.6,
+      },
       '登录 鉴权',
     );
     expect(hit).toBeGreaterThan(miss);
@@ -162,13 +230,26 @@ describe('超预算按优先级裁剪（T4-03 要点 2）', () => {
 
     expect(new Set(kept)).toEqual(new Set(['element-chain', 'note', 'page']));
     // 被省略的按「优先级从低到高」逐个让位
-    expect(report?.items.map((entry) => entry.block)).toEqual(['document', 'longterm', 'project', 'feature']);
+    expect(report?.items.map((entry) => entry.block)).toEqual([
+      'document',
+      'longterm',
+      'project',
+      'feature',
+    ]);
     expect(report?.items.every((entry) => entry.reason === 'block-over-budget')).toBe(true);
   });
 
   it('优先级数值本身满足 元素链 > 备注 > 页面 > 功能 > 项目 > 长期 > 文档', () => {
     const byId = new Map(CONTEXT_BLOCK_QUOTAS.map((quota) => [quota.id, quota.priority]));
-    const order = ['element-chain', 'note', 'page', 'feature', 'project', 'longterm', 'document'] as const;
+    const order = [
+      'element-chain',
+      'note',
+      'page',
+      'feature',
+      'project',
+      'longterm',
+      'document',
+    ] as const;
     const values = order.map((id) => byId.get(id) ?? 0);
     expect(values).toEqual([...values].sort((a, b) => b - a));
   });
@@ -234,9 +315,15 @@ describe('激进裁剪（T4-03 要点 3）', () => {
 
   it('激进裁剪后总量同样不超激进预算', () => {
     const blocks = [
-      block('note', Array.from({ length: 30 }, (_, index) => item(`n${index}`, 400, 30 - index))),
+      block(
+        'note',
+        Array.from({ length: 30 }, (_, index) => item(`n${index}`, 400, 30 - index)),
+      ),
       block('element-chain', [item('el', 400, 1)]),
-      block('page', Array.from({ length: 10 }, (_, index) => item(`p${index}`, 400, 10 - index))),
+      block(
+        'page',
+        Array.from({ length: 10 }, (_, index) => item(`p${index}`, 400, 10 - index)),
+      ),
       block('project', [item('pj', 40_000, 1)]),
     ];
     const { totalTokens, blocks: trimmed } = aggressiveTrim(blocks, createTokenBudget());
@@ -252,9 +339,30 @@ describe('省略报告（T4-03 要点 3）', () => {
   it('数量 / token / 条目 / 摘要 / 原因分组准确', () => {
     const report = buildTruncateReport({
       items: [
-        { block: 'code', blockLabel: '已有代码与 Code Anchor', label: 'A', tokens: 500, reason: 'block-over-budget', preview: 'a' },
-        { block: 'code', blockLabel: '已有代码与 Code Anchor', label: 'B', tokens: 300, reason: 'block-over-budget', preview: 'b' },
-        { block: 'project', blockLabel: '项目记忆', label: 'C', tokens: 200, reason: 'block-over-quota', preview: 'c' },
+        {
+          block: 'code',
+          blockLabel: '已有代码与 Code Anchor',
+          label: 'A',
+          tokens: 500,
+          reason: 'block-over-budget',
+          preview: 'a',
+        },
+        {
+          block: 'code',
+          blockLabel: '已有代码与 Code Anchor',
+          label: 'B',
+          tokens: 300,
+          reason: 'block-over-budget',
+          preview: 'b',
+        },
+        {
+          block: 'project',
+          blockLabel: '项目记忆',
+          label: 'C',
+          tokens: 200,
+          reason: 'block-over-quota',
+          preview: 'c',
+        },
       ],
       beforeTokens: 20_000,
       afterTokens: 19_000,
@@ -287,8 +395,20 @@ describe('省略报告（T4-03 要点 3）', () => {
       source: 'test',
       editable: false,
       items: [
-        { key: 'long', label: '长片段', tokens: estimateTextTokens(longText), weight: 1, text: longText },
-        { key: 'short', label: '短片段', tokens: estimateTextTokens('短'), weight: 0.5, text: '短' },
+        {
+          key: 'long',
+          label: '长片段',
+          tokens: estimateTextTokens(longText),
+          weight: 1,
+          text: longText,
+        },
+        {
+          key: 'short',
+          label: '短片段',
+          tokens: estimateTextTokens('短'),
+          weight: 0.5,
+          text: '短',
+        },
       ],
     };
     const { report } = trimToBudget([target], createTokenBudget({ overrides: { document: 100 } }));

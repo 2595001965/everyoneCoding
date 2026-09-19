@@ -56,8 +56,13 @@ export interface AliasArtifact {
 }
 
 /** 兼容期说明（写进注释，便于日后清理） */
-export function compatNote(input: Pick<AliasPlanInput, 'oldName' | 'newName' | 'cleanupDueAt'>): string {
-  const due = input.cleanupDueAt === null ? '长期保留' : `清理期限 ${new Date(input.cleanupDueAt).toISOString().slice(0, 10)}`;
+export function compatNote(
+  input: Pick<AliasPlanInput, 'oldName' | 'newName' | 'cleanupDueAt'>,
+): string {
+  const due =
+    input.cleanupDueAt === null
+      ? '长期保留'
+      : `清理期限 ${new Date(input.cleanupDueAt).toISOString().slice(0, 10)}`;
   return `兼容期别名：「${input.oldName}」→「${input.newName}」（${due}）；由 EveryoneCoding 重命名引擎生成（FR-UNI-10）`;
 }
 
@@ -133,7 +138,9 @@ export function buildAliasArtifacts(input: AliasPlanInput): AliasArtifact[] {
 
 /** 生成别名条目（写进注册表项的 aliases） */
 export function createAliasEntry(
-  input: Pick<AliasPlanInput, 'kind' | 'oldName' | 'cleanupDueAt' | 'now'> & { deprecatedAt?: number | null },
+  input: Pick<AliasPlanInput, 'kind' | 'oldName' | 'cleanupDueAt' | 'now'> & {
+    deprecatedAt?: number | null;
+  },
 ): AliasEntry {
   return {
     name: input.oldName,
@@ -146,12 +153,20 @@ export function createAliasEntry(
 }
 
 /** 标记别名为"已废弃"（停止维护，进入清理倒计时） */
-export function deprecateAlias(alias: AliasEntry, at: number, cleanupDueAt: number | null = null): AliasEntry {
+export function deprecateAlias(
+  alias: AliasEntry,
+  at: number,
+  cleanupDueAt: number | null = null,
+): AliasEntry {
   return { ...alias, deprecatedAt: at, cleanupDueAt: cleanupDueAt ?? alias.cleanupDueAt };
 }
 
 /** 别名状态：未废弃 = active；已过清理期限 = due；已清理 = cleaned */
-export function aliasStatus(alias: AliasEntry, now: number, cleaned?: ReadonlySet<string>): AliasStatus {
+export function aliasStatus(
+  alias: AliasEntry,
+  now: number,
+  cleaned?: ReadonlySet<string>,
+): AliasStatus {
   if (cleaned?.has(`${alias.kind}|${alias.name}`) === true) return 'cleaned';
   return isCleanupDue(alias, now) ? 'due' : 'active';
 }
@@ -232,7 +247,9 @@ export function cleanAliases(
       }
       keep.push(alias);
     }
-    return keep.length === entry.aliases.length ? entry : { ...entry, aliases: keep, updatedAt: now };
+    return keep.length === entry.aliases.length
+      ? entry
+      : { ...entry, aliases: keep, updatedAt: now };
   });
   return { entries: next, cleaned, cleanedKeys };
 }

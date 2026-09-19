@@ -16,7 +16,15 @@
  * 此处为本地镜像类型；渲染层测试断言其与 `TARGET_PLATFORMS`（@ec/pipeline
  * tech-choice-questionnaire）逐字面量对齐，防漂移。
  */
-export const TARGET_PLATFORM_KEYS = ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos'] as const;
+export const TARGET_PLATFORM_KEYS = [
+  'web',
+  'android',
+  'ios',
+  'harmonyos',
+  'windows',
+  'linux',
+  'macos',
+] as const;
 export type TargetPlatform = (typeof TARGET_PLATFORM_KEYS)[number];
 
 /** 项目来源（四类新建来源） */

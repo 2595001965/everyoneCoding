@@ -1,4 +1,8 @@
-import type { ReactElement, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
+import type {
+  ReactElement,
+  PointerEvent as ReactPointerEvent,
+  WheelEvent as ReactWheelEvent,
+} from 'react';
 import { useId, useRef, useState } from 'react';
 import type { SplitModel, SplitNodeData } from '@ec/pipeline';
 
@@ -40,7 +44,12 @@ function truncate(text: string, max: number): string {
 }
 
 /** 按拓扑序松弛计算层（最长路径深度），兼容有环图（限迭代次数防死循环） */
-function buildLayout(model: SplitModel): { nodes: LayoutNode[]; edges: LayoutEdge[]; width: number; height: number } {
+function buildLayout(model: SplitModel): {
+  nodes: LayoutNode[];
+  edges: LayoutEdge[];
+  width: number;
+  height: number;
+} {
   const graph = model.graphRef();
   const ids = graph.nodeIds();
   const edgesRaw = graph.edges();
@@ -89,7 +98,14 @@ function buildLayout(model: SplitModel): { nodes: LayoutNode[]; edges: LayoutEdg
   const edges: LayoutEdge[] = edgesRaw.map((e) => {
     const f = coords.get(e.from) ?? { x: PAD, y: PAD };
     const t = coords.get(e.to) ?? { x: PAD, y: PAD };
-    return { from: e.from, to: e.to, x1: f.x + NODE_W / 2, y1: f.y, x2: t.x + NODE_W / 2, y2: t.y + NODE_H };
+    return {
+      from: e.from,
+      to: e.to,
+      x1: f.x + NODE_W / 2,
+      y1: f.y,
+      x2: t.x + NODE_W / 2,
+      y2: t.y + NODE_H,
+    };
   });
 
   return {
@@ -102,8 +118,14 @@ function buildLayout(model: SplitModel): { nodes: LayoutNode[]; edges: LayoutEdg
 
 /** S4 拆分 DAG 自绘可视化（分层布局 + 缩放/平移 + 环高亮） */
 export function SplitGraph({ model, highlightedIds, onNodeClick }: SplitGraphProps): ReactElement {
-  const [transform, setTransform] = useState<{ x: number; y: number; scale: number }>({ x: 0, y: 0, scale: 1 });
-  const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const [transform, setTransform] = useState<{ x: number; y: number; scale: number }>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  });
+  const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(
+    null,
+  );
   const rawId = useId();
   const arrowId = `ec-split-arrow${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
@@ -118,14 +140,23 @@ export function SplitGraph({ model, highlightedIds, onNodeClick }: SplitGraphPro
 
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
     if (e.button !== 0) return;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, baseX: transform.x, baseY: transform.y };
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: transform.x,
+      baseY: transform.y,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: ReactPointerEvent<SVGSVGElement>): void => {
     const drag = dragRef.current;
     if (drag === null) return;
-    setTransform((t) => ({ ...t, x: drag.baseX + (e.clientX - drag.startX), y: drag.baseY + (e.clientY - drag.startY) }));
+    setTransform((t) => ({
+      ...t,
+      x: drag.baseX + (e.clientX - drag.startX),
+      y: drag.baseY + (e.clientY - drag.startY),
+    }));
   };
 
   const handlePointerUp = (e: ReactPointerEvent<SVGSVGElement>): void => {
@@ -144,13 +175,28 @@ export function SplitGraph({ model, highlightedIds, onNodeClick }: SplitGraphPro
   return (
     <div className="ec-pipe-split" style={{ position: 'relative' }}>
       <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 1, display: 'flex', gap: 4 }}>
-        <button type="button" className="ec-pipe-split__zoom" onClick={() => zoomBy(1.2)} aria-label="放大">
+        <button
+          type="button"
+          className="ec-pipe-split__zoom"
+          onClick={() => zoomBy(1.2)}
+          aria-label="放大"
+        >
           ＋
         </button>
-        <button type="button" className="ec-pipe-split__zoom" onClick={() => zoomBy(0.8)} aria-label="缩小">
+        <button
+          type="button"
+          className="ec-pipe-split__zoom"
+          onClick={() => zoomBy(0.8)}
+          aria-label="缩小"
+        >
           －
         </button>
-        <button type="button" className="ec-pipe-split__zoom" onClick={resetView} aria-label="重置视图">
+        <button
+          type="button"
+          className="ec-pipe-split__zoom"
+          onClick={resetView}
+          aria-label="重置视图"
+        >
           ⟲
         </button>
       </div>
@@ -163,7 +209,11 @@ export function SplitGraph({ model, highlightedIds, onNodeClick }: SplitGraphPro
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          style={{ cursor: dragRef.current !== null ? 'grabbing' : 'grab', display: 'block', userSelect: 'none' }}
+          style={{
+            cursor: dragRef.current !== null ? 'grabbing' : 'grab',
+            display: 'block',
+            userSelect: 'none',
+          }}
         >
           <defs>
             <marker

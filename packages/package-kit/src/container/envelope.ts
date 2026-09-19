@@ -59,7 +59,11 @@ function deriveKey(password: string, salt: Buffer): Buffer {
 }
 
 /** 密钥派生参数（导出端写入 manifest.encryption；导入端校验用） */
-export function encryptionMarker(): { mode: 'aes-256-gcm'; kdf: 'PBKDF2-SHA256'; iterations: number } {
+export function encryptionMarker(): {
+  mode: 'aes-256-gcm';
+  kdf: 'PBKDF2-SHA256';
+  iterations: number;
+} {
   return { mode: 'aes-256-gcm', kdf: 'PBKDF2-SHA256', iterations: PBKDF2_ITERATIONS };
 }
 
@@ -67,7 +71,11 @@ export function encryptionMarker(): { mode: 'aes-256-gcm'; kdf: 'PBKDF2-SHA256';
  * 把明文 ZIP 加密为信封包（流式：源文件分块读入，密文即写即落盘）。
  * 写入临时文件成功后原子替换目标路径；失败时清理临时文件。
  */
-export function wrapWithPassword(zipAbsolutePath: string, outputAbsolutePath: string, password: string): void {
+export function wrapWithPassword(
+  zipAbsolutePath: string,
+  outputAbsolutePath: string,
+  password: string,
+): void {
   if (password.length === 0) {
     throw new Error('加密导出需要非空口令');
   }

@@ -72,7 +72,9 @@ export interface RenameTriggerOptions {
   /** 合法性校验不通过时回调（应在此处展示阻断提示 + 3 个建议名） */
   onBlocked: (intent: RenameIntent, result: ConflictCheckResult) => void;
   /** 符号表 / 排除项等校验上下文（可按项目动态变化） */
-  checkContext?: (intent: RenameIntent) => Omit<CheckNameInput, 'canonicalName' | 'entityType' | 'rule'>;
+  checkContext?: (
+    intent: RenameIntent,
+  ) => Omit<CheckNameInput, 'canonicalName' | 'entityType' | 'rule'>;
   debounceMs?: number | undefined;
   scheduler?: RenameScheduler | undefined;
   /** 时钟注入，默认 `Date.now` */

@@ -222,5 +222,8 @@ export function renderGitignore(stacks: StackId[], options: RenderOptions = {}):
   if (options.extra && options.extra.length > 0) {
     sections.push('# ---- 自定义 ----', ...options.extra, '');
   }
-  return `${sections.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+  return `${sections
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd()}\n`;
 }

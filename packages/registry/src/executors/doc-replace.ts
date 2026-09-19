@@ -13,14 +13,24 @@
  * 不做跨文档 / 跨项目的全局替换（D-07）。
  */
 
-import type { ExecutionContext, ExecutorInput, ExecutorResult, RenameExecutor, UndoPatch } from './types';
+import type {
+  ExecutionContext,
+  ExecutorInput,
+  ExecutorResult,
+  RenameExecutor,
+  UndoPatch,
+} from './types';
 import { emptyResult } from './types';
 import { writeBackup } from './backup';
 
 const ASCII_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 /** 渲染修订标记（FR-UNI-09 的"显示 / 隐藏修订标记"） */
-export function renderDocReplacement(oldText: string, newText: string, showRevisionMarks: boolean): string {
+export function renderDocReplacement(
+  oldText: string,
+  newText: string,
+  showRevisionMarks: boolean,
+): string {
   return showRevisionMarks ? `${newText}〔原：${oldText}〕` : newText;
 }
 
@@ -30,7 +40,11 @@ export function renderDocReplacement(oldText: string, newText: string, showRevis
  * - 纯 ASCII 标识符：要求两侧不是标识符字符（词边界保护）；
  * - 其他（中文 / 含点号的路由与 i18n key）：直接子串替换。
  */
-export function replaceSymbol(content: string, target: string, replacement: string): { content: string; count: number } {
+export function replaceSymbol(
+  content: string,
+  target: string,
+  replacement: string,
+): { content: string; count: number } {
   if (target.length === 0) return { content, count: 0 };
   const boundary = ASCII_IDENTIFIER.test(target);
   let out = '';
@@ -41,7 +55,11 @@ export function replaceSymbol(content: string, target: string, replacement: stri
     if (index < 0) break;
     const before = index > 0 ? content[index - 1] : undefined;
     const after = content[index + target.length];
-    if (boundary && ((before !== undefined && /[A-Za-z0-9_$]/.test(before)) || (after !== undefined && /[A-Za-z0-9_$]/.test(after)))) {
+    if (
+      boundary &&
+      ((before !== undefined && /[A-Za-z0-9_$]/.test(before)) ||
+        (after !== undefined && /[A-Za-z0-9_$]/.test(after)))
+    ) {
       out += content.slice(cursor, index + target.length);
       cursor = index + target.length;
       continue;
@@ -98,11 +116,17 @@ export function createDocReplaceExecutor(): RenameExecutor {
         for (const change of documentChanges) {
           if (seen.has(change.target)) continue;
           seen.add(change.target);
-          const replacement = renderDocReplacement(change.target, change.replacement, context.showRevisionMarks);
+          const replacement = renderDocReplacement(
+            change.target,
+            change.replacement,
+            context.showRevisionMarks,
+          );
           const replaced = replaceSymbol(next, change.target, replacement);
           if (replaced.count === 0) {
             result.skipped += 1;
-            result.warnings.push(`文档 ${documentId} 中未再找到「${change.target}」（索引可能已过期）`);
+            result.warnings.push(
+              `文档 ${documentId} 中未再找到「${change.target}」（索引可能已过期）`,
+            );
             continue;
           }
           next = replaced.content;

@@ -105,10 +105,35 @@ export interface CompatibilityMatrixCase {
 }
 
 export const COMPATIBILITY_MATRIX: readonly CompatibilityMatrixCase[] = [
-  { name: '旧包在新客户端（0.9.x → 1.0.0）', packageVersion: '0.9.0', clientVersion: '1.0.0', expected: 'compatible' },
+  {
+    name: '旧包在新客户端（0.9.x → 1.0.0）',
+    packageVersion: '0.9.0',
+    clientVersion: '1.0.0',
+    expected: 'compatible',
+  },
   { name: '同版本', packageVersion: '1.0.0', clientVersion: '1.0.0', expected: 'compatible' },
-  { name: '同 major 的 minor 超前（1.1.0 → 1.0.0）', packageVersion: '1.1.0', clientVersion: '1.0.0', expected: 'compatible' },
-  { name: '同 major 的 patch 超前（1.0.3 → 1.0.0）', packageVersion: '1.0.3', clientVersion: '1.0.0', expected: 'compatible' },
-  { name: 'major 超前阻断（2.0.0 → 1.0.0）', packageVersion: '2.0.0', clientVersion: '1.0.0', expected: 'requires-upgrade' },
-  { name: '版本不合法阻断', packageVersion: 'one-two-three', clientVersion: '1.0.0', expected: 'requires-upgrade' },
+  {
+    name: '同 major 的 minor 超前（1.1.0 → 1.0.0）',
+    packageVersion: '1.1.0',
+    clientVersion: '1.0.0',
+    expected: 'compatible',
+  },
+  {
+    name: '同 major 的 patch 超前（1.0.3 → 1.0.0）',
+    packageVersion: '1.0.3',
+    clientVersion: '1.0.0',
+    expected: 'compatible',
+  },
+  {
+    name: 'major 超前阻断（2.0.0 → 1.0.0）',
+    packageVersion: '2.0.0',
+    clientVersion: '1.0.0',
+    expected: 'requires-upgrade',
+  },
+  {
+    name: '版本不合法阻断',
+    packageVersion: 'one-two-three',
+    clientVersion: '1.0.0',
+    expected: 'requires-upgrade',
+  },
 ];

@@ -26,7 +26,17 @@ export const PROP_FIELD_TYPES = [
 export type PropFieldType = (typeof PROP_FIELD_TYPES)[number];
 
 /** 属性分组（面板内折叠区） */
-export const PROP_GROUPS = ['内容', '外观', '布局', '间距', '文字', '边框', '交互', '数据', '高级'] as const;
+export const PROP_GROUPS = [
+  '内容',
+  '外观',
+  '布局',
+  '间距',
+  '文字',
+  '边框',
+  '交互',
+  '数据',
+  '高级',
+] as const;
 export type PropGroup = (typeof PROP_GROUPS)[number];
 
 export interface PropEnumOption {
@@ -93,9 +103,9 @@ export function groupFields(schema: PropSchema): Array<{ group: PropGroup; field
     list.push(field);
     buckets.set(field.group, list);
   }
-  return [...buckets.entries()].sort(
-    (a, b) => PROP_GROUPS.indexOf(a[0]) - PROP_GROUPS.indexOf(b[0]),
-  ).map(([group, fields]) => ({ group, fields }));
+  return [...buckets.entries()]
+    .sort((a, b) => PROP_GROUPS.indexOf(a[0]) - PROP_GROUPS.indexOf(b[0]))
+    .map(([group, fields]) => ({ group, fields }));
 }
 
 /** 条件显隐判定 */
@@ -126,7 +136,11 @@ export function validatePropSchema(schema: PropSchema): string[] {
     if (field.type === 'enum' && (field.options === undefined || field.options.length === 0)) {
       issues.push(`枚举字段 ${field.key} 缺少 options`);
     }
-    if (field.visibleWhen !== undefined && !seen.has(field.visibleWhen.field) && !schema.fields.some((item) => item.key === field.visibleWhen?.field)) {
+    if (
+      field.visibleWhen !== undefined &&
+      !seen.has(field.visibleWhen.field) &&
+      !schema.fields.some((item) => item.key === field.visibleWhen?.field)
+    ) {
       issues.push(`字段 ${field.key} 的 visibleWhen 引用了不存在的字段 ${field.visibleWhen.field}`);
     }
   }

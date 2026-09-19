@@ -30,7 +30,14 @@ function buildTicks(length: number, step: number): number[] {
 /**
  * 单条标尺。刻度标签显示画布坐标系下的像素值（已按 zoom 缩放绘制，但数值为设计稿像素）。
  */
-export function Ruler({ orientation, zoom, length, offset = 0, step = 50, className }: RulerProps): React.ReactElement {
+export function Ruler({
+  orientation,
+  zoom,
+  length,
+  offset = 0,
+  step = 50,
+  className,
+}: RulerProps): React.ReactElement {
   const ticks = React.useMemo(() => buildTicks(length, step), [length, step]);
   const isX = orientation === 'x';
   const thickness = 18;
@@ -58,8 +65,18 @@ export function Ruler({ orientation, zoom, length, offset = 0, step = 50, classN
             style={{
               position: 'absolute',
               ...(isX
-                ? { left: screenPos, top: 0, height: thickness, borderLeft: '1px solid var(--ec-border, #e5e5e5)' }
-                : { top: screenPos, left: 0, width: thickness, borderTop: '1px solid var(--ec-border, #e5e5e5)' }),
+                ? {
+                    left: screenPos,
+                    top: 0,
+                    height: thickness,
+                    borderLeft: '1px solid var(--ec-border, #e5e5e5)',
+                  }
+                : {
+                    top: screenPos,
+                    left: 0,
+                    width: thickness,
+                    borderTop: '1px solid var(--ec-border, #e5e5e5)',
+                  }),
             }}
           >
             {pos % (step * 2) === 0 && (

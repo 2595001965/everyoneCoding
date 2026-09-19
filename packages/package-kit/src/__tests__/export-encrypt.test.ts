@@ -50,7 +50,15 @@ function selection() {
   return {
     scope: 'all' as const,
     projectIds: [] as string[],
-    content: { memory: allFalse(), documents: true, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+    content: {
+      memory: allFalse(),
+      documents: true,
+      code: true,
+      pipeline: false,
+      anchors: false,
+      registry: false,
+      attachments: false,
+    },
   };
 }
 
@@ -58,7 +66,12 @@ describe('加密导出往返（FR-PKG-05）', () => {
   it('加密包可被正确口令打开，内容完好；明文中转文件已删除', async () => {
     const port = makeFakePort({ projects: [plainProject()], attachments: [] });
     const outPath = path.join(workDir, 'encrypted.ecpkg');
-    const request: ExportJobRequest = { outputPath: outPath, selection: selection(), redact: false, password: PASSWORD };
+    const request: ExportJobRequest = {
+      outputPath: outPath,
+      selection: selection(),
+      redact: false,
+      password: PASSWORD,
+    };
     const result = await runExport(request, port);
 
     expect(result.encrypted).toBe(true);
@@ -80,7 +93,10 @@ describe('加密导出往返（FR-PKG-05）', () => {
   it('错误口令：抛 PasswordError 且不留下半解密临时文件', async () => {
     const port = makeFakePort({ projects: [plainProject()], attachments: [] });
     const outPath = path.join(workDir, 'encrypted2.ecpkg');
-    await runExport({ outputPath: outPath, selection: selection(), redact: false, password: PASSWORD }, port);
+    await runExport(
+      { outputPath: outPath, selection: selection(), redact: false, password: PASSWORD },
+      port,
+    );
     expect(() => EcpkgReader.open(outPath, { password: 'wrong-password' })).toThrow(PasswordError);
     const leftovers = fs.readdirSync(workDir).filter((n) => n.includes('.decrypted'));
     expect(leftovers).toEqual([]);
@@ -89,14 +105,20 @@ describe('加密导出往返（FR-PKG-05）', () => {
   it('加密包缺口令：明确拒绝', async () => {
     const port = makeFakePort({ projects: [plainProject()], attachments: [] });
     const outPath = path.join(workDir, 'encrypted3.ecpkg');
-    await runExport({ outputPath: outPath, selection: selection(), redact: false, password: PASSWORD }, port);
+    await runExport(
+      { outputPath: outPath, selection: selection(), redact: false, password: PASSWORD },
+      port,
+    );
     expect(() => EcpkgReader.open(outPath)).toThrow(/口令|必须提供/);
   });
 
   it('口令绝不写入包内（manifest 与所有条目检索不到口令明文）', async () => {
     const port = makeFakePort({ projects: [plainProject()], attachments: [] });
     const outPath = path.join(workDir, 'encrypted4.ecpkg');
-    await runExport({ outputPath: outPath, selection: selection(), redact: false, password: PASSWORD }, port);
+    await runExport(
+      { outputPath: outPath, selection: selection(), redact: false, password: PASSWORD },
+      port,
+    );
 
     const reader = EcpkgReader.open(outPath, { password: PASSWORD });
     try {

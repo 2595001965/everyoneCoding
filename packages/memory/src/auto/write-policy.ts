@@ -96,7 +96,12 @@ export function decideWrite(
       if (candidate.level === 'low') {
         return { ...base, action: 'skip', reason: '置信度过低，按「确认」策略跳过。' };
       }
-      return { ...base, action: 'write-and-notify', reason: '已自动写入，可撤销。', requiresConfirmation: true };
+      return {
+        ...base,
+        action: 'write-and-notify',
+        reason: '已自动写入，可撤销。',
+        requiresConfirmation: true,
+      };
   }
 }
 
@@ -149,7 +154,10 @@ export class LongTermMemoryWriter {
     candidate: MemoryCandidate,
     assessment: SignalAssessment,
     ctx: { userId: string },
-  ): { record: AutoWriteRecord; outcome: UpsertOutcome } | { suggestionOnly: true; decision: WriteDecision } | null {
+  ):
+    | { record: AutoWriteRecord; outcome: UpsertOutcome }
+    | { suggestionOnly: true; decision: WriteDecision }
+    | null {
     const policy = this.policy.policyFor(null);
     const decision = decideWrite(
       { confidence: assessment.confidence, level: assessment.level },
@@ -198,7 +206,13 @@ export class LongTermMemoryWriter {
       detail: { category: candidate.category, level: assessment.level, action: decision.action },
     });
 
-    const record: AutoWriteRecord = { memoryId: outcome.item.id, candidate, assessment, decision, at };
+    const record: AutoWriteRecord = {
+      memoryId: outcome.item.id,
+      candidate,
+      assessment,
+      decision,
+      at,
+    };
     return { record, outcome };
   }
 

@@ -81,7 +81,10 @@ export function Resizable(props: ResizableProps): React.ReactElement {
   };
 
   return (
-    <div className={cx('ec-resizable', className)} style={{ position: 'relative', width: curW, height: curH }}>
+    <div
+      className={cx('ec-resizable', className)}
+      style={{ position: 'relative', width: curW, height: curH }}
+    >
       <div className="ec-resizable__content" style={{ width: '100%', height: '100%' }}>
         {children}
       </div>

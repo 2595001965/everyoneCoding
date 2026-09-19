@@ -66,12 +66,14 @@ export async function pollWechatQr(
   const interval = options.intervalMs ?? 1500;
   const timeout = options.timeoutMs ?? WECHAT_QR_TTL_MS;
   const clock = options.clock ?? Date.now;
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const deadline = clock() + timeout;
 
   for (;;) {
     const result = await poll();
-    if (result.state === 'confirmed' || result.state === 'cancelled' || result.state === 'expired') return result;
+    if (result.state === 'confirmed' || result.state === 'cancelled' || result.state === 'expired')
+      return result;
     if (clock() >= deadline) return { state: 'expired' };
     await sleep(interval);
   }

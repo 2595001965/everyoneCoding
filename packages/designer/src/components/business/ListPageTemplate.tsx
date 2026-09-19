@@ -7,8 +7,16 @@ import type { ComponentMeta, ComponentRenderProps } from '../../registry/compone
 import { propBoolean, propColumns, propString, previewString } from '../render-utils';
 import { BoundTable } from '../table-preview';
 
-export function ListPageTemplateRenderer({ node, mode, scope, children }: ComponentRenderProps): JSX.Element {
-  const title = mode === 'preview' ? previewString(node, 'title', scope, '列表页') : propString(node, 'title', '列表页');
+export function ListPageTemplateRenderer({
+  node,
+  mode,
+  scope,
+  children,
+}: ComponentRenderProps): JSX.Element {
+  const title =
+    mode === 'preview'
+      ? previewString(node, 'title', scope, '列表页')
+      : propString(node, 'title', '列表页');
   const columns = propColumns(node, 'columns');
   const searchable = propBoolean(node, 'searchable', true);
   const filterable = propBoolean(node, 'filterable', false);
@@ -20,7 +28,13 @@ export function ListPageTemplateRenderer({ node, mode, scope, children }: Compon
         <h2 className="ecd-list-page__title">{title || '列表页'}</h2>
       </header>
       <div className="ecd-list-page__toolbar">
-        {searchable ? <Input placeholder="搜索" disabled={mode === 'design'} className="ecd-list-page__search" /> : null}
+        {searchable ? (
+          <Input
+            placeholder="搜索"
+            disabled={mode === 'design'}
+            className="ecd-list-page__search"
+          />
+        ) : null}
         {filterable ? <span className="ecd-tag">筛选</span> : null}
       </div>
       <div className="ecd-list-page__table">
@@ -29,9 +43,11 @@ export function ListPageTemplateRenderer({ node, mode, scope, children }: Compon
             <table className="ecd-table__preview">
               <thead>
                 <tr>
-                  {columns.length > 0
-                    ? columns.map((column) => <th key={column.key}>{column.title}</th>)
-                    : <th>列</th>}
+                  {columns.length > 0 ? (
+                    columns.map((column) => <th key={column.key}>{column.title}</th>)
+                  ) : (
+                    <th>列</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -63,7 +79,13 @@ export const ListPageTemplateMeta: ComponentMeta = {
   group: '业务组件',
   description: '内置搜索、筛选、分页的数据列表页模板',
   icon: 'list-page-template',
-  defaultProps: { title: '列表页', columns: [], searchable: true, filterable: false, pagination: true },
+  defaultProps: {
+    title: '列表页',
+    columns: [],
+    searchable: true,
+    filterable: false,
+    pagination: true,
+  },
   defaultStyle: {},
   acceptsChildren: true,
   propSchema: {

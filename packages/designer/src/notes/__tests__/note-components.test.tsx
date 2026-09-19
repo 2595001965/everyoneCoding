@@ -27,7 +27,9 @@ function chooseOption(label: string, optionName: string): void {
 describe('NoteBadge（T4-01 要点 3）', () => {
   it('渲染数量与类型描述，禁止事项加硬约束标记', () => {
     render(<NoteBadge info={{ count: 3, types: ['todo', 'forbidden'], hasMustFollow: true }} />);
-    const badge = screen.getByRole('img', { name: describeNoteBadge({ count: 3, types: ['todo', 'forbidden'], hasMustFollow: true }) });
+    const badge = screen.getByRole('img', {
+      name: describeNoteBadge({ count: 3, types: ['todo', 'forbidden'], hasMustFollow: true }),
+    });
     expect(badge).toHaveAttribute('data-note-badge', '3');
     expect(badge).toHaveAttribute('data-note-must-follow', 'true');
     expect(badge).toHaveTextContent('3');
@@ -40,7 +42,12 @@ describe('NoteBadge（T4-01 要点 3）', () => {
 
   it('传入 onClick 后变为可点击（role=button）并可触发', () => {
     const onClick = vi.fn();
-    render(<NoteBadge info={{ count: 1, types: ['validation'], hasMustFollow: false }} onClick={onClick} />);
+    render(
+      <NoteBadge
+        info={{ count: 1, types: ['validation'], hasMustFollow: false }}
+        onClick={onClick}
+      />,
+    );
     fireEvent.click(screen.getByRole('button'));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
@@ -58,8 +65,12 @@ describe('ElementNoteBadges 元素角标浮层（T4-01）', () => {
         measure={(id) => (id === 'el-1' ? { top: 10, left: 20, width: 80 } : null)}
       />,
     );
-    expect(screen.getByTestId('ec-note-badges').querySelectorAll('[data-note-anchor]')).toHaveLength(1);
-    expect(screen.getByTestId('ec-note-badges').querySelector('[data-note-anchor="el-1"]')).not.toBeNull();
+    expect(
+      screen.getByTestId('ec-note-badges').querySelectorAll('[data-note-anchor]'),
+    ).toHaveLength(1);
+    expect(
+      screen.getByTestId('ec-note-badges').querySelector('[data-note-anchor="el-1"]'),
+    ).not.toBeNull();
   });
 
   it('无角标时不渲染任何浮层', () => {
@@ -123,12 +134,20 @@ describe('NotePopover 新增备注（T4-01 验收：给登录按钮加校验备�
     );
 
     chooseOption('备注类型', '校验要求');
-    fireEvent.change(screen.getByLabelText('备注标题'), { target: { value: '登录按钮需校验图形验证码' } });
-    fireEvent.change(screen.getByLabelText('备注正文 第 1 段'), { target: { value: '点击登录前必须校验图形验证码' } });
+    fireEvent.change(screen.getByLabelText('备注标题'), {
+      target: { value: '登录按钮需校验图形验证码' },
+    });
+    fireEvent.change(screen.getByLabelText('备注正文 第 1 段'), {
+      target: { value: '点击登录前必须校验图形验证码' },
+    });
     fireEvent.click(screen.getByLabelText('添加清单项'));
-    fireEvent.change(screen.getByLabelText('清单项文本 1'), { target: { value: '校验失败需提示' } });
+    fireEvent.change(screen.getByLabelText('清单项文本 1'), {
+      target: { value: '校验失败需提示' },
+    });
     fireEvent.click(screen.getByLabelText('添加代码片段'));
-    fireEvent.change(screen.getByLabelText('代码内容 1'), { target: { value: 'if (!captcha.ok) throw new Error();' } });
+    fireEvent.change(screen.getByLabelText('代码内容 1'), {
+      target: { value: 'if (!captcha.ok) throw new Error();' },
+    });
 
     fireEvent.click(screen.getByLabelText('保存备注'));
 
@@ -148,7 +167,12 @@ describe('NotePopover 新增备注（T4-01 验收：给登录按钮加校验备�
   it('禁止事项：提示硬约束，优先级锁定 P5 且选择器禁用', () => {
     const repo = makeRepo();
     render(
-      <NotePopover open target={{ targetType: 'element', targetId: 'el-1' }} repository={repo} onClose={vi.fn()} />,
+      <NotePopover
+        open
+        target={{ targetType: 'element', targetId: 'el-1' }}
+        repository={repo}
+        onClose={vi.fn()}
+      />,
     );
     chooseOption('备注类型', '禁止事项');
     expect(screen.getByRole('note')).toHaveTextContent('优先级锁定为 P5');
@@ -163,7 +187,12 @@ describe('NotePopover 新增备注（T4-01 验收：给登录按钮加校验备�
   it('内容为空时拒绝保存并给出提示', () => {
     const repo = makeRepo();
     render(
-      <NotePopover open target={{ targetType: 'page', targetId: 'page-1' }} repository={repo} onClose={vi.fn()} />,
+      <NotePopover
+        open
+        target={{ targetType: 'page', targetId: 'page-1' }}
+        repository={repo}
+        onClose={vi.fn()}
+      />,
     );
     fireEvent.click(screen.getByLabelText('保存备注'));
     expect(screen.getByRole('alert')).toHaveTextContent('备注内容不能为空');
@@ -173,7 +202,12 @@ describe('NotePopover 新增备注（T4-01 验收：给登录按钮加校验备�
   it('富文本：选区命中后加粗写入标记', () => {
     const repo = makeRepo();
     render(
-      <NotePopover open target={{ targetType: 'page', targetId: 'page-1' }} repository={repo} onClose={vi.fn()} />,
+      <NotePopover
+        open
+        target={{ targetType: 'page', targetId: 'page-1' }}
+        repository={repo}
+        onClose={vi.fn()}
+      />,
     );
     const textarea = screen.getByLabelText('备注正文 第 1 段') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: '需校验图形验证码' } });
@@ -186,12 +220,19 @@ describe('NotePopover 新增备注（T4-01 验收：给登录按钮加校验备�
     const note = repo.list()[0]!;
     const block = note.content.blocks[0];
     expect(block?.type).toBe('paragraph');
-    expect(block !== undefined && block.type === 'paragraph' ? block.spans[0]?.marks : []).toEqual(['bold']);
+    expect(block !== undefined && block.type === 'paragraph' ? block.spans[0]?.marks : []).toEqual([
+      'bold',
+    ]);
   });
 
   it('编辑既有备注走更新路径并递增版本', () => {
     const repo = makeRepo();
-    const note = repo.create({ targetType: 'page', targetId: 'page-1', title: '初稿', text: '正文' });
+    const note = repo.create({
+      targetType: 'page',
+      targetId: 'page-1',
+      title: '初稿',
+      text: '正文',
+    });
     render(
       <NotePopover
         open
@@ -212,7 +253,12 @@ describe('NotePopover 新增备注（T4-01 验收：给登录按钮加校验备�
 describe('NotePanel 备注面板（T4-01 要点 3）', () => {
   it('展示全部备注、支持层级 / 类型 / 状态筛选与搜索', () => {
     const repo = makeRepo();
-    repo.create({ targetType: 'element', targetId: 'el-btn', title: '需校验图形验证码', text: '正文' });
+    repo.create({
+      targetType: 'element',
+      targetId: 'el-btn',
+      title: '需校验图形验证码',
+      text: '正文',
+    });
     repo.create({ targetType: 'page', targetId: 'page-1', title: '页面待办', type: 'todo' });
     const resolved = repo.create({ targetType: 'page', targetId: 'page-1', title: '已解决项' });
     repo.resolve(resolved.id);
@@ -238,11 +284,19 @@ describe('NotePanel 备注面板（T4-01 要点 3）', () => {
     const note = repo.create({ targetType: 'element', targetId: 'el-btn', title: 'A' });
     const onJumpToTarget = vi.fn();
     const onCountChange = vi.fn();
-    render(<NotePanel repository={repo} onJumpToTarget={onJumpToTarget} onCountChange={onCountChange} />);
+    render(
+      <NotePanel repository={repo} onJumpToTarget={onJumpToTarget} onCountChange={onCountChange} />,
+    );
 
     fireEvent.click(screen.getByLabelText('跳转到 el-btn'));
-    expect(onJumpToTarget).toHaveBeenCalledWith({ targetType: 'element', targetId: 'el-btn', noteId: note.id });
-    expect(onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ unresolved: 1, mustFollow: 0 }));
+    expect(onJumpToTarget).toHaveBeenCalledWith({
+      targetType: 'element',
+      targetId: 'el-btn',
+      noteId: note.id,
+    });
+    expect(onCountChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ unresolved: 1, mustFollow: 0 }),
+    );
   });
 
   it('删除必须二次确认，取消不删除', () => {
@@ -275,7 +329,12 @@ describe('NotePanel 备注面板（T4-01 要点 3）', () => {
 describe('NoteHistory 变更留痕（T4-01 要点 4）', () => {
   it('展示历史版本与字段变更摘要，可回退', () => {
     const repo = makeRepo();
-    const note = repo.create({ targetType: 'element', targetId: 'el-1', title: '第一版', text: '正文' });
+    const note = repo.create({
+      targetType: 'element',
+      targetId: 'el-1',
+      title: '第一版',
+      text: '正文',
+    });
     repo.update(note.id, { title: '第二版' });
     const onRestored = vi.fn();
 

@@ -72,12 +72,27 @@ describe('ExportWizard', () => {
         archiveSizeBytes: 1024,
         rawSizeBytes: 2048,
         durationMs: 555,
-        counts: { projects: 1, memoryItems: 2, documents: 1, pages: 1, codeFiles: 3, attachments: 0 },
-        excludeStats: {
-          excludedFiles: 1, excludedBytes: 1024, totalFiles: 4, totalBytes: 2048,
-          reductionRatio: 0.5, hitsByPattern: [{ pattern: 'node_modules/**', files: 1, bytes: 1024 }],
+        counts: {
+          projects: 1,
+          memoryItems: 2,
+          documents: 1,
+          pages: 1,
+          codeFiles: 3,
+          attachments: 0,
         },
-        redacted: true, redactionFindings: [], selfCheckFindings: [], encrypted: false, warnings: [],
+        excludeStats: {
+          excludedFiles: 1,
+          excludedBytes: 1024,
+          totalFiles: 4,
+          totalBytes: 2048,
+          reductionRatio: 0.5,
+          hitsByPattern: [{ pattern: 'node_modules/**', files: 1, bytes: 1024 }],
+        },
+        redacted: true,
+        redactionFindings: [],
+        selfCheckFindings: [],
+        encrypted: false,
+        warnings: [],
       },
     });
     render(
@@ -95,12 +110,42 @@ describe('ExportWizard', () => {
   it('进度回放：回传快照驱动进度面板渲染', async () => {
     const user = userEvent.setup();
     const snapshots: ExportProgressSnapshot[] = [
-      { stage: 'enumerating', processed: 0, total: 10, currentFile: null,
-        counts: { projects: 0, memoryItems: 0, documents: 0, pages: 0, codeFiles: 0, attachments: 0 },
-        failures: [], excludeStats: null, redactionFindings: [], elapsedMs: 1 },
-      { stage: 'writing', processed: 5, total: 10, currentFile: 'code/a.ts',
-        counts: { projects: 1, memoryItems: 0, documents: 0, pages: 0, codeFiles: 5, attachments: 0 },
-        failures: [], excludeStats: null, redactionFindings: [], elapsedMs: 50 },
+      {
+        stage: 'enumerating',
+        processed: 0,
+        total: 10,
+        currentFile: null,
+        counts: {
+          projects: 0,
+          memoryItems: 0,
+          documents: 0,
+          pages: 0,
+          codeFiles: 0,
+          attachments: 0,
+        },
+        failures: [],
+        excludeStats: null,
+        redactionFindings: [],
+        elapsedMs: 1,
+      },
+      {
+        stage: 'writing',
+        processed: 5,
+        total: 10,
+        currentFile: 'code/a.ts',
+        counts: {
+          projects: 1,
+          memoryItems: 0,
+          documents: 0,
+          pages: 0,
+          codeFiles: 5,
+          attachments: 0,
+        },
+        failures: [],
+        excludeStats: null,
+        redactionFindings: [],
+        elapsedMs: 50,
+      },
     ];
     render(
       <PackageApiProvider api={createFakePackageApi({ progress: snapshots })}>

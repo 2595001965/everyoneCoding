@@ -31,9 +31,7 @@ export interface PersistedEnvelope {
 }
 
 /** 包装一个 store 的 setState，使其变更后自动落盘 */
-export function createPersistHandler<T>(
-  options: PersistOptions<T>,
-): {
+export function createPersistHandler<T>(options: PersistOptions<T>): {
   hydrate: () => Promise<Partial<T> | null>;
   persist: (state: T) => Promise<void>;
   clear: () => Promise<void>;

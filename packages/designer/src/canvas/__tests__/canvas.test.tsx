@@ -160,14 +160,25 @@ describe('T3-02 画布渲染', () => {
 
 describe('T3-02 框选几何', () => {
   it('矩形相交判定（含边接触）', () => {
-    expect(rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 5, y: 5, width: 10, height: 10 })).toBe(true);
-    expect(rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 20, y: 0, width: 5, height: 5 })).toBe(false);
+    expect(
+      rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 5, y: 5, width: 10, height: 10 }),
+    ).toBe(true);
+    expect(
+      rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 20, y: 0, width: 5, height: 5 }),
+    ).toBe(false);
     // 边接触不算相交（严格大于）
-    expect(rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 10, y: 0, width: 5, height: 5 })).toBe(false);
+    expect(
+      rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 10, y: 0, width: 5, height: 5 }),
+    ).toBe(false);
   });
 
   it('负宽高矩形被归一化', () => {
-    expect(normalizeRect({ x: 10, y: 10, width: -5, height: -8 })).toEqual({ x: 5, y: 2, width: 5, height: 8 });
+    expect(normalizeRect({ x: 10, y: 10, width: -5, height: -8 })).toEqual({
+      x: 5,
+      y: 2,
+      width: 5,
+      height: 8,
+    });
   });
 
   it('框选命中列表正确', () => {

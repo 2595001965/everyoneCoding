@@ -164,7 +164,8 @@ export function createTsParser(language: SourceLanguage = 'ts'): AstParser {
       if (ts.isFunctionLike(node)) {
         for (const param of node.parameters) {
           if (ts.isIdentifier(param.name)) recordBinding(param.name.text, inner, false);
-          else if (!ts.isIdentifier(param.name)) collectBindingNames(param.name as ts.BindingPattern, inner);
+          else if (!ts.isIdentifier(param.name))
+            collectBindingNames(param.name as ts.BindingPattern, inner);
         }
       }
     }
@@ -249,11 +250,7 @@ export function createTsParser(language: SourceLanguage = 'ts'): AstParser {
       if (resolve(text, frame) === 'shadow') return;
 
       let role: HitRole = 'call';
-      if (
-        ts.isJsxSelfClosingElement(p) ||
-        ts.isJsxOpeningElement(p) ||
-        ts.isJsxClosingElement(p)
-      ) {
+      if (ts.isJsxSelfClosingElement(p) || ts.isJsxOpeningElement(p) || ts.isJsxClosingElement(p)) {
         role = 'jsx-tag';
       } else if (p.kind === ts.SyntaxKind.TypeReference || p.kind === ts.SyntaxKind.TypeQuery) {
         role = 'type-reference';

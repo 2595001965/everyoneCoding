@@ -20,17 +20,35 @@ export interface DraftLocation {
 
 /** 前序定位（首次匹配），返回节点与其父节点引用 */
 export function draftLocate(root: ElementNode, id: string): DraftLocation | null {
-  const stack: Array<{ node: ElementNode; parent: ElementNode | null; index: number; depth: number }> = [
-    { node: root, parent: null, index: -1, depth: 0 },
-  ];
+  const stack: Array<{
+    node: ElementNode;
+    parent: ElementNode | null;
+    index: number;
+    depth: number;
+  }> = [{ node: root, parent: null, index: -1, depth: 0 }];
   while (stack.length > 0) {
-    const current = stack.shift() as { node: ElementNode; parent: ElementNode | null; index: number; depth: number };
+    const current = stack.shift() as {
+      node: ElementNode;
+      parent: ElementNode | null;
+      index: number;
+      depth: number;
+    };
     if (current.node.id === id) {
-      return { node: current.node, parent: current.parent, indexInParent: current.index, depth: current.depth };
+      return {
+        node: current.node,
+        parent: current.parent,
+        indexInParent: current.index,
+        depth: current.depth,
+      };
     }
     const children = current.node.children ?? [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
-      stack.unshift({ node: children[index] as ElementNode, parent: current.node, index, depth: current.depth + 1 });
+      stack.unshift({
+        node: children[index] as ElementNode,
+        parent: current.node,
+        index,
+        depth: current.depth + 1,
+      });
     }
   }
   return null;
@@ -43,7 +61,12 @@ export function draftChildren(node: ElementNode): ElementNode[] {
 }
 
 /** 在父节点下插入子节点（index 缺省追加） */
-export function draftInsertChild(root: ElementNode, parentId: string, child: ElementNode, index?: number): boolean {
+export function draftInsertChild(
+  root: ElementNode,
+  parentId: string,
+  child: ElementNode,
+  index?: number,
+): boolean {
   const parent = draftLocate(root, parentId);
   if (parent === null) return false;
   const children = draftChildren(parent.node);
@@ -63,7 +86,11 @@ export function draftRemoveNode(root: ElementNode, id: string): ElementNode | nu
 }
 
 /** 就地修改节点（回调里直接改 draft） */
-export function draftUpdateNode(root: ElementNode, id: string, patch: (node: ElementNode) => void): boolean {
+export function draftUpdateNode(
+  root: ElementNode,
+  id: string,
+  patch: (node: ElementNode) => void,
+): boolean {
   const location = draftLocate(root, id);
   if (location === null) return false;
   patch(location.node);
@@ -79,7 +106,11 @@ export function draftSetChildren(root: ElementNode, id: string, children: Elemen
 }
 
 /** 判断节点是否在另一节点的子树内（含自身），用于拖拽循环检测 */
-export function draftIsDescendant(root: ElementNode, ancestorId: string, descendantId: string): boolean {
+export function draftIsDescendant(
+  root: ElementNode,
+  ancestorId: string,
+  descendantId: string,
+): boolean {
   const ancestor = draftLocate(root, ancestorId);
   if (ancestor === null) return false;
   const found = draftLocate(ancestor.node, descendantId);
@@ -102,7 +133,12 @@ export function draftCount(root: ElementNode): number {
  * 移动节点：先摘除再按调整后的下标插入。
  * 目标为自身或自身子树时返回 false（循环防护）。
  */
-export function draftMoveNode(root: ElementNode, id: string, targetParentId: string, index?: number): boolean {
+export function draftMoveNode(
+  root: ElementNode,
+  id: string,
+  targetParentId: string,
+  index?: number,
+): boolean {
   if (id === targetParentId) return false;
   const source = draftLocate(root, id);
   if (source === null || source.parent === null) return false;

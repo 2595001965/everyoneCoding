@@ -20,8 +20,17 @@ export interface ModalProps {
 }
 
 export function Modal(props: ModalProps): React.ReactElement | null {
-  const { open, defaultOpen, onOpenChange, title, children, footer, size = 'md', closeOnOverlay = true, className } =
-    props;
+  const {
+    open,
+    defaultOpen,
+    onOpenChange,
+    title,
+    children,
+    footer,
+    size = 'md',
+    closeOnOverlay = true,
+    className,
+  } = props;
   const { open: isOpen, setOpen } = useDisclosure({ open, defaultOpen, onOpenChange });
   const panelRef = React.useRef<HTMLDivElement>(null);
   const titleId = useStableId('ec-modal-title');

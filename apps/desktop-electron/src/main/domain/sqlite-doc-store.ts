@@ -41,7 +41,9 @@ export function createSqliteDocStore(db: Database.Database): DocStore {
   return {
     async loadAll(projectId: string): Promise<DocumentRowSnapshot[]> {
       return db
-        .prepare(`${selectSql('document', DOC_COLUMNS)} WHERE project_id = ? ORDER BY updated_at DESC`)
+        .prepare(
+          `${selectSql('document', DOC_COLUMNS)} WHERE project_id = ? ORDER BY updated_at DESC`,
+        )
         .all(projectId) as DocumentRowSnapshot[];
     },
 
@@ -53,7 +55,9 @@ export function createSqliteDocStore(db: Database.Database): DocStore {
     async insert(row: DocumentRowSnapshot): Promise<void> {
       const placeholders = DOC_COLUMNS.map(() => '?').join(', ');
       const values = DOC_COLUMNS.map((column) => row[column] ?? null);
-      db.prepare(`INSERT INTO document (${DOC_COLUMNS.join(', ')}) VALUES (${placeholders})`).run(...values);
+      db.prepare(`INSERT INTO document (${DOC_COLUMNS.join(', ')}) VALUES (${placeholders})`).run(
+        ...values,
+      );
     },
 
     async update(id: string, patch: Partial<DocumentRowSnapshot>): Promise<void> {
@@ -80,12 +84,16 @@ export function createSqliteDocStore(db: Database.Database): DocStore {
     async saveVersion(row: DocVersionRowSnapshot): Promise<void> {
       const placeholders = VERSION_COLUMNS.map(() => '?').join(', ');
       const values = VERSION_COLUMNS.map((column) => row[column] ?? null);
-      db.prepare(`INSERT INTO doc_version (${VERSION_COLUMNS.join(', ')}) VALUES (${placeholders})`).run(...values);
+      db.prepare(
+        `INSERT INTO doc_version (${VERSION_COLUMNS.join(', ')}) VALUES (${placeholders})`,
+      ).run(...values);
     },
 
     async loadVersions(documentId: string): Promise<DocVersionRowSnapshot[]> {
       return db
-        .prepare(`${selectSql('doc_version', VERSION_COLUMNS)} WHERE document_id = ? ORDER BY version DESC`)
+        .prepare(
+          `${selectSql('doc_version', VERSION_COLUMNS)} WHERE document_id = ? ORDER BY version DESC`,
+        )
         .all(documentId) as DocVersionRowSnapshot[];
     },
   };
@@ -115,13 +123,21 @@ export function createSqliteDocMemoryPort(options: DocMemoryPortOptions): DocMem
       const rows = (
         projectId === null
           ? db
-              .prepare(`SELECT id, scope, title FROM memory_item WHERE project_id IS NULL AND status = 'active' ORDER BY updated_at DESC`)
+              .prepare(
+                `SELECT id, scope, title FROM memory_item WHERE project_id IS NULL AND status = 'active' ORDER BY updated_at DESC`,
+              )
               .all()
           : db
-              .prepare(`SELECT id, scope, title FROM memory_item WHERE project_id = ? AND status = 'active' ORDER BY updated_at DESC`)
+              .prepare(
+                `SELECT id, scope, title FROM memory_item WHERE project_id = ? AND status = 'active' ORDER BY updated_at DESC`,
+              )
               .all(projectId)
       ) as Array<{ id: string; scope: string; title: string }>;
-      return rows.map((row) => ({ id: row.id, scope: row.scope as DocMemoryScope, title: row.title }));
+      return rows.map((row) => ({
+        id: row.id,
+        scope: row.scope as DocMemoryScope,
+        title: row.title,
+      }));
     },
 
     async createMemory(input: {
@@ -151,7 +167,11 @@ export function createSqliteDocMemoryPort(options: DocMemoryPortOptions): DocMem
       return { id, scope: input.scope, title: input.title };
     },
 
-    async link(input: { memoryId: string; documentId: string; linkType: DocLinkType }): Promise<DocMemoryLink> {
+    async link(input: {
+      memoryId: string;
+      documentId: string;
+      linkType: DocLinkType;
+    }): Promise<DocMemoryLink> {
       const existing = db
         .prepare(
           `SELECT ${LINK_COLUMNS.join(', ')} FROM memory_doc_link WHERE memory_id = ? AND document_id = ?`,
@@ -174,14 +194,18 @@ export function createSqliteDocMemoryPort(options: DocMemoryPortOptions): DocMem
 
     async listLinksByDoc(documentId: string): Promise<DocMemoryLink[]> {
       const rows = db
-        .prepare(`${selectSql('memory_doc_link', LINK_COLUMNS)} WHERE document_id = ? ORDER BY created_at DESC`)
+        .prepare(
+          `${selectSql('memory_doc_link', LINK_COLUMNS)} WHERE document_id = ? ORDER BY created_at DESC`,
+        )
         .all(documentId) as MemoryDocLinkRowSnapshot[];
       return rows.map(rowToLink);
     },
 
     async listLinksByMemory(memoryId: string): Promise<DocMemoryLink[]> {
       const rows = db
-        .prepare(`${selectSql('memory_doc_link', LINK_COLUMNS)} WHERE memory_id = ? ORDER BY created_at DESC`)
+        .prepare(
+          `${selectSql('memory_doc_link', LINK_COLUMNS)} WHERE memory_id = ? ORDER BY created_at DESC`,
+        )
         .all(memoryId) as MemoryDocLinkRowSnapshot[];
       return rows.map(rowToLink);
     },
@@ -194,7 +218,10 @@ export function createSqliteDocMemoryPort(options: DocMemoryPortOptions): DocMem
 }
 
 /** 批量统计每个记忆被多少篇文档引用（记忆卡片「📎 N 篇关联文档」） */
-export function countLinksForMemories(db: Database.Database, memoryIds: readonly string[]): Record<string, number> {
+export function countLinksForMemories(
+  db: Database.Database,
+  memoryIds: readonly string[],
+): Record<string, number> {
   const ids = memoryIds.filter((id) => typeof id === 'string' && id.length > 0);
   if (ids.length === 0) return {};
   const placeholders = ids.map(() => '?').join(', ');

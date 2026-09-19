@@ -25,7 +25,11 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('content');
   const [convertOpen, setConvertOpen] = useState(false);
-  const [selected, setSelected] = useState<{ id: string; title: string; sections: DocSection[] } | null>(null);
+  const [selected, setSelected] = useState<{
+    id: string;
+    title: string;
+    sections: DocSection[];
+  } | null>(null);
 
   /** 选中文档时同步取详情（转记忆需要 sections） */
   const handleSelect = useCallback(
@@ -48,7 +52,11 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
     <div className="ec-docs">
       <header className="ec-docs__head">
         <h1>文档中心</h1>
-        <Button variant="primary" disabled={selectedId === null} onClick={() => setConvertOpen(true)}>
+        <Button
+          variant="primary"
+          disabled={selectedId === null}
+          onClick={() => setConvertOpen(true)}
+        >
           转为记忆
         </Button>
       </header>
@@ -116,5 +124,11 @@ export { DocLibrary } from './DocLibrary';
 export { DocViewer } from './DocViewer';
 export { DocMemoryLink } from './DocMemoryLink';
 export { ConvertToMemoryDialog } from './ConvertToMemoryDialog';
-export { DocsProvider, DocsUnavailable, useDocs, useDocsOptional, readInjectedDocsApi } from './docs-api';
+export {
+  DocsProvider,
+  DocsUnavailable,
+  useDocs,
+  useDocsOptional,
+  readInjectedDocsApi,
+} from './docs-api';
 export type { DocsApi } from './docs-api';

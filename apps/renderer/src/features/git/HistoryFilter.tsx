@@ -70,7 +70,14 @@ export function HistoryFilter({ value, onChange }: HistoryFilterProps): JSX.Elem
         type="button"
         onClick={() => onChange({ ...EMPTY_HISTORY_FILTER })}
         data-testid="filter-reset"
-        style={{ padding: '4px 10px', border: '1px solid var(--ec-color-border)', borderRadius: 6, cursor: 'pointer', background: 'var(--ec-color-surface)', color: 'var(--ec-color-text)' }}
+        style={{
+          padding: '4px 10px',
+          border: '1px solid var(--ec-color-border)',
+          borderRadius: 6,
+          cursor: 'pointer',
+          background: 'var(--ec-color-surface)',
+          color: 'var(--ec-color-text)',
+        }}
       >
         重置
       </button>

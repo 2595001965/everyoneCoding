@@ -92,7 +92,11 @@ export async function estimateAffectedRows(
   try {
     const estimated = await stats.estimateRows(table);
     if (estimated !== null) {
-      return { estimate: estimated, method: 'statistics', detail: `来自表统计信息，约 ${estimated} 行` };
+      return {
+        estimate: estimated,
+        method: 'statistics',
+        detail: `来自表统计信息，约 ${estimated} 行`,
+      };
     }
   } catch {
     // 落到 unknown

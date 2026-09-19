@@ -252,7 +252,9 @@ export interface RenameEventStore {
   setCommitSha(id: string, commitSha: string): RenameEvent | null;
 }
 
-export function createInMemoryRenameEventStore(initial: readonly RenameEvent[] = []): RenameEventStore {
+export function createInMemoryRenameEventStore(
+  initial: readonly RenameEvent[] = [],
+): RenameEventStore {
   const rows = new Map<string, RenameEvent>();
   for (const event of initial) rows.set(event.id, event);
   return {
@@ -307,14 +309,15 @@ export function toHistoryEntry(event: RenameEvent): RenameHistoryEntry {
     commitSha: event.commitSha,
     undone: event.undone,
     changes: segments.reduce((sum, segment) => sum + segment.applied, 0),
-    projections: event.changeset === null
-      ? []
-      : (Object.entries(event.changeset.projections.after) as [ProjectionKind, string][])
-          .filter(([kind, value]) => event.changeset?.projections.before[kind] !== value)
-          .map(([kind, value]) => ({
-            kind,
-            oldValue: event.changeset?.projections.before[kind] ?? '',
-            newValue: value,
-          })),
+    projections:
+      event.changeset === null
+        ? []
+        : (Object.entries(event.changeset.projections.after) as [ProjectionKind, string][])
+            .filter(([kind, value]) => event.changeset?.projections.before[kind] !== value)
+            .map(([kind, value]) => ({
+              kind,
+              oldValue: event.changeset?.projections.before[kind] ?? '',
+              newValue: value,
+            })),
   };
 }

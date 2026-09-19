@@ -11,14 +11,14 @@
 （不依赖报告文件解析），并从 text reporter 的汇总行抓取各列供展示。
 **逐模块单跑是刻意的**：全仓并行时 V8 覆盖不跨 worker 聚合，分母会失真。
 
-| 模块 | 行覆盖率 | 判定 |
-| --- | --- | --- |
-| 记忆系统 `packages/memory` | 90.78% | ✅ |
-| 上下文引擎 `packages/ai/src/context` | 93.68% | ✅ |
-| Git 封装 `packages/git` | **75.71%** | ✅（2026-09-15 实测，见 §1.2） |
-| Provider 适配 `packages/ai/src/adapters` | 74.86% | ✅ |
-| 统一标识注册表与重命名引擎 `packages/registry` | 85.68% | ✅ |
-| 归档读写 `packages/package-kit` | 85.14% | ✅ |
+| 模块                                           | 行覆盖率   | 判定                           |
+| ---------------------------------------------- | ---------- | ------------------------------ |
+| 记忆系统 `packages/memory`                     | 90.78%     | ✅                             |
+| 上下文引擎 `packages/ai/src/context`           | 93.68%     | ✅                             |
+| Git 封装 `packages/git`                        | **75.71%** | ✅（2026-09-15 实测，见 §1.2） |
+| Provider 适配 `packages/ai/src/adapters`       | 74.86%     | ✅                             |
+| 统一标识注册表与重命名引擎 `packages/registry` | 85.68%     | ✅                             |
+| 归档读写 `packages/package-kit`                | 85.14%     | ✅                             |
 
 本轮补齐（2026-09-13）：`packages/ai/src/adapters` 原 66.8%（`openai/embeddings.ts` 覆盖 0%），
 新增 `openai/__tests__/embeddings.test.ts`（11 项：请求体构造 / 响应解析 / 乱序 index
@@ -69,27 +69,27 @@ merge → stash → 回滚 → 推送 → 冲突解决，单趟含上百次真�
 
 任务卡要求的八类路径逐条核对，每条都能指到具体测试文件：
 
-| # | 破坏性操作 | 撤销路径 | 覆盖测试 |
-| --- | --- | --- | --- |
-| 1 | 项目删除 | 回收站 → 恢复（30 天保留期 + 超期清理） | `packages/core/src/project/__tests__/project-service.test.ts` |
-| 2 | 流水线回退 | 回退到上一阶段（二次确认 + 下游 stale 标记） | `packages/pipeline/src/__tests__/pipeline-machine.test.ts`（E2E-03 组件层：`apps/renderer/src/features/pipeline/__tests__`） |
-| 3 | 文档版本切换 | doc_version 历史版本恢复 | `packages/core/src/docs/__tests__/doc-service.test.ts` |
-| 4 | 代码补丁应用 | 写入事务失败整体回滚（快照）+ 外部改动拒绝 | `packages/ai/src/write/__tests__`（apply 事务 + external-change-watcher） |
-| 5 | Git reset / revert | reset / revert + 冲突解决 | `packages/git/src/__tests__/git-integration.test.ts`（真实临时仓库，双后端同套用例） |
-| 6 | 重命名事务回滚 | 逆序 revert 全部执行器（含位置漂移硬失败） | `packages/registry/src/__tests__/rename-transaction.test.ts` |
-| 7 | 数据库迁移回滚 | 迁移三段式（-- up / -- down）幂等回滚 | `packages/data/src/__tests__/migrator.test.ts` |
-| 8 | 导入覆盖回滚 | 冲突默认不覆盖（keepLocal）+ keepBoth + 一键回滚先自动快照 | `packages/package-kit/src/__tests__/import-conflict-resolver.test.ts`、`backup.test.ts` |
+| #   | 破坏性操作         | 撤销路径                                                   | 覆盖测试                                                                                                                     |
+| --- | ------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 项目删除           | 回收站 → 恢复（30 天保留期 + 超期清理）                    | `packages/core/src/project/__tests__/project-service.test.ts`                                                                |
+| 2   | 流水线回退         | 回退到上一阶段（二次确认 + 下游 stale 标记）               | `packages/pipeline/src/__tests__/pipeline-machine.test.ts`（E2E-03 组件层：`apps/renderer/src/features/pipeline/__tests__`） |
+| 3   | 文档版本切换       | doc_version 历史版本恢复                                   | `packages/core/src/docs/__tests__/doc-service.test.ts`                                                                       |
+| 4   | 代码补丁应用       | 写入事务失败整体回滚（快照）+ 外部改动拒绝                 | `packages/ai/src/write/__tests__`（apply 事务 + external-change-watcher）                                                    |
+| 5   | Git reset / revert | reset / revert + 冲突解决                                  | `packages/git/src/__tests__/git-integration.test.ts`（真实临时仓库，双后端同套用例）                                         |
+| 6   | 重命名事务回滚     | 逆序 revert 全部执行器（含位置漂移硬失败）                 | `packages/registry/src/__tests__/rename-transaction.test.ts`                                                                 |
+| 7   | 数据库迁移回滚     | 迁移三段式（-- up / -- down）幂等回滚                      | `packages/data/src/__tests__/migrator.test.ts`                                                                               |
+| 8   | 导入覆盖回滚       | 冲突默认不覆盖（keepLocal）+ keepBoth + 一键回滚先自动快照 | `packages/package-kit/src/__tests__/import-conflict-resolver.test.ts`、`backup.test.ts`                                      |
 
 **八类全部有集成测试覆盖，无缺口。**
 
 ## 3. 静态检查门禁
 
-| 检查 | 状态 | 命令 |
-| --- | --- | --- |
-| TypeScript strict 零 error | ✅（17 个工程 + `e2e/`） | `pnpm typecheck` + `tsc -p e2e/tsconfig.json` |
-| ESLint 零 error 零 warning | ✅（含 e2e / perf / ci 的 `.mts`） | `pnpm lint`（`--max-warnings 0`，`--ext .ts,.tsx,.mts`） |
-| Tauri `cargo clippy` 零 warning | ⏳ 待 Rust 工具链 | 本机无 Rust；CI 配置已写 `-D warnings`（warning 即失败），装好工具链后 `cd apps/desktop-tauri/src-tauri && cargo clippy --all-targets -- -D warnings` |
-| Electron 主进程 ESLint | ✅（含在全仓 lint 内） | `pnpm lint`（`apps/desktop-electron/src/**` 在 include 范围） |
+| 检查                            | 状态                               | 命令                                                                                                                                                  |
+| ------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TypeScript strict 零 error      | ✅（17 个工程 + `e2e/`）           | `pnpm typecheck` + `tsc -p e2e/tsconfig.json`                                                                                                         |
+| ESLint 零 error 零 warning      | ✅（含 e2e / perf / ci 的 `.mts`） | `pnpm lint`（`--max-warnings 0`，`--ext .ts,.tsx,.mts`）                                                                                              |
+| Tauri `cargo clippy` 零 warning | ⏳ 待 Rust 工具链                  | 本机无 Rust；CI 配置已写 `-D warnings`（warning 即失败），装好工具链后 `cd apps/desktop-tauri/src-tauri && cargo clippy --all-targets -- -D warnings` |
+| Electron 主进程 ESLint          | ✅（含在全仓 lint 内）             | `pnpm lint`（`apps/desktop-electron/src/**` 在 include 范围）                                                                                         |
 
 ## 4. CI 门禁配置
 

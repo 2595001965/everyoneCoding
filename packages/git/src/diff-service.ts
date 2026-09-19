@@ -218,7 +218,11 @@ export function parseHunks(lines: readonly string[]): GitDiffHunk[] {
       current.lines.push({ kind: 'meta', text: line, oldNumber: null, newNumber: null });
       continue;
     }
-    const kind: DiffLineKind = line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : 'context';
+    const kind: DiffLineKind = line.startsWith('+')
+      ? 'add'
+      : line.startsWith('-')
+        ? 'del'
+        : 'context';
     const text = line.length > 0 ? line.slice(1) : '';
     if (kind === 'add') {
       current.lines.push({ kind, text, oldNumber: null, newNumber });
@@ -315,7 +319,12 @@ export function alignHunk(hunk: GitDiffHunk): SideBySideRow[] {
       const left = dels[pair];
       const right = adds[pair];
       rows.push({
-        kind: left !== undefined && right !== undefined ? 'replace' : left !== undefined ? 'del' : 'add',
+        kind:
+          left !== undefined && right !== undefined
+            ? 'replace'
+            : left !== undefined
+              ? 'del'
+              : 'add',
         left: left === undefined ? null : { number: left.oldNumber ?? 0, text: left.text },
         right: right === undefined ? null : { number: right.newNumber ?? 0, text: right.text },
       });
@@ -328,7 +337,10 @@ export function alignHunk(hunk: GitDiffHunk): SideBySideRow[] {
  * 折叠未修改区域：连续 `context` 行超过 `2 * context + 1` 时，
  * 保留两端各 `context` 行、中间折成一条 `count` 提示。
  */
-export function foldAlignedRows(rows: readonly SideBySideRow[], context = 3): (SideBySideRow | UnchangedFold)[] {
+export function foldAlignedRows(
+  rows: readonly SideBySideRow[],
+  context = 3,
+): (SideBySideRow | UnchangedFold)[] {
   const output: (SideBySideRow | UnchangedFold)[] = [];
   let index = 0;
   while (index < rows.length) {

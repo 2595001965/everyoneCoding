@@ -53,7 +53,14 @@ export interface ProjectMemoryDraft {
 
 function toStructured(section: ProjectMemorySection, payload: unknown): Record<string, unknown> {
   if (Array.isArray(payload)) {
-    const key = section === 'routes' ? 'routes' : section === 'modules' ? 'modules' : section === 'dependencies' ? 'dependencies' : 'items';
+    const key =
+      section === 'routes'
+        ? 'routes'
+        : section === 'modules'
+          ? 'modules'
+          : section === 'dependencies'
+            ? 'dependencies'
+            : 'items';
     return { [key]: payload };
   }
   if (payload && typeof payload === 'object') return payload as Record<string, unknown>;
@@ -94,7 +101,11 @@ export class ProjectMemoryService {
   }
 
   /** 技术文档生成初稿：一次写入整份项目记忆（幂等，可重复调用） */
-  upsertDraft(projectId: string, draft: ProjectMemoryDraft, options: UpsertOptions = {}): UpsertOutcome[] {
+  upsertDraft(
+    projectId: string,
+    draft: ProjectMemoryDraft,
+    options: UpsertOptions = {},
+  ): UpsertOutcome[] {
     const outcomes: UpsertOutcome[] = [];
     for (const section of PROJECT_MEMORY_SECTIONS) {
       const payload = draft[section];
@@ -108,10 +119,15 @@ export class ProjectMemoryService {
   mergeRoutes(projectId: string, routes: readonly string[]): UpsertOutcome {
     const existing = this.get(projectId).routes;
     const current = Array.isArray(existing?.structured?.['routes'])
-      ? (existing?.structured?.['routes'] as unknown[]).filter((item): item is string => typeof item === 'string')
+      ? (existing?.structured?.['routes'] as unknown[]).filter(
+          (item): item is string => typeof item === 'string',
+        )
       : [];
     const merged = [...new Set([...current, ...routes])];
-    return this.upsertSection(projectId, 'routes', merged, { onExisting: 'merge', sourceType: 'auto_design' });
+    return this.upsertSection(projectId, 'routes', merged, {
+      onExisting: 'merge',
+      sourceType: 'auto_design',
+    });
   }
 
   /** 读取各分区当前条目 */
@@ -119,13 +135,17 @@ export class ProjectMemoryService {
     const items = this.repo.list({ userId: this.userId, scopes: ['project'], projectId });
     const result = {} as Record<ProjectMemorySection, MemoryItem | null>;
     for (const section of PROJECT_MEMORY_SECTIONS) {
-      result[section] = items.find((item) => item.title === PROJECT_SECTION_TITLES[section]) ?? null;
+      result[section] =
+        items.find((item) => item.title === PROJECT_SECTION_TITLES[section]) ?? null;
     }
     return result;
   }
 
   /** 汇总视图：把各分区结构化数据拼成一份"项目架构摘要" */
-  overview(projectId: string): { structured: Record<string, unknown>; missing: ProjectMemorySection[] } {
+  overview(projectId: string): {
+    structured: Record<string, unknown>;
+    missing: ProjectMemorySection[];
+  } {
     const bySection = this.get(projectId);
     const structured: Record<string, unknown> = {};
     const missing: ProjectMemorySection[] = [];
@@ -144,7 +164,9 @@ export class ProjectMemoryService {
     switch (section) {
       case 'stack': {
         const entries = Object.entries(structured).filter(([, value]) => typeof value === 'string');
-        return entries.length > 0 ? entries.map(([key, value]) => `${key}: ${String(value)}`).join('；') : '技术选型待补充';
+        return entries.length > 0
+          ? entries.map(([key, value]) => `${key}: ${String(value)}`).join('；')
+          : '技术选型待补充';
       }
       case 'modules':
         return `模块：${toStringList(structured['modules']).join('、') || '待补充'}`;

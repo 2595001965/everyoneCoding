@@ -65,7 +65,9 @@ export function toOpenAiMessages(messages: readonly ChatMessage[]): OpenAiMessag
           else if (block.type === 'image') {
             parts.push({
               type: 'image_url',
-              image_url: { url: block.source.kind === 'url' ? block.source.url : toDataUri(block.source) },
+              image_url: {
+                url: block.source.kind === 'url' ? block.source.url : toDataUri(block.source),
+              },
             });
           }
         }
@@ -116,7 +118,9 @@ export function toOpenAiMessages(messages: readonly ChatMessage[]): OpenAiMessag
   return out;
 }
 
-export function toOpenAiTools(tools: readonly ToolDefinition[] | undefined): OpenAiTool[] | undefined {
+export function toOpenAiTools(
+  tools: readonly ToolDefinition[] | undefined,
+): OpenAiTool[] | undefined {
   if (!tools || tools.length === 0) return undefined;
   return tools.map((tool) => ({
     type: 'function',
@@ -128,12 +132,18 @@ export function toOpenAiTools(tools: readonly ToolDefinition[] | undefined): Ope
   }));
 }
 
-export function buildOpenAiBody(request: ChatRequest, options: { stream: boolean; includeUsage?: boolean }): string {
+export function buildOpenAiBody(
+  request: ChatRequest,
+  options: { stream: boolean; includeUsage?: boolean },
+): string {
   const body: OpenAiRequestBody = {
     model: request.model,
     messages: toOpenAiMessages(request.messages),
     ...(options.stream
-      ? { stream: true, ...(options.includeUsage ? { stream_options: { include_usage: true } } : {}) }
+      ? {
+          stream: true,
+          ...(options.includeUsage ? { stream_options: { include_usage: true } } : {}),
+        }
       : {}),
     ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
     ...(request.maxTokens !== undefined ? { max_tokens: request.maxTokens } : {}),
@@ -146,7 +156,10 @@ export function buildOpenAiBody(request: ChatRequest, options: { stream: boolean
   return JSON.stringify(body);
 }
 
-export function openAiHeaders(provider: { headers: Record<string, string> }, apiKey: string | null): Record<string, string> {
+export function openAiHeaders(
+  provider: { headers: Record<string, string> },
+  apiKey: string | null,
+): Record<string, string> {
   return {
     'content-type': 'application/json',
     accept: 'application/json',

@@ -30,7 +30,11 @@ function formatTokens(value: number): string {
   return value.toLocaleString('zh-CN');
 }
 
-export function UsageDashboard({ projectOptions }: { projectOptions: Array<{ id: string; name: string }> }): JSX.Element {
+export function UsageDashboard({
+  projectOptions,
+}: {
+  projectOptions: Array<{ id: string; name: string }>;
+}): JSX.Element {
   const api = useUsageOptional();
   const [scope, setScope] = useState<Scope>('global');
   const [projectId, setProjectId] = useState<string>(projectOptions[0]?.id ?? '');
@@ -91,7 +95,13 @@ export function UsageDashboard({ projectOptions }: { projectOptions: Array<{ id:
     <div className="ec-usage">
       <div className="ec-usage__toolbar">
         <div className="ec-usage__scopes" role="tablist" aria-label="用量视图">
-          <button type="button" role="tab" aria-selected={scope === 'global'} data-active={scope === 'global'} onClick={() => setScope('global')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === 'global'}
+            data-active={scope === 'global'}
+            onClick={() => setScope('global')}
+          >
             全局视图
           </button>
           <button
@@ -121,7 +131,12 @@ export function UsageDashboard({ projectOptions }: { projectOptions: Array<{ id:
         </div>
         <div className="ec-usage__groups">
           {(Object.keys(GROUP_LABELS) as GroupKey[]).map((key) => (
-            <button key={key} type="button" data-active={group === key} onClick={() => setGroup(key)}>
+            <button
+              key={key}
+              type="button"
+              data-active={group === key}
+              onClick={() => setGroup(key)}
+            >
               {GROUP_LABELS[key]}
             </button>
           ))}
@@ -140,7 +155,9 @@ export function UsageDashboard({ projectOptions }: { projectOptions: Array<{ id:
         </div>
         <div className="ec-usage__metric">
           <span className="ec-usage__metric-label">输出 Token</span>
-          <span className="ec-usage__metric-value">{formatTokens(report.totals.completionTokens)}</span>
+          <span className="ec-usage__metric-value">
+            {formatTokens(report.totals.completionTokens)}
+          </span>
         </div>
         <div className="ec-usage__metric">
           <span className="ec-usage__metric-label">费用（美元）</span>
@@ -168,7 +185,8 @@ export function UsageDashboard({ projectOptions }: { projectOptions: Array<{ id:
         renderCell={(row, column) => {
           const entry = row as { key: string; cost: number; avgLatencyMs: number | null };
           if (column.key === 'cost') return formatUsd(entry.cost);
-          if (column.key === 'avgLatencyMs') return entry.avgLatencyMs === null ? '—' : `${entry.avgLatencyMs}ms`;
+          if (column.key === 'avgLatencyMs')
+            return entry.avgLatencyMs === null ? '—' : `${entry.avgLatencyMs}ms`;
           const value = (row as unknown as Record<string, unknown>)[column.key];
           return value === undefined || value === null ? '' : String(value);
         }}

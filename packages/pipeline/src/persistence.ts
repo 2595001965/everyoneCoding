@@ -79,7 +79,8 @@ export class PipelineRepo {
   }
 
   getRun(runId: string): PipelineRunRecord | null {
-    const row = this.db.prepare('SELECT * FROM pipeline_run WHERE id = ?').get(runId) as PipelineRunRow | undefined;
+    const row = this.db.prepare('SELECT * FROM pipeline_run WHERE id = ?').get(runId) as
+      PipelineRunRow | undefined;
     return row === undefined ? null : rowToRun(row);
   }
 
@@ -91,9 +92,17 @@ export class PipelineRepo {
   }
 
   /** 同步 run 行的活跃阶段指针（状态本体的存储在快照文件，run 行是查询便利） */
-  updateRunPointer(runId: string, stage: PipelineStage, status: StageStatus, version: number, now = nowMs()): void {
+  updateRunPointer(
+    runId: string,
+    stage: PipelineStage,
+    status: StageStatus,
+    version: number,
+    now = nowMs(),
+  ): void {
     this.db
-      .prepare('UPDATE pipeline_run SET stage = ?, status = ?, version = ?, updated_at = ? WHERE id = ?')
+      .prepare(
+        'UPDATE pipeline_run SET stage = ?, status = ?, version = ?, updated_at = ? WHERE id = ?',
+      )
       .run(stage, status, version, now, runId);
   }
 
@@ -101,9 +110,9 @@ export class PipelineRepo {
 
   /** 把产物台账写进 stage_artifact（按 id 幂等：同 id 重写说明恢复语义） */
   upsertArtifact(entry: ArtifactVersion, runId: string, projectId: string): void {
-    const existing = this.db.prepare('SELECT id FROM stage_artifact WHERE id = ?').get(entryKey(entry)) as
-      | { id: string }
-      | undefined;
+    const existing = this.db
+      .prepare('SELECT id FROM stage_artifact WHERE id = ?')
+      .get(entryKey(entry)) as { id: string } | undefined;
     if (existing !== undefined) {
       this.db
         .prepare(
@@ -128,7 +137,17 @@ export class PipelineRepo {
         `INSERT INTO stage_artifact (id, run_id, project_id, stage, artifact_type, version, content_ref, diff_ref, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(row.id, row.run_id, row.project_id, row.stage, row.artifact_type, row.version, row.content_ref, row.diff_ref, row.created_at);
+      .run(
+        row.id,
+        row.run_id,
+        row.project_id,
+        row.stage,
+        row.artifact_type,
+        row.version,
+        row.content_ref,
+        row.diff_ref,
+        row.created_at,
+      );
   }
 
   listArtifacts(projectId: string): ArtifactVersion[] {
@@ -136,7 +155,10 @@ export class PipelineRepo {
       .prepare('SELECT * FROM stage_artifact WHERE project_id = ? ORDER BY stage ASC, version ASC')
       .all(projectId) as StageArtifactRow[];
     return rows
-      .filter((row) => (PIPELINE_STAGES as readonly string[]).includes(row.stage) && row.content_ref !== null)
+      .filter(
+        (row) =>
+          (PIPELINE_STAGES as readonly string[]).includes(row.stage) && row.content_ref !== null,
+      )
       .map((row) => ({
         stage: row.stage as PipelineStage,
         artifactType: row.artifact_type as ArtifactVersion['artifactType'],
@@ -169,8 +191,10 @@ export class PipelineRepo {
         const record = value as Record<string, unknown>;
         snapshot[stage] = {
           stage,
-          status: typeof record['status'] === 'string' ? (record['status'] as StageStatus) : 'pending',
-          activeVersion: typeof record['activeVersion'] === 'number' ? record['activeVersion'] : null,
+          status:
+            typeof record['status'] === 'string' ? (record['status'] as StageStatus) : 'pending',
+          activeVersion:
+            typeof record['activeVersion'] === 'number' ? record['activeVersion'] : null,
           latestVersion: typeof record['latestVersion'] === 'number' ? record['latestVersion'] : 0,
           skippedAt: typeof record['skippedAt'] === 'number' ? record['skippedAt'] : null,
           updatedAt: typeof record['updatedAt'] === 'number' ? record['updatedAt'] : 0,

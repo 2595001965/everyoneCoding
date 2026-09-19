@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeDiffLines, CONTENT_DIFF_SIZE_LIMIT, isLargeContent, previewOf } from '../apply-strategy/preview';
+import {
+  computeDiffLines,
+  CONTENT_DIFF_SIZE_LIMIT,
+  isLargeContent,
+  previewOf,
+} from '../apply-strategy/preview';
 import {
   applySelectionToPlan,
   describeHunkSelection,
@@ -44,7 +49,10 @@ function planOf(entries: WritePlanEntry[]): WritePlan {
 
 /** 30 行文件，在两处相距较远的位置各改一行 —— 才能稳定切出两个 hunk */
 const LONG_BEFORE = Array.from({ length: 30 }, (_, index) => `line-${index + 1}`).join('\n');
-const LONG_AFTER = LONG_BEFORE.replace('line-3', 'line-3-changed').replace('line-25', 'line-25-changed');
+const LONG_AFTER = LONG_BEFORE.replace('line-3', 'line-3-changed').replace(
+  'line-25',
+  'line-25-changed',
+);
 
 describe('逐行差异与分块（T4-05 要点 4）', () => {
   it('computeDiffLines 给出正确的增删与行号', () => {
@@ -66,7 +74,9 @@ describe('逐行差异与分块（T4-05 要点 4）', () => {
     expect(isLargeContent('x'.repeat(CONTENT_DIFF_SIZE_LIMIT + 1), '')).toBe(true);
     expect(isLargeContent('small', 'also small')).toBe(false);
 
-    const preview = previewOf(entry({ before: 'x'.repeat(CONTENT_DIFF_SIZE_LIMIT + 1), after: 'y' }));
+    const preview = previewOf(
+      entry({ before: 'x'.repeat(CONTENT_DIFF_SIZE_LIMIT + 1), after: 'y' }),
+    );
     expect(preview.skippedContentDiff).toBe(true);
     expect(preview.skipReason).toContain('1MB');
     expect(preview.lines).toEqual([]);

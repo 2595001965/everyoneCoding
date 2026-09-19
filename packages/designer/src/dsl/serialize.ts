@@ -20,7 +20,11 @@ export const DSL_FILE_SUFFIX = '.dsl.json';
 /** 原子文件端口（由 `@ec/core` 的 FileService 满足） */
 export interface DslStorePort {
   readText(path: string): Promise<string>;
-  writeAtomic(path: string, data: string | Uint8Array, options?: { encoding?: 'utf8' | 'base64'; backup?: boolean }): Promise<void>;
+  writeAtomic(
+    path: string,
+    data: string | Uint8Array,
+    options?: { encoding?: 'utf8' | 'base64'; backup?: boolean },
+  ): Promise<void>;
   exists(path: string): Promise<boolean>;
 }
 
@@ -92,10 +96,12 @@ export function deserializePageDsl(text: string): DeserializeResult {
     throw new DslParseError('DSL 文件根节点必须是对象');
   }
   const record = parsed as Record<string, unknown>;
-  const hasEnvelope = 'page' in record && typeof record['page'] === 'object' && record['page'] !== null;
+  const hasEnvelope =
+    'page' in record && typeof record['page'] === 'object' && record['page'] !== null;
   const rawPage = hasEnvelope ? (record['page'] as Record<string, unknown>) : record;
   // 版本以信封声明为准；遗留的裸 PageDsl 文件没有版本字段，按 v1 迁移
-  const declared = typeof record['dslVersion'] === 'number' ? Math.trunc(record['dslVersion']) : undefined;
+  const declared =
+    typeof record['dslVersion'] === 'number' ? Math.trunc(record['dslVersion']) : undefined;
 
   const migrated = migrateDsl(rawPage, declared === undefined ? {} : { from: declared });
   const dsl = parsePageDsl(migrated.value);
@@ -117,8 +123,13 @@ export async function loadPageDsl(store: DslStorePort, path: string): Promise<Pa
 }
 
 /** 扫描目录下的全部页面 DSL 文件（仅返回文件名，路径由调用方拼接） */
-export async function listPageDslFiles(store: DslStorePort & { list?(path: string): Promise<string[]> }, dir: string): Promise<string[]> {
+export async function listPageDslFiles(
+  store: DslStorePort & { list?(path: string): Promise<string[]> },
+  dir: string,
+): Promise<string[]> {
   if (typeof store.list !== 'function') return [];
   const entries = await store.list(dir);
-  return entries.map((entry) => entry.replace(/\\/g, '/').split('/').pop() ?? entry).filter(isDslFileName);
+  return entries
+    .map((entry) => entry.replace(/\\/g, '/').split('/').pop() ?? entry)
+    .filter(isDslFileName);
 }

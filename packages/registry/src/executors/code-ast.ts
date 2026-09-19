@@ -14,7 +14,14 @@
  * 提供（见 `occurrence/ast/`），本执行器只消费位置，因此天然支持三语言。
  */
 
-import type { ChangeRecord, ExecutionContext, ExecutorInput, ExecutorResult, RenameExecutor, UndoPatch } from './types';
+import type {
+  ChangeRecord,
+  ExecutionContext,
+  ExecutorInput,
+  ExecutorResult,
+  RenameExecutor,
+  UndoPatch,
+} from './types';
 import { emptyResult } from './types';
 import { writeBackup } from './backup';
 
@@ -80,7 +87,9 @@ export function createCodeAstExecutor(): RenameExecutor {
           }
           const offset = offsetOf(content, change.line, change.columnNumber);
           if (offset === null) {
-            result.failures.push(`${refPath}:${change.line}:${change.columnNumber} 位置越界，索引需要重建`);
+            result.failures.push(
+              `${refPath}:${change.line}:${change.columnNumber} 位置越界，索引需要重建`,
+            );
             continue;
           }
           const actual = content.slice(offset, offset + change.target.length);

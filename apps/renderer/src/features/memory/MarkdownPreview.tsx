@@ -92,7 +92,9 @@ function renderBlocks(text: string): ReactNode[] {
     if (line.trimStart().startsWith('> ')) {
       flushParagraph();
       flushList();
-      blocks.push(<blockquote key={`quote-${key++}`}>{renderInline(line.trimStart().slice(2))}</blockquote>);
+      blocks.push(
+        <blockquote key={`quote-${key++}`}>{renderInline(line.trimStart().slice(2))}</blockquote>,
+      );
       continue;
     }
 

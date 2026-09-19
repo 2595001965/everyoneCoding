@@ -87,7 +87,9 @@ export function splitStatements(sql: string): string[] {
     index += 1;
   }
   statements.push(current);
-  return statements.map((statement) => statement.trim()).filter((statement) => statement.length > 0);
+  return statements
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0);
 }
 
 /** 单条语句的风险判定（无风险返回 null） */
@@ -123,7 +125,8 @@ export function classifyStatement(statement: string): SqlRisk | null {
     return make('rename_column', '改名语句（默认不改数据库列名；如确需执行请确认影响面）');
   }
   if (/\bADD\s+COLUMN\b/.test(compact)) return make('add_column', '新增列（低危）');
-  if (/\b(CREATE|DROP)\s+(UNIQUE\s+)?INDEX\b/.test(compact)) return make('index', '索引变更（低危，可能锁表）');
+  if (/\b(CREATE|DROP)\s+(UNIQUE\s+)?INDEX\b/.test(compact))
+    return make('index', '索引变更（低危，可能锁表）');
   return null;
 }
 
@@ -148,9 +151,15 @@ export function suggestsBackup(risks: readonly SqlRisk[]): boolean {
 }
 
 /** 锁表 / 耗时风险（供预览面板提示） */
-export function lockRiskOf(risks: readonly SqlRisk[]): { level: 'low' | 'medium' | 'high'; detail: string } {
+export function lockRiskOf(risks: readonly SqlRisk[]): {
+  level: 'low' | 'medium' | 'high';
+  detail: string;
+} {
   if (risks.some((risk) => risk.kind === 'type_change' || risk.kind === 'drop')) {
-    return { level: 'high', detail: '包含类型变更或删除，可能重写整表 / 长时间持锁，建议在低峰期执行' };
+    return {
+      level: 'high',
+      detail: '包含类型变更或删除，可能重写整表 / 长时间持锁，建议在低峰期执行',
+    };
   }
   if (risks.some((risk) => risk.kind === 'not_null_tighten' || risk.kind === 'index')) {
     return { level: 'medium', detail: '包含约束或索引变更，可能短暂锁表' };

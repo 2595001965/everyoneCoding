@@ -21,7 +21,9 @@ export function sha256Hex(data: Buffer | string): string {
 }
 
 /** 由「路径 + 内容」清单构建校验表 */
-export function buildChecksums(entries: readonly { path: string; content: Buffer | string }[]): ChecksumMap {
+export function buildChecksums(
+  entries: readonly { path: string; content: Buffer | string }[],
+): ChecksumMap {
   const map: ChecksumMap = new Map();
   for (const entry of entries) {
     map.set(entry.path, sha256Hex(entry.content));

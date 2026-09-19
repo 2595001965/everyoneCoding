@@ -253,7 +253,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       );
     }
     db.removeBinding(userId, bindingId);
-    writeAudit(db.raw, 'auth.bind.remove', `用户=${maskSecret(userId)} 解绑=${maskSecret(bindingId)}`);
+    writeAudit(
+      db.raw,
+      'auth.bind.remove',
+      `用户=${maskSecret(userId)} 解绑=${maskSecret(bindingId)}`,
+    );
     return reply.send({ ok: true });
   });
 }

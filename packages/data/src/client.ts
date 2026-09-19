@@ -47,7 +47,9 @@ export class DataClient {
       }
     }
     database.pragma(`busy_timeout = ${options.busyTimeoutMs ?? DEFAULT_BUSY_TIMEOUT_MS}`);
-    database.pragma(options.disableForeignKeys ?? false ? 'foreign_keys = OFF' : 'foreign_keys = ON');
+    database.pragma(
+      (options.disableForeignKeys ?? false) ? 'foreign_keys = OFF' : 'foreign_keys = ON',
+    );
 
     return new DataClient(database);
   }

@@ -62,38 +62,52 @@ export function buildRelationGraph(source: NavSourcePort): RelationGraph {
   for (const mod of source.listModules()) moduleByName.set(mod.name, mod);
 
   for (const page of source.listPages()) {
-    nodes.push({ id: `page:${page.pageId}`, type: 'page', label: page.name, group: page.featureId, filePath: null, degree: 0 });
-    for (const element of page.elements) {
     nodes.push({
-      id: `element:${element.elementId}`,
-      type: 'element',
-      label: element.name,
-      group: page.pageId,
+      id: `page:${page.pageId}`,
+      type: 'page',
+      label: page.name,
+      group: page.featureId,
       filePath: null,
       degree: 0,
     });
-    edges.push({
-      id: `e-contains-${page.pageId}-${element.elementId}`,
-      type: 'contains',
-      from: `page:${page.pageId}`,
-      to: `element:${element.elementId}`,
-      label: '包含',
-    });
-    // 元素绑定页面声明的接口（apiDeps 挂在页面上，作用到其全部元素）
-    for (const apiId of page.apiDeps) {
-      edges.push({
-        id: `e-binds-${element.elementId}-${apiId}`,
-        type: 'binds',
-        from: `element:${element.elementId}`,
-        to: `api:${apiId}`,
-        label: '绑定接口',
+    for (const element of page.elements) {
+      nodes.push({
+        id: `element:${element.elementId}`,
+        type: 'element',
+        label: element.name,
+        group: page.pageId,
+        filePath: null,
+        degree: 0,
       });
-    }
+      edges.push({
+        id: `e-contains-${page.pageId}-${element.elementId}`,
+        type: 'contains',
+        from: `page:${page.pageId}`,
+        to: `element:${element.elementId}`,
+        label: '包含',
+      });
+      // 元素绑定页面声明的接口（apiDeps 挂在页面上，作用到其全部元素）
+      for (const apiId of page.apiDeps) {
+        edges.push({
+          id: `e-binds-${element.elementId}-${apiId}`,
+          type: 'binds',
+          from: `element:${element.elementId}`,
+          to: `api:${apiId}`,
+          label: '绑定接口',
+        });
+      }
     }
   }
 
   for (const api of source.listApis()) {
-    nodes.push({ id: `api:${api.id}`, type: 'api', label: api.name, group: api.module, filePath: null, degree: 0 });
+    nodes.push({
+      id: `api:${api.id}`,
+      type: 'api',
+      label: api.name,
+      group: api.module,
+      filePath: null,
+      degree: 0,
+    });
     if (api.module !== null) {
       const mod = moduleByName.get(api.module) ?? null;
       if (mod !== null) {
@@ -109,11 +123,25 @@ export function buildRelationGraph(source: NavSourcePort): RelationGraph {
   }
 
   for (const mod of source.listModules()) {
-    nodes.push({ id: `module:${mod.id}`, type: 'module', label: mod.name, group: mod.name, filePath: mod.filePath, degree: 0 });
+    nodes.push({
+      id: `module:${mod.id}`,
+      type: 'module',
+      label: mod.name,
+      group: mod.name,
+      filePath: mod.filePath,
+      degree: 0,
+    });
   }
 
   for (const table of source.listTables()) {
-    nodes.push({ id: `table:${table.id}`, type: 'table', label: table.name, group: table.module, filePath: null, degree: 0 });
+    nodes.push({
+      id: `table:${table.id}`,
+      type: 'table',
+      label: table.name,
+      group: table.module,
+      filePath: null,
+      degree: 0,
+    });
     if (table.module !== null) {
       const mod = moduleByName.get(table.module) ?? null;
       if (mod !== null) {
@@ -131,7 +159,14 @@ export function buildRelationGraph(source: NavSourcePort): RelationGraph {
 
   for (const test of source.listTests()) {
     // 节点类型仅 5 类，测试用例作为"代码模块"归入 module 类型，id 以 test: 区分
-    nodes.push({ id: `test:${test.id}`, type: 'module', label: test.name, group: null, filePath: test.filePath, degree: 0 });
+    nodes.push({
+      id: `test:${test.id}`,
+      type: 'module',
+      label: test.name,
+      group: null,
+      filePath: test.filePath,
+      degree: 0,
+    });
     if (test.coversApi !== null) {
       edges.push({
         id: `e-tests-${test.id}-${test.coversApi}`,
@@ -161,12 +196,17 @@ export function buildRelationGraph(source: NavSourcePort): RelationGraph {
  * 按类型筛选（返回新图，保留两端都存在的边）。
  * 关键词命中节点 label / group 时进一步裁剪节点。
  */
-export function filterGraph(graph: RelationGraph, types: readonly RelationNodeType[], keyword?: string): RelationGraph {
+export function filterGraph(
+  graph: RelationGraph,
+  types: readonly RelationNodeType[],
+  keyword?: string,
+): RelationGraph {
   const allowed = new Set(types);
   const kw = keyword !== undefined ? keyword.trim().toLowerCase() : '';
   const nodes = graph.nodes.filter((node) => {
     if (!allowed.has(node.type)) return false;
-    if (kw.length > 0 && !`${node.label} ${node.group ?? ''}`.toLowerCase().includes(kw)) return false;
+    if (kw.length > 0 && !`${node.label} ${node.group ?? ''}`.toLowerCase().includes(kw))
+      return false;
     return true;
   });
   const keptIds = new Set(nodes.map((node) => node.id));
@@ -260,7 +300,8 @@ export function layoutGraph(
     const bucket = perType.get(type);
     if (bucket === undefined || bucket.length === 0) return;
     const sorted = [...bucket].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    const y = typeCount <= 1 ? height / 2 : margin + (rank / (typeCount - 1)) * (height - 2 * margin);
+    const y =
+      typeCount <= 1 ? height / 2 : margin + (rank / (typeCount - 1)) * (height - 2 * margin);
     const count = sorted.length;
     sorted.forEach((node, index) => {
       const x = count <= 1 ? width / 2 : margin + (index / (count - 1)) * (width - 2 * margin);

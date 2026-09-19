@@ -5,7 +5,12 @@ import type { StreamChunk } from '../core/stream';
 import type { Usage } from '../core/usage';
 import { buildParseFeedback, type GenerationOutput } from './output-schema';
 import { parseModelOutput, type ParseResult } from './parser';
-import { buildPromptFor, templateFor, type GenerationTarget, type PromptTemplateInput } from './prompt-templates';
+import {
+  buildPromptFor,
+  templateFor,
+  type GenerationTarget,
+  type PromptTemplateInput,
+} from './prompt-templates';
 
 /**
  * 流式生成器（T4-04 要点 3 / FR-AI-06）。
@@ -74,7 +79,10 @@ export class GenerationError extends Error {
   readonly userMessage: string;
   readonly action: string;
 
-  constructor(message: string, options: { userMessage?: string; action?: string; raw?: string } = {}) {
+  constructor(
+    message: string,
+    options: { userMessage?: string; action?: string; raw?: string } = {},
+  ) {
     super(message);
     this.name = 'GenerationError';
     this.userMessage = options.userMessage ?? '生成失败。';
@@ -128,22 +136,28 @@ export class Generator {
 
     let messages = baseMessages;
     let attempt = 0;
-    let last: { raw: string; partial: boolean; usage: Usage | null; finishReason: FinishReason; parse: ParseResult } | null =
-      null;
+    let last: {
+      raw: string;
+      partial: boolean;
+      usage: Usage | null;
+      finishReason: FinishReason;
+      parse: ParseResult;
+    } | null = null;
 
     while (attempt <= maxRetries) {
       attempt += 1;
       const collected = await this.runOnce(messages, options);
-      const parse = options.rawText === true
-        ? ({
-            success: false,
-            output: null,
-            mode: 'raw',
-            degraded: true,
-            raw: collected.raw,
-            issues: ['按调用方要求不做结构化解析'],
-          } satisfies ParseResult)
-        : parseModelOutput(collected.raw);
+      const parse =
+        options.rawText === true
+          ? ({
+              success: false,
+              output: null,
+              mode: 'raw',
+              degraded: true,
+              raw: collected.raw,
+              issues: ['按调用方要求不做结构化解析'],
+            } satisfies ParseResult)
+          : parseModelOutput(collected.raw);
 
       last = { ...collected, parse };
 
@@ -162,7 +176,10 @@ export class Generator {
 
     const final = last;
     if (final === null) {
-      throw new GenerationError('生成未产生任何结果', { userMessage: '模型没有返回内容。', action: '请稍后重试或更换模型。' });
+      throw new GenerationError('生成未产生任何结果', {
+        userMessage: '模型没有返回内容。',
+        action: '请稍后重试或更换模型。',
+      });
     }
 
     return {
@@ -186,7 +203,9 @@ export class Generator {
    */
   async continueGeneration(
     previous: GenerationResult,
-    options: Omit<GenerateOptions, 'target' | 'context' | 'prompt' | 'templateInput'> & { instruction?: string } = {},
+    options: Omit<GenerateOptions, 'target' | 'context' | 'prompt' | 'templateInput'> & {
+      instruction?: string;
+    } = {},
   ): Promise<GenerationResult> {
     const tail = previous.raw.slice(-400);
     const messages: ChatMessage[] = [

@@ -48,7 +48,9 @@ export const COMMENT_STYLES: Record<string, CommentStyle> = {
 
 /** 兜底：无法识别时用 `//`（JS 生态最常见） */
 export function commentPrefixFor(pathOrLanguage: string): string {
-  const extension = pathOrLanguage.includes('.') ? (pathOrLanguage.split('.').pop() ?? '') : pathOrLanguage;
+  const extension = pathOrLanguage.includes('.')
+    ? (pathOrLanguage.split('.').pop() ?? '')
+    : pathOrLanguage;
   return (COMMENT_STYLES[extension.toLowerCase()] ?? COMMENT_STYLES.ts)?.line ?? '//';
 }
 
@@ -71,7 +73,8 @@ export function buildAnchorComment(input: {
 }): string {
   const prefix = commentPrefixFor(input.pathOrLanguage);
   const parts = [ANCHOR_MARKER_TAG, input.elementId];
-  if (input.symbol !== undefined && input.symbol !== null && input.symbol.length > 0) parts.push(input.symbol);
+  if (input.symbol !== undefined && input.symbol !== null && input.symbol.length > 0)
+    parts.push(input.symbol);
   if (input.kind !== undefined && input.kind !== null) parts.push(input.kind);
   return `${prefix} ${parts.join(' ')}`;
 }
@@ -90,7 +93,10 @@ export function parseAnchorComments(content: string, pathOrLanguage = 'ts'): Anc
     if (match === null) continue;
     const elementId = match[1];
     if (elementId === undefined) continue;
-    const kind = match[3] !== undefined && (ANCHOR_KINDS as readonly string[]).includes(match[3]) ? (match[3] as AnchorKind) : null;
+    const kind =
+      match[3] !== undefined && (ANCHOR_KINDS as readonly string[]).includes(match[3])
+        ? (match[3] as AnchorKind)
+        : null;
     records.push({
       elementId,
       symbol: match[2] ?? elementId,
@@ -167,7 +173,10 @@ export function isDeclarationOf(line: string, symbol: string): boolean {
 }
 
 /** 移除某元素的所有锚点标记（重新生成前的清理；返回移除条数） */
-export function removeAnchorComments(content: string, elementId: string): { content: string; removed: number } {
+export function removeAnchorComments(
+  content: string,
+  elementId: string,
+): { content: string; removed: number } {
   const lines = content.replace(/\r\n?/g, '\n').split('\n');
   const kept = lines.filter((line) => {
     const match = MARKER_PATTERN.exec(line);

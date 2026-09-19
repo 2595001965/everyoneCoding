@@ -31,13 +31,25 @@ const REQUEST: ContextAssemblyRequest = {
 };
 
 function hit(id: string, title: string, importance = 4): ContextMemoryHit {
-  return { id, scope: 'project', title, content: `${title} 的正文说明。`, importance, confidence: 1, updatedAt: 1_760_000_000_000 };
+  return {
+    id,
+    scope: 'project',
+    title,
+    content: `${title} 的正文说明。`,
+    importance,
+    confidence: 1,
+    updatedAt: 1_760_000_000_000,
+  };
 }
 
 function makeApi(): ContextPanelApi & { calls: ContextAssemblyRequest[] } {
   const sources: ContextSources = {
     memory: {
-      search: ({ limit }) => [hit('m1', '技术栈：Tauri 2 + React 18'), hit('m2', '目录约定：packages/*')].slice(0, limit),
+      search: ({ limit }) =>
+        [hit('m1', '技术栈：Tauri 2 + React 18'), hit('m2', '目录约定：packages/*')].slice(
+          0,
+          limit,
+        ),
     },
     notes: {
       getNotesForContext: () => [
@@ -98,7 +110,9 @@ describe('ContextPanel（T4-02 要点 3）', () => {
 
   it('端口未就绪时展示原因', () => {
     render(
-      <ContextPanelProvider api={{ ready: false, reason: '本地数据层正在初始化', assemble: vi.fn() }}>
+      <ContextPanelProvider
+        api={{ ready: false, reason: '本地数据层正在初始化', assemble: vi.fn() }}
+      >
         <ContextPanel request={REQUEST} />
       </ContextPanelProvider>,
     );
@@ -114,9 +128,13 @@ describe('ContextPanel（T4-02 要点 3）', () => {
       </ContextPanelProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('项目记忆（技术选型与工程约定）')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('项目记忆（技术选型与工程约定）')).toBeInTheDocument(),
+    );
     expect(api.calls).toHaveLength(1);
-    expect(screen.getByLabelText('包含 元素备注（业务规则 / 校验 / 禁止事项）')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('包含 元素备注（业务规则 / 校验 / 禁止事项）'),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('ec-context-refs')).toHaveTextContent('#note-1');
     expect(screen.getByTestId('ec-context-distribution')).toHaveTextContent('token');
   });
@@ -140,13 +158,17 @@ describe('ContextPanel（T4-02 要点 3）', () => {
       </ContextPanelProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('项目记忆（技术选型与工程约定）')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('项目记忆（技术选型与工程约定）')).toBeInTheDocument(),
+    );
     const toggle = screen.getByLabelText('包含 项目记忆（技术选型与工程约定）');
     fireEvent.click(toggle);
 
     const card = document.querySelector('[data-block-id="project"]');
     expect(card?.getAttribute('data-block-enabled')).toBe('false');
-    expect(within(card as HTMLElement).getByText(/已被手动取消勾选，本次不会提交/)).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).getByText(/已被手动取消勾选，本次不会提交/),
+    ).toBeInTheDocument();
   });
 
   it('就地编辑后块内容采用编辑文本（所见即所提交）', async () => {
@@ -157,14 +179,18 @@ describe('ContextPanel（T4-02 要点 3）', () => {
       </ContextPanelProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('项目记忆（技术选型与工程约定）')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('项目记忆（技术选型与工程约定）')).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByLabelText('编辑 项目记忆（技术选型与工程约定）'));
     fireEvent.change(screen.getByLabelText('项目记忆（技术选型与工程约定） 内容'), {
       target: { value: '仅保留：技术栈 Tauri 2 + React 18' },
     });
     fireEvent.click(screen.getByLabelText('保存 项目记忆（技术选型与工程约定） 编辑'));
 
-    expect(screen.getByTestId('ec-context-content-project')).toHaveTextContent('仅保留：技术栈 Tauri 2 + React 18');
+    expect(screen.getByTestId('ec-context-content-project')).toHaveTextContent(
+      '仅保留：技术栈 Tauri 2 + React 18',
+    );
     expect(screen.getByText(/已手动编辑/)).toBeInTheDocument();
   });
 
@@ -179,9 +205,7 @@ describe('ContextPanel（T4-02 要点 3）', () => {
 
     await waitFor(() => expect(screen.getByTestId('ec-context-omitted')).toBeInTheDocument());
     expect(screen.getByTestId('ec-context-omitted')).toHaveTextContent(/已省略 \d+ 项/);
-    expect(
-      document.querySelectorAll('[data-omitted-reason]').length,
-    ).toBeGreaterThan(0);
+    expect(document.querySelectorAll('[data-omitted-reason]').length).toBeGreaterThan(0);
     expect(screen.getByTestId('ec-context-warnings')).toHaveTextContent('已省略');
   });
 
@@ -197,7 +221,15 @@ describe('ContextPanel（T4-02 要点 3）', () => {
           content: '[备注 #note-9] 校验要求\n需校验图形验证码',
           source: '备注 1 条',
           editable: true,
-          items: [{ key: 'note-9', label: '校验要求', tokens: 30, weight: 4, text: '[备注 #note-9] 校验要求\n需校验图形验证码' }],
+          items: [
+            {
+              key: 'note-9',
+              label: '校验要求',
+              tokens: 30,
+              weight: 4,
+              text: '[备注 #note-9] 校验要求\n需校验图形验证码',
+            },
+          ],
         },
       ],
       system: 's',
@@ -246,7 +278,9 @@ describe('BlockCard（T4-02 要点 3）', () => {
           content: 'export class AuthController {}',
           omittedCount: 3,
           percent: 12.5,
-          items: [{ key: 'a1', label: 'AuthController.login', tokens: 500, weight: 1, preview: 'x' }],
+          items: [
+            { key: 'a1', label: 'AuthController.login', tokens: 500, weight: 1, preview: 'x' },
+          ],
         }}
       />,
     );

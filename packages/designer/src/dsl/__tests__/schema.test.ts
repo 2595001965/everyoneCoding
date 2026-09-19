@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { createElement, createLoginPageDsl, createPageDsl } from '../factory';
-import { DslValidationError, checkDslInvariants, parsePageDsl, validatePageDsl, walkElements, MAX_NESTING_DEPTH } from '../schema';
+import {
+  DslValidationError,
+  checkDslInvariants,
+  parsePageDsl,
+  validatePageDsl,
+  walkElements,
+  MAX_NESTING_DEPTH,
+} from '../schema';
 import type { ElementNode, PageDsl } from '../types';
 
 function chain(depth: number): ElementNode {
@@ -43,7 +50,13 @@ describe('T3-01 zod 形状校验', () => {
     const page = createLoginPageDsl();
     const bad: PageDsl = {
       ...page,
-      events: [{ id: 'ev', trigger: 'click', actions: [{ id: 'a', kind: 'setState' as unknown as 'assign' }] }],
+      events: [
+        {
+          id: 'ev',
+          trigger: 'click',
+          actions: [{ id: 'a', kind: 'setState' as unknown as 'assign' }],
+        },
+      ],
     };
     expect(validatePageDsl(bad).ok).toBe(false);
   });
@@ -64,7 +77,10 @@ describe('T3-01 结构不变量', () => {
       tree: createElement({
         id: 'root',
         type: 'Container',
-        children: [createElement({ id: 'dup', type: 'Text' }), createElement({ id: 'dup', type: 'Button' })],
+        children: [
+          createElement({ id: 'dup', type: 'Text' }),
+          createElement({ id: 'dup', type: 'Button' }),
+        ],
       }),
     });
     const issues = checkDslInvariants(page);
@@ -78,10 +94,19 @@ describe('T3-01 结构不变量', () => {
     expect(walkElements(tooDeep).length).toBe(MAX_NESTING_DEPTH + 1);
 
     const page = (tree: ElementNode): PageDsl =>
-      createPageDsl({ id: 'p', projectId: 'P1', name: '深嵌套', platform: 'web', route: '/deep', tree });
+      createPageDsl({
+        id: 'p',
+        projectId: 'P1',
+        name: '深嵌套',
+        platform: 'web',
+        route: '/deep',
+        tree,
+      });
 
     expect(checkDslInvariants(page(okTree))).toHaveLength(0);
-    expect(checkDslInvariants(page(tooDeep)).map((issue) => issue.code)).toContain('NESTING_TOO_DEEP');
+    expect(checkDslInvariants(page(tooDeep)).map((issue) => issue.code)).toContain(
+      'NESTING_TOO_DEEP',
+    );
   });
 
   it('悬空备注 / 锚点 / 事件目标 / 动作连线均被检出', () => {
@@ -102,7 +127,12 @@ describe('T3-01 结构不变量', () => {
         },
       },
       events: [
-        { id: 'ev-x', trigger: 'click', elementId: 'el-404', actions: [{ id: 'a1', kind: 'navigate', next: 'a9' }] },
+        {
+          id: 'ev-x',
+          trigger: 'click',
+          elementId: 'el-404',
+          actions: [{ id: 'a1', kind: 'navigate', next: 'a9' }],
+        },
       ],
     };
     const codes = checkDslInvariants(broken).map((issue) => issue.code);
@@ -116,7 +146,9 @@ describe('T3-01 结构不变量', () => {
     const page = createLoginPageDsl();
     const broken: PageDsl = {
       ...page,
-      events: [{ id: 'ev-y', trigger: 'click', entry: 'nope', actions: [{ id: 'a1', kind: 'notify' }] }],
+      events: [
+        { id: 'ev-y', trigger: 'click', entry: 'nope', actions: [{ id: 'a1', kind: 'notify' }] },
+      ],
     };
     expect(checkDslInvariants(broken).map((issue) => issue.code)).toContain('DANGLING_FLOW_ENTRY');
   });

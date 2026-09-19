@@ -135,7 +135,11 @@ const adminConsole: ProjectTemplate = {
           name: 'dashboardPage',
           props: { layout: 'vertical' },
           children: [
-            { type: 'Sidebar', name: 'mainNav', props: { items: ['看板', '用户管理', '系统设置'] } },
+            {
+              type: 'Sidebar',
+              name: 'mainNav',
+              props: { items: ['看板', '用户管理', '系统设置'] },
+            },
             {
               type: 'Container',
               name: 'metrics',
@@ -146,7 +150,11 @@ const adminConsole: ProjectTemplate = {
                 { type: 'Card', name: 'cardRevenue', props: { title: '营收', value: '--' } },
               ],
             },
-            { type: 'Chart', name: 'trendChart', props: { chartType: 'line', dataSource: '/api/stats/trend' } },
+            {
+              type: 'Chart',
+              name: 'trendChart',
+              props: { chartType: 'line', dataSource: '/api/stats/trend' },
+            },
           ],
         },
       ],
@@ -190,13 +198,15 @@ const adminConsole: ProjectTemplate = {
     {
       scope: 'project',
       title: '后台管理系统的统一约束',
-      content: '所有列表页统一分页参数 page/size；所有删除操作必须二次确认；接口统一返回 {code,data,message}。',
+      content:
+        '所有列表页统一分页参数 page/size；所有删除操作必须二次确认；接口统一返回 {code,data,message}。',
       tags: ['规范', '后台'],
     },
     {
       scope: 'project',
       title: '技术栈',
-      content: '前端 React + TypeScript，后端 REST 接口，数据库关系型，具体方案在技术选型阶段确认。',
+      content:
+        '前端 React + TypeScript，后端 REST 接口，数据库关系型，具体方案在技术选型阶段确认。',
       tags: ['技术栈'],
     },
   ],
@@ -270,7 +280,11 @@ const mobileApp: ProjectTemplate = {
           children: [
             { type: 'Image', name: 'avatar', props: { src: '', shape: 'circle' } },
             text('nickname', '未登录', 18),
-            { type: 'List', name: 'settingList', props: { dataSource: 'local', items: ['我的收藏', '设置', '关于'] } },
+            {
+              type: 'List',
+              name: 'settingList',
+              props: { dataSource: 'local', items: ['我的收藏', '设置', '关于'] },
+            },
           ],
         },
       ],
@@ -280,7 +294,8 @@ const mobileApp: ProjectTemplate = {
     {
       scope: 'project',
       title: '移动端交互约定',
-      content: '列表统一下拉刷新 + 触底加载；详情页返回保留列表滚动位置；所有网络请求带统一错误提示。',
+      content:
+        '列表统一下拉刷新 + 触底加载；详情页返回保留列表滚动位置；所有网络请求带统一错误提示。',
       tags: ['移动端', '交互'],
     },
     {
@@ -311,7 +326,11 @@ const landingSite: ProjectTemplate = {
           name: 'landingPage',
           props: { layout: 'vertical' },
           children: [
-            { type: 'Navbar', name: 'nav', props: { title: '产品名', links: ['特性', '价格', '联系我们'] } },
+            {
+              type: 'Navbar',
+              name: 'nav',
+              props: { title: '产品名', links: ['特性', '价格', '联系我们'] },
+            },
             { type: 'Image', name: 'heroBanner', props: { src: '', alt: '首屏主视觉' } },
             text('heroTitle', '一句话说清产品价值', 32),
             text('heroSubtitle', '补充一句话说明适用场景', 16),
@@ -330,7 +349,11 @@ const landingSite: ProjectTemplate = {
               type: 'Form',
               name: 'leadForm',
               props: { submitMode: 'ajax' },
-              children: [input('name', '姓名'), input('phone', '手机号'), button('submitLead', '提交')],
+              children: [
+                input('name', '姓名'),
+                input('phone', '手机号'),
+                button('submitLead', '提交'),
+              ],
             },
             { type: 'Footer', name: 'siteFooter', props: { copyright: '© 示例公司' } },
           ],
@@ -342,7 +365,8 @@ const landingSite: ProjectTemplate = {
     {
       scope: 'project',
       title: '落地页转化约定',
-      content: '主行动按钮在首屏可见；留资表单仅收集必要字段（姓名 + 手机号）；不引入第三方统计脚本。',
+      content:
+        '主行动按钮在首屏可见；留资表单仅收集必要字段（姓名 + 手机号）；不引入第三方统计脚本。',
       tags: ['营销', '转化'],
     },
   ],
@@ -370,14 +394,18 @@ export function validateTemplate(template: ProjectTemplate): string[] {
       if (!allowed.has(element.type)) {
         issues.push(`${template.name}：${path} 使用未注册组件类型 ${element.type}`);
       }
-      if (element.children && element.children.length > 0) walk(element.children, `${path}/${element.name}`);
+      if (element.children && element.children.length > 0)
+        walk(element.children, `${path}/${element.name}`);
     }
   };
 
   for (const page of template.pages) {
-    if (!page.route.startsWith('/')) issues.push(`${template.name}：页面 ${page.name} 路由必须以 / 开头`);
+    if (!page.route.startsWith('/'))
+      issues.push(`${template.name}：页面 ${page.name} 路由必须以 / 开头`);
     if (!template.targetPlatforms.includes(page.platform)) {
-      issues.push(`${template.name}：页面 ${page.name} 的 platform ${page.platform} 不在模板目标端内`);
+      issues.push(
+        `${template.name}：页面 ${page.name} 的 platform ${page.platform} 不在模板目标端内`,
+      );
     }
     walk(page.elements, page.name);
   }
@@ -387,6 +415,9 @@ export function validateTemplate(template: ProjectTemplate): string[] {
 /** 模板元素总数（用于 UI 提示"将创建 N 个元素"） */
 export function countTemplateElements(template: ProjectTemplate): number {
   const count = (elements: readonly TemplateElement[]): number =>
-    elements.reduce((sum, element) => sum + 1 + (element.children ? count(element.children) : 0), 0);
+    elements.reduce(
+      (sum, element) => sum + 1 + (element.children ? count(element.children) : 0),
+      0,
+    );
   return template.pages.reduce((sum, page) => sum + count(page.elements), 0);
 }

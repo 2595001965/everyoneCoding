@@ -10,7 +10,12 @@ import {
   validateChoice,
   type TechChoice,
 } from '../stages/tech-choice-questionnaire';
-import { checkTechDocCompleteness, extractOpenApiDraft, findForbiddenTech, validateOpenApiDraft } from '../stages/templates/tech-doc';
+import {
+  checkTechDocCompleteness,
+  extractOpenApiDraft,
+  findForbiddenTech,
+  validateOpenApiDraft,
+} from '../stages/templates/tech-doc';
 import type { DocumentArchivePort, StageGenerationPort } from '../stages/s1-requirement';
 
 /**
@@ -65,9 +70,7 @@ const TECH_DOC_EIGHT = [
   '- 单元测试 + 接口测试',
 ].join('\n');
 
-const STACK_OBJECT = toStackObject(
-  defaultChoice(['web', 'android', 'harmonyos', 'windows']),
-);
+const STACK_OBJECT = toStackObject(defaultChoice(['web', 'android', 'harmonyos', 'windows']));
 
 function createTechDocChoice(): TechChoice {
   return {
@@ -86,7 +89,15 @@ function createTechDocChoice(): TechChoice {
 
 describe('tech-choice-questionnaire（FR-AI-13 矩阵）', () => {
   it('七端矩阵每端有推荐项与权衡说明', () => {
-    const questions = questionsForTargets(['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos']);
+    const questions = questionsForTargets([
+      'web',
+      'android',
+      'ios',
+      'harmonyos',
+      'windows',
+      'linux',
+      'macos',
+    ]);
     // 7 个端题 + 5 个公共题
     expect(questions).toHaveLength(12);
     const web = questions.find((question) => question.id === 'platform-web');
@@ -215,9 +226,13 @@ describe('S3TechDocStage（生成 + 记忆尊重 + 后置校验重生成）', ()
     const generator: StageGenerationPort = {
       async generate() {
         call += 1;
-        if (call === 1) return { content: `${TECH_DOC_EIGHT}\n## 补充\n- 采用 PHP 实现`, degraded: false };
+        if (call === 1)
+          return { content: `${TECH_DOC_EIGHT}\n## 补充\n- 采用 PHP 实现`, degraded: false };
         // 第二次生成：完全不含禁止技术字样
-        return { content: `${TECH_DOC_EIGHT}\n## 补充\n- 已移除该技术，改用受支持的方案`, degraded: false };
+        return {
+          content: `${TECH_DOC_EIGHT}\n## 补充\n- 已移除该技术，改用受支持的方案`,
+          degraded: false,
+        };
       },
     };
     const stage = new S3TechDocStage({ memory, archive, generate: generator });

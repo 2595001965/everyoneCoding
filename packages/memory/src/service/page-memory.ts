@@ -10,7 +10,14 @@ import { upsertMemory, type UpsertOptions, type UpsertOutcome } from './upsert';
  * 同一页面下的元素备注是 scope=page + element_id 的另一类条目，由 upsertElementNote 维护。
  */
 
-export const PAGE_MEMORY_SECTIONS = ['skeleton', 'blocks', 'state', 'events', 'dataFlow', 'apiDeps'] as const;
+export const PAGE_MEMORY_SECTIONS = [
+  'skeleton',
+  'blocks',
+  'state',
+  'events',
+  'dataFlow',
+  'apiDeps',
+] as const;
 export type PageMemorySection = (typeof PAGE_MEMORY_SECTIONS)[number];
 
 export const PAGE_SECTION_LABELS: Record<PageMemorySection, string> = {
@@ -148,11 +155,15 @@ export class PageMemoryService {
 
   /** 某页面下全部元素备注 */
   listElementNotes(pageId: string): MemoryItem[] {
-    return this.repo.list({ userId: this.userId, scopes: ['page'], pageId }).filter((item) => Boolean(item.elementId));
+    return this.repo
+      .list({ userId: this.userId, scopes: ['page'], pageId })
+      .filter((item) => Boolean(item.elementId));
   }
 }
 
-function pickSections(source: Partial<Record<PageMemorySection, unknown>>): Record<string, unknown> {
+function pickSections(
+  source: Partial<Record<PageMemorySection, unknown>>,
+): Record<string, unknown> {
   const structured: Record<string, unknown> = {};
   for (const section of PAGE_MEMORY_SECTIONS) {
     const value = source[section];

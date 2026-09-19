@@ -24,7 +24,13 @@ export interface UsageApi {
 
 const UsageContext = createContext<UsageApi | null>(null);
 
-export function UsageApiProvider({ api, children }: { api: UsageApi | null; children: ReactNode }): JSX.Element {
+export function UsageApiProvider({
+  api,
+  children,
+}: {
+  api: UsageApi | null;
+  children: ReactNode;
+}): JSX.Element {
   return <UsageContext.Provider value={api}>{children}</UsageContext.Provider>;
 }
 

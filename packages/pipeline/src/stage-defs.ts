@@ -14,7 +14,13 @@ export const PIPELINE_STAGES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'] as con
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 
 /** 阶段状态（与 @ec/data schema 的 runStatus 枚举逐字对齐） */
-export const STAGE_STATUSES = ['pending', 'running', 'awaiting_confirm', 'confirmed', 'stale'] as const;
+export const STAGE_STATUSES = [
+  'pending',
+  'running',
+  'awaiting_confirm',
+  'confirmed',
+  'stale',
+] as const;
 export type StageStatus = (typeof STAGE_STATUSES)[number];
 
 export const STAGE_STATUS_LABELS: Record<StageStatus, string> = {

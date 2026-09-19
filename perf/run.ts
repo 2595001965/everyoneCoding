@@ -111,11 +111,15 @@ function main(): void {
   const filterArg = process.argv[2];
   const selected = filterArg ? BENCHMARKS.filter((b) => b.name.includes(filterArg)) : BENCHMARKS;
   if (selected.length === 0) {
-    console.error(`没有匹配 "${filterArg}" 的基准。可用：\n${BENCHMARKS.map((b) => `  - ${b.name}`).join('\n')}`);
+    console.error(
+      `没有匹配 "${filterArg}" 的基准。可用：\n${BENCHMARKS.map((b) => `  - ${b.name}`).join('\n')}`,
+    );
     process.exit(1);
   }
 
-  console.log(`EveryoneCoding 性能基准（${selected.length} 项）\n机器：${process.platform} ${process.arch} / Node ${process.version}\n`);
+  console.log(
+    `EveryoneCoding 性能基准（${selected.length} 项）\n机器：${process.platform} ${process.arch} / Node ${process.version}\n`,
+  );
   const results: BenchResult[] = [];
   for (const def of selected) {
     console.log(`▶ ${def.name}（预算 ${def.budget}）`);

@@ -9,11 +9,7 @@
  * 命中后通过"已上报集合"抑制重复触发，直到 consume(targetKey) 重置。
  */
 
-import {
-  readableTarget,
-  type DebugEvent,
-  type WindowQueue,
-} from './window-queue';
+import { readableTarget, type DebugEvent, type WindowQueue } from './window-queue';
 
 /** 命中结果 */
 export interface DetectionResult {
@@ -187,7 +183,9 @@ export class DebugLoopDetector {
     const events = [...rawEvents].sort((a, b) => a.at - b.at);
 
     const cycles = countCycles(events);
-    const allSigs = [...new Set(events.filter((e) => e.errorSignature).map((e) => e.errorSignature!))].sort();
+    const allSigs = [
+      ...new Set(events.filter((e) => e.errorSignature).map((e) => e.errorSignature!)),
+    ].sort();
     const repeated = consecutiveErrorSignatures(events, this.repeatedErrorThreshold);
 
     let reason: DetectionResult['reason'] | null = null;

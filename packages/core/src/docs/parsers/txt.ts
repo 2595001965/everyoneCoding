@@ -30,7 +30,10 @@ function isShortHeadingLine(line: string, nextLine: string): boolean {
 }
 
 /** 解析纯文本为结构化文档 */
-export function parseTxt(input: { raw: string | Uint8Array; fileName?: string | undefined }): ParsedDocument {
+export function parseTxt(input: {
+  raw: string | Uint8Array;
+  fileName?: string | undefined;
+}): ParsedDocument {
   const text = typeof input.raw === 'string' ? input.raw : new TextDecoder().decode(input.raw);
   const lines = text.split(/\r?\n/);
   const sections: DocSection[] = [];
@@ -50,7 +53,13 @@ export function parseTxt(input: { raw: string | Uint8Array; fileName?: string | 
 
   const startSection = (level: number, heading: string): void => {
     flush();
-    current = { index: sections.length, level, heading, anchor: `sec-${sections.length}`, text: '' };
+    current = {
+      index: sections.length,
+      level,
+      heading,
+      anchor: `sec-${sections.length}`,
+      text: '',
+    };
     buffer = [];
   };
 
@@ -85,7 +94,9 @@ export function parseTxt(input: { raw: string | Uint8Array; fileName?: string | 
   }
   if (!title) {
     const firstHeading = sections.find((section) => section.heading);
-    title = firstHeading ? firstHeading.heading : (lines.find((l) => l.trim()) ?? '未命名文档').slice(0, 60);
+    title = firstHeading
+      ? firstHeading.heading
+      : (lines.find((l) => l.trim()) ?? '未命名文档').slice(0, 60);
   }
 
   return { title: title.trim() || '未命名文档', sections };

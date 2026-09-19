@@ -71,7 +71,9 @@ export function findOrphanNodes(nodes: readonly FlowNode[], entry?: string): str
     if (node.branchTrue) referenced.add(node.branchTrue);
     if (node.branchFalse) referenced.add(node.branchFalse);
   }
-  return nodes.filter((node) => node.id !== entryId && !referenced.has(node.id)).map((node) => node.id);
+  return nodes
+    .filter((node) => node.id !== entryId && !referenced.has(node.id))
+    .map((node) => node.id);
 }
 
 /** 检测回环，返回参与任一环的全部节点 id（深度优先，标记递归栈中的回边） */
@@ -85,7 +87,8 @@ export function detectCycles(nodes: readonly FlowNode[]): string[] {
   const dfs = (id: string, stack: string[]): void => {
     if (visiting.has(id)) {
       const start = stack.indexOf(id);
-      if (start >= 0) for (let index = start; index < stack.length; index += 1) inCycle.add(stack[index]!);
+      if (start >= 0)
+        for (let index = start; index < stack.length; index += 1) inCycle.add(stack[index]!);
       return;
     }
     if (visited.has(id)) return;

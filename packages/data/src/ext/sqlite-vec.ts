@@ -76,7 +76,10 @@ export class VectorIndex {
         `SELECT id, distance FROM ${this.table}
          WHERE embedding MATCH ? ORDER BY distance LIMIT ?`,
       )
-      .all(Buffer.from(new Float32Array(embedding).buffer), limit) as Array<{ id: string; distance: number }>;
+      .all(Buffer.from(new Float32Array(embedding).buffer), limit) as Array<{
+      id: string;
+      distance: number;
+    }>;
     return rows.map((row) => ({ id: row.id, distance: row.distance }));
   }
 }

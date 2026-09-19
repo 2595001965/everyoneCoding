@@ -116,7 +116,8 @@ export function BatchRenameDialog(props: BatchRenameDialogProps): JSX.Element {
               ))}
             {active === 'normalize' && (
               <p className="ec-rename-muted">
-                规范名不变，只按当前命名规则重新对齐八类投影（如把历史遗留的拼音投影纠正为规范的 PascalCase）。
+                规范名不变，只按当前命名规则重新对齐八类投影（如把历史遗留的拼音投影纠正为规范的
+                PascalCase）。
               </p>
             )}
           </div>
@@ -150,7 +151,8 @@ export function BatchRenameDialog(props: BatchRenameDialogProps): JSX.Element {
       {plan !== null && (
         <div className="ec-rename-block">
           <div className="ec-rename-muted">
-            共 {plan.steps.length} 个对象，计划修改 {plan.totals.totalChanges} 处（已选 {plan.totals.selectedChanges} 处）
+            共 {plan.steps.length} 个对象，计划修改 {plan.totals.totalChanges} 处（已选{' '}
+            {plan.totals.selectedChanges} 处）
             {plan.normalize && '，模式：全项目命名规范化'}
           </div>
 
@@ -168,7 +170,10 @@ export function BatchRenameDialog(props: BatchRenameDialogProps): JSX.Element {
           ))}
 
           {blocked && (
-            <div className="ec-rename-batch-step ec-rename-batch-step--blocked" data-testid="batch-blocked">
+            <div
+              className="ec-rename-batch-step ec-rename-batch-step--blocked"
+              data-testid="batch-blocked"
+            >
               <strong className="ec-rename-danger">
                 存在 {plan.blocked.length} 个非法名称，已整批阻断（未执行任何变更）：
               </strong>
@@ -204,7 +209,10 @@ export function BatchRenameDialog(props: BatchRenameDialogProps): JSX.Element {
       )}
 
       {!planning && plan === null && targets.length === 0 && (
-        <EmptyState title="暂无可重命名对象" description="请先在设计器中选择要批量改名的元素 / 页面 / 功能" />
+        <EmptyState
+          title="暂无可重命名对象"
+          description="请先在设计器中选择要批量改名的元素 / 页面 / 功能"
+        />
       )}
     </div>
   );

@@ -17,12 +17,7 @@ import {
   MemoryImportError,
   type ImportClassification,
 } from '../import';
-import {
-  planMerge,
-  batchDecision,
-  applyMergePlan,
-  commitMergePlan,
-} from '../merge-preview';
+import { planMerge, batchDecision, applyMergePlan, commitMergePlan } from '../merge-preview';
 
 const G = TEST_GRAPH;
 
@@ -102,9 +97,28 @@ function makeFiveItems(): MemoryItem[] {
 }
 
 const ROUND_TRIP_FIELDS: ReadonlyArray<keyof MemoryItem> = [
-  'id', 'userId', 'scope', 'projectId', 'featureId', 'pageId', 'elementId', 'issueId',
-  'title', 'content', 'structured', 'tags', 'sourceType', 'sourceRef',
-  'confidence', 'importance', 'status', 'issueStatus', 'pinned', 'version', 'createdAt', 'updatedAt',
+  'id',
+  'userId',
+  'scope',
+  'projectId',
+  'featureId',
+  'pageId',
+  'elementId',
+  'issueId',
+  'title',
+  'content',
+  'structured',
+  'tags',
+  'sourceType',
+  'sourceRef',
+  'confidence',
+  'importance',
+  'status',
+  'issueStatus',
+  'pinned',
+  'version',
+  'createdAt',
+  'updatedAt',
 ];
 
 function expectJsonRoundTrip(original: readonly MemoryItem[]): void {
@@ -208,7 +222,10 @@ describe('export-markdown：分文件 + 往返无损', () => {
     const a = createMemoryItem({ ...base, scope: 'longterm' });
     const b = createMemoryItem({ ...base, scope: 'longterm' });
     const files = exportMarkdown([a, b]);
-    const md = files.filter((f) => f.path !== 'README.md').map((f) => f.path).sort();
+    const md = files
+      .filter((f) => f.path !== 'README.md')
+      .map((f) => f.path)
+      .sort();
     expect(md).toContain('longterm/同名记忆.md');
     expect(md).toContain('longterm/同名记忆-2.md');
   });
@@ -218,14 +235,41 @@ describe('import：四类差异分类齐全 + 默认不覆盖', () => {
   function buildLocalAndIncoming() {
     const local = [
       createMemoryItem({ userId: G.userId, scope: 'longterm', title: 'A', content: 'local-A' }),
-      createMemoryItem({ userId: G.userId, scope: 'project', projectId: G.projectId, title: 'B', content: 'local-B' }),
-      createMemoryItem({ userId: G.userId, scope: 'page', projectId: G.projectId, pageId: G.pageId, title: 'D', content: 'local-D' }),
+      createMemoryItem({
+        userId: G.userId,
+        scope: 'project',
+        projectId: G.projectId,
+        title: 'B',
+        content: 'local-B',
+      }),
+      createMemoryItem({
+        userId: G.userId,
+        scope: 'page',
+        projectId: G.projectId,
+        pageId: G.pageId,
+        title: 'D',
+        content: 'local-D',
+      }),
     ];
-    const added = createMemoryItem({ userId: G.userId, scope: 'feature', projectId: G.projectId, featureId: G.featureId, title: 'E', content: 'new-E' });
+    const added = createMemoryItem({
+      userId: G.userId,
+      scope: 'feature',
+      projectId: G.projectId,
+      featureId: G.featureId,
+      title: 'E',
+      content: 'new-E',
+    });
     const conflicted = { ...local[0]!, updatedAt: local[0]!.updatedAt + 1, content: 'incoming-A' };
     const unchanged = { ...local[1]! };
     const incoming = [added, conflicted, unchanged];
-    return { local, incoming, addedId: added.id, conflictedId: local[0]!.id, unchangedId: local[1]!.id, missingId: local[2]!.id };
+    return {
+      local,
+      incoming,
+      addedId: added.id,
+      conflictedId: local[0]!.id,
+      unchangedId: local[1]!.id,
+      missingId: local[2]!.id,
+    };
   }
 
   it('覆盖 added / conflicted / unchanged / missing 四类并断言 counts', () => {
@@ -259,10 +303,23 @@ describe('merge-preview：keepBoth / 批量决策 / 落库', () => {
     seedGraph(db);
     const repo = new MemoryRepo(db);
     const localItem = repo.create({
-      userId: G.userId, scope: 'page', projectId: G.projectId, featureId: G.featureId, pageId: G.pageId,
-      title: 'L', content: 'local', structured: { v: 1 }, importance: 2, confidence: 0.5,
+      userId: G.userId,
+      scope: 'page',
+      projectId: G.projectId,
+      featureId: G.featureId,
+      pageId: G.pageId,
+      title: 'L',
+      content: 'local',
+      structured: { v: 1 },
+      importance: 2,
+      confidence: 0.5,
     });
-    const incoming: MemoryItem = { ...localItem, updatedAt: localItem.updatedAt + 1, content: 'imported', structured: { v: 2 } };
+    const incoming: MemoryItem = {
+      ...localItem,
+      updatedAt: localItem.updatedAt + 1,
+      content: 'imported',
+      structured: { v: 2 },
+    };
     const preview = classifyImport([incoming], [localItem]);
     expect(preview.counts.conflicted).toBe(1);
 
@@ -287,9 +344,19 @@ describe('merge-preview：keepBoth / 批量决策 / 落库', () => {
     const local = [
       createMemoryItem({ userId: G.userId, scope: 'longterm', title: 'X', content: 'local-X' }),
     ];
-    const added = createMemoryItem({ userId: G.userId, scope: 'longterm', title: 'Y', content: 'new-Y' });
+    const added = createMemoryItem({
+      userId: G.userId,
+      scope: 'longterm',
+      title: 'Y',
+      content: 'new-Y',
+    });
     const conflicted = { ...local[0]!, updatedAt: local[0]!.updatedAt + 1, content: 'incoming-X' };
-    const unchanged = createMemoryItem({ userId: G.userId, scope: 'longterm', title: 'Z', content: 'z' });
+    const unchanged = createMemoryItem({
+      userId: G.userId,
+      scope: 'longterm',
+      title: 'Z',
+      content: 'z',
+    });
     const preview = classifyImport([added, conflicted, unchanged], [...local, unchanged]);
     const decisions = batchDecision(preview, { conflicted: 'keepBoth', added: 'takeNew' });
     const plan = planMerge(preview, decisions);
@@ -297,7 +364,12 @@ describe('merge-preview：keepBoth / 批量决策 / 落库', () => {
   });
 
   it('默认策略：conflicted 默认 keepLocal（不覆盖），unchanged 默认 keepLocal', () => {
-    const local = createMemoryItem({ userId: G.userId, scope: 'longterm', title: 'X', content: 'local' });
+    const local = createMemoryItem({
+      userId: G.userId,
+      scope: 'longterm',
+      title: 'X',
+      content: 'local',
+    });
     const conflicted = { ...local, updatedAt: local.updatedAt + 1, content: 'incoming' };
     const preview = classifyImport([conflicted], [local]);
     const plan = planMerge(preview, []);

@@ -37,7 +37,10 @@ export interface ParseConflictOptions {
  *
  * 嵌套冲突（理论上 git 不会产生，但手工合并会）会被识别并记入 `warnings`。
  */
-export function parseConflictFile(content: string, options: ParseConflictOptions = {}): ConflictFile {
+export function parseConflictFile(
+  content: string,
+  options: ParseConflictOptions = {},
+): ConflictFile {
   const path = options.path ?? '';
   const lines = content.replace(/\r\n/g, '\n').split('\n');
   const blocks: ConflictBlock[] = [];
@@ -134,7 +137,10 @@ export function resolveBlock(block: ConflictBlock, resolution: ConflictResolutio
  * 按逐块选择组装结果文本。
  * `choices` 里缺失的块按"未解决"处理并保留冲突标记，避免静默丢内容。
  */
-export function resolveConflictFile(file: ConflictFile, choices: Readonly<Record<number, ConflictResolution>>): {
+export function resolveConflictFile(
+  file: ConflictFile,
+  choices: Readonly<Record<number, ConflictResolution>>,
+): {
   content: string;
   unresolved: number;
 } {
@@ -144,7 +150,13 @@ export function resolveConflictFile(file: ConflictFile, choices: Readonly<Record
     const choice = choices[block.index] ?? 'unresolved';
     if (choice === 'unresolved') {
       unresolved += 1;
-      output.push(`${CONFLICT_OURS} ${file.oursLabel}`, ...block.ours, CONFLICT_SEP, ...block.theirs, `${CONFLICT_THEIRS} ${file.theirsLabel}`);
+      output.push(
+        `${CONFLICT_OURS} ${file.oursLabel}`,
+        ...block.ours,
+        CONFLICT_SEP,
+        ...block.theirs,
+        `${CONFLICT_THEIRS} ${file.theirsLabel}`,
+      );
       continue;
     }
     output.push(...resolveBlock(block, choice));
@@ -227,7 +239,11 @@ export class ConflictService {
     for (const path of files.data) {
       const content = await this.options.readFile(path);
       if (content === null) {
-        extraLogs.push({ level: 'warn', message: `冲突文件 ${path} 无法读取，已跳过`, at: this.clock() });
+        extraLogs.push({
+          level: 'warn',
+          message: `冲突文件 ${path} 无法读取，已跳过`,
+          at: this.clock(),
+        });
         continue;
       }
       parsed.push(parseConflictFile(content, { path }));
@@ -236,7 +252,10 @@ export class ConflictService {
   }
 
   /** 组装解决结果（不落盘；由调用方交给 AI 写入管线） */
-  resolve(file: ConflictFile, choices: Readonly<Record<number, ConflictResolution>>): { content: string; unresolved: number } {
+  resolve(
+    file: ConflictFile,
+    choices: Readonly<Record<number, ConflictResolution>>,
+  ): { content: string; unresolved: number } {
     return resolveConflictFile(file, choices);
   }
 

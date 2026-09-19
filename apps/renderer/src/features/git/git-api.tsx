@@ -67,9 +67,10 @@ export interface GitApi {
   readonly ready: boolean;
   readonly reason?: string | undefined;
   info(): Promise<GitRepoInfo | null>;
-  init(options?: { branch?: string; stacks?: readonly string[] }): Promise<
-    GitResult<{ branch: string; gitignoreWritten: boolean; stacks: string[] }>
-  >;
+  init(options?: {
+    branch?: string;
+    stacks?: readonly string[];
+  }): Promise<GitResult<{ branch: string; gitignoreWritten: boolean; stacks: string[] }>>;
 
   /* 变更与提交 */
   status(): Promise<GitResult<GitStatusSummary>>;
@@ -101,24 +102,46 @@ export interface GitApi {
     keyword?: string | undefined;
     ref?: string | undefined;
   }): Promise<GitResult<GitCommit[]>>;
-  commitDetail(sha: string): Promise<GitResult<{ commit: GitCommit; files: GitDiffFile[]; additions: number; deletions: number }>>;
+  commitDetail(
+    sha: string,
+  ): Promise<
+    GitResult<{ commit: GitCommit; files: GitDiffFile[]; additions: number; deletions: number }>
+  >;
 
   /* 合并 / 冲突 / 回滚 / 暂存 */
-  previewMerge(source: string, target: string): Promise<GitResult<{ commits: GitCommit[]; filesChanged: number; fastForward: boolean }>>;
-  merge(source: string, options?: { backup?: boolean | undefined; noFf?: boolean | undefined }): Promise<GitResult<MergeOutcome>>;
-  rebase(onto: string, options?: { backup?: boolean | undefined }): Promise<GitResult<MergeOutcome>>;
+  previewMerge(
+    source: string,
+    target: string,
+  ): Promise<GitResult<{ commits: GitCommit[]; filesChanged: number; fastForward: boolean }>>;
+  merge(
+    source: string,
+    options?: { backup?: boolean | undefined; noFf?: boolean | undefined },
+  ): Promise<GitResult<MergeOutcome>>;
+  rebase(
+    onto: string,
+    options?: { backup?: boolean | undefined },
+  ): Promise<GitResult<MergeOutcome>>;
   abort(kind: 'merge' | 'rebase'): Promise<GitResult<boolean>>;
   conflicts(): Promise<GitResult<ConflictFile[]>>;
   /** 把解决结果交给 AI 写入管线落盘（UI 不直接写文件，D-04） */
-  applyResolution(input: { path: string; content: string; message: string }): Promise<GitResult<string>>;
+  applyResolution(input: {
+    path: string;
+    content: string;
+    message: string;
+  }): Promise<GitResult<string>>;
   /** 「两侧都要 → 交给 AI 合并」的请求载荷 */
-  requestAiMerge(input: { path: string; blockIndex?: number | undefined }): Promise<GitResult<{ instruction: string; context: string; paths: string[] }>>;
+  requestAiMerge(input: {
+    path: string;
+    blockIndex?: number | undefined;
+  }): Promise<GitResult<{ instruction: string; context: string; paths: string[] }>>;
   stashList(): Promise<GitResult<GitStashEntry[]>>;
   stashPush(message?: string): Promise<GitResult<boolean>>;
   stashApply(index: number, drop?: boolean): Promise<GitResult<number>>;
   stashDrop(index: number): Promise<GitResult<number>>;
   rollbackPlan(input: { sha: string; mode: RollbackMode }): Promise<GitResult<RollbackPlan>>;
-  rollbackExecute(plan: RollbackPlan): Promise<GitResult<{ snapshotBranch: string; newHead: string | null }>>;
+  rollbackExecute(
+    plan: RollbackPlan,
+  ): Promise<GitResult<{ snapshotBranch: string; newHead: string | null }>>;
   snapshots(): Promise<GitResult<{ name: string; sha: string | null; subject: string | null }[]>>;
 
   /* 远程与凭据 */
@@ -128,7 +151,12 @@ export interface GitApi {
   removeRemote(name: string): Promise<GitResult<string>>;
   testRemote(name: string): Promise<GitResult<RemoteTestResult>>;
   push(
-    input: { remote?: string | undefined; branch?: string | undefined; force?: boolean | undefined; forceWithLease?: boolean | undefined },
+    input: {
+      remote?: string | undefined;
+      branch?: string | undefined;
+      force?: boolean | undefined;
+      forceWithLease?: boolean | undefined;
+    },
     onProgress?: (event: GitProgressEvent) => void,
   ): Promise<GitResult<{ summary: string; upToDate: boolean; forced: boolean }>>;
   pull(
@@ -140,8 +168,16 @@ export interface GitApi {
     onProgress?: (event: GitProgressEvent) => void,
   ): Promise<GitResult<{ summary: string; upToDate: boolean }>>;
   credentialBindings(): Promise<CredentialBinding[]>;
-  saveHttpsCredential(input: { remoteName: string; username: string; token: string }): Promise<void>;
-  saveSshCredential(input: { remoteName: string; privateKeyPath: string; passphrase?: string | null }): Promise<void>;
+  saveHttpsCredential(input: {
+    remoteName: string;
+    username: string;
+    token: string;
+  }): Promise<void>;
+  saveSshCredential(input: {
+    remoteName: string;
+    privateKeyPath: string;
+    passphrase?: string | null;
+  }): Promise<void>;
   removeCredential(remoteName: string): Promise<void>;
 
   /* 自动提交策略（FR-GIT-09，默认 off） */
@@ -195,7 +231,9 @@ const REQUIRED_METHODS: readonly (keyof GitApi)[] = [
 
 /** 从全局读取外壳注入的实现（用 typeof 校验关键方法） */
 export function readInjectedGitApi(): GitApi | null {
-  const injected = (globalThis as unknown as { [GIT_API_GLOBAL_KEY]?: unknown })[GIT_API_GLOBAL_KEY];
+  const injected = (globalThis as unknown as { [GIT_API_GLOBAL_KEY]?: unknown })[
+    GIT_API_GLOBAL_KEY
+  ];
   if (typeof injected !== 'object' || injected === null) return null;
   const candidate = injected as Record<string, unknown>;
   const looksLikeApi = REQUIRED_METHODS.every((method) => typeof candidate[method] === 'function');

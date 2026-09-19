@@ -23,13 +23,20 @@ export interface MenuProps {
   autoFocus?: boolean;
 }
 
-export const Menu = React.forwardRef<HTMLUListElement, MenuProps>(function Menu(
-  props,
-  ref,
-) {
-  const { items, onSelect, onClose, className, 'aria-label': ariaLabel = '菜单', autoFocus = true } = props;
+export const Menu = React.forwardRef<HTMLUListElement, MenuProps>(function Menu(props, ref) {
+  const {
+    items,
+    onSelect,
+    onClose,
+    className,
+    'aria-label': ariaLabel = '菜单',
+    autoFocus = true,
+  } = props;
   const [active, setActive] = React.useState(() =>
-    Math.max(0, items.findIndex((i) => !i.disabled && !i.separator)),
+    Math.max(
+      0,
+      items.findIndex((i) => !i.disabled && !i.separator),
+    ),
   );
   const itemRefs = React.useRef<(HTMLLIElement | null)[]>([]);
   const localRef = React.useRef<HTMLUListElement | null>(null);
@@ -67,7 +74,12 @@ export const Menu = React.forwardRef<HTMLUListElement, MenuProps>(function Menu(
         break;
       case 'Home':
         e.preventDefault();
-        setActive(Math.max(0, items.findIndex((i) => !i.disabled && !i.separator)));
+        setActive(
+          Math.max(
+            0,
+            items.findIndex((i) => !i.disabled && !i.separator),
+          ),
+        );
         break;
       case 'End':
         e.preventDefault();
@@ -115,7 +127,12 @@ export const Menu = React.forwardRef<HTMLUListElement, MenuProps>(function Menu(
             role="menuitem"
             aria-disabled={it.disabled || undefined}
             tabIndex={isActive ? 0 : -1}
-            className={cx('ec-menu__item', it.danger && 'ec-menu__item--danger', it.disabled && 'ec-menu__item--disabled', isActive && 'ec-menu__item--active')}
+            className={cx(
+              'ec-menu__item',
+              it.danger && 'ec-menu__item--danger',
+              it.disabled && 'ec-menu__item--disabled',
+              isActive && 'ec-menu__item--active',
+            )}
             onClick={() => selectAt(i)}
             onMouseEnter={() => !it.disabled && setActive(i)}
           >

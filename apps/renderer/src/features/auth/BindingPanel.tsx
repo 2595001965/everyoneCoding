@@ -44,7 +44,9 @@ export function BindingPanel({ identity }: BindingPanelProps): JSX.Element {
   }, [load]);
 
   const isBound = (provider: AuthProvider): boolean =>
-    provider === 'email' ? identity.hasPassword : bindings.some((binding) => binding.provider === provider);
+    provider === 'email'
+      ? identity.hasPassword
+      : bindings.some((binding) => binding.provider === provider);
 
   const handleBind = async (provider: AuthProvider): Promise<void> => {
     const guard = canBind(bindings, provider);
@@ -91,7 +93,9 @@ export function BindingPanel({ identity }: BindingPanelProps): JSX.Element {
               <span className="ec-auth__binding-name">{AUTH_PROVIDER_LABELS[provider]}</span>
               <Tag color={bound ? 'success' : 'neutral'}>{bound ? '已绑定' : '未绑定'}</Tag>
               {provider === 'email' ? (
-                <span className="ec-auth__hint">{identity.hasPassword ? '已设置密码' : '未设置密码'}</span>
+                <span className="ec-auth__hint">
+                  {identity.hasPassword ? '已设置密码' : '未设置密码'}
+                </span>
               ) : bound ? (
                 <Button size="sm" variant="ghost" onClick={() => void handleUnbind(provider)}>
                   解绑

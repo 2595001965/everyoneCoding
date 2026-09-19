@@ -1,8 +1,23 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 
-import { APP_COMMANDS, SettingsStore, migrateSettings, type GlobalSettings, type Settings } from '@ec/core';
+import {
+  APP_COMMANDS,
+  SettingsStore,
+  migrateSettings,
+  type GlobalSettings,
+  type Settings,
+} from '@ec/core';
 import { ShellError } from '@ec/shell-api';
 import {
   EcpkgReader,
@@ -18,7 +33,11 @@ import {
 } from '@ec/package-kit';
 
 import type { DomainRouter } from './runtime';
-import { createExportSourcePort, createImportLocalStatePort, createImportTargetPort } from './package-ports';
+import {
+  createExportSourcePort,
+  createImportLocalStatePort,
+  createImportTargetPort,
+} from './package-ports';
 import { createTelemetryFileStore } from './telemetry-store';
 
 /**
@@ -176,11 +195,17 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(cacheDir, { recursive: true });
 
-  const settings: SettingsStore = new SettingsStore(migrateSettings(readJson<unknown>(settingsPath, null)));
-  let backupConfig: BackupConfig = { ...DEFAULT_BACKUP_CONFIG, ...readJson<Partial<BackupConfig>>(backupConfigPath, {}) };
+  const settings: SettingsStore = new SettingsStore(
+    migrateSettings(readJson<unknown>(settingsPath, null)),
+  );
+  let backupConfig: BackupConfig = {
+    ...DEFAULT_BACKUP_CONFIG,
+    ...readJson<Partial<BackupConfig>>(backupConfigPath, {}),
+  };
   const telemetry = createTelemetryFileStore(telemetryBufferPath);
 
-  const persistSettings = (): void => writeJsonAtomic(settingsPath, JSON.parse(settings.toJSON()) as Settings);
+  const persistSettings = (): void =>
+    writeJsonAtomic(settingsPath, JSON.parse(settings.toJSON()) as Settings);
   const persistBackupConfig = (): void => writeJsonAtomic(backupConfigPath, backupConfig);
 
   /** 数据条目数：工程目录文件数 + 三张主表行数，迁移前后必须一致 */
@@ -190,7 +215,8 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
       const db = new Database(dirs.sqlitePath, { readonly: true });
       try {
         for (const table of ['project', 'memory_item', 'document']) {
-          const row = db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number } | undefined;
+          const row = db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as
+            { n: number } | undefined;
           rows += row?.n ?? 0;
         }
       } catch {
@@ -202,7 +228,12 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
     return countFiles(dirs.projectsDir) + rows;
   };
 
-  const currentDirs = (): { workspaceRoot: string; projectsDir: string; sqlitePath: string; cacheDir: string } => {
+  const currentDirs = (): {
+    workspaceRoot: string;
+    projectsDir: string;
+    sqlitePath: string;
+    cacheDir: string;
+  } => {
     const global = settings.getGlobal();
     const workspaceRoot = global.workspaceRoot || options.defaultWorkspaceRoot;
     return {
@@ -237,17 +268,30 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
         const next = isRecord(params['next']) ? params['next'] : {};
         const from = currentDirs();
         const target = {
-          workspaceRoot: typeof next['workspaceRoot'] === 'string' && next['workspaceRoot'] ? next['workspaceRoot'] : from.workspaceRoot,
-          projectsDir: typeof next['projectsDir'] === 'string' && next['projectsDir'] ? next['projectsDir'] : from.projectsDir,
-          sqlitePath: typeof next['sqlitePath'] === 'string' && next['sqlitePath'] ? next['sqlitePath'] : from.sqlitePath,
-          cacheDir: typeof next['cacheDir'] === 'string' && next['cacheDir'] ? next['cacheDir'] : from.cacheDir,
+          workspaceRoot:
+            typeof next['workspaceRoot'] === 'string' && next['workspaceRoot']
+              ? next['workspaceRoot']
+              : from.workspaceRoot,
+          projectsDir:
+            typeof next['projectsDir'] === 'string' && next['projectsDir']
+              ? next['projectsDir']
+              : from.projectsDir,
+          sqlitePath:
+            typeof next['sqlitePath'] === 'string' && next['sqlitePath']
+              ? next['sqlitePath']
+              : from.sqlitePath,
+          cacheDir:
+            typeof next['cacheDir'] === 'string' && next['cacheDir']
+              ? next['cacheDir']
+              : from.cacheDir,
         };
         const before = countEntries(from);
         const backupDir = `${from.projectsDir}.bak-${Date.now()}`;
 
         try {
           // 1) 工程目录：复制后按条目数校验
-          if (target.projectsDir !== from.projectsDir) copyTree(from.projectsDir, target.projectsDir);
+          if (target.projectsDir !== from.projectsDir)
+            copyTree(from.projectsDir, target.projectsDir);
           // 2) 缓存目录：缓存可再生，仍搬一次避免用户困惑
           if (target.cacheDir !== from.cacheDir) copyTree(from.cacheDir, target.cacheDir);
           // 3) SQLite：用 VACUUM INTO 做在线一致快照（不能裸复制正在写入的库）
@@ -324,16 +368,19 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
           encrypted: boolean;
           password?: string | undefined;
         };
-        const password = typeof input.password === 'string' && input.password.length > 0 ? input.password : undefined;
+        const password =
+          typeof input.password === 'string' && input.password.length > 0
+            ? input.password
+            : undefined;
         if (input.encrypted && password === undefined) {
           throw new ShellError(
             'INVALID_ARGUMENT',
             '加密导出需要口令：请先在「加密归档」下方填写口令再重试（不会退化成未加密导出）。',
           );
         }
-        const project = db.prepare(`SELECT id, name FROM project WHERE id = ?`).get(input.projectId) as
-          | { id: string; name: string }
-          | undefined;
+        const project = db
+          .prepare(`SELECT id, name FROM project WHERE id = ?`)
+          .get(input.projectId) as { id: string; name: string } | undefined;
         if (!project) throw new ShellError('NOT_FOUND', `项目不存在：${input.projectId}`);
 
         const outputDir = backupConfig.dir.trim() ? backupConfig.dir : join(dataDir, 'exports');
@@ -350,12 +397,20 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
           },
           source,
         );
-        return { ok: true, filePath: result.outputPath, bytes: result.archiveSizeBytes, mode: input.mode };
+        return {
+          ok: true,
+          filePath: result.outputPath,
+          bytes: result.archiveSizeBytes,
+          mode: input.mode,
+        };
       }
 
       case 'importPackage': {
         const input = params['input'] as { filePath: string; password?: string | undefined };
-        const password = typeof input.password === 'string' && input.password.length > 0 ? input.password : undefined;
+        const password =
+          typeof input.password === 'string' && input.password.length > 0
+            ? input.password
+            : undefined;
         if (!existsSync(input.filePath)) {
           throw new ShellError('NOT_FOUND', `归档文件不存在：${input.filePath}`);
         }
@@ -364,7 +419,10 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
         const counts = { memory: 0, docs: 0, codeFiles: 0 };
         let objects: PackageObject[] = [];
         try {
-          const reader = EcpkgReader.open(input.filePath, password !== undefined ? { password } : {});
+          const reader = EcpkgReader.open(
+            input.filePath,
+            password !== undefined ? { password } : {},
+          );
           try {
             objects = collectPackageObjects(reader);
             counts.memory = objects.filter((object) => object.type === 'memory').length;
@@ -410,15 +468,21 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
 
       case 'setTelemetry': {
         const enabled = params['enabled'];
-        if (typeof enabled !== 'boolean') throw new ShellError('INVALID_ARGUMENT', 'setTelemetry 需要 enabled 布尔值');
-        settings.updateGlobal({ privacy: { ...settings.getGlobal().privacy, telemetryEnabled: enabled } });
+        if (typeof enabled !== 'boolean')
+          throw new ShellError('INVALID_ARGUMENT', 'setTelemetry 需要 enabled 布尔值');
+        settings.updateGlobal({
+          privacy: { ...settings.getGlobal().privacy, telemetryEnabled: enabled },
+        });
         persistSettings();
         if (!enabled) telemetry.clear();
         return undefined;
       }
 
       case 'inspectLocalTelemetry':
-        return { telemetryRecords: telemetry.count(), cacheBytes: countBytes(currentDirs().cacheDir) };
+        return {
+          telemetryRecords: telemetry.count(),
+          cacheBytes: countBytes(currentDirs().cacheDir),
+        };
 
       case 'clearLocalTelemetry': {
         telemetry.clear();
@@ -438,7 +502,8 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
 
       case 'saveKeymap': {
         const keymap = params['keymap'];
-        if (!isRecord(keymap)) throw new ShellError('INVALID_ARGUMENT', 'saveKeymap 需要 keymap 对象');
+        if (!isRecord(keymap))
+          throw new ShellError('INVALID_ARGUMENT', 'saveKeymap 需要 keymap 对象');
         const entries: Record<string, string> = {};
         for (const [id, keys] of Object.entries(keymap)) {
           if (typeof keys === 'string') entries[id] = keys;
@@ -454,14 +519,16 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
 
       case 'importKeymap': {
         const json = params['json'];
-        if (typeof json !== 'string') throw new ShellError('INVALID_ARGUMENT', 'importKeymap 需要 json 字符串');
+        if (typeof json !== 'string')
+          throw new ShellError('INVALID_ARGUMENT', 'importKeymap 需要 json 字符串');
         let parsed: unknown;
         try {
           parsed = JSON.parse(json);
         } catch {
           throw new ShellError('INVALID_ARGUMENT', '快捷键方案不是合法 JSON');
         }
-        if (!isRecord(parsed)) throw new ShellError('INVALID_ARGUMENT', '快捷键方案必须是「命令 id → 键位」的对象');
+        if (!isRecord(parsed))
+          throw new ShellError('INVALID_ARGUMENT', '快捷键方案必须是「命令 id → 键位」的对象');
         const entries: Record<string, string> = {};
         for (const [id, keys] of Object.entries(parsed)) {
           if (typeof keys === 'string') entries[id] = keys;
@@ -476,13 +543,15 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
 
       case 'saveBackupConfig': {
         const config = params['config'];
-        if (!isRecord(config)) throw new ShellError('INVALID_ARGUMENT', 'saveBackupConfig 需要 config 对象');
+        if (!isRecord(config))
+          throw new ShellError('INVALID_ARGUMENT', 'saveBackupConfig 需要 config 对象');
         const intervalHours = Number(config['intervalHours']);
         const dir = config['dir'];
         if (!Number.isFinite(intervalHours) || intervalHours <= 0) {
           throw new ShellError('INVALID_ARGUMENT', '备份间隔必须是大于 0 的小时数');
         }
-        if (typeof dir !== 'string') throw new ShellError('INVALID_ARGUMENT', '备份目录必须是字符串');
+        if (typeof dir !== 'string')
+          throw new ShellError('INVALID_ARGUMENT', '备份目录必须是字符串');
         backupConfig = { ...backupConfig, intervalHours, dir };
         persistBackupConfig();
         return undefined;

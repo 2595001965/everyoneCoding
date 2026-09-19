@@ -1,6 +1,12 @@
 import type { StackId } from '@ec/core';
 
-import { createDefaultBackendDeps, selectBackend, type BackendDeps, type BackendPreference, type SelectedBackend } from './backend';
+import {
+  createDefaultBackendDeps,
+  selectBackend,
+  type BackendDeps,
+  type BackendPreference,
+  type SelectedBackend,
+} from './backend';
 import type { Git2Loader } from './backend/git2-backend';
 import {
   GitCommandError,
@@ -98,7 +104,12 @@ export class GitClient {
   private readonly changeSourceOf: ((path: string) => ChangeSource | null) | null;
   private readonly bigFileThreshold: number;
 
-  constructor(options: GitClientOptions & { selectionNotes?: readonly string[]; requested?: BackendPreference }) {
+  constructor(
+    options: GitClientOptions & {
+      selectionNotes?: readonly string[];
+      requested?: BackendPreference;
+    },
+  ) {
     this.repoPath = options.repoPath;
     this.backend = options.backend;
     this.backendId = options.backend.id;
@@ -133,8 +144,12 @@ export class GitClient {
       ...(options.filer !== undefined ? { filer: options.filer } : { filer: deps.filer ?? null }),
       ...(options.credentials !== undefined ? { credentials: options.credentials } : {}),
       ...(options.changeSourceOf !== undefined ? { changeSourceOf: options.changeSourceOf } : {}),
-      ...(options.bigFileThresholdBytes !== undefined ? { bigFileThresholdBytes: options.bigFileThresholdBytes } : {}),
-      ...(selection !== null ? { selectionNotes: selection.notes, requested: selection.requested } : {}),
+      ...(options.bigFileThresholdBytes !== undefined
+        ? { bigFileThresholdBytes: options.bigFileThresholdBytes }
+        : {}),
+      ...(selection !== null
+        ? { selectionNotes: selection.notes, requested: selection.requested }
+        : {}),
     });
     for (const note of client.selectionNotes) client.logger.info(note);
     return client;
@@ -170,7 +185,8 @@ export class GitClient {
     try {
       const value = await task();
       this.collectBackendNotes();
-      if (hints.describe !== undefined) this.logger.info(`${action} 完成：${hints.describe(value)}`);
+      if (hints.describe !== undefined)
+        this.logger.info(`${action} 完成：${hints.describe(value)}`);
       else this.logger.info(`${action} 完成`);
       return ok(value, this.logsSince(mark));
     } catch (error) {
@@ -186,9 +202,13 @@ export class GitClient {
             ? 'NOT_A_REPO'
             : /already exists/i.test(error.stderr)
               ? 'ALREADY_A_REPO'
-              : /could not read Username|Authentication failed|Permission denied|publickey/i.test(error.stderr)
+              : /could not read Username|Authentication failed|Permission denied|publickey/i.test(
+                    error.stderr,
+                  )
                 ? 'CREDENTIAL_MISSING'
-                : /Could not resolve host|unable to access|Connection (refused|timed out)/i.test(error.stderr)
+                : /Could not resolve host|unable to access|Connection (refused|timed out)/i.test(
+                      error.stderr,
+                    )
                   ? 'NETWORK'
                   : 'COMMAND_FAILED';
         return fail(code, error.message, this.logsSince(mark));
@@ -225,15 +245,26 @@ export class GitClient {
    * `stacks` 未指定时按项目根目录文件清单推测。
    */
   async init(
-    options: { branch?: string; stacks?: StackId[]; writeGitignore?: boolean; existingGitignore?: 'merge' | 'replace' } = {},
+    options: {
+      branch?: string;
+      stacks?: StackId[];
+      writeGitignore?: boolean;
+      existingGitignore?: 'merge' | 'replace';
+    } = {},
   ): Promise<GitResult<InitResult>> {
     const branch = options.branch ?? 'main';
     return this.wrap(
       '初始化仓库',
       async (): Promise<InitResult> => {
         await this.backend.init(this.repoPath, { branch });
-        const detected = options.stacks !== undefined && options.stacks.length > 0 ? null : await this.detectStacks();
-        const stacks: StackId[] = options.stacks !== undefined && options.stacks.length > 0 ? options.stacks : (detected?.stacks ?? ['node']);
+        const detected =
+          options.stacks !== undefined && options.stacks.length > 0
+            ? null
+            : await this.detectStacks();
+        const stacks: StackId[] =
+          options.stacks !== undefined && options.stacks.length > 0
+            ? options.stacks
+            : (detected?.stacks ?? ['node']);
         let gitignorePath: string | null = null;
         let gitignoreWritten = false;
         let gitignoreContent = '';
@@ -242,7 +273,9 @@ export class GitClient {
             repoPath: this.repoPath,
             stacks,
             filer: this.filer,
-            ...(options.existingGitignore !== undefined ? { existing: options.existingGitignore } : {}),
+            ...(options.existingGitignore !== undefined
+              ? { existing: options.existingGitignore }
+              : {}),
           });
           gitignoreContent = result.content;
           gitignorePath = result.path;
@@ -250,9 +283,19 @@ export class GitClient {
           for (const note of result.notes) this.logger.info(note);
           if (result.error !== null) this.logger.warn(result.error);
         }
-        return { repoPath: this.repoPath, branch, gitignorePath, gitignoreWritten, stacks, gitignoreContent };
+        return {
+          repoPath: this.repoPath,
+          branch,
+          gitignorePath,
+          gitignoreWritten,
+          stacks,
+          gitignoreContent,
+        };
       },
-      { describe: (value) => `分支 ${value.branch}${value.gitignoreWritten ? '，已生成 .gitignore' : ''}` },
+      {
+        describe: (value) =>
+          `分支 ${value.branch}${value.gitignoreWritten ? '，已生成 .gitignore' : ''}`,
+      },
     );
   }
 
@@ -329,11 +372,9 @@ export class GitClient {
   /* ------------------------------------------------------------------ */
 
   async commit(input: CommitInput): Promise<GitResult<string>> {
-    return this.wrap(
-      '提交变更',
-      () => this.backend.commit(this.repoPath, input),
-      { describe: (sha) => `新提交 ${sha.slice(0, 8)}` },
-    );
+    return this.wrap('提交变更', () => this.backend.commit(this.repoPath, input), {
+      describe: (sha) => `新提交 ${sha.slice(0, 8)}`,
+    });
   }
 
   async log(options: LogOptions = {}): Promise<GitResult<GitCommit[]>> {
@@ -434,20 +475,36 @@ export class GitClient {
     return this.wrap(
       `预览合并 ${source} → ${target}`,
       async () => {
-        const commits = await this.backend.log(this.repoPath, { ref: `${target}..${source}`, limit: 500 });
-        const targetOnly = await this.backend.log(this.repoPath, { ref: `${source}..${target}`, limit: 1 });
+        const commits = await this.backend.log(this.repoPath, {
+          ref: `${target}..${source}`,
+          limit: 500,
+        });
+        const targetOnly = await this.backend.log(this.repoPath, {
+          ref: `${source}..${target}`,
+          limit: 1,
+        });
         const diff = await this.backend.diff(this.repoPath, { from: target, to: source });
         const files = parseUnifiedDiff(diff).files.length;
         // 目标分支没有 source 之外的提交 → 可以快进
-        return { commits, filesChanged: files, fastForward: commits.length > 0 && targetOnly.length === 0 };
+        return {
+          commits,
+          filesChanged: files,
+          fastForward: commits.length > 0 && targetOnly.length === 0,
+        };
       },
       { describe: (value) => `${value.commits.length} 个提交，${value.filesChanged} 个文件` },
     );
   }
 
-  async merge(branch: string, options: { noFf?: boolean; message?: string } = {}): Promise<GitResult<MergeCommandResult>> {
+  async merge(
+    branch: string,
+    options: { noFf?: boolean; message?: string } = {},
+  ): Promise<GitResult<MergeCommandResult>> {
     return this.wrap('合并分支', () => this.backend.merge(this.repoPath, branch, options), {
-      describe: (value) => (value.conflictFiles.length > 0 ? `存在 ${value.conflictFiles.length} 个冲突文件` : '合并成功'),
+      describe: (value) =>
+        value.conflictFiles.length > 0
+          ? `存在 ${value.conflictFiles.length} 个冲突文件`
+          : '合并成功',
     });
   }
 
@@ -561,7 +618,9 @@ export class GitClient {
     );
   }
 
-  async push(input: PushInput = {}): Promise<GitResult<{ summary: string; upToDate: boolean; forced: boolean }>> {
+  async push(
+    input: PushInput = {},
+  ): Promise<GitResult<{ summary: string; upToDate: boolean; forced: boolean }>> {
     const remoteName = input.remote ?? 'origin';
     return this.wrap(
       `推送到 ${remoteName}`,
@@ -603,7 +662,9 @@ export class GitClient {
     });
   }
 
-  private async authEnvFor(remoteName: string): Promise<{ env: Record<string, string>; secrets: string[] }> {
+  private async authEnvFor(
+    remoteName: string,
+  ): Promise<{ env: Record<string, string>; secrets: string[] }> {
     const credential = this.credentials !== null ? await this.credentials(remoteName) : null;
     const auth = buildAuthEnv(credential);
     for (const secret of auth.secrets) this.logger.registerSecret(secret);
@@ -665,12 +726,19 @@ export class GitClient {
         if (!patchSkippedEntirely) {
           patch =
             oversizedPaths.length > 0
-              ? await this.backend.diff(this.repoPath, { ...diffOptions, excludePaths: oversizedPaths })
+              ? await this.backend.diff(this.repoPath, {
+                  ...diffOptions,
+                  excludePaths: oversizedPaths,
+                })
               : await this.backend.diff(this.repoPath, diffOptions);
         }
 
         const smallEntries = entries.filter((entry) => !oversizedSet.has(entry.path));
-        const parsed = parseUnifiedDiff(patch, { entries: smallEntries, sizes, skipThresholdBytes: this.bigFileThreshold });
+        const parsed = parseUnifiedDiff(patch, {
+          entries: smallEntries,
+          sizes,
+          skipThresholdBytes: this.bigFileThreshold,
+        });
 
         // 防御：patch 块数与清单数不一致时（极少数形态，如子模块 / 改名+改类型同时发生），
         // 退回按 git 头解析，宁可少信息也不给错位的信息
@@ -679,12 +747,19 @@ export class GitClient {
           this.logger.warn(
             `diff 块数（${sizeGuarded.length}）与文件清单（${smallEntries.length}）不一致，已回退按 git 头解析路径`,
           );
-          const fallback = parseUnifiedDiff(patch, { sizes, skipThresholdBytes: this.bigFileThreshold });
-          const skippedFiles = oversized.map((entry) => buildSkippedFile(entry, sizes[entry.path] ?? null, this.bigFileThreshold));
-          const files = [...fallback.files.filter((file) => !oversizedSet.has(file.path)), ...skippedFiles].sort(
-            compareFiles(entries),
+          const fallback = parseUnifiedDiff(patch, {
+            sizes,
+            skipThresholdBytes: this.bigFileThreshold,
+          });
+          const skippedFiles = oversized.map((entry) =>
+            buildSkippedFile(entry, sizes[entry.path] ?? null, this.bigFileThreshold),
           );
-          for (const entry of oversized) this.logger.warn(`已跳过 ${entry.path} 的内容对比（体积超限）`);
+          const files = [
+            ...fallback.files.filter((file) => !oversizedSet.has(file.path)),
+            ...skippedFiles,
+          ].sort(compareFiles(entries));
+          for (const entry of oversized)
+            this.logger.warn(`已跳过 ${entry.path} 的内容对比（体积超限）`);
           return {
             from: scope === 'staged' ? 'HEAD' : (options.from ?? 'WORKTREE'),
             to: options.to ?? (scope === 'staged' ? 'INDEX' : 'WORKTREE'),
@@ -696,9 +771,13 @@ export class GitClient {
           };
         }
 
-        const skippedFiles = oversized.map((entry) => buildSkippedFile(entry, sizes[entry.path] ?? null, this.bigFileThreshold));
+        const skippedFiles = oversized.map((entry) =>
+          buildSkippedFile(entry, sizes[entry.path] ?? null, this.bigFileThreshold),
+        );
         for (const entry of oversized) {
-          this.logger.warn(`已跳过 ${entry.path} 的内容对比：文件体积 ${formatBytes(sizes[entry.path] ?? 0)} 超过上限`);
+          this.logger.warn(
+            `已跳过 ${entry.path} 的内容对比：文件体积 ${formatBytes(sizes[entry.path] ?? 0)} 超过上限`,
+          );
         }
         const files = [...sizeGuarded, ...skippedFiles].sort(compareFiles(entries));
 
@@ -712,12 +791,25 @@ export class GitClient {
           skippedFiles: files.filter((file) => file.skipped).length,
         };
       },
-      { describe: (value) => summarizeDiff({ files: value.files, additions: value.additions, deletions: value.deletions, skippedFiles: value.skippedFiles }) },
+      {
+        describe: (value) =>
+          summarizeDiff({
+            files: value.files,
+            additions: value.additions,
+            deletions: value.deletions,
+            skippedFiles: value.skippedFiles,
+          }),
+      },
     );
   }
 
-  async blame(path: string, range?: { start: number; end: number }): Promise<GitResult<BlameLine[]>> {
-    return this.wrap(`查看 ${path} 的作者信息`, () => this.backend.blameLite(this.repoPath, path, range));
+  async blame(
+    path: string,
+    range?: { start: number; end: number },
+  ): Promise<GitResult<BlameLine[]>> {
+    return this.wrap(`查看 ${path} 的作者信息`, () =>
+      this.backend.blameLite(this.repoPath, path, range),
+    );
   }
 
   /* ------------------------------------------------------------------ */
@@ -753,7 +845,11 @@ export class GitClient {
 /* 辅助                                                                        */
 /* -------------------------------------------------------------------------- */
 
-function buildSkippedFile(entry: DiffFileEntry, size: number | null, threshold: number): GitDiffFile {
+function buildSkippedFile(
+  entry: DiffFileEntry,
+  size: number | null,
+  threshold: number,
+): GitDiffFile {
   return {
     path: entry.path,
     oldPath: entry.oldPath,
@@ -772,9 +868,12 @@ function buildSkippedFile(entry: DiffFileEntry, size: number | null, threshold: 
 }
 
 /** 按权威清单顺序排序（保证 UI 顺序与 `git status` / `git diff` 一致） */
-function compareFiles(entries: readonly DiffFileEntry[]): (a: GitDiffFile, b: GitDiffFile) => number {
+function compareFiles(
+  entries: readonly DiffFileEntry[],
+): (a: GitDiffFile, b: GitDiffFile) => number {
   const order = new Map(entries.map((entry, index) => [entry.path, index]));
-  return (a, b) => (order.get(a.path) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.path) ?? Number.MAX_SAFE_INTEGER);
+  return (a, b) =>
+    (order.get(a.path) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.path) ?? Number.MAX_SAFE_INTEGER);
 }
 
 /** 分支名合法性与变更来源标签统一定义在 `models.ts`（浏览器入口与 Node 入口共用） */

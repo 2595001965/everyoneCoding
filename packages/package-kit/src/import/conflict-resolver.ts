@@ -28,7 +28,14 @@ import type {
 } from './import-types';
 
 /** 通用（非记忆）对象类别 */
-const GENERIC_TYPES: readonly PackageObjectType[] = ['document', 'design', 'registry', 'code', 'anchor', 'pipeline'];
+const GENERIC_TYPES: readonly PackageObjectType[] = [
+  'document',
+  'design',
+  'registry',
+  'code',
+  'anchor',
+  'pipeline',
+];
 /** 全部 7 类（用于 missingLocals 盘点） */
 const ALL_TYPES: readonly PackageObjectType[] = [
   'memory',
@@ -66,7 +73,10 @@ function generateNewId(): string {
 /**
  * 差异预览：包内对象 vs 本地对象。记忆走 classifyImport；通用对象走 id+updatedAt+payload。
  */
-export function buildDiffPreview(incoming: readonly PackageObject[], localPort: ImportLocalStatePort): PackageDiffPreview {
+export function buildDiffPreview(
+  incoming: readonly PackageObject[],
+  localPort: ImportLocalStatePort,
+): PackageDiffPreview {
   const items: PackageDiffItem[] = [];
   const counts = { added: 0, conflicted: 0, unchanged: 0, missing: 0 };
 
@@ -82,7 +92,10 @@ export function buildDiffPreview(incoming: readonly PackageObject[], localPort: 
   for (const diff of memoryPreview.items) {
     const inc = incomingMemory.find((o) => o.id === diff.incoming.id) ?? null;
     if (inc === null) continue;
-    const localPkg = localMemory.length > 0 ? localPort.listObjects('memory', null).find((o) => o.id === diff.incoming.id) ?? null : null;
+    const localPkg =
+      localMemory.length > 0
+        ? (localPort.listObjects('memory', null).find((o) => o.id === diff.incoming.id) ?? null)
+        : null;
     items.push({ incoming: inc, local: localPkg, classification: diff.classification });
     bump(diff.classification);
   }

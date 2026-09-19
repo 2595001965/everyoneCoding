@@ -11,11 +11,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  OCCURRENCE_COLUMNS,
-  REGISTRY_ENTRY_COLUMNS,
-  RENAME_EVENT_COLUMNS,
-} from '../index';
+import { OCCURRENCE_COLUMNS, REGISTRY_ENTRY_COLUMNS, RENAME_EVENT_COLUMNS } from '../index';
 
 const MIGRATION_PATH = new URL('../../../data/migrations/0001_init.sql', import.meta.url);
 const SQL = readFileSync(MIGRATION_PATH, 'utf8');

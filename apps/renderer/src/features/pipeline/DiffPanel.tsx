@@ -37,7 +37,12 @@ export function DiffPanel({ projectId, stage, version }: DiffPanelProps): JSX.El
         const diff = await api.readDiff(projectId, stage, version);
         if (!cancelled) setState({ loading: false, diff, error: null });
       } catch (cause) {
-        if (!cancelled) setState({ loading: false, diff: null, error: cause instanceof Error ? cause.message : String(cause) });
+        if (!cancelled)
+          setState({
+            loading: false,
+            diff: null,
+            error: cause instanceof Error ? cause.message : String(cause),
+          });
       }
     })();
     return () => {
@@ -52,7 +57,9 @@ export function DiffPanel({ projectId, stage, version }: DiffPanelProps): JSX.El
   }
 
   if (state.diff === null) {
-    return <div className="ec-pipe-diff ec-pipe-diff--empty">v{version} 是首个版本，无历史差异</div>;
+    return (
+      <div className="ec-pipe-diff ec-pipe-diff--empty">v{version} 是首个版本，无历史差异</div>
+    );
   }
 
   const rows = state.diff.split('\n');

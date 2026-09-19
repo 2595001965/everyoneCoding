@@ -54,7 +54,12 @@ export function createPageFromTemplate(
         type: 'Container',
         name: '页面',
         children: [
-          createElement({ id: `${id}-title`, type: 'Title', name: '标题', props: { text: name ?? '列表' } }),
+          createElement({
+            id: `${id}-title`,
+            type: 'Title',
+            name: '标题',
+            props: { text: name ?? '列表' },
+          }),
           createElement({
             id: `${id}-list`,
             type: 'List',
@@ -65,7 +70,14 @@ export function createPageFromTemplate(
           }),
         ],
       });
-      return createPageDsl({ id, projectId, name: name ?? '列表页', platform, route: route ?? `/${id}`, tree });
+      return createPageDsl({
+        id,
+        projectId,
+        name: name ?? '列表页',
+        platform,
+        route: route ?? `/${id}`,
+        tree,
+      });
     }
     case 'detail': {
       const tree = createElement({
@@ -73,20 +85,47 @@ export function createPageFromTemplate(
         type: 'Container',
         name: '页面',
         children: [
-          createElement({ id: `${id}-title`, type: 'Title', name: '标题', props: { text: name ?? '详情' } }),
+          createElement({
+            id: `${id}-title`,
+            type: 'Title',
+            name: '标题',
+            props: { text: name ?? '详情' },
+          }),
           createElement({
             id: `${id}-card`,
             type: 'Card',
             name: '详情卡片',
             children: [
-              createElement({ id: `${id}-field1`, type: 'Text', name: '字段一', props: { text: '值一' } }),
-              createElement({ id: `${id}-field2`, type: 'Text', name: '字段二', props: { text: '值二' } }),
-              createElement({ id: `${id}-action`, type: 'Button', name: '操作按钮', props: { text: '提交' } }),
+              createElement({
+                id: `${id}-field1`,
+                type: 'Text',
+                name: '字段一',
+                props: { text: '值一' },
+              }),
+              createElement({
+                id: `${id}-field2`,
+                type: 'Text',
+                name: '字段二',
+                props: { text: '值二' },
+              }),
+              createElement({
+                id: `${id}-action`,
+                type: 'Button',
+                name: '操作按钮',
+                props: { text: '提交' },
+              }),
             ],
           }),
         ],
       });
-      return createPageDsl({ id, projectId, name: name ?? '详情页', platform, route: route ?? `/${id}`, tree });
+      return createPageDsl({
+        id,
+        projectId,
+        name: name ?? '详情页',
+        platform,
+        route: route ?? `/${id}`,
+        tree,
+      });
     }
     case 'dashboard': {
       const tree = createElement({
@@ -94,7 +133,12 @@ export function createPageFromTemplate(
         type: 'Container',
         name: '页面',
         children: [
-          createElement({ id: `${id}-title`, type: 'Title', name: '标题', props: { text: name ?? '仪表盘' } }),
+          createElement({
+            id: `${id}-title`,
+            type: 'Title',
+            name: '标题',
+            props: { text: name ?? '仪表盘' },
+          }),
           createElement({
             id: `${id}-row`,
             type: 'Container',
@@ -104,17 +148,37 @@ export function createPageFromTemplate(
                 id: `${id}-metric-${i}`,
                 type: 'Card',
                 name: `指标卡 ${i}`,
-                children: [createElement({ id: `${id}-metric-${i}-v`, type: 'Text', name: '数值', props: { text: `${i * 10}` } })],
+                children: [
+                  createElement({
+                    id: `${id}-metric-${i}-v`,
+                    type: 'Text',
+                    name: '数值',
+                    props: { text: `${i * 10}` },
+                  }),
+                ],
               }),
             ),
           }),
         ],
       });
-      return createPageDsl({ id, projectId, name: name ?? '仪表盘', platform, route: route ?? `/${id}`, tree });
+      return createPageDsl({
+        id,
+        projectId,
+        name: name ?? '仪表盘',
+        platform,
+        route: route ?? `/${id}`,
+        tree,
+      });
     }
     case 'blank':
     default:
-      return createEmptyPage({ id, projectId, name: name ?? '空白页', platform, route: route ?? `/${id}` });
+      return createEmptyPage({
+        id,
+        projectId,
+        name: name ?? '空白页',
+        platform,
+        route: route ?? `/${id}`,
+      });
   }
 }
 
@@ -147,7 +211,7 @@ export class MultiPageStore {
     const pages = initial?.pages ?? [];
     this.state = {
       pages,
-      activePageId: initial?.activePageId ?? (pages[0]?.id ?? null),
+      activePageId: initial?.activePageId ?? pages[0]?.id ?? null,
       trash: [],
     };
   }
@@ -278,7 +342,11 @@ export interface MultiPageProviderProps {
 }
 
 export function MultiPageProvider({ store, children }: MultiPageProviderProps): React.ReactElement {
-  return React.createElement(PageStoreContext.Provider, { value: store ?? multiPageStore }, children);
+  return React.createElement(
+    PageStoreContext.Provider,
+    { value: store ?? multiPageStore },
+    children,
+  );
 }
 
 export function useMultiPageStore(): MultiPageStore {

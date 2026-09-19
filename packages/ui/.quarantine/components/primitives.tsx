@@ -25,7 +25,17 @@ const BUTTON_VARIANT: Record<ButtonVariant, string> = {
 
 /** 按钮：Enter / Space 触发（原生 button 语义），加载与禁用态可达性完整 */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'secondary', size = 'md', loading = false, block = false, disabled, className, children, type, ...rest },
+  {
+    variant = 'secondary',
+    size = 'md',
+    loading = false,
+    block = false,
+    disabled,
+    className,
+    children,
+    type,
+    ...rest
+  },
   ref,
 ) {
   return (
@@ -34,7 +44,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type ?? 'button'}
       aria-busy={loading}
       disabled={disabled === true || loading}
-      className={cx('ec-btn', BUTTON_VARIANT[variant], `ec-btn--${size}`, block && 'ec-btn--block', className)}
+      className={cx(
+        'ec-btn',
+        BUTTON_VARIANT[variant],
+        `ec-btn--${size}`,
+        block && 'ec-btn--block',
+        className,
+      )}
       {...rest}
     >
       {loading ? <span className="ec-btn__spinner" aria-hidden="true" /> : null}
@@ -163,7 +179,10 @@ export function Progress({ value, label, showValue = true, tone = 'primary' }: P
       aria-valuemax={100}
       aria-label={label ?? '进度'}
     >
-      <div className={cx('ec-progress__bar', `ec-progress__bar--${tone}`)} style={{ width: `${clamped}%` }} />
+      <div
+        className={cx('ec-progress__bar', `ec-progress__bar--${tone}`)}
+        style={{ width: `${clamped}%` }}
+      />
       {showValue ? <span className="ec-progress__value">{Math.round(clamped)}%</span> : null}
     </div>
   );
@@ -202,7 +221,13 @@ export interface BreadcrumbItem {
   onClick?: () => void;
 }
 
-export function Breadcrumb({ items, ariaLabel = '面包屑导航' }: { items: BreadcrumbItem[]; ariaLabel?: string }) {
+export function Breadcrumb({
+  items,
+  ariaLabel = '面包屑导航',
+}: {
+  items: BreadcrumbItem[];
+  ariaLabel?: string;
+}) {
   return (
     <nav aria-label={ariaLabel} className="ec-breadcrumb">
       <ol className="ec-breadcrumb__list">
@@ -236,8 +261,10 @@ export function Breadcrumb({ items, ariaLabel = '面包屑导航' }: { items: Br
 // SearchInput
 // ---------------------------------------------------------------------------
 
-export interface SearchInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange'> {
+export interface SearchInputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'onChange'
+> {
   value: string;
   onValueChange: (value: string) => void;
   /** Esc 清空 */
@@ -245,7 +272,13 @@ export interface SearchInputProps
   placeholder?: string;
 }
 
-export function SearchInput({ value, onValueChange, onClear, className, ...rest }: SearchInputProps) {
+export function SearchInput({
+  value,
+  onValueChange,
+  onClear,
+  className,
+  ...rest
+}: SearchInputProps) {
   const [focused, setFocused] = useState(false);
   return (
     <div className={cx('ec-search', focused && 'ec-search--focused', className)}>

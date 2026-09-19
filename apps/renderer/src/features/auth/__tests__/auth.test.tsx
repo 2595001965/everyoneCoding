@@ -159,7 +159,9 @@ describe('绑定与解绑（FR-ACC-06）', () => {
       </AuthApiProvider>,
     );
     fireEvent.click(await screen.findByRole('button', { name: '解绑' }));
-    await waitFor(() => expect(env.transport.calls.some((call) => call.method === 'DELETE')).toBe(true));
+    await waitFor(() =>
+      expect(env.transport.calls.some((call) => call.method === 'DELETE')).toBe(true),
+    );
     expect(await screen.findByText(/GitHub 已解绑/)).toBeTruthy();
   });
 
@@ -173,7 +175,13 @@ describe('绑定与解绑（FR-ACC-06）', () => {
     await screen.findByText('GitHub');
     expect(screen.getAllByText('未绑定').length).toBe(3);
     fireEvent.click(screen.getAllByRole('button', { name: '绑定' })[0]!);
-    await waitFor(() => expect(env.transport.calls.some((call) => call.method === 'POST' && call.url.includes('/bindings'))).toBe(true));
+    await waitFor(() =>
+      expect(
+        env.transport.calls.some(
+          (call) => call.method === 'POST' && call.url.includes('/bindings'),
+        ),
+      ).toBe(true),
+    );
   });
 });
 

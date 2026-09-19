@@ -55,7 +55,12 @@ const COLORS: Record<SelectionVariant, string> = {
 };
 
 /** 绘制一个矩形框（绝对定位，不影响布局） */
-export function SelectionBox({ rect, variant = 'selected', testId, className }: SelectionBoxProps): React.ReactElement {
+export function SelectionBox({
+  rect,
+  variant = 'selected',
+  testId,
+  className,
+}: SelectionBoxProps): React.ReactElement {
   const color = COLORS[variant];
   const isMarquee = variant === 'marquee';
   return (

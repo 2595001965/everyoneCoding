@@ -9,7 +9,10 @@ import { createEditorStore } from '../../store/editor-store';
 import { LayerTree } from '../LayerTree';
 import { resolveDrop } from '../useLayerDnd';
 
-function setup(patch?: (dsl: PageDsl) => void, props: { onRenameRequest?: (id: string, name: string) => void } = {}) {
+function setup(
+  patch?: (dsl: PageDsl) => void,
+  props: { onRenameRequest?: (id: string, name: string) => void } = {},
+) {
   const dsl = createLoginPageDsl();
   patch?.(dsl);
   const store = createEditorStore({ dsl, coalesceWindowMs: 0 });
@@ -26,7 +29,10 @@ function largePage(count = 500): PageDsl {
   for (let index = 0; index < count; index += 1) {
     children.push(createElement({ id: `n-${index}`, type: 'Text', name: `节点 ${index}` }));
   }
-  return { ...createLoginPageDsl(), tree: createElement({ id: 'root', type: 'Container', name: '页面', children }) };
+  return {
+    ...createLoginPageDsl(),
+    tree: createElement({ id: 'root', type: 'Container', name: '页面', children }),
+  };
 }
 
 function rows(): HTMLElement[] {

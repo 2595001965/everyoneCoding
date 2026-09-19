@@ -89,7 +89,10 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   const deps = {
     ...createDefaultBackendDeps(),
     runner: {
-      async run(args: readonly string[], options: { cwd: string; env?: Record<string, string>; input?: string }) {
+      async run(
+        args: readonly string[],
+        options: { cwd: string; env?: Record<string, string>; input?: string },
+      ) {
         argv.push([...args]);
         if (options.env !== undefined) envs.push(options.env);
         return inner.run(args, options);
@@ -125,7 +128,10 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   expect(staged.ok).toBe(true);
   expect(staged.data).toBe(2);
 
-  const firstCommit = await client.commit({ subject: 'feat: 初始化工程骨架', body: '来自 EveryoneCoding 生成节点 node-1' });
+  const firstCommit = await client.commit({
+    subject: 'feat: 初始化工程骨架',
+    body: '来自 EveryoneCoding 生成节点 node-1',
+  });
   expect(firstCommit.ok).toBe(true);
   const firstSha = firstCommit.data ?? '';
   expect(firstSha).toMatch(/^[0-9a-f]{40}$/);
@@ -146,7 +152,11 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   expect(renamedStatus.data?.clean).toBe(true);
 
   /* 4. diff：普通文件 + >1MB 跳过 ------------------------------------------- */
-  await writeFile(join(repo, 'src', 'main.ts'), 'export const version = 2;\nexport const extra = true;\n', 'utf8');
+  await writeFile(
+    join(repo, 'src', 'main.ts'),
+    'export const version = 2;\nexport const extra = true;\n',
+    'utf8',
+  );
   const diff = await client.diff();
   expect(diff.ok).toBe(true);
   expect(diff.data?.files.map((file) => file.path)).toEqual(['src/main.ts']);
@@ -206,7 +216,9 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   await client.stage(['src/temp2.ts']);
   await client.commit({ subject: 'feat: 生成节点 B' });
 
-  const recovery = new RecoveryService(client, { clock: () => new Date(2026, 8, 12, 7, 30, 0).getTime() });
+  const recovery = new RecoveryService(client, {
+    clock: () => new Date(2026, 8, 12, 7, 30, 0).getTime(),
+  });
   const plan = await recovery.plan({ sha: beforeExtra, mode: 'soft', nodeLabel: '生成节点 B' });
   expect(plan.data?.affectedCommits).toHaveLength(2);
   expect(plan.data?.affectedFiles).toContain('src/temp1.ts');
@@ -237,9 +249,8 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   expect(connectivity.data?.ok).toBe(true);
 
   const progress: string[] = [];
-  const push = await remoteService.push(
-    { remote: 'origin', branch: 'main' },
-    (event) => progress.push(`${event.phase}:${event.message}`),
+  const push = await remoteService.push({ remote: 'origin', branch: 'main' }, (event) =>
+    progress.push(`${event.phase}:${event.message}`),
   );
   expect(push.ok).toBe(true);
   expect(progress[0]).toContain('connecting');
@@ -268,7 +279,10 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   expect(conflicted.data?.conflictFiles).toContain('冲突.txt');
 
   const conflictService = new ConflictService(client, {
-    readFile: (path) => readFile(join(repo, path), 'utf8').then((text) => text).catch(() => null),
+    readFile: (path) =>
+      readFile(join(repo, path), 'utf8')
+        .then((text) => text)
+        .catch(() => null),
   });
   const scanned = await conflictService.scan();
   expect(scanned.data).toHaveLength(1);
@@ -302,10 +316,18 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
   /* 11. 凭据检查：临时目录与日志中都没有明文令牌 --------------------------- */
   const argvJoined = argv.flat().join(' ');
   expect(argvJoined).not.toContain(TOKEN);
-  const envJoined = envs.map((env) => Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n')).join('\n');
+  const envJoined = envs
+    .map((env) =>
+      Object.entries(env)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n'),
+    )
+    .join('\n');
   expect(envJoined).not.toContain(TOKEN);
 
-  const drainable = client as unknown as { drainLogs: () => { level: string; message: string; raw?: string }[] };
+  const drainable = client as unknown as {
+    drainLogs: () => { level: string; message: string; raw?: string }[];
+  };
   const logText = drainable
     .drainLogs()
     .map((entry) => `${entry.level} ${entry.message} ${entry.raw ?? ''}`)
@@ -324,29 +346,39 @@ async function runFullSuite(preferred: BackendPreference): Promise<Record<string
     changeCount: (await client.status()).data?.changes.length ?? -1,
     commitCount: (await client.log({ limit: 100 })).data?.length ?? -1,
     branchNames:
-      (await client.branches()).data?.map((branch) => branch.name.replace(/^backup\/\d{8}-\d{6}$/, 'backup/<时间戳>')).sort() ?? [],
+      (await client.branches()).data
+        ?.map((branch) => branch.name.replace(/^backup\/\d{8}-\d{6}$/, 'backup/<时间戳>'))
+        .sort() ?? [],
     finalTree: (await readdir(repo)).sort(),
     logMessageCount: (await client.log({ limit: 3 })).data?.length ?? -1,
   };
 }
 
 describe('Git 集成（真实临时仓库 · 双后端同一套用例）', () => {
-  it('系统 Git CLI：init → status → add → commit → branch → merge → stash → 回滚 → 推送 → 冲突解决', async () => {
-    const summary = await runFullSuite('cli');
-    expect(summary.backendId).toBe('cli');
-    expect(summary.commitCount).toBeGreaterThanOrEqual(8);
-    summaries.set('cli', summary);
-  }, GIT_INTEGRATION_TIMEOUT_MS);
+  it(
+    '系统 Git CLI：init → status → add → commit → branch → merge → stash → 回滚 → 推送 → 冲突解决',
+    async () => {
+      const summary = await runFullSuite('cli');
+      expect(summary.backendId).toBe('cli');
+      expect(summary.commitCount).toBeGreaterThanOrEqual(8);
+      summaries.set('cli', summary);
+    },
+    GIT_INTEGRATION_TIMEOUT_MS,
+  );
 
-  it('libgit2 优先：绑定不可用时自动回退 CLI，全流程同样跑通', async () => {
-    const summary = await runFullSuite('git2');
-    expect(summary.requestedBackend).toBe('git2');
-    // 本机没有 libgit2 绑定 → 实际生效的是 CLI，且必须留下回退说明
-    expect(summary.backendId).toBe('cli');
-    expect(summary.usedFallbackNote).toBe(true);
-    expect(summary.commitCount).toBeGreaterThanOrEqual(8);
-    summaries.set('git2', summary);
-  }, GIT_INTEGRATION_TIMEOUT_MS);
+  it(
+    'libgit2 优先：绑定不可用时自动回退 CLI，全流程同样跑通',
+    async () => {
+      const summary = await runFullSuite('git2');
+      expect(summary.requestedBackend).toBe('git2');
+      // 本机没有 libgit2 绑定 → 实际生效的是 CLI，且必须留下回退说明
+      expect(summary.backendId).toBe('cli');
+      expect(summary.usedFallbackNote).toBe(true);
+      expect(summary.commitCount).toBeGreaterThanOrEqual(8);
+      summaries.set('git2', summary);
+    },
+    GIT_INTEGRATION_TIMEOUT_MS,
+  );
 
   it('两套后端行为一致（对上层透明）', () => {
     const cli = summaries.get('cli');

@@ -90,7 +90,10 @@ export function formatPath(segments: readonly PathSegment[]): string {
 }
 
 /** 从变量表按路径读值 */
-export function readPath(scope: Record<string, unknown>, path: readonly PathSegment[] | string): unknown {
+export function readPath(
+  scope: Record<string, unknown>,
+  path: readonly PathSegment[] | string,
+): unknown {
   const segments = typeof path === 'string' ? parsePath(path) : path;
   if (segments === null || segments.length === 0) return undefined;
   let current: unknown = scope;
@@ -199,8 +202,12 @@ export function resolveExpression(text: string, scope: Record<string, unknown> =
 /** 模板插值：`${a.b}` 与 `{{a.b}}` 均支持 */
 export function resolveTemplate(text: string, scope: Record<string, unknown> = {}): string {
   return text
-    .replace(TEMPLATE_PATTERN, (_match, inner: string) => stringify(resolveExpression(inner, scope)))
-    .replace(/\{\{\s*([^}]*?)\s*\}\}/g, (_match, inner: string) => stringify(resolveExpression(inner, scope)));
+    .replace(TEMPLATE_PATTERN, (_match, inner: string) =>
+      stringify(resolveExpression(inner, scope)),
+    )
+    .replace(/\{\{\s*([^}]*?)\s*\}\}/g, (_match, inner: string) =>
+      stringify(resolveExpression(inner, scope)),
+    );
 }
 
 function stringify(value: unknown): string {
@@ -210,7 +217,9 @@ function stringify(value: unknown): string {
 }
 
 /** 把字面量或路径渲染为表达式文本（写入 DSL 时使用） */
-export function toExpression(input: { kind: 'path'; value: string } | { kind: 'literal'; value: unknown }): string {
+export function toExpression(
+  input: { kind: 'path'; value: string } | { kind: 'literal'; value: unknown },
+): string {
   if (input.kind === 'path') return input.value;
   const value = input.value;
   if (typeof value === 'string') return `'${value.replace(/'/g, "\\'")}'`;
@@ -228,6 +237,7 @@ export function collectExpressionPaths(text: string): string[] {
   // 非模板文本：仅在形态像标识符路径（以 ASCII 字母 / 下划线开头）时按路径处理，
   // 避免把「纯中文文案」误判成路径引用。
   const trimmed = text.trim();
-  if (out.length === 0 && /^[A-Za-z_]/.test(trimmed) && parsePath(trimmed) !== null) out.push(trimmed);
+  if (out.length === 0 && /^[A-Za-z_]/.test(trimmed) && parsePath(trimmed) !== null)
+    out.push(trimmed);
   return out;
 }

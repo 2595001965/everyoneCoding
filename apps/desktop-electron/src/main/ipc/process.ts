@@ -44,7 +44,10 @@ export function registerProcessIpc(ipc: IpcMainLike): void {
         windowsHide: true,
       }) as ChildProcessWithoutNullStreams;
     } catch (error) {
-      throw errorPayload('PROCESS_SPAWN_FAILED', `进程启动失败: ${error instanceof Error ? error.message : ''}`);
+      throw errorPayload(
+        'PROCESS_SPAWN_FAILED',
+        `进程启动失败: ${error instanceof Error ? error.message : ''}`,
+      );
     }
 
     const id = `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -126,5 +129,7 @@ export function hasActiveProcesses(): boolean {
 
 /** Windows 下 .bat / .cmd 需要 shell 执行（供 main/index.ts 的默认参数使用） */
 export function needsShellForWindows(command: string): boolean {
-  return path.extname(command).toLowerCase() === '.bat' || path.extname(command).toLowerCase() === '.cmd';
+  return (
+    path.extname(command).toLowerCase() === '.bat' || path.extname(command).toLowerCase() === '.cmd'
+  );
 }

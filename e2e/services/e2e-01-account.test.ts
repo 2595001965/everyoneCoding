@@ -18,7 +18,11 @@ import { openDatabase } from '../../services/account/src/db.ts';
 type App = Awaited<ReturnType<typeof buildApp>>;
 
 async function makeApp(): Promise<App> {
-  const cfg = loadConfig({ dbPath: ':memory:', loginRateLimitPerMin: 50, registerRateLimitPerMin: 50 });
+  const cfg = loadConfig({
+    dbPath: ':memory:',
+    loginRateLimitPerMin: 50,
+    registerRateLimitPerMin: 50,
+  });
   const db = openDatabase(':memory:');
   return buildApp(cfg, db);
 }
@@ -59,7 +63,10 @@ describe('E2E-01 新用户注册：注册 → 自开通 → 登录 → 刷新', 
     });
     expect(badEmail.statusCode).toBeGreaterThanOrEqual(400);
     expect(badEmail.statusCode).toBeLessThan(500);
-    expect(badEmail.json()).toMatchObject({ code: expect.any(String), message: expect.any(String) });
+    expect(badEmail.json()).toMatchObject({
+      code: expect.any(String),
+      message: expect.any(String),
+    });
 
     const weak = await app.inject({
       method: 'POST',

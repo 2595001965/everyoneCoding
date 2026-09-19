@@ -52,9 +52,12 @@ export async function fetchOpenAiModels(
   } catch (error) {
     throw error instanceof ProtocolError
       ? error
-      : new ProtocolError(`/models 请求失败：${error instanceof Error ? error.message : String(error)}`, {
-          providerId: provider.id,
-        });
+      : new ProtocolError(
+          `/models 请求失败：${error instanceof Error ? error.message : String(error)}`,
+          {
+            providerId: provider.id,
+          },
+        );
   }
 
   const list = extractList(payload);
@@ -65,7 +68,9 @@ export async function fetchOpenAiModels(
     });
   }
 
-  const models: Model[] = list.map((entry) => toModel(provider.id, entry)).filter((model): model is Model => model !== null);
+  const models: Model[] = list
+    .map((entry) => toModel(provider.id, entry))
+    .filter((model): model is Model => model !== null);
   return { models };
 }
 
@@ -101,7 +106,8 @@ function extractList(payload: unknown): OpenAiModelEntry[] | null {
 }
 
 function toModel(providerId: string, entry: OpenAiModelEntry): Model | null {
-  const name = typeof entry.id === 'string' ? entry.id : typeof entry.name === 'string' ? entry.name : null;
+  const name =
+    typeof entry.id === 'string' ? entry.id : typeof entry.name === 'string' ? entry.name : null;
   if (!name) return null;
   const now = Date.now();
   return {

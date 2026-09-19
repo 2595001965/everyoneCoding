@@ -30,7 +30,14 @@ export const SCOPE_LABELS: Record<MemoryScope, string> = {
  * 继承层级：索引越大越具体、优先级越高（下层覆盖上层）。
  * issue 排在最后：问题记忆是"当前正在处理的具体缺陷"，上下文里应最后给出、优先级最高。
  */
-export const MEMORY_LAYERS = ['longterm', 'project', 'feature', 'page', 'element', 'issue'] as const;
+export const MEMORY_LAYERS = [
+  'longterm',
+  'project',
+  'feature',
+  'page',
+  'element',
+  'issue',
+] as const;
 
 export type MemoryLayer = (typeof MEMORY_LAYERS)[number];
 
@@ -87,7 +94,8 @@ export function isAncestorLayer(a: MemoryLayer, b: MemoryLayer): boolean {
 
 /* --------------------------- 归属不变量 --------------------------- */
 
-export type MemoryViolationCode = 'MISSING_OWNER' | 'UNEXPECTED_OWNER' | 'CROSS_PROJECT' | 'MISSING_ISSUE_ID';
+export type MemoryViolationCode =
+  'MISSING_OWNER' | 'UNEXPECTED_OWNER' | 'CROSS_PROJECT' | 'MISSING_ISSUE_ID';
 
 export interface MemoryViolation {
   code: MemoryViolationCode;
@@ -129,7 +137,10 @@ function has(value: string | null | undefined): boolean {
  * 校验归属字段是否合法。
  * 返回空数组表示合法；不抛错，便于 UI 就地标注违规项。
  */
-export function validateOwnership(scope: MemoryScope, ownership: Partial<MemoryOwnership>): MemoryViolation[] {
+export function validateOwnership(
+  scope: MemoryScope,
+  ownership: Partial<MemoryOwnership>,
+): MemoryViolation[] {
   const violations: MemoryViolation[] = [];
   const allowed = ALLOWED_OWNERS[scope];
 
@@ -176,7 +187,10 @@ export function isValidOwnership(scope: MemoryScope, ownership: Partial<MemoryOw
  * 归属警告：不影响写入，但提示"这条记忆挂得太靠上，可能命中不了"。
  * 例：问题记忆没有关联页面/元素/功能时，无法在对应上下文自动生效（FR-MEM-16）。
  */
-export function ownershipWarnings(scope: MemoryScope, ownership: Partial<MemoryOwnership>): string[] {
+export function ownershipWarnings(
+  scope: MemoryScope,
+  ownership: Partial<MemoryOwnership>,
+): string[] {
   if (scope !== 'issue') return [];
   if (has(ownership.page_id) || has(ownership.element_id) || has(ownership.feature_id)) return [];
   return ['问题记忆未关联页面/元素/功能，无法在具体上下文中自动生效，建议补充关联'];
@@ -188,20 +202,49 @@ export function ownershipKeyOf(ownership: Partial<MemoryOwnership>): string {
 }
 
 /** 当前 scope 在继承链上需要一并携带的上层归属（用于查询候选集） */
-export function ancestorOwnerships(ownership: Partial<MemoryOwnership>): Array<Partial<MemoryOwnership>> {
+export function ancestorOwnerships(
+  ownership: Partial<MemoryOwnership>,
+): Array<Partial<MemoryOwnership>> {
   const project = ownership.project_id ?? null;
   const feature = ownership.feature_id ?? null;
   const page = ownership.page_id ?? null;
   const element = ownership.element_id ?? null;
 
-  const chain: Array<Partial<MemoryOwnership>> = [{ project_id: null, feature_id: null, page_id: null, element_id: null, issue_id: null }];
-  if (project) chain.push({ project_id: project, feature_id: null, page_id: null, element_id: null, issue_id: null });
+  const chain: Array<Partial<MemoryOwnership>> = [
+    { project_id: null, feature_id: null, page_id: null, element_id: null, issue_id: null },
+  ];
+  if (project)
+    chain.push({
+      project_id: project,
+      feature_id: null,
+      page_id: null,
+      element_id: null,
+      issue_id: null,
+    });
   if (project && feature)
-    chain.push({ project_id: project, feature_id: feature, page_id: null, element_id: null, issue_id: null });
+    chain.push({
+      project_id: project,
+      feature_id: feature,
+      page_id: null,
+      element_id: null,
+      issue_id: null,
+    });
   if (project && page)
-    chain.push({ project_id: project, feature_id: feature, page_id: page, element_id: null, issue_id: null });
+    chain.push({
+      project_id: project,
+      feature_id: feature,
+      page_id: page,
+      element_id: null,
+      issue_id: null,
+    });
   // 元素备注：页面记忆 + element_id；同时向上携带同页面的页面级记忆
   if (project && page && element)
-    chain.push({ project_id: project, feature_id: feature, page_id: page, element_id: element, issue_id: null });
+    chain.push({
+      project_id: project,
+      feature_id: feature,
+      page_id: page,
+      element_id: element,
+      issue_id: null,
+    });
   return chain;
 }

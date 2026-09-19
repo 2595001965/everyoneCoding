@@ -18,7 +18,16 @@ export interface ListProps<T> {
 }
 
 export function List<T>(props: ListProps<T>): React.ReactElement {
-  const { items, itemHeight, height, renderItem, overscan, getItemKey, className, 'aria-label': ariaLabel } = props;
+  const {
+    items,
+    itemHeight,
+    height,
+    renderItem,
+    overscan,
+    getItemKey,
+    className,
+    'aria-label': ariaLabel,
+  } = props;
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const { items: virtual, totalHeight } = useVirtualList({

@@ -75,7 +75,9 @@ function toPosix(path: string): string {
 function readManifestText(file: string): string {
   const stat = statSync(file);
   // 超限只读前若干字节（解析器只看开头字段）
-  return stat.size <= MANIFEST_BYTES ? readFileSync(file, 'utf8') : readFileSync(file, 'utf8').slice(0, MANIFEST_BYTES);
+  return stat.size <= MANIFEST_BYTES
+    ? readFileSync(file, 'utf8')
+    : readFileSync(file, 'utf8').slice(0, MANIFEST_BYTES);
 }
 
 /** 递归扫描：收集相对路径清单（带上限）与关键清单文件内容 */
@@ -173,7 +175,12 @@ export function createGitImportPort(options: GitCliPortOptions = {}): GitImportP
         for (const line of parts) if (line.trim().length > 0) onStderr(line);
       });
       child.on('error', (error) => {
-        reject(new ShellError('PROCESS_SPAWN_FAILED', `无法启动 git（请确认已安装并加入 PATH）：${error.message}`));
+        reject(
+          new ShellError(
+            'PROCESS_SPAWN_FAILED',
+            `无法启动 git（请确认已安装并加入 PATH）：${error.message}`,
+          ),
+        );
       });
       child.on('close', (code) => resolve({ code: code ?? -1, stdout, stderr }));
     });

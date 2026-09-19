@@ -179,7 +179,14 @@ export function Tree(props: TreeProps): React.ReactElement {
                 isActive && 'ec-tree__row--active',
                 isSelected && 'ec-tree__row--selected',
               )}
-              style={{ position: 'absolute', top: vi.start, left: 0, right: 0, height: itemHeight, paddingLeft: 8 + f.depth * 16 }}
+              style={{
+                position: 'absolute',
+                top: vi.start,
+                left: 0,
+                right: 0,
+                height: itemHeight,
+                paddingLeft: 8 + f.depth * 16,
+              }}
               onClick={() => selectByIndex(vi.index)}
               onMouseEnter={() => setActiveIdx(vi.index)}
             >

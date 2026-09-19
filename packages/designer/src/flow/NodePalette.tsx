@@ -14,7 +14,10 @@ export interface NodePaletteProps {
 export function NodePalette(props: NodePaletteProps): React.ReactElement {
   const { onAdd } = props;
   return (
-    <div className="ec-node-palette" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8 }}>
+    <div
+      className="ec-node-palette"
+      style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8 }}
+    >
       <div style={{ fontSize: 12, opacity: 0.6 }}>动作节点</div>
       {ACTION_KINDS.map((kind) => (
         <button

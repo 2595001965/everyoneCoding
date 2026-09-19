@@ -76,7 +76,15 @@ export function MemoryEditor({
     setJsonDraft(JSON.stringify(item.structured ?? {}, null, 2));
     setJsonError(null);
     setMessage(null);
-  }, [item.id, item.version, item.title, item.content, item.tags, item.importance, item.structured]);
+  }, [
+    item.id,
+    item.version,
+    item.title,
+    item.content,
+    item.tags,
+    item.importance,
+    item.structured,
+  ]);
 
   const structuredKeys = useMemo(() => Object.keys(structured), [structured]);
 
@@ -145,7 +153,10 @@ export function MemoryEditor({
         <label className="ec-memory-editor__field">
           <span>重要度</span>
           <Select
-            options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))}
+            options={[1, 2, 3, 4, 5].map((value) => ({
+              value: String(value),
+              label: String(value),
+            }))}
             value={importance}
             onChange={setImportance}
             disabled={readOnly}
@@ -154,7 +165,12 @@ export function MemoryEditor({
         </label>
         <label className="ec-memory-editor__field ec-memory-editor__field--wide">
           <span>标签</span>
-          <Input value={tagsText} onChange={setTagsText} disabled={readOnly} aria-label="标签（逗号分隔）" />
+          <Input
+            value={tagsText}
+            onChange={setTagsText}
+            disabled={readOnly}
+            aria-label="标签（逗号分隔）"
+          />
         </label>
         {onTogglePin && (
           <Switch checked={item.pinned} onChange={() => onTogglePin()} label="置顶" />
@@ -214,7 +230,9 @@ export function MemoryEditor({
           }
           return (
             <div className="ec-memory-editor__structured">
-              {structuredKeys.length === 0 && <p className="ec-memory-editor__hint">该条目暂无结构化数据。</p>}
+              {structuredKeys.length === 0 && (
+                <p className="ec-memory-editor__hint">该条目暂无结构化数据。</p>
+              )}
               {structuredKeys.map((key) => (
                 <StructuredField
                   key={key}
@@ -226,7 +244,12 @@ export function MemoryEditor({
               ))}
               <details className="ec-memory-editor__raw">
                 <summary>以 JSON 编辑全部结构化数据</summary>
-                <Textarea value={jsonDraft} onChange={setJsonDraft} rows={8} aria-label="结构化 JSON" />
+                <Textarea
+                  value={jsonDraft}
+                  onChange={setJsonDraft}
+                  rows={8}
+                  aria-label="结构化 JSON"
+                />
                 {jsonError && (
                   <p className="ec-memory-editor__error" role="alert">
                     {jsonError}
@@ -242,7 +265,12 @@ export function MemoryEditor({
       />
 
       <footer className="ec-memory-editor__foot">
-        <Button variant="primary" onClick={() => void handleSave()} disabled={disabled} loading={busy}>
+        <Button
+          variant="primary"
+          onClick={() => void handleSave()}
+          disabled={disabled}
+          loading={busy}
+        >
           保存
         </Button>
         {message && (
@@ -278,7 +306,8 @@ function StructuredField({ label, value, disabled, onChange }: StructuredFieldPr
   }, [value]);
 
   const isPlainText = typeof value === 'string';
-  const isLineList = Array.isArray(value) && value.every((entry) => typeof entry !== 'object' || entry === null);
+  const isLineList =
+    Array.isArray(value) && value.every((entry) => typeof entry !== 'object' || entry === null);
 
   return (
     <label className="ec-memory-editor__structured-field">

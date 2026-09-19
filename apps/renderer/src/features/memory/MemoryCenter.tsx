@@ -87,7 +87,9 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
 
   // 标签池：不受关键字与标签筛选影响，否则勾掉一个标签后它就再也点不回来
   const tagPool = api ? api.list({ userId, projectId, query: { limit: 500 } }) : [];
-  const allTags = [...new Set(tagPool.flatMap((item) => item.tags))].sort((a, b) => a.localeCompare(b));
+  const allTags = [...new Set(tagPool.flatMap((item) => item.tags))].sort((a, b) =>
+    a.localeCompare(b),
+  );
 
   const stats: MemoryStats = api
     ? api.stats({ userId, projectId })
@@ -121,7 +123,9 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
     }
     if (nodeId.startsWith(TAG_NODE_PREFIX)) {
       const tag = nodeId.slice(TAG_NODE_PREFIX.length);
-      setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((entry) => entry !== tag) : [...prev, tag]));
+      setSelectedTags((prev) =>
+        prev.includes(tag) ? prev.filter((entry) => entry !== tag) : [...prev, tag],
+      );
       return;
     }
     if (nodeId.startsWith(VIEW_NODE_PREFIX)) {
@@ -150,7 +154,7 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
         setCheckedIds([]);
         setSelectedId(null);
         refreshNotice(`已删除 ${result.removedIds.length} 条，可撤销`);
-        } finally {
+      } finally {
         setBusy(false);
       }
     },
@@ -169,7 +173,9 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
       if (!api) return;
       api.moveLayer(checkedIds, target);
       setCheckedIds([]);
-      refreshNotice(`已移动 ${checkedIds.length} 条到「${LAYER_LABELS[target.scope === 'page' && target.elementId ? 'element' : target.scope]}」`);
+      refreshNotice(
+        `已移动 ${checkedIds.length} 条到「${LAYER_LABELS[target.scope === 'page' && target.elementId ? 'element' : target.scope]}」`,
+      );
     },
     [api, checkedIds, refreshNotice],
   );
@@ -210,7 +216,12 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
           aria-label="选择项目"
           className="ec-memory-center__project"
         />
-        <SearchInput value={text} onChange={setText} placeholder="搜索标题、正文或标签" aria-label="搜索记忆" />
+        <SearchInput
+          value={text}
+          onChange={setText}
+          placeholder="搜索标题、正文或标签"
+          aria-label="搜索记忆"
+        />
         <label className="ec-memory-center__order">
           <span>排序</span>
           <Select
@@ -225,7 +236,11 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
             aria-label="排序方式"
           />
         </label>
-        <Switch checked={view === 'issues'} onChange={() => setView(view === 'issues' ? null : 'issues')} label="仅进行中问题" />
+        <Switch
+          checked={view === 'issues'}
+          onChange={() => setView(view === 'issues' ? null : 'issues')}
+          label="仅进行中问题"
+        />
         {notice && (
           <span className="ec-memory-center__notice" role="status">
             {notice}
@@ -238,7 +253,16 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
         initial={240}
         min={180}
         max={420}
-        first={<MemoryTree stats={stats} tags={allTags} selectedTags={selectedTags} selectedNodeId={selectedNodeId} onSelect={handleNodeSelect} height={height - 40} />}
+        first={
+          <MemoryTree
+            stats={stats}
+            tags={allTags}
+            selectedTags={selectedTags}
+            selectedNodeId={selectedNodeId}
+            onSelect={handleNodeSelect}
+            height={height - 40}
+          />
+        }
         second={
           <div className="ec-memory-center__main">
             <div className="ec-memory-center__filters">
@@ -246,7 +270,11 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
               {selectedLayer && (
                 <Tag color="primary">
                   {LAYER_LABELS[selectedLayer]}
-                  <button type="button" aria-label="清除层级筛选" onClick={() => setSelectedLayer(null)}>
+                  <button
+                    type="button"
+                    aria-label="清除层级筛选"
+                    onClick={() => setSelectedLayer(null)}
+                  >
                     ×
                   </button>
                 </Tag>
@@ -304,7 +332,9 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
                   conflicts={conflicts}
                   onSelect={setSelectedId}
                   onCheck={(id, checked) =>
-                    setCheckedIds((prev) => (checked ? [...prev, id] : prev.filter((entry) => entry !== id)))
+                    setCheckedIds((prev) =>
+                      checked ? [...prev, id] : prev.filter((entry) => entry !== id),
+                    )
                   }
                 />
               }
@@ -316,10 +346,10 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
                       onSave={handleSave}
                       onTogglePin={() => {
                         api.setPinned(detail.item.id, !detail.item.pinned);
-                                        }}
+                      }}
                       onSetIssueStatus={(next) => {
                         api.setIssueStatus(detail.item.id, next);
-                                        }}
+                      }}
                     />
                     <section className="ec-memory-center__changelog" aria-label="变更日志">
                       <h2>变更日志</h2>
@@ -341,7 +371,7 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
         onCommitImport={async (decisions) => {
           await api.importCommit({ userId, decisions });
           refreshNotice('导入完成');
-            }}
+        }}
         lastExportNames={exportNames}
       />
     </section>

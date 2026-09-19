@@ -90,7 +90,8 @@ export function parseCommitMessage(text: string): CommitMessage | null {
   const footer: string[] = [];
   let inFooter = false;
   for (const line of lines.slice(1)) {
-    if (/^[A-Za-z-]+:\s/.test(line) || /^(BREAKING CHANGE|Refs|Closes|Fixes):/.test(line)) inFooter = true;
+    if (/^[A-Za-z-]+:\s/.test(line) || /^(BREAKING CHANGE|Refs|Closes|Fixes):/.test(line))
+      inFooter = true;
     if (inFooter) footer.push(line);
     else bodyLines.push(line);
   }
@@ -126,7 +127,9 @@ export function validateCommitMessage(
   }
   if (message.subject.length === 0) errors.push('subject 不能为空');
   if (message.subject.length > spec.subjectMaxLength) {
-    warnings.push(`subject 超过 ${spec.subjectMaxLength} 字符（当前 ${message.subject.length}），建议精简`);
+    warnings.push(
+      `subject 超过 ${spec.subjectMaxLength} 字符（当前 ${message.subject.length}），建议精简`,
+    );
   }
   if (/[。！？]$/.test(message.subject)) warnings.push('subject 末尾不加句号');
   if (message.body.length === 0) warnings.push('建议补充 body 说明本次变更的内容');
@@ -188,7 +191,12 @@ export function createCommitMessage(input: CreateCommitMessageInput): string {
  */
 export function normalizeAiCommitMessage(
   raw: string,
-  options: { convention?: CommitConvention; fallbackSubject?: string; fallbackType?: string; sources?: readonly string[] } = {},
+  options: {
+    convention?: CommitConvention;
+    fallbackSubject?: string;
+    fallbackType?: string;
+    sources?: readonly string[];
+  } = {},
 ): { message: CommitMessage; text: string; adjustments: string[] } {
   const convention = options.convention ?? 'angular';
   const spec = COMMIT_CONVENTIONS[convention];
@@ -241,7 +249,8 @@ export function normalizeAiCommitMessage(
 
   const bodyParts: string[] = [];
   if (parsed.body.length > 0) bodyParts.push(parsed.body);
-  if (options.sources !== undefined && options.sources.length > 0) bodyParts.push(`来源：${options.sources.join('、')}`);
+  if (options.sources !== undefined && options.sources.length > 0)
+    bodyParts.push(`来源：${options.sources.join('、')}`);
 
   const message: CommitMessage = {
     type,
@@ -316,7 +325,10 @@ export interface AutoCommitPolicy {
   convention: CommitConvention;
 }
 
-export const DEFAULT_AUTO_COMMIT_POLICY: AutoCommitPolicy = { trigger: 'off', convention: 'angular' };
+export const DEFAULT_AUTO_COMMIT_POLICY: AutoCommitPolicy = {
+  trigger: 'off',
+  convention: 'angular',
+};
 
 export type GenerationEventKind = 'stage' | 'node';
 
@@ -347,7 +359,10 @@ export interface AutoCommitMessageInput {
  */
 export function buildAutoCommitMessage(input: AutoCommitMessageInput): string {
   const type = input.kind === 'stage' ? 'feat' : 'feat';
-  const subject = input.kind === 'stage' ? `完成阶段产物 ${input.displayName}` : `完成生成节点 ${input.displayName}`;
+  const subject =
+    input.kind === 'stage'
+      ? `完成阶段产物 ${input.displayName}`
+      : `完成生成节点 ${input.displayName}`;
   return createCommitMessage({
     type,
     scope: input.scope,

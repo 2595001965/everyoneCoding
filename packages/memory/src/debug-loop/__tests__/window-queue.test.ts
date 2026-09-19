@@ -8,7 +8,12 @@ import {
   type DebugEventType,
 } from '../window-queue';
 
-function makeEvent(at: number, type: DebugEventType, targetKey: string, extra: Partial<DebugEvent> = {}): DebugEvent {
+function makeEvent(
+  at: number,
+  type: DebugEventType,
+  targetKey: string,
+  extra: Partial<DebugEvent> = {},
+): DebugEvent {
   return { at, type, targetKey, ...extra };
 }
 
@@ -99,7 +104,9 @@ describe('normalizeErrorSignature 指纹归一化', () => {
   });
 
   it('不同类型错误得到不同指纹', () => {
-    const a = normalizeErrorSignature('TypeError: Cannot read properties of undefined at /a.ts:1:1');
+    const a = normalizeErrorSignature(
+      'TypeError: Cannot read properties of undefined at /a.ts:1:1',
+    );
     const b = normalizeErrorSignature('ReferenceError: foo is not defined at /b.ts:2:2');
     expect(a).not.toBe(b);
   });

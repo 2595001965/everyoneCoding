@@ -29,19 +29,31 @@ export interface MasterPanelProps {
   allPages?: readonly PageDsl[];
 }
 
-export function MasterPanel({ registry, page, onChange, allPages }: MasterPanelProps): React.ReactElement {
+export function MasterPanel({
+  registry,
+  page,
+  onChange,
+  allPages,
+}: MasterPanelProps): React.ReactElement {
   const masters = registry.list();
 
   if (masters.length === 0) {
     return (
       <div className="ec-master-panel" data-testid="master-panel">
-        <EmptyState title="还没有母版" description="把常用结构保存为母版后，即可在多处复用并统一更新。" />
+        <EmptyState
+          title="还没有母版"
+          description="把常用结构保存为母版后，即可在多处复用并统一更新。"
+        />
       </div>
     );
   }
 
   return (
-    <div className="ec-master-panel" data-testid="master-panel" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div
+      className="ec-master-panel"
+      data-testid="master-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+    >
       {masters.map((master) => (
         <MasterSection
           key={master.id}
@@ -74,7 +86,17 @@ function MasterSection({
   const [pendingSync, setPendingSync] = React.useState<string[]>([]);
 
   return (
-    <section data-testid={`master-${master.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, border: '1px solid #e9ecef', borderRadius: 6, padding: 8 }}>
+    <section
+      data-testid={`master-${master.id}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        border: '1px solid #e9ecef',
+        borderRadius: 6,
+        padding: 8,
+      }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <strong style={{ fontSize: 13 }}>{master.name}</strong>
         <Tag color="info">{`${usage.total} 个实例`}</Tag>
@@ -85,9 +107,16 @@ function MasterSection({
       {instances.length === 0 ? (
         <p style={{ fontSize: 12, opacity: 0.6 }}>当前页面没有使用该母版</p>
       ) : (
-        <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <ul
+          style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
           {instances.map((instance) => (
-            <li key={instance.elementId} data-testid={`master-instance-${instance.elementId}`} data-detached={instance.detached ? 'true' : 'false'} style={{ fontSize: 12 }}>
+            <li
+              key={instance.elementId}
+              data-testid={`master-instance-${instance.elementId}`}
+              data-detached={instance.detached ? 'true' : 'false'}
+              style={{ fontSize: 12 }}
+            >
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <input
                   type="checkbox"
@@ -95,7 +124,9 @@ function MasterSection({
                   checked={pendingSync.includes(instance.elementId)}
                   onChange={(event) =>
                     setPendingSync((prev) =>
-                      event.target.checked ? [...prev, instance.elementId] : prev.filter((id) => id !== instance.elementId),
+                      event.target.checked
+                        ? [...prev, instance.elementId]
+                        : prev.filter((id) => id !== instance.elementId),
                     )
                   }
                 />

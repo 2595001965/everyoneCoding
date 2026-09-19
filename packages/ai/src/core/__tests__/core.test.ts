@@ -1,13 +1,18 @@
 import { describe, it, expect } from 'vitest';
 
+import { collect, collectText, deltasOf, streamOf, type StreamChunk } from '../stream';
 import {
-  collect,
-  collectText,
-  deltasOf,
-  streamOf,
-  type StreamChunk,
-} from '../stream';
-import { AuthError, RateLimitError, TimeoutError, ContextLengthError, ContentFilterError, ProtocolError, ProviderUnavailableError, AbortedError, isAiError, toAiError } from '../error';
+  AuthError,
+  RateLimitError,
+  TimeoutError,
+  ContextLengthError,
+  ContentFilterError,
+  ProtocolError,
+  ProviderUnavailableError,
+  AbortedError,
+  isAiError,
+  toAiError,
+} from '../error';
 import { computeCost, estimateTokens, usageOf, addUsage, formatCost } from '../usage';
 import { accumulateToolCalls, parseToolArguments } from '../tool';
 
@@ -87,7 +92,11 @@ describe('流式重组', () => {
     ];
     const result = await collect(streamOf(chunks));
     expect(result.toolCalls).toHaveLength(1);
-    expect(result.toolCalls[0]).toEqual({ id: 'call_1', name: 'get_weather', arguments: { city: '上海' } });
+    expect(result.toolCalls[0]).toEqual({
+      id: 'call_1',
+      name: 'get_weather',
+      arguments: { city: '上海' },
+    });
     expect(result.finishReason).toBe('tool_use');
   });
 
@@ -133,7 +142,10 @@ describe('流式重组', () => {
 
 describe('用量与费用', () => {
   it('费用按每百万 token 单价计算', () => {
-    const cost = computeCost(usageOf(1_000_000, 500_000), { inputPricePerMTok: 2, outputPricePerMTok: 10 });
+    const cost = computeCost(usageOf(1_000_000, 500_000), {
+      inputPricePerMTok: 2,
+      outputPricePerMTok: 10,
+    });
     expect(cost.input).toBeCloseTo(2, 6);
     expect(cost.output).toBeCloseTo(5, 6);
     expect(cost.total).toBeCloseTo(7, 6);
@@ -141,13 +153,20 @@ describe('用量与费用', () => {
   });
 
   it('单价缺失时标记 complete=false 且展示为 —', () => {
-    const cost = computeCost(usageOf(100, 100), { inputPricePerMTok: null, outputPricePerMTok: null });
+    const cost = computeCost(usageOf(100, 100), {
+      inputPricePerMTok: null,
+      outputPricePerMTok: null,
+    });
     expect(cost.complete).toBe(false);
     expect(formatCost(cost)).toBe('—');
   });
 
   it('用量可累加', () => {
-    expect(addUsage(usageOf(1, 2), usageOf(3, 4))).toEqual({ promptTokens: 4, completionTokens: 6, totalTokens: 10 });
+    expect(addUsage(usageOf(1, 2), usageOf(3, 4))).toEqual({
+      promptTokens: 4,
+      completionTokens: 6,
+      totalTokens: 10,
+    });
   });
 
   it('启发式 token 估算：中文与英文分别估算并标注误差', () => {

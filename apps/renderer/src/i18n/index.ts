@@ -16,7 +16,7 @@ const DICTS: Record<Locale, Record<string, string>> = {
 };
 
 export function translate(locale: Locale, key: MessageKey): string {
-  return DICTS[locale][key] ?? (zhCN[key] ?? key);
+  return DICTS[locale][key] ?? zhCN[key] ?? key;
 }
 
 /** React 侧取词 hook */

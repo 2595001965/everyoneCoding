@@ -80,13 +80,20 @@ export function createDomainRuntime(options: DomainRuntimeOptions): DomainContro
         return {
           requestId,
           ok: false,
-          error: { code: 'INVALID_ARGUMENT', message: `方法不在 ${domain} 域的调用白名单内：${method}` },
+          error: {
+            code: 'INVALID_ARGUMENT',
+            message: `方法不在 ${domain} 域的调用白名单内：${method}`,
+          },
         };
       }
 
       const router = routers[domain];
       if (!router) {
-        return { requestId, ok: false, error: domainUnavailableError(domain, unavailableReasons?.[domain]) };
+        return {
+          requestId,
+          ok: false,
+          error: domainUnavailableError(domain, unavailableReasons?.[domain]),
+        };
       }
 
       // 信封的 requestId / domain 在这里补齐：域实现只给载荷，无从漏填关联字段

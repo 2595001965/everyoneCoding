@@ -48,7 +48,12 @@ export function normalizeTiming(samples: readonly number[]): NormalizedTiming {
 }
 
 /** 按统一格式打印一行性能口径，便于人工复核。 */
-export function reportTiming(label: string, budgetMs: number, timing: NormalizedTiming, extra = ''): void {
+export function reportTiming(
+  label: string,
+  budgetMs: number,
+  timing: NormalizedTiming,
+  extra = '',
+): void {
   const { samples, best, probes, normalized } = timing;
   process.stdout.write(
     `[perf] ${label} 3 次采样=${samples.map((s) => `${s}ms`).join(' / ')}，` +

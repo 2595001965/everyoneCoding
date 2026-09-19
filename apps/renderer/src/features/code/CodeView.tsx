@@ -30,10 +30,16 @@ export interface CodeViewProps {
   files?: readonly CodeFileEntry[];
   height?: number;
   /** 跳转到 AI 对话（预填上下文） */
-  onRequestAiFix?: ((input: { path: string; reason: string; fileName: string }) => void) | undefined;
+  onRequestAiFix?:
+    ((input: { path: string; reason: string; fileName: string }) => void) | undefined;
 }
 
-export function CodeView({ path, files, height = 420, onRequestAiFix }: CodeViewProps): JSX.Element {
+export function CodeView({
+  path,
+  files,
+  height = 420,
+  onRequestAiFix,
+}: CodeViewProps): JSX.Element {
   const api = useCodeViewApi();
   const [loadedFiles, setLoadedFiles] = useState<readonly CodeFileEntry[]>([]);
   const [activePath, setActivePath] = useState<string | null>(path ?? null);
@@ -78,7 +84,13 @@ export function CodeView({ path, files, height = 420, onRequestAiFix }: CodeView
       })
       .catch((cause: unknown) => {
         if (cancelled) return;
-        setError(cause instanceof CodeViewError ? cause.userMessage : cause instanceof Error ? cause.message : String(cause));
+        setError(
+          cause instanceof CodeViewError
+            ? cause.userMessage
+            : cause instanceof Error
+              ? cause.message
+              : String(cause),
+        );
       });
     return () => {
       cancelled = true;
@@ -101,8 +113,15 @@ export function CodeView({ path, files, height = 420, onRequestAiFix }: CodeView
   const lines = useMemo(() => content.replace(/\r\n?/g, '\n').split('\n'), [content]);
 
   return (
-    <section className="ec-code-view" aria-label="代码视图" data-read-only="true" data-readonly="true">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+    <section
+      className="ec-code-view"
+      aria-label="代码视图"
+      data-read-only="true"
+      data-readonly="true"
+    >
+      <header
+        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}
+      >
         <strong style={{ fontSize: 13 }}>代码（只读）</strong>
         <span style={{ fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}>
           代码由 AI 写入，此处仅供查看；尝试编辑会被拦截并引导到 AI 修改入口。
@@ -112,7 +131,11 @@ export function CodeView({ path, files, height = 420, onRequestAiFix }: CodeView
       </header>
 
       {fileList.length > 0 && (
-        <nav className="ec-code-view__files" aria-label="代码文件列表" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+        <nav
+          className="ec-code-view__files"
+          aria-label="代码文件列表"
+          style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}
+        >
           {fileList.map((file) => (
             <button
               key={file.path}
@@ -125,7 +148,8 @@ export function CodeView({ path, files, height = 420, onRequestAiFix }: CodeView
                 borderRadius: 6,
                 cursor: 'pointer',
                 border: '1px solid var(--ec-border, #e2e8f0)',
-                background: file.path === effectivePath ? 'var(--ec-surface-sunken, #f1f5f9)' : 'transparent',
+                background:
+                  file.path === effectivePath ? 'var(--ec-surface-sunken, #f1f5f9)' : 'transparent',
               }}
               onClick={() => setActivePath(file.path)}
             >

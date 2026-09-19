@@ -6,14 +6,7 @@ import { Breadcrumb } from '../index';
 describe('Breadcrumb', () => {
   it('点击中间项触发 onClick', async () => {
     const onClick = vi.fn();
-    render(
-      <Breadcrumb
-        items={[
-          { label: '首页', onClick },
-          { label: '当前' },
-        ]}
-      />,
-    );
+    render(<Breadcrumb items={[{ label: '首页', onClick }, { label: '当前' }]} />);
     await userEvent.click(screen.getByText('首页'));
     expect(onClick).toHaveBeenCalled();
   });

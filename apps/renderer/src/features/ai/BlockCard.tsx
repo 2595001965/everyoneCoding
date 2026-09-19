@@ -23,7 +23,13 @@ export interface BlockCardProps {
   defaultExpanded?: boolean;
 }
 
-export function BlockCard({ block, onToggle, onEdit, onOpenNote, defaultExpanded = false }: BlockCardProps): JSX.Element {
+export function BlockCard({
+  block,
+  onToggle,
+  onEdit,
+  onOpenNote,
+  defaultExpanded = false,
+}: BlockCardProps): JSX.Element {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(block.content);
@@ -54,14 +60,21 @@ export function BlockCard({ block, onToggle, onEdit, onOpenNote, defaultExpanded
         <Tag color={block.tokens > 0 ? 'info' : 'neutral'}>{`${block.tokens} token`}</Tag>
         {block.quota > 0 && <Tag color="neutral">{`配额 ${block.quota}`}</Tag>}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11, color: 'var(--ec-text-secondary, #64748b)' }}>{block.source}</span>
+        <span style={{ fontSize: 11, color: 'var(--ec-text-secondary, #64748b)' }}>
+          {block.source}
+        </span>
       </header>
 
       <div
         aria-hidden="true"
         data-testid={`ec-context-bar-${block.id}`}
         data-percent={block.percent}
-        style={{ height: 4, borderRadius: 2, background: 'var(--ec-surface-sunken, #f1f5f9)', margin: '6px 0' }}
+        style={{
+          height: 4,
+          borderRadius: 2,
+          background: 'var(--ec-surface-sunken, #f1f5f9)',
+          margin: '6px 0',
+        }}
       >
         <div
           style={{
@@ -74,13 +87,18 @@ export function BlockCard({ block, onToggle, onEdit, onOpenNote, defaultExpanded
       </div>
 
       {block.skipped !== undefined && (
-        <p role="note" style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}>
+        <p
+          role="note"
+          style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}
+        >
           {`未参与本次提交：${block.skipped}`}
         </p>
       )}
 
       {block.omittedCount > 0 && (
-        <p style={{ margin: '0 0 6px', fontSize: 12, color: '#b45309' }}>{`本块已省略 ${block.omittedCount} 项`}</p>
+        <p
+          style={{ margin: '0 0 6px', fontSize: 12, color: '#b45309' }}
+        >{`本块已省略 ${block.omittedCount} 项`}</p>
       )}
 
       {block.tokens > 0 && (
@@ -137,7 +155,12 @@ export function BlockCard({ block, onToggle, onEdit, onOpenNote, defaultExpanded
           )}
 
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-            <Button size="sm" variant="ghost" aria-label={`展开 ${block.label}`} onClick={() => setExpanded((value) => !value)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`展开 ${block.label}`}
+              onClick={() => setExpanded((value) => !value)}
+            >
               {expanded ? '收起' : '展开全文'}
             </Button>
             {block.editable && onEdit !== undefined && !editing && (
@@ -153,17 +176,27 @@ export function BlockCard({ block, onToggle, onEdit, onOpenNote, defaultExpanded
                 就地编辑
               </Button>
             )}
-            <Button size="sm" variant="ghost" aria-label={`查看 ${block.label} 条目`} onClick={() => setExpanded((value) => !value)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`查看 ${block.label} 条目`}
+              onClick={() => setExpanded((value) => !value)}
+            >
               {`条目 ${block.items.length}`}
             </Button>
           </div>
 
           {expanded && block.items.length > 0 && (
-            <ul className="ec-context-block__items" style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12 }}>
+            <ul
+              className="ec-context-block__items"
+              style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12 }}
+            >
               {block.items.map((item) => (
                 <li key={item.key} data-item-key={item.key} data-item-tokens={item.tokens}>
                   <ItemLabel item={item} onOpenNote={onOpenNote} />
-                  <span style={{ color: 'var(--ec-text-secondary, #64748b)' }}>{` · ${item.tokens} token`}</span>
+                  <span
+                    style={{ color: 'var(--ec-text-secondary, #64748b)' }}
+                  >{` · ${item.tokens} token`}</span>
                 </li>
               ))}
             </ul>
@@ -190,7 +223,13 @@ function ItemLabel({
       <button
         type="button"
         className="ec-context-block__note-link"
-        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ec-accent, #2563eb)', cursor: 'pointer' }}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          color: 'var(--ec-accent, #2563eb)',
+          cursor: 'pointer',
+        }}
         onClick={() => onOpenNote(item.noteId as string)}
       >
         {item.label}

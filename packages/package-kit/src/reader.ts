@@ -84,7 +84,10 @@ export class EcpkgReader {
       if (options.password === undefined || options.password.length === 0) {
         throw new EcpkgReadError('该包已加密，必须提供口令才能打开');
       }
-      decryptedTempPath = path.join(path.dirname(filePath), `${path.basename(filePath)}.decrypted.tmp`);
+      decryptedTempPath = path.join(
+        path.dirname(filePath),
+        `${path.basename(filePath)}.decrypted.tmp`,
+      );
       // unwrapWithPassword 失败时内部已清理临时文件并给出明确错误（PasswordError），此处直接上抛
       unwrapWithPassword(filePath, decryptedTempPath, options.password);
       zipPath = decryptedTempPath;
@@ -111,7 +114,9 @@ export class EcpkgReader {
       if (!zip.has(PKG_MANIFEST_PATH)) {
         throw new EcpkgReadError('包内缺少 manifest.json，不是合法的 .ecpkg');
       }
-      const manifest: EcpkgManifest = parseManifest(zip.readEntry(PKG_MANIFEST_PATH).toString('utf8'));
+      const manifest: EcpkgManifest = parseManifest(
+        zip.readEntry(PKG_MANIFEST_PATH).toString('utf8'),
+      );
 
       const checksumMap = zip.has(PKG_CHECKSUM_PATH)
         ? parseChecksumFile(zip.readEntry(PKG_CHECKSUM_PATH).toString('utf8'))
@@ -131,7 +136,14 @@ export class EcpkgReader {
         );
       }
 
-      return new EcpkgReader(zip, manifest, checksumMap, signatureText, encrypted, decryptedTempPath);
+      return new EcpkgReader(
+        zip,
+        manifest,
+        checksumMap,
+        signatureText,
+        encrypted,
+        decryptedTempPath,
+      );
     } catch (error) {
       zip.close();
       if (decryptedTempPath !== null) {
@@ -216,7 +228,11 @@ export class EcpkgReader {
    */
   verifySignature(publicKeyPem?: string | undefined): SignatureVerificationResult {
     if (this.signatureText === null) {
-      return { hasSignature: false, valid: null, detail: '包内无签名（signature.sig 不存在），跳过签名校验' };
+      return {
+        hasSignature: false,
+        valid: null,
+        detail: '包内无签名（signature.sig 不存在），跳过签名校验',
+      };
     }
     const manifestSignature = this.manifestValue.signature;
     const signature = manifestSignature ?? this.signatureText;

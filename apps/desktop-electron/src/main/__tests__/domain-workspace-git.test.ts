@@ -50,7 +50,11 @@ function makeOriginRepo(): string {
     ),
     'utf8',
   );
-  writeFileSync(join(origin, 'src', 'App.tsx'), 'export default function App() { return null; }\n', 'utf8');
+  writeFileSync(
+    join(origin, 'src', 'App.tsx'),
+    'export default function App() { return null; }\n',
+    'utf8',
+  );
   writeFileSync(join(origin, 'node_modules-should-be-skipped.txt'), 'x', 'utf8');
   const git = (...args: string[]): void => {
     execFileSync('git', args, {
@@ -74,7 +78,9 @@ function makeOriginRepo(): string {
 async function call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   const response = await runtime.invoke({ requestId: 'test', domain: 'workspace', method, params });
   if (!response.ok) {
-    const error = new Error(response.error?.message ?? '域调用失败') as Error & { code?: string | undefined };
+    const error = new Error(response.error?.message ?? '域调用失败') as Error & {
+      code?: string | undefined;
+    };
     const code = response.error?.code;
     if (code !== undefined) error.code = code;
     throw error;
@@ -130,7 +136,9 @@ describe('从 Git 导入（真实本地仓库）', () => {
     expect(existsSync(join(targetDir, '.git'))).toBe(true);
 
     // 代码根被登记（导出/复制据此取文件）
-    expect(readFileSync(codeRootPointerPath(join(projectsDir, project.id)), 'utf8')).toBe(targetDir);
+    expect(readFileSync(codeRootPointerPath(join(projectsDir, project.id)), 'utf8')).toBe(
+      targetDir,
+    );
     // 工程目录结构仍然完整
     for (const subdir of ['design', 'docs', 'pipeline', 'code', 'meta']) {
       expect(existsSync(join(projectsDir, project.id, subdir))).toBe(true);
@@ -186,7 +194,9 @@ describe('从 Git 导入（真实本地仓库）', () => {
     const missing = join(root, 'this-repo-does-not-exist');
     const targetDir = join(root, 'cloned-fail');
 
-    await expect(call('importFromGit', { input: { url: missing, targetDir } })).rejects.toThrowError(/克隆失败/);
+    await expect(
+      call('importFromGit', { input: { url: missing, targetDir } }),
+    ).rejects.toThrowError(/克隆失败/);
 
     // 项目行与工程目录都要被清掉（不能留一个指向空目录的僵尸项目）
     expect(db.prepare(`SELECT COUNT(*) AS n FROM project`).get()).toEqual({ n: 0 });
@@ -200,10 +210,18 @@ describe('从 Git 导入（真实本地仓库）', () => {
       input: { url: origin, targetDir: join(root, 'cloned-dup') },
     });
 
-    const duplicated = await call<{ project: { id: string }; copied: Record<string, number> }>('duplicateProject', {
-      id: imported.id,
-      options: { includeDesign: false, includeMemory: false, includeDocs: false, includeCode: true },
-    });
+    const duplicated = await call<{ project: { id: string }; copied: Record<string, number> }>(
+      'duplicateProject',
+      {
+        id: imported.id,
+        options: {
+          includeDesign: false,
+          includeMemory: false,
+          includeDocs: false,
+          includeCode: true,
+        },
+      },
+    );
 
     // 扫描的是登记的用户目录，而不是空的 <projectDir>/code
     expect(duplicated.copied.codeFiles).toBeGreaterThan(0);
@@ -248,7 +266,9 @@ describe('从 Git 导入（真实本地仓库）', () => {
     // 首条事件把比例归零，界面不会先闪一个未知进度
     expect((events[0]?.payload as { ratio: number | null }).ratio).toBe(0);
     // 不可知比例的阶段用 null，而不是假装 100%
-    const inspectEvent = events.find((event) => (event.payload as { stage: string }).stage === 'inspect');
+    const inspectEvent = events.find(
+      (event) => (event.payload as { stage: string }).stage === 'inspect',
+    );
     expect((inspectEvent?.payload as { ratio: number | null }).ratio).toBeNull();
   });
 

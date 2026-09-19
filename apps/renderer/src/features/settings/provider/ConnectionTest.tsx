@@ -26,17 +26,31 @@ const STATE_TEXT: Record<TestState, string> = {
   failed: '连接失败',
 };
 
-export function ConnectionTest({ state, result, error = null, onTest, disabled = false }: ConnectionTestProps): JSX.Element {
+export function ConnectionTest({
+  state,
+  result,
+  error = null,
+  onTest,
+  disabled = false,
+}: ConnectionTestProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const models = result?.models.models ?? [];
 
   return (
     <div className="ec-ai__test" aria-live="polite">
       <div className="ec-ai__test-row">
-        <Button variant="secondary" size="sm" onClick={onTest} disabled={disabled || state === 'running'} loading={state === 'running'}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onTest}
+          disabled={disabled || state === 'running'}
+          loading={state === 'running'}
+        >
           连接测试
         </Button>
-        <Tag color={state === 'ok' ? 'success' : state === 'failed' ? 'danger' : 'neutral'}>{STATE_TEXT[state]}</Tag>
+        <Tag color={state === 'ok' ? 'success' : state === 'failed' ? 'danger' : 'neutral'}>
+          {STATE_TEXT[state]}
+        </Tag>
         {result ? <span className="ec-ai__hint">耗时 {result.latencyMs} ms</span> : null}
       </div>
 

@@ -12,7 +12,15 @@
  * 本文件纯数据 + 纯函数，浏览器安全。
  */
 
-export const TARGET_PLATFORMS = ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos'] as const;
+export const TARGET_PLATFORMS = [
+  'web',
+  'android',
+  'ios',
+  'harmonyos',
+  'windows',
+  'linux',
+  'macos',
+] as const;
 export type TargetPlatform = (typeof TARGET_PLATFORMS)[number];
 
 export const TARGET_PLATFORM_LABELS: Record<TargetPlatform, string> = {
@@ -82,7 +90,8 @@ export const PLATFORM_MATRIX: readonly PlatformMatrixEntry[] = [
         value: 'react',
         label: 'React 18',
         recommended: true,
-        tradeoffs: '生态最大、与渲染层 React 栈同构、SSR/静态生成方案成熟；若团队更熟 Vue 可换 Vue 3。',
+        tradeoffs:
+          '生态最大、与渲染层 React 栈同构、SSR/静态生成方案成熟；若团队更熟 Vue 可换 Vue 3。',
       },
       {
         value: 'vue3',
@@ -155,7 +164,8 @@ export const PLATFORM_MATRIX: readonly PlatformMatrixEntry[] = [
         value: 'tauri2',
         label: 'Tauri 2',
         recommended: true,
-        tradeoffs: '单代码库覆盖 Windows/Linux/macOS，安装包小（WebView + Rust 内核）；与本项目双形态外壳同技术路线。',
+        tradeoffs:
+          '单代码库覆盖 Windows/Linux/macOS，安装包小（WebView + Rust 内核）；与本项目双形态外壳同技术路线。',
       },
       {
         value: 'electron',
@@ -222,7 +232,12 @@ export const COMMON_QUESTIONS: readonly ChoiceQuestion[] = [
     id: 'frontend',
     label: '前端框架（Web 产物）',
     options: [
-      { value: 'react', label: 'React 18 + Vite', recommended: true, tradeoffs: '生态最大，与本项目渲染层同构；SSR 可选 Next.js。' },
+      {
+        value: 'react',
+        label: 'React 18 + Vite',
+        recommended: true,
+        tradeoffs: '生态最大，与本项目渲染层同构；SSR 可选 Next.js。',
+      },
       { value: 'vue3', label: 'Vue 3 + Vite', tradeoffs: '模板直观、上手快。' },
       { value: 'svelte', label: 'Svelte', tradeoffs: '运行时最小、编译期优化；生态规模有限。' },
     ],
@@ -231,16 +246,34 @@ export const COMMON_QUESTIONS: readonly ChoiceQuestion[] = [
     id: 'backend',
     label: '后端框架',
     options: [
-      { value: 'node-nest', label: 'NestJS（Node）', recommended: true, tradeoffs: 'TS 全栈一致、模块化与依赖注入成熟；与前端共享语言。' },
-      { value: 'node-express', label: 'Express / Fastify（Node）', tradeoffs: '轻量灵活；工程约束少，大项目需自律。' },
-      { value: 'python-fastapi', label: 'FastAPI（Python）', tradeoffs: '类型化接口 + 自动 OpenAPI；多语言团队需维护两套栈。' },
+      {
+        value: 'node-nest',
+        label: 'NestJS（Node）',
+        recommended: true,
+        tradeoffs: 'TS 全栈一致、模块化与依赖注入成熟；与前端共享语言。',
+      },
+      {
+        value: 'node-express',
+        label: 'Express / Fastify（Node）',
+        tradeoffs: '轻量灵活；工程约束少，大项目需自律。',
+      },
+      {
+        value: 'python-fastapi',
+        label: 'FastAPI（Python）',
+        tradeoffs: '类型化接口 + 自动 OpenAPI；多语言团队需维护两套栈。',
+      },
     ],
   },
   {
     id: 'database',
     label: '数据库',
     options: [
-      { value: 'sqlite', label: 'SQLite', recommended: true, tradeoffs: '零运维、本地优先契合本项目数据策略（D-02）；多写并发受限。' },
+      {
+        value: 'sqlite',
+        label: 'SQLite',
+        recommended: true,
+        tradeoffs: '零运维、本地优先契合本项目数据策略（D-02）；多写并发受限。',
+      },
       { value: 'postgres', label: 'PostgreSQL', tradeoffs: '功能最强、并发优秀；需要部署与运维。' },
       { value: 'mysql', label: 'MySQL', tradeoffs: '生态普及、运维资料多；功能略逊于 PG。' },
     ],
@@ -249,7 +282,12 @@ export const COMMON_QUESTIONS: readonly ChoiceQuestion[] = [
     id: 'orm',
     label: 'ORM',
     options: [
-      { value: 'prisma', label: 'Prisma', recommended: true, tradeoffs: '类型安全、迁移体验好；重度查询需原生 SQL 兜底。' },
+      {
+        value: 'prisma',
+        label: 'Prisma',
+        recommended: true,
+        tradeoffs: '类型安全、迁移体验好；重度查询需原生 SQL 兜底。',
+      },
       { value: 'drizzle', label: 'Drizzle ORM', tradeoffs: '轻量、贴近 SQL、无魔法；生态较新。' },
       { value: 'raw', label: '原生 SQL / 查询器', tradeoffs: '完全可控；无类型安全与迁移便利。' },
     ],
@@ -258,9 +296,18 @@ export const COMMON_QUESTIONS: readonly ChoiceQuestion[] = [
     id: 'deploy',
     label: '部署方式',
     options: [
-      { value: 'desktop', label: '桌面安装包分发（NSIS/dmg）', recommended: true, tradeoffs: '契合桌面工作台形态；更新走自带更新器。' },
+      {
+        value: 'desktop',
+        label: '桌面安装包分发（NSIS/dmg）',
+        recommended: true,
+        tradeoffs: '契合桌面工作台形态；更新走自带更新器。',
+      },
       { value: 'static', label: '静态托管（Web）', tradeoffs: '简单低成本；需要域名与托管服务。' },
-      { value: 'container', label: '容器部署（Docker）', tradeoffs: '环境一致、可伸缩；运维成本高。' },
+      {
+        value: 'container',
+        label: '容器部署（Docker）',
+        tradeoffs: '环境一致、可伸缩；运维成本高。',
+      },
     ],
   },
 ];
@@ -275,7 +322,12 @@ export function questionsForTargets(targets: readonly TargetPlatform[]): ChoiceQ
     if (entry === undefined) continue;
     const selected = targets.includes(platform);
     if (!selected) continue;
-    platformQuestions.push({ id: `platform-${platform}`, label: `${TARGET_PLATFORM_LABELS[platform]}技术方案`, platform, options: entry.options });
+    platformQuestions.push({
+      id: `platform-${platform}`,
+      label: `${TARGET_PLATFORM_LABELS[platform]}技术方案`,
+      platform,
+      options: entry.options,
+    });
   }
   return [...platformQuestions, ...COMMON_QUESTIONS];
 }
@@ -311,8 +363,10 @@ export function validateChoice(choice: TechChoice): { ok: boolean; issues: strin
       continue;
     }
     const value = valueForPlatform(choice, platform);
-    if (value === null || value === '') issues.push(`${TARGET_PLATFORM_LABELS[platform]}：未选择技术方案`);
-    else if (!entry.options.some((option) => option.value === value)) issues.push(`${TARGET_PLATFORM_LABELS[platform]}：选型 ${value} 不在矩阵中`);
+    if (value === null || value === '')
+      issues.push(`${TARGET_PLATFORM_LABELS[platform]}：未选择技术方案`);
+    else if (!entry.options.some((option) => option.value === value))
+      issues.push(`${TARGET_PLATFORM_LABELS[platform]}：选型 ${value} 不在矩阵中`);
   }
 
   const requiredCommon: Array<[keyof TechChoice, string]> = [
@@ -350,7 +404,10 @@ export function valueForPlatform(choice: TechChoice, platform: TargetPlatform): 
 }
 
 /** 目标端是否启用（矩阵中是否有可选方案；当前全部启用） */
-export function isPlatformEnabled(platform: TargetPlatform): { enabled: boolean; reason?: string | undefined } {
+export function isPlatformEnabled(platform: TargetPlatform): {
+  enabled: boolean;
+  reason?: string | undefined;
+} {
   void platform;
   return { enabled: true };
 }

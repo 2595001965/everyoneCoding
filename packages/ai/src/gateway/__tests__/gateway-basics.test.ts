@@ -27,7 +27,9 @@ describe('重试策略', () => {
     expect(delayFor(2, DEFAULT_RETRY_POLICY, undefined, noJitter)).toBe(1000);
     expect(delayFor(3, DEFAULT_RETRY_POLICY, undefined, noJitter)).toBe(2000);
     // 抖动上限不超过 maxDelayMs
-    expect(delayFor(20, DEFAULT_RETRY_POLICY, undefined, () => 1)).toBeLessThanOrEqual(DEFAULT_RETRY_POLICY.maxDelayMs);
+    expect(delayFor(20, DEFAULT_RETRY_POLICY, undefined, () => 1)).toBeLessThanOrEqual(
+      DEFAULT_RETRY_POLICY.maxDelayMs,
+    );
   });
 
   it('429 优先遵循服务端 Retry-After', () => {
@@ -53,9 +55,15 @@ describe('重试策略', () => {
 
   it('非重试类错误立即失败且不再 sleep', async () => {
     const sleep = vi.fn(async () => undefined);
-    await expect(withRetry(async () => { throw new AuthError(); }, DEFAULT_RETRY_POLICY, { sleep })).rejects.toBeInstanceOf(
-      AuthError,
-    );
+    await expect(
+      withRetry(
+        async () => {
+          throw new AuthError();
+        },
+        DEFAULT_RETRY_POLICY,
+        { sleep },
+      ),
+    ).rejects.toBeInstanceOf(AuthError);
     expect(sleep).not.toHaveBeenCalled();
   });
 

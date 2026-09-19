@@ -37,17 +37,32 @@ export function DiffView({
   const [layout, setLayout] = useState<DiffLayout>(initialLayout);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const selectedPaths = useMemo(() => model.files.filter((file) => file.selected).map((file) => file.path), [model]);
+  const selectedPaths = useMemo(
+    () => model.files.filter((file) => file.selected).map((file) => file.path),
+    [model],
+  );
 
   return (
-    <section className="ec-diff-view" aria-label="代码变更预览" data-testid="ec-diff-view" data-plan-id={model.planId}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+    <section
+      className="ec-diff-view"
+      aria-label="代码变更预览"
+      data-testid="ec-diff-view"
+      data-plan-id={model.planId}
+    >
+      <header
+        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}
+      >
         <strong style={{ fontSize: 13 }}>变更预览</strong>
         <Tag color="success">{`+${model.totalAdded}`}</Tag>
         <Tag color="danger">{`-${model.totalRemoved}`}</Tag>
         <Tag color="neutral">{`${model.applicableCount}/${model.files.length} 个文件将应用`}</Tag>
         <span style={{ flex: 1 }} />
-        <button type="button" aria-label="切换到内联视图" onClick={() => setLayout('inline')} aria-pressed={layout === 'inline'}>
+        <button
+          type="button"
+          aria-label="切换到内联视图"
+          onClick={() => setLayout('inline')}
+          aria-pressed={layout === 'inline'}
+        >
           内联
         </button>
         <button
@@ -88,7 +103,9 @@ export function DiffView({
               }}
             >
               <header style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <label
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+                >
                   <button
                     type="button"
                     role="checkbox"
@@ -106,7 +123,11 @@ export function DiffView({
                 <Tag color="success">{`+${file.addedLines}`}</Tag>
                 <Tag color="danger">{`-${file.removedLines}`}</Tag>
                 <span style={{ flex: 1 }} />
-                <button type="button" aria-label={`展开 ${file.path}`} onClick={() => setExpanded((value) => ({ ...value, [file.path]: !isExpanded }))}>
+                <button
+                  type="button"
+                  aria-label={`展开 ${file.path}`}
+                  onClick={() => setExpanded((value) => ({ ...value, [file.path]: !isExpanded }))}
+                >
                   {isExpanded ? '收起' : '展开'}
                 </button>
               </header>
@@ -118,17 +139,27 @@ export function DiffView({
               )}
 
               {file.skippedContentDiff && (
-                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#b45309' }}>{file.skipReason ?? '已跳过内容 diff'}</p>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#b45309' }}>
+                  {file.skipReason ?? '已跳过内容 diff'}
+                </p>
               )}
 
               {isExpanded && !file.skippedContentDiff && (
                 <div style={{ marginTop: 6 }}>
                   {file.hunks.length === 0 ? (
-                    <p style={{ fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}>无内容差异（内容与磁盘一致）。</p>
+                    <p style={{ fontSize: 12, color: 'var(--ec-text-secondary, #64748b)' }}>
+                      无内容差异（内容与磁盘一致）。
+                    </p>
                   ) : (
                     file.hunks.map((hunk) => (
-                      <div key={hunk.index} data-hunk-key={`${file.path}#${hunk.index}`} style={{ marginBottom: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                      <div
+                        key={hunk.index}
+                        data-hunk-key={`${file.path}#${hunk.index}`}
+                        style={{ marginBottom: 6 }}
+                      >
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}
+                        >
                           <button
                             type="button"
                             role="checkbox"
@@ -174,12 +205,26 @@ export function diffLineColor(kind: PreviewDiffLine['kind']): string {
   return 'inherit';
 }
 
-function DiffLines({ lines, layout }: { lines: readonly PreviewDiffLine[]; layout: DiffLayout }): JSX.Element {
+function DiffLines({
+  lines,
+  layout,
+}: {
+  lines: readonly PreviewDiffLine[];
+  layout: DiffLayout;
+}): JSX.Element {
   if (layout === 'inline') {
     return (
       <pre
         data-testid="ec-diff-inline"
-        style={{ margin: 0, fontSize: 11, lineHeight: 1.5, overflowX: 'auto', background: 'var(--ec-surface-sunken, #f8fafc)', borderRadius: 6, padding: 6 }}
+        style={{
+          margin: 0,
+          fontSize: 11,
+          lineHeight: 1.5,
+          overflowX: 'auto',
+          background: 'var(--ec-surface-sunken, #f8fafc)',
+          borderRadius: 6,
+          padding: 6,
+        }}
       >
         {lines.map((line, index) => (
           <div key={index} data-line-kind={line.kind} style={{ color: diffLineColor(line.kind) }}>
@@ -192,17 +237,42 @@ function DiffLines({ lines, layout }: { lines: readonly PreviewDiffLine[]; layou
 
   // 并排：左侧原文（add 行留空），右侧新文（remove 行留空）
   return (
-    <div data-testid="ec-diff-side-by-side" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11 }}>
-      <pre style={{ margin: 0, overflowX: 'auto', background: 'var(--ec-surface-sunken, #f8fafc)', borderRadius: 6, padding: 6 }}>
+    <div
+      data-testid="ec-diff-side-by-side"
+      style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11 }}
+    >
+      <pre
+        style={{
+          margin: 0,
+          overflowX: 'auto',
+          background: 'var(--ec-surface-sunken, #f8fafc)',
+          borderRadius: 6,
+          padding: 6,
+        }}
+      >
         {lines.map((line, index) => (
-          <div key={index} style={{ color: line.kind === 'add' ? 'transparent' : diffLineColor(line.kind) }}>
+          <div
+            key={index}
+            style={{ color: line.kind === 'add' ? 'transparent' : diffLineColor(line.kind) }}
+          >
             {`${String(line.oldLine ?? '').padStart(4, ' ')} ${line.kind === 'add' ? ' ' : diffLinePrefix(line.kind)}${line.kind === 'add' ? ' ' : line.text}`}
           </div>
         ))}
       </pre>
-      <pre style={{ margin: 0, overflowX: 'auto', background: 'var(--ec-surface-faint, #ffffff)', borderRadius: 6, padding: 6 }}>
+      <pre
+        style={{
+          margin: 0,
+          overflowX: 'auto',
+          background: 'var(--ec-surface-faint, #ffffff)',
+          borderRadius: 6,
+          padding: 6,
+        }}
+      >
         {lines.map((line, index) => (
-          <div key={index} style={{ color: line.kind === 'remove' ? 'transparent' : diffLineColor(line.kind) }}>
+          <div
+            key={index}
+            style={{ color: line.kind === 'remove' ? 'transparent' : diffLineColor(line.kind) }}
+          >
             {`${String(line.newLine ?? '').padStart(4, ' ')} ${line.kind === 'remove' ? ' ' : diffLinePrefix(line.kind)}${line.kind === 'remove' ? ' ' : line.text}`}
           </div>
         ))}

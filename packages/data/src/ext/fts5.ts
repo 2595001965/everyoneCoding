@@ -62,7 +62,8 @@ export class KeywordSearch {
       this.degradedReason = null;
     } else {
       this.mode = 'like';
-      this.degradedReason = '当前 SQLite 未编译 FTS5，关键词检索已退化为 LIKE（性能下降且不支持分词）';
+      this.degradedReason =
+        '当前 SQLite 未编译 FTS5，关键词检索已退化为 LIKE（性能下降且不支持分词）';
     }
     this.db = db;
   }
@@ -71,7 +72,8 @@ export class KeywordSearch {
 
   search(query: string, limit = 50): KeywordSearchResult {
     const trimmed = query.trim();
-    if (trimmed.length === 0) return { hits: [], mode: this.mode, degradedReason: this.degradedReason };
+    if (trimmed.length === 0)
+      return { hits: [], mode: this.mode, degradedReason: this.degradedReason };
 
     if (this.mode === 'fts5') {
       // trigram 分词器要求查询串 ≥3 字符，短查询直接退化为 LIKE
@@ -96,9 +98,7 @@ export class KeywordSearch {
     const like = `%${query.replace(/[%_]/g, (m) => `\\${m}`)}%`;
     const clause = this.columns.map((column) => `${column} LIKE ? ESCAPE '\\'`).join(' OR ');
     const rows = this.db
-      .prepare(
-        `SELECT id FROM ${this.sourceTable} WHERE ${clause} LIMIT ?`,
-      )
+      .prepare(`SELECT id FROM ${this.sourceTable} WHERE ${clause} LIMIT ?`)
       .all(...this.columns.map(() => like), limit) as Array<{ id: string }>;
     return {
       hits: rows.map((row) => ({ id: row.id, score: 0.5 })),

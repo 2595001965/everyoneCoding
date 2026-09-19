@@ -4,7 +4,12 @@ import { Button, Switch, Tag, Textarea } from '@ec/ui';
 
 import type { PageDsl, Platform } from '../dsl/types';
 import { countElements, dslFromAi, type AiDslIssue, type DslFromAiContext } from './dsl-from-ai';
-import { describeSketch, isVisionSupported, readSketchFile, type SketchPayload } from './sketch-import';
+import {
+  describeSketch,
+  isVisionSupported,
+  readSketchFile,
+  type SketchPayload,
+} from './sketch-import';
 import { useDesignerPorts } from '../store/designer-context';
 
 /**
@@ -23,7 +28,10 @@ export interface GeneratePanelProps {
   platform: Platform;
   route: string;
   /** 生成成功后回调（落到画布 / 写页面记忆由调用方或本组件负责） */
-  onGenerated?: (dsl: PageDsl, meta: { issues: AiDslIssue[]; degraded: boolean; usedSketch: boolean; attempts: number }) => void;
+  onGenerated?: (
+    dsl: PageDsl,
+    meta: { issues: AiDslIssue[]; degraded: boolean; usedSketch: boolean; attempts: number },
+  ) => void;
   /** 目标元素规模提示 */
   elementBudget?: number;
 }
@@ -36,22 +44,47 @@ interface GenerationState {
   degraded: boolean;
 }
 
-export function GeneratePanel({ projectId, pageId, platform, route, onGenerated, elementBudget = 20 }: GeneratePanelProps): React.ReactElement {
+export function GeneratePanel({
+  projectId,
+  pageId,
+  platform,
+  route,
+  onGenerated,
+  elementBudget = 20,
+}: GeneratePanelProps): React.ReactElement {
   const ports = useDesignerPorts();
   const design = ports.design;
   const vision = isVisionSupported(design);
 
   const [prompt, setPrompt] = React.useState('');
   const [sketch, setSketch] = React.useState<SketchPayload | null>(null);
-  const [state, setState] = React.useState<GenerationState>({ status: 'idle', message: null, issues: [], attempts: 0, degraded: false });
+  const [state, setState] = React.useState<GenerationState>({
+    status: 'idle',
+    message: null,
+    issues: [],
+    attempts: 0,
+    degraded: false,
+  });
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const context: DslFromAiContext = { id: pageId, projectId, name: prompt.slice(0, 12) || 'AI 生成页面', platform, route };
+  const context: DslFromAiContext = {
+    id: pageId,
+    projectId,
+    name: prompt.slice(0, 12) || 'AI 生成页面',
+    platform,
+    route,
+  };
 
-  const attempt = async (useSketch: SketchPayload | null): Promise<ReturnType<typeof dslFromAi>> => {
+  const attempt = async (
+    useSketch: SketchPayload | null,
+  ): Promise<ReturnType<typeof dslFromAi>> => {
     if (design === undefined) {
-      return { dsl: null, issues: [{ kind: 'invalid-structure', message: '未接入 AI 生成能力（缺少 design 端口）' }], degraded: false };
+      return {
+        dsl: null,
+        issues: [{ kind: 'invalid-structure', message: '未接入 AI 生成能力（缺少 design 端口）' }],
+        degraded: false,
+      };
     }
     const result = await design.generatePage({
       prompt,
@@ -64,16 +97,32 @@ export function GeneratePanel({ projectId, pageId, platform, route, onGenerated,
     if (typeof result.candidate === 'object' && result.candidate !== null) {
       return dslFromAi(result.candidate, context);
     }
-    return { dsl: null, issues: [{ kind: 'invalid-structure', message: '模型返回内容无法解析为 JSON' }], degraded: false };
+    return {
+      dsl: null,
+      issues: [{ kind: 'invalid-structure', message: '模型返回内容无法解析为 JSON' }],
+      degraded: false,
+    };
   };
 
   const generate = async (): Promise<void> => {
     if (prompt.trim().length === 0) {
-      setState({ status: 'failed', message: '请先描述你想要的界面', issues: [], attempts: 0, degraded: false });
+      setState({
+        status: 'failed',
+        message: '请先描述你想要的界面',
+        issues: [],
+        attempts: 0,
+        degraded: false,
+      });
       return;
     }
     if (design === undefined) {
-      setState({ status: 'failed', message: '未接入 AI 生成能力（缺少 design 端口）', issues: [], attempts: 0, degraded: false });
+      setState({
+        status: 'failed',
+        message: '未接入 AI 生成能力（缺少 design 端口）',
+        issues: [],
+        attempts: 0,
+        degraded: false,
+      });
       return;
     }
 
@@ -121,7 +170,12 @@ export function GeneratePanel({ projectId, pageId, platform, route, onGenerated,
       attempts,
       degraded: result.degraded,
     });
-    onGenerated?.(result.dsl, { issues: result.issues, degraded: result.degraded, usedSketch, attempts });
+    onGenerated?.(result.dsl, {
+      issues: result.issues,
+      degraded: result.degraded,
+      usedSketch,
+      attempts,
+    });
   };
 
   const onPickFile = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -129,15 +183,31 @@ export function GeneratePanel({ projectId, pageId, platform, route, onGenerated,
     if (file === undefined) return;
     const read = await readSketchFile(file);
     if (!read.ok) {
-      setState({ status: 'failed', message: read.message, issues: [], attempts: 0, degraded: false });
+      setState({
+        status: 'failed',
+        message: read.message,
+        issues: [],
+        attempts: 0,
+        degraded: false,
+      });
       return;
     }
     setSketch(read.payload);
-    setState({ status: 'idle', message: `已选择草图：${describeSketch(read.payload)}`, issues: [], attempts: 0, degraded: false });
+    setState({
+      status: 'idle',
+      message: `已选择草图：${describeSketch(read.payload)}`,
+      issues: [],
+      attempts: 0,
+      degraded: false,
+    });
   };
 
   return (
-    <section className="ec-generate-panel" data-testid="generate-panel" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
+    <section
+      className="ec-generate-panel"
+      data-testid="generate-panel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}
+    >
       <header style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <strong style={{ fontSize: 13 }}>AI 生成界面</strong>
         <Tag color="info">{`目标约 ${elementBudget} 个元素`}</Tag>
@@ -154,7 +224,15 @@ export function GeneratePanel({ projectId, pageId, platform, route, onGenerated,
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, opacity: vision ? 1 : 0.5 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            opacity: vision ? 1 : 0.5,
+          }}
+        >
           <Switch
             aria-label="使用草图"
             checked={sketch !== null}
@@ -181,13 +259,21 @@ export function GeneratePanel({ projectId, pageId, platform, route, onGenerated,
           }}
         />
         {!vision && (
-          <span data-testid="vision-unsupported" style={{ fontSize: 12, color: 'var(--ec-color-warning, #b8860b)' }}>
+          <span
+            data-testid="vision-unsupported"
+            style={{ fontSize: 12, color: 'var(--ec-color-warning, #b8860b)' }}
+          >
             当前模型不支持图片理解，草图上传已禁用（可直接用文字描述）
           </span>
         )}
         {sketch !== null && <Tag color="success">{describeSketch(sketch)}</Tag>}
         <span style={{ flex: 1 }} />
-        <Button variant="primary" data-testid="generate-button" disabled={state.status === 'running'} onClick={() => void generate()}>
+        <Button
+          variant="primary"
+          data-testid="generate-button"
+          disabled={state.status === 'running'}
+          onClick={() => void generate()}
+        >
           {state.status === 'running' ? '生成中…' : '生成界面'}
         </Button>
       </div>
@@ -196,7 +282,10 @@ export function GeneratePanel({ projectId, pageId, platform, route, onGenerated,
         <p
           data-testid="generate-status"
           role={state.status === 'failed' ? 'alert' : 'status'}
-          style={{ fontSize: 12, color: state.status === 'failed' ? 'var(--ec-color-danger, #e5484d)' : 'inherit' }}
+          style={{
+            fontSize: 12,
+            color: state.status === 'failed' ? 'var(--ec-color-danger, #e5484d)' : 'inherit',
+          }}
         >
           {state.message}
           {state.attempts > 1 && `（尝试 ${state.attempts} 次）`}

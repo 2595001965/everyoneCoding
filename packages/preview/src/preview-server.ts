@@ -134,7 +134,9 @@ export class PreviewServer {
   }
 
   /** 启动预览。破坏性操作（切换模式会重启服务），二次确认由渲染层负责。 */
-  async start(mode: PreviewMode): Promise<PreviewResult<{ port: number; url: string; mode: PreviewMode }>> {
+  async start(
+    mode: PreviewMode,
+  ): Promise<PreviewResult<{ port: number; url: string; mode: PreviewMode }>> {
     this.setMode(mode);
     const r = await this.staticServer.start();
     if (!r.ok) return fail('PREVIEW_START_FAILED', '静态预览启动失败', r.logs);

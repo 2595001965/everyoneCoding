@@ -29,7 +29,10 @@ export function parseVersion(raw: string): VersionParts | null {
     numbers.push(Number(segment));
   }
   const [major, minor, patch] = numbers as [number, number, number];
-  const prerelease = preParts.join('-').split('.').filter((part) => part !== '');
+  const prerelease = preParts
+    .join('-')
+    .split('.')
+    .filter((part) => part !== '');
   return { major, minor, patch, prerelease };
 }
 

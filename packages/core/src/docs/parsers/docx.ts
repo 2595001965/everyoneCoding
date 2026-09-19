@@ -135,7 +135,10 @@ function parseDocumentXml(xml: string): ParsedParagraph[] {
 /* ------------------------------- 入口 ------------------------------- */
 
 /** 解析 DOCX 字节为结构化文档 */
-export function parseDocx(input: { raw: string | Uint8Array; fileName?: string | undefined }): ParsedDocument {
+export function parseDocx(input: {
+  raw: string | Uint8Array;
+  fileName?: string | undefined;
+}): ParsedDocument {
   const bytes = typeof input.raw === 'string' ? new TextEncoder().encode(input.raw) : input.raw;
   const entries = parseCentralDirectory(bytes);
   const docEntry = entries.find((e) => e.name === 'word/document.xml');
@@ -173,7 +176,13 @@ export function parseDocx(input: { raw: string | Uint8Array; fileName?: string |
       buffer = [];
     } else if (para.text) {
       if (!current) {
-        current = { index: sections.length, level: 0, heading: '', anchor: `sec-${sections.length}`, text: '' };
+        current = {
+          index: sections.length,
+          level: 0,
+          heading: '',
+          anchor: `sec-${sections.length}`,
+          text: '',
+        };
         buffer = [];
       }
       buffer.push(para.text);

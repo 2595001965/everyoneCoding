@@ -18,7 +18,12 @@ export function DocsCenterPage(): JSX.Element {
 
   if (!api) return <DocsPage api={null} projectId="" />;
   if (!projectId) {
-    return <EmptyState title="未打开项目" description="请先在工作台打开一个项目，再管理该项目的文档与记忆关联。" />;
+    return (
+      <EmptyState
+        title="未打开项目"
+        description="请先在工作台打开一个项目，再管理该项目的文档与记忆关联。"
+      />
+    );
   }
   return <DocsPage api={api} projectId={projectId} />;
 }

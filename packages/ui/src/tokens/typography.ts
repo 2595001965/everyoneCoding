@@ -1,9 +1,7 @@
 /** 字号 / 行高令牌（px / unitless） */
 export const typography = {
-  fontFamily:
-    "'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif",
-  fontFamilyMono:
-    "'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
+  fontFamily: "'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif",
+  fontFamilyMono: "'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
   fontSize: {
     xs: 12,
     sm: 13,

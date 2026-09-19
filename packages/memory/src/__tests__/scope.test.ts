@@ -40,21 +40,35 @@ describe('scope 归属不变量', () => {
 
   it('功能记忆必须同时带 project_id 与 feature_id', () => {
     expect(isValidOwnership('feature', owners({ project_id: 'P1', feature_id: 'F1' }))).toBe(true);
-    expect(validateOwnership('feature', owners({ project_id: 'P1' })).map((item) => item.field)).toEqual(['feature_id']);
+    expect(
+      validateOwnership('feature', owners({ project_id: 'P1' })).map((item) => item.field),
+    ).toEqual(['feature_id']);
   });
 
   it('页面记忆必须带 project_id + page_id，允许带 element_id（元素备注层）', () => {
     expect(isValidOwnership('page', owners({ project_id: 'P1', page_id: 'PG1' }))).toBe(true);
-    expect(isValidOwnership('page', owners({ project_id: 'P1', page_id: 'PG1', element_id: 'E1' }))).toBe(true);
-    expect(validateOwnership('page', owners({ project_id: 'P1' })).map((item) => item.field)).toEqual(['page_id']);
-    expect(validateOwnership('page', owners({ project_id: 'P1', page_id: 'PG1', issue_id: 'I1' }))).toHaveLength(1);
+    expect(
+      isValidOwnership('page', owners({ project_id: 'P1', page_id: 'PG1', element_id: 'E1' })),
+    ).toBe(true);
+    expect(
+      validateOwnership('page', owners({ project_id: 'P1' })).map((item) => item.field),
+    ).toEqual(['page_id']);
+    expect(
+      validateOwnership('page', owners({ project_id: 'P1', page_id: 'PG1', issue_id: 'I1' })),
+    ).toHaveLength(1);
   });
 
   it('问题记忆必须带 issue_id，且带 feature/page/element 中至少一项（仅为警告）', () => {
     expect(isValidOwnership('issue', owners({ project_id: 'P1', issue_id: 'I1' }))).toBe(true);
-    expect(validateOwnership('issue', owners({ project_id: 'P1' })).map((item) => item.field)).toEqual(['issue_id']);
-    expect(ownershipWarnings('issue', owners({ project_id: 'P1', issue_id: 'I1' }))).toHaveLength(1);
-    expect(ownershipWarnings('issue', owners({ project_id: 'P1', issue_id: 'I1', page_id: 'PG1' }))).toHaveLength(0);
+    expect(
+      validateOwnership('issue', owners({ project_id: 'P1' })).map((item) => item.field),
+    ).toEqual(['issue_id']);
+    expect(ownershipWarnings('issue', owners({ project_id: 'P1', issue_id: 'I1' }))).toHaveLength(
+      1,
+    );
+    expect(
+      ownershipWarnings('issue', owners({ project_id: 'P1', issue_id: 'I1', page_id: 'PG1' })),
+    ).toHaveLength(0);
   });
 });
 
@@ -90,6 +104,11 @@ describe('归属工具', () => {
     });
     expect(chain).toHaveLength(5);
     expect(chain[0]?.project_id).toBeNull();
-    expect(chain[4]).toMatchObject({ project_id: 'P1', feature_id: 'F1', page_id: 'PG1', element_id: 'E1' });
+    expect(chain[4]).toMatchObject({
+      project_id: 'P1',
+      feature_id: 'F1',
+      page_id: 'PG1',
+      element_id: 'E1',
+    });
   });
 });

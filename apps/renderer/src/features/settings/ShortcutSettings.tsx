@@ -44,14 +44,18 @@ export function ShortcutSettings(): JSX.Element {
       .then((list) => {
         setCommands(list);
         const initial: Record<string, string> = {};
-        for (const command of list) if (command.defaultKey) initial[command.id] = command.defaultKey;
+        for (const command of list)
+          if (command.defaultKey) initial[command.id] = command.defaultKey;
         setKeymap(initial);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
   }, [api]);
 
   const conflicts = useMemo(() => detectKeymapConflicts(keymap), [keymap]);
-  const conflictedKeys = useMemo(() => new Set(conflicts.map((conflict) => conflict.keys)), [conflicts]);
+  const conflictedKeys = useMemo(
+    () => new Set(conflicts.map((conflict) => conflict.keys)),
+    [conflicts],
+  );
 
   const save = useCallback(async () => {
     setBusy(true);
@@ -61,7 +65,9 @@ export function ShortcutSettings(): JSX.Element {
         setNotice('快捷键已保存');
         setError(null);
       } else {
-        setError(`快捷键冲突：${result.conflicts.map((c) => `${c.keys} 被 ${c.commands.join('、')} 占用`).join('；')}`);
+        setError(
+          `快捷键冲突：${result.conflicts.map((c) => `${c.keys} 被 ${c.commands.join('、')} 占用`).join('；')}`,
+        );
       }
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -95,7 +101,8 @@ export function ShortcutSettings(): JSX.Element {
       <ul className="ec-settings__keymap">
         {commands.map((command) => {
           const keys = keymap[command.id] ?? '';
-          const conflicted = keys.trim().length > 0 && conflictedKeys.has(keys.trim().toLowerCase());
+          const conflicted =
+            keys.trim().length > 0 && conflictedKeys.has(keys.trim().toLowerCase());
           return (
             <li key={command.id} data-conflict={conflicted ? 'true' : 'false'}>
               <span className="ec-settings__command">{command.title}</span>
@@ -111,7 +118,11 @@ export function ShortcutSettings(): JSX.Element {
                 onChange={(value) => setKeymap((prev) => ({ ...prev, [command.id]: value }))}
               />
               {keys ? (
-                <Button size="sm" variant="ghost" onClick={() => setKeymap((prev) => ({ ...prev, [command.id]: '' }))}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setKeymap((prev) => ({ ...prev, [command.id]: '' }))}
+                >
                   清除
                 </Button>
               ) : null}
@@ -127,7 +138,12 @@ export function ShortcutSettings(): JSX.Element {
       ) : null}
 
       <div className="ec-settings__actions">
-        <Button variant="primary" loading={busy} disabled={conflicts.length > 0} onClick={() => void save()}>
+        <Button
+          variant="primary"
+          loading={busy}
+          disabled={conflicts.length > 0}
+          onClick={() => void save()}
+        >
           保存快捷键
         </Button>
         <Button variant="secondary" onClick={() => void exportKeymap()}>

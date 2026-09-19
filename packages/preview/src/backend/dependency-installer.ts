@@ -4,7 +4,7 @@
  * 领域层只暴露能力；生产由外壳 Shell API process 提供 ProcessHostPort，不在本包引用 node:*。
  */
 
-import type { PreviewLogEntry, PreviewResult, } from '../models';
+import type { PreviewLogEntry, PreviewResult } from '../models';
 import { fail, ok } from '../models';
 import type { LogStream } from './log-stream';
 import type { ProjectProfile } from './project-detector';
@@ -19,10 +19,17 @@ export class DependencyInstaller {
     this.logs = opts.logs;
   }
 
-  async run(profile: ProjectProfile, cwd: string): Promise<PreviewResult<{ command: string; exitCode: number | null }>> {
+  async run(
+    profile: ProjectProfile,
+    cwd: string,
+  ): Promise<PreviewResult<{ command: string; exitCode: number | null }>> {
     if (profile.installCmd === null) {
       this.logs.warn(`该项目无需安装依赖或需手动安装：${profile.label}`);
-      return fail('INSTALL_UNSUPPORTED', `项目类型 ${profile.label} 暂不支持自动安装依赖`, this.entries());
+      return fail(
+        'INSTALL_UNSUPPORTED',
+        `项目类型 ${profile.label} 暂不支持自动安装依赖`,
+        this.entries(),
+      );
     }
     const command = profile.installCmd;
     this.logs.info(`开始安装依赖：${command}（${cwd}）`);

@@ -41,8 +41,20 @@ export interface FakeGitOptions {
 }
 
 export interface FakeGitCalls {
-  push: { input: { remote?: string | undefined; force?: boolean | undefined; forceWithLease?: boolean | undefined }; progress: GitProgressEvent[] }[];
-  log: { path?: string | undefined; author?: string | undefined; keyword?: string | undefined; limit?: number | undefined }[];
+  push: {
+    input: {
+      remote?: string | undefined;
+      force?: boolean | undefined;
+      forceWithLease?: boolean | undefined;
+    };
+    progress: GitProgressEvent[];
+  }[];
+  log: {
+    path?: string | undefined;
+    author?: string | undefined;
+    keyword?: string | undefined;
+    limit?: number | undefined;
+  }[];
   applyResolution: { path: string; content: string; message: string }[];
   deleteBranch: string[];
   removeRemote: string[];
@@ -53,8 +65,18 @@ export interface FakeGitApi extends GitApi {
   readonly calls: FakeGitCalls;
 }
 
-const SOURCE_AI: ChangeSource = { kind: 'ai-task', ref: 'T-1', label: 'AI 生成 · 登录页', jumpable: true };
-const SOURCE_MIGRATION: ChangeSource = { kind: 'migration', ref: '0007_add_user.sql', label: '迁移执行', jumpable: true };
+const SOURCE_AI: ChangeSource = {
+  kind: 'ai-task',
+  ref: 'T-1',
+  label: 'AI 生成 · 登录页',
+  jumpable: true,
+};
+const SOURCE_MIGRATION: ChangeSource = {
+  kind: 'migration',
+  ref: '0007_add_user.sql',
+  label: '迁移执行',
+  jumpable: true,
+};
 
 function makeCommit(index: number): GitCommit {
   return {
@@ -94,7 +116,12 @@ function sampleDiff(): GitDiff {
           { kind: 'context', text: 'import { Button } from "@ec/ui";', oldNumber: 1, newNumber: 1 },
           { kind: 'del', text: 'const title = "登录";', oldNumber: 2, newNumber: null },
           { kind: 'add', text: 'const title = "账号登录";', oldNumber: null, newNumber: 2 },
-          { kind: 'add', text: 'const subtitle = "请输入账号密码";', oldNumber: null, newNumber: 3 },
+          {
+            kind: 'add',
+            text: 'const subtitle = "请输入账号密码";',
+            oldNumber: null,
+            newNumber: 3,
+          },
           { kind: 'context', text: '', oldNumber: 3, newNumber: 4 },
           { kind: 'context', text: 'export function LoginPage() {', oldNumber: 4, newNumber: 5 },
         ],
@@ -109,7 +136,12 @@ function sampleDiff(): GitDiff {
         section: null,
         lines: [
           { kind: 'context', text: '  return (', oldNumber: 20, newNumber: 22 },
-          { kind: 'add', text: '    <section aria-label="登录" />', oldNumber: null, newNumber: 23 },
+          {
+            kind: 'add',
+            text: '    <section aria-label="登录" />',
+            oldNumber: null,
+            newNumber: 23,
+          },
           { kind: 'context', text: '  );', oldNumber: 21, newNumber: 24 },
           { kind: 'context', text: '}', oldNumber: 22, newNumber: 25 },
         ],
@@ -150,10 +182,50 @@ function sampleStatus(): GitStatusSummary {
     behind: 1,
     clean: false,
     changes: [
-      { path: 'src/features/login/LoginPage.tsx', oldPath: null, status: 'modified', staged: false, additions: 3, deletions: 1, binary: false, size: 2048, source: SOURCE_AI },
-      { path: 'src/features/login/index.ts', oldPath: null, status: 'added', staged: true, additions: 4, deletions: 0, binary: false, size: 120, source: SOURCE_AI },
-      { path: 'server/migrations/0007_add_user.sql', oldPath: null, status: 'modified', staged: false, additions: 10, deletions: 2, binary: false, size: 800, source: SOURCE_MIGRATION },
-      { path: 'assets/logo.png', oldPath: null, status: 'modified', staged: false, additions: null, deletions: null, binary: true, size: 3_355_443, source: null },
+      {
+        path: 'src/features/login/LoginPage.tsx',
+        oldPath: null,
+        status: 'modified',
+        staged: false,
+        additions: 3,
+        deletions: 1,
+        binary: false,
+        size: 2048,
+        source: SOURCE_AI,
+      },
+      {
+        path: 'src/features/login/index.ts',
+        oldPath: null,
+        status: 'added',
+        staged: true,
+        additions: 4,
+        deletions: 0,
+        binary: false,
+        size: 120,
+        source: SOURCE_AI,
+      },
+      {
+        path: 'server/migrations/0007_add_user.sql',
+        oldPath: null,
+        status: 'modified',
+        staged: false,
+        additions: 10,
+        deletions: 2,
+        binary: false,
+        size: 800,
+        source: SOURCE_MIGRATION,
+      },
+      {
+        path: 'assets/logo.png',
+        oldPath: null,
+        status: 'modified',
+        staged: false,
+        additions: null,
+        deletions: null,
+        binary: true,
+        size: 3_355_443,
+        source: null,
+      },
     ],
   };
 }
@@ -164,8 +236,22 @@ const SAMPLE_CONFLICTS: readonly ConflictFile[] = [
     oursLabel: '当前分支（main）',
     theirsLabel: '传入分支（feat/login）',
     blocks: [
-      { index: 1, ours: ['const title = "账号登录";'], theirs: ['const title = "用户登录";'], base: ['const title = "登录";'], resolution: 'unresolved', startLine: 12 },
-      { index: 2, ours: ['<Button>进入</Button>'], theirs: ['<Button>立即登录</Button>'], base: ['<Button>提交</Button>'], resolution: 'unresolved', startLine: 30 },
+      {
+        index: 1,
+        ours: ['const title = "账号登录";'],
+        theirs: ['const title = "用户登录";'],
+        base: ['const title = "登录";'],
+        resolution: 'unresolved',
+        startLine: 12,
+      },
+      {
+        index: 2,
+        ours: ['<Button>进入</Button>'],
+        theirs: ['<Button>立即登录</Button>'],
+        base: ['<Button>提交</Button>'],
+        resolution: 'unresolved',
+        startLine: 30,
+      },
     ],
   },
 ];
@@ -175,14 +261,49 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
   const repoReady = options.repoReady ?? true;
   const conflictFiles = [...(options.conflicts ?? SAMPLE_CONFLICTS)];
 
-  const commits: GitCommit[] = Array.from({ length: commitCount }, (_, index) => makeCommit(index)).reverse();
+  const commits: GitCommit[] = Array.from({ length: commitCount }, (_, index) =>
+    makeCommit(index),
+  ).reverse();
   let branches: GitBranchInfo[] = [
-    { name: 'main', current: true, upstream: 'origin/main', ahead: 2, behind: 1, lastCommitSha: commits[0]?.sha ?? null, lastCommitSubject: commits[0]?.subject ?? null, gone: false },
-    { name: 'feat/login', current: false, upstream: null, ahead: 0, behind: 0, lastCommitSha: commits[1]?.sha ?? null, lastCommitSubject: commits[1]?.subject ?? null, gone: false },
-    { name: 'fix/bug/utf8', current: false, upstream: 'origin/fix/bug/utf8', ahead: 0, behind: 0, lastCommitSha: commits[2]?.sha ?? null, lastCommitSubject: commits[2]?.subject ?? null, gone: true },
+    {
+      name: 'main',
+      current: true,
+      upstream: 'origin/main',
+      ahead: 2,
+      behind: 1,
+      lastCommitSha: commits[0]?.sha ?? null,
+      lastCommitSubject: commits[0]?.subject ?? null,
+      gone: false,
+    },
+    {
+      name: 'feat/login',
+      current: false,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      lastCommitSha: commits[1]?.sha ?? null,
+      lastCommitSubject: commits[1]?.subject ?? null,
+      gone: false,
+    },
+    {
+      name: 'fix/bug/utf8',
+      current: false,
+      upstream: 'origin/fix/bug/utf8',
+      ahead: 0,
+      behind: 0,
+      lastCommitSha: commits[2]?.sha ?? null,
+      lastCommitSubject: commits[2]?.subject ?? null,
+      gone: true,
+    },
   ];
   let remotes: GitRemote[] = [
-    { name: 'origin', url: 'https://example.com/group/repo.git', pushUrl: null, kind: 'https', credentialConfigured: false },
+    {
+      name: 'origin',
+      url: 'https://example.com/group/repo.git',
+      pushUrl: null,
+      kind: 'https',
+      credentialConfigured: false,
+    },
   ];
   let bindings: CredentialBinding[] = [];
   let stashEntries: GitStashEntry[] = [
@@ -205,7 +326,15 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
 
     async info(): Promise<GitRepoInfo | null> {
       if (!repoReady) return null;
-      return { path: 'D:/demo/shop', name: 'shop', branch: 'main', backendLabel: 'Git CLI 2.55', clean: false, ahead: 2, behind: 1 };
+      return {
+        path: 'D:/demo/shop',
+        name: 'shop',
+        branch: 'main',
+        backendLabel: 'Git CLI 2.55',
+        clean: false,
+        ahead: 2,
+        behind: 1,
+      };
     },
     async init() {
       return ok({ branch: 'main', gitignoreWritten: true, stacks: ['node'] });
@@ -239,7 +368,16 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
     async createBranch(name) {
       branches = [
         ...branches,
-        { name, current: false, upstream: null, ahead: 0, behind: 0, lastCommitSha: null, lastCommitSubject: null, gone: false },
+        {
+          name,
+          current: false,
+          upstream: null,
+          ahead: 0,
+          behind: 0,
+          lastCommitSha: null,
+          lastCommitSubject: null,
+          gone: false,
+        },
       ];
       return ok(name);
     },
@@ -261,19 +399,42 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
     },
     async commitDetail(sha) {
       const commit = commits.find((item) => item.sha === sha) ?? commits[0];
-      if (commit === undefined) return { ok: false, data: null, logs: [], error: { code: 'UNKNOWN', message: '未找到该提交' } };
+      if (commit === undefined)
+        return {
+          ok: false,
+          data: null,
+          logs: [],
+          error: { code: 'UNKNOWN', message: '未找到该提交' },
+        };
       const diff = sampleDiff();
-      return ok({ commit, files: diff.files, additions: diff.additions, deletions: diff.deletions });
+      return ok({
+        commit,
+        files: diff.files,
+        additions: diff.additions,
+        deletions: diff.deletions,
+      });
     },
 
     async previewMerge() {
       return ok({ commits: commits.slice(0, 2), filesChanged: 4, fastForward: false });
     },
     async merge(): Promise<GitResult<MergeOutcome>> {
-      return ok({ status: 'conflicted', commits: [], conflictFiles: ['src/features/login/LoginPage.tsx'], backupBranch: 'backup/20260912-1', newSha: null });
+      return ok({
+        status: 'conflicted',
+        commits: [],
+        conflictFiles: ['src/features/login/LoginPage.tsx'],
+        backupBranch: 'backup/20260912-1',
+        newSha: null,
+      });
     },
     async rebase(): Promise<GitResult<MergeOutcome>> {
-      return ok({ status: 'merged', commits: [], conflictFiles: [], backupBranch: 'backup/20260912-1', newSha: 'shaX' });
+      return ok({
+        status: 'merged',
+        commits: [],
+        conflictFiles: [],
+        backupBranch: 'backup/20260912-1',
+        newSha: 'shaX',
+      });
     },
     async abort() {
       return ok(true);
@@ -297,7 +458,13 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
     },
     async stashPush(message) {
       stashEntries = [
-        { index: 0, message: message ?? 'WIP', branch: 'main', files: 1, createdAt: 1_700_000_200_000 },
+        {
+          index: 0,
+          message: message ?? 'WIP',
+          branch: 'main',
+          files: 1,
+          createdAt: 1_700_000_200_000,
+        },
         ...stashEntries.map((entry) => ({ ...entry, index: entry.index + 1 })),
       ];
       return ok(true);
@@ -309,7 +476,10 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
       stashEntries = stashEntries.filter((entry) => entry.index !== index);
       return ok(index);
     },
-    async rollbackPlan(input: { sha: string; mode: RollbackMode }): Promise<GitResult<RollbackPlan>> {
+    async rollbackPlan(input: {
+      sha: string;
+      mode: RollbackMode;
+    }): Promise<GitResult<RollbackPlan>> {
       return ok({
         mode: input.mode,
         targetSha: input.sha,
@@ -324,7 +494,13 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
       return ok({ snapshotBranch: plan.snapshotBranch, newHead: plan.targetSha });
     },
     async snapshots() {
-      return ok([{ name: 'backup/20260912-2', sha: commits[0]?.sha ?? null, subject: commits[0]?.subject ?? null }]);
+      return ok([
+        {
+          name: 'backup/20260912-2',
+          sha: commits[0]?.sha ?? null,
+          subject: commits[0]?.subject ?? null,
+        },
+      ]);
     },
 
     async remotes() {
@@ -363,7 +539,11 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
       ];
       for (const event of progress) onProgress?.(event);
       calls.push.push({ input, progress });
-      return ok({ summary: '推送完成', upToDate: false, forced: input.forceWithLease === true || input.force === true });
+      return ok({
+        summary: '推送完成',
+        upToDate: false,
+        forced: input.forceWithLease === true || input.force === true,
+      });
     },
     async pull(_input, onProgress) {
       onProgress?.({ phase: 'done', message: '拉取完成', percent: 100 });
@@ -379,13 +559,25 @@ export function createFakeGitApi(options: FakeGitOptions = {}): FakeGitApi {
     async saveHttpsCredential(input) {
       bindings = [
         ...bindings.filter((item) => item.remoteName !== input.remoteName),
-        { remoteName: input.remoteName, kind: 'https', keyRef: `git-credential/${input.remoteName}:token`, username: input.username, privateKeyPath: null },
+        {
+          remoteName: input.remoteName,
+          kind: 'https',
+          keyRef: `git-credential/${input.remoteName}:token`,
+          username: input.username,
+          privateKeyPath: null,
+        },
       ];
     },
     async saveSshCredential(input) {
       bindings = [
         ...bindings.filter((item) => item.remoteName !== input.remoteName),
-        { remoteName: input.remoteName, kind: 'ssh', keyRef: `git-credential/${input.remoteName}:key`, username: null, privateKeyPath: input.privateKeyPath },
+        {
+          remoteName: input.remoteName,
+          kind: 'ssh',
+          keyRef: `git-credential/${input.remoteName}:key`,
+          username: null,
+          privateKeyPath: input.privateKeyPath,
+        },
       ];
     },
     async removeCredential(remoteName) {

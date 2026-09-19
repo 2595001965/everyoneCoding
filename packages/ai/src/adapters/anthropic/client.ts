@@ -78,7 +78,10 @@ export class AnthropicAdapter implements ProviderAdapter {
     yield* this.stream(response, request, provider.id);
   }
 
-  private async *nonStream(response: { text(): Promise<string> }, providerId: string): AsyncIterable<StreamChunk> {
+  private async *nonStream(
+    response: { text(): Promise<string> },
+    providerId: string,
+  ): AsyncIterable<StreamChunk> {
     const text = await response.text();
     let payload: AnthropicResponse;
     try {

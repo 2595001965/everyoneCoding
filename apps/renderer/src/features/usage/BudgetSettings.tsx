@@ -5,7 +5,13 @@
 
 import { useEffect, useState } from 'react';
 
-import { budgetAlertView, budgetConfigFromInput, emptyBudgetView, validateBudgetInput, type BudgetDecision } from '@ec/ai';
+import {
+  budgetAlertView,
+  budgetConfigFromInput,
+  emptyBudgetView,
+  validateBudgetInput,
+  type BudgetDecision,
+} from '@ec/ai';
 import { Button, Input } from '@ec/ui';
 import { useUsageOptional } from './usage-api';
 import './usage.css';
@@ -78,7 +84,12 @@ export function BudgetSettings(): JSX.Element {
         </label>
         <label className="ec-budget__field">
           <span>告警阈值（0~1，默认 0.8）</span>
-          <Input aria-label="告警阈值" value={alertRatio} onChange={setAlertRatio} placeholder="0.8" />
+          <Input
+            aria-label="告警阈值"
+            value={alertRatio}
+            onChange={setAlertRatio}
+            placeholder="0.8"
+          />
         </label>
         <Button onClick={() => void save()}>保存预算</Button>
         {saved ? <span className="ec-budget__saved">已保存</span> : null}

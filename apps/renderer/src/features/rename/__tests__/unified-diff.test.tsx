@@ -6,7 +6,10 @@ import { RenameApiProvider } from '../rename-api';
 import { UnifiedDiffView } from '../UnifiedDiffView';
 import { DIFF_COLUMNS, type UnifiedDiff } from '@ec/registry';
 
-async function setup(diff: UnifiedDiff, props: Record<string, unknown> = {}): Promise<ReturnType<typeof render>> {
+async function setup(
+  diff: UnifiedDiff,
+  props: Record<string, unknown> = {},
+): Promise<ReturnType<typeof render>> {
   const fake = createFakeRenameApi();
   return render(
     <RenameApiProvider api={fake}>

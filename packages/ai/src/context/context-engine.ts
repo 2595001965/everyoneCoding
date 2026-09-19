@@ -91,8 +91,10 @@ export function buildInstructionBlock(
   const lines: string[] = [];
   const target = request.target ?? request.purpose;
   lines.push(`本次生成目标：${TARGET_LABELS[target] ?? target}`);
-  if (request.elementId !== null && request.elementId !== undefined) lines.push(`作用元素：${request.elementId}`);
-  if (request.pageId !== null && request.pageId !== undefined) lines.push(`所属页面：${request.pageId}`);
+  if (request.elementId !== null && request.elementId !== undefined)
+    lines.push(`作用元素：${request.elementId}`);
+  if (request.pageId !== null && request.pageId !== undefined)
+    lines.push(`所属页面：${request.pageId}`);
   if (contracts.length > 0) {
     lines.push(
       `必须复用以下已生成依赖的接口签名，禁止臆造：${contracts.map((contract) => contract.name).join('、')}`,
@@ -112,7 +114,9 @@ export function buildInstructionBlock(
     content: text,
     source: '会话上下文',
     editable: true,
-    items: [{ key: 'task', label: '任务指令', tokens: estimateTextTokens(text), weight: 1_000, text }],
+    items: [
+      { key: 'task', label: '任务指令', tokens: estimateTextTokens(text), weight: 1_000, text },
+    ],
   };
 }
 
@@ -304,7 +308,14 @@ export class ContextEngine {
   }): AssembledContext {
     const noteIds = collectItemKeys(input.blocks, 'note');
     const memoryIds = input.blocks
-      .filter((block) => block.id === 'longterm' || block.id === 'project' || block.id === 'feature' || block.id === 'page' || block.id === 'issue')
+      .filter(
+        (block) =>
+          block.id === 'longterm' ||
+          block.id === 'project' ||
+          block.id === 'feature' ||
+          block.id === 'page' ||
+          block.id === 'issue',
+      )
       .flatMap((block) => block.items.map((item) => item.key))
       .filter((key) => !key.startsWith('page-facts:'));
 
@@ -342,7 +353,14 @@ function applyPanelEdits(block: ContextBlock, request: ContextAssemblyRequest): 
   const override = request.overrides?.[block.id];
 
   if (disabled) {
-    return { ...block, items: [], content: '', tokens: 0, omittedCount: block.items.length, skipped: '已被手动取消勾选' };
+    return {
+      ...block,
+      items: [],
+      content: '',
+      tokens: 0,
+      omittedCount: block.items.length,
+      skipped: '已被手动取消勾选',
+    };
   }
   if (override === undefined) return block;
 
@@ -351,7 +369,15 @@ function applyPanelEdits(block: ContextBlock, request: ContextAssemblyRequest): 
     ...block,
     content: override,
     tokens,
-    items: [{ key: `${block.id}:override`, label: `${block.label}（手动编辑）`, tokens, weight: 999, text: override }],
+    items: [
+      {
+        key: `${block.id}:override`,
+        label: `${block.label}（手动编辑）`,
+        tokens,
+        weight: 999,
+        text: override,
+      },
+    ],
     source: `${block.source} · 已手动编辑`,
     omittedCount: block.items.length,
   };
@@ -360,7 +386,8 @@ function applyPanelEdits(block: ContextBlock, request: ContextAssemblyRequest): 
 /** 检索查询串：元素名 / 页面名 + 用户指令 + 目标类型 */
 function buildQuery(request: ContextAssemblyRequest, sources: ContextSources): string {
   const parts: string[] = [];
-  if (request.instruction !== undefined && request.instruction.trim().length > 0) parts.push(request.instruction.trim());
+  if (request.instruction !== undefined && request.instruction.trim().length > 0)
+    parts.push(request.instruction.trim());
   if (request.target !== undefined) parts.push(TARGET_LABELS[request.target] ?? request.target);
 
   const elementId = request.elementId;
@@ -411,14 +438,17 @@ export function renderPrompt(
     '输出必须严格遵循本次调用声明的结构化契约；契约解析失败将被视为生成失败。',
     '变更说明、风险与未覆盖点必须一并给出，不得省略。',
   ];
-  if (instruction !== undefined && instruction.content.trim().length > 0) head.push(instruction.content.trim());
+  if (instruction !== undefined && instruction.content.trim().length > 0)
+    head.push(instruction.content.trim());
 
   const system = [
     '# 角色与输出契约',
     head.join('\n'),
     '',
     '# 必须遵守（硬约束）',
-    hardConstraints.length > 0 ? hardConstraints.map((line) => `- ${line}`).join('\n') : '- 本次没有硬约束备注。',
+    hardConstraints.length > 0
+      ? hardConstraints.map((line) => `- ${line}`).join('\n')
+      : '- 本次没有硬约束备注。',
     '',
     '# 上下文',
     sections.length > 0 ? sections.join('\n\n') : '（本次无可用上下文）',
@@ -436,7 +466,11 @@ export function renderPrompt(
   return { system, user };
 }
 
-function buildMessages(system: string, user: string, request: ContextAssemblyRequest): ChatMessage[] {
+function buildMessages(
+  system: string,
+  user: string,
+  request: ContextAssemblyRequest,
+): ChatMessage[] {
   const history = request.history ?? [];
   return [systemMessage(system), ...history, userMessage(user)];
 }

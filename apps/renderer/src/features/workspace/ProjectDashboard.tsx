@@ -10,7 +10,12 @@ import { Button, Spinner } from '@ec/ui';
 
 import { DrilldownPanel } from './DrilldownPanel';
 import { MetricsCard } from './MetricsCard';
-import { useWorkspace, type DashboardMetrics, type MetricDetail, type MetricKey } from './workspace-api';
+import {
+  useWorkspace,
+  type DashboardMetrics,
+  type MetricDetail,
+  type MetricKey,
+} from './workspace-api';
 
 const SCOPE_LABELS: Record<string, string> = {
   longterm: '长期',

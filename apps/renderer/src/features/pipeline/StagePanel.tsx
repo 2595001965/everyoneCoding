@@ -59,7 +59,10 @@ export function StagePanel({
       setContent('');
       return;
     }
-    const target = viewingVersion > 0 ? viewingVersion : (state.activeVersion ?? list[list.length - 1]?.version ?? 0);
+    const target =
+      viewingVersion > 0
+        ? viewingVersion
+        : (state.activeVersion ?? list[list.length - 1]?.version ?? 0);
     void api.readArtifact(projectId, stage, target).then((text) => {
       setContent(text);
       setDraft(text);
@@ -84,7 +87,13 @@ export function StagePanel({
               onSwitch={onSwitchVersion}
             />
           )}
-          <Button size="sm" variant="primary" data-testid="stage-generate" onClick={onRegenerate} disabled={state.status === 'running'}>
+          <Button
+            size="sm"
+            variant="primary"
+            data-testid="stage-generate"
+            onClick={onRegenerate}
+            disabled={state.status === 'running'}
+          >
             {hasArtifact ? '重新生成' : `生成${STAGE_DEFS[stage].artifactLabel}`}
           </Button>
         </div>
@@ -124,11 +133,13 @@ export function StagePanel({
       ) : (
         <>
           <ArtifactViewer content={content} artifactType={STAGE_DEFS[stage].artifactType} />
-          {viewingVersion > 0 && state.activeVersion !== null && viewingVersion !== state.activeVersion && (
-            <div className="ec-pipe-stage-panel__diff">
-              <DiffPanel projectId={projectId} stage={stage} version={viewingVersion} />
-            </div>
-          )}
+          {viewingVersion > 0 &&
+            state.activeVersion !== null &&
+            viewingVersion !== state.activeVersion && (
+              <div className="ec-pipe-stage-panel__diff">
+                <DiffPanel projectId={projectId} stage={stage} version={viewingVersion} />
+              </div>
+            )}
         </>
       )}
 

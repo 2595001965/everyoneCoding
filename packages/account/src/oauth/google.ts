@@ -47,7 +47,8 @@ export function parseGoogleCallback(callbackUrl: string, expectedState: string):
   const error = url.searchParams.get('error');
   if (error) throw new Error(`Google 授权被拒绝：${error}`);
   const state = url.searchParams.get('state');
-  if (!state || state !== expectedState) throw new Error('Google 回调 state 校验失败（可能是 CSRF）');
+  if (!state || state !== expectedState)
+    throw new Error('Google 回调 state 校验失败（可能是 CSRF）');
   const code = url.searchParams.get('code');
   if (!code) throw new Error('Google 回调缺少授权码');
   return { code };

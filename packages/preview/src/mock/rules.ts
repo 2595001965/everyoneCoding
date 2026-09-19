@@ -9,13 +9,7 @@
  */
 
 export type FieldRuleKind =
-  | 'random-string'
-  | 'random-number'
-  | 'enum'
-  | 'date'
-  | 'reference'
-  | 'array-length'
-  | 'constant';
+  'random-string' | 'random-number' | 'enum' | 'date' | 'reference' | 'array-length' | 'constant';
 
 export interface FieldRule {
   /** 目标字段路径，支持 a.b 与 a[].b（数组元素） */
@@ -173,7 +167,12 @@ function makeValue(value: unknown, rule: FieldRule, rng: () => number): unknown 
   }
 }
 
-function setInto(current: unknown, segments: readonly PathSegment[], index: number, make: () => unknown): void {
+function setInto(
+  current: unknown,
+  segments: readonly PathSegment[],
+  index: number,
+  make: () => unknown,
+): void {
   if (index >= segments.length) return;
   const seg = segments[index]!;
   const last = index === segments.length - 1;
@@ -198,7 +197,11 @@ function setInto(current: unknown, segments: readonly PathSegment[], index: numb
 }
 
 /** 依次应用全部字段规则，返回（原地改写的）值。 */
-export function applyFieldRules(value: unknown, rules: readonly FieldRule[], rng: () => number): unknown {
+export function applyFieldRules(
+  value: unknown,
+  rules: readonly FieldRule[],
+  rng: () => number,
+): unknown {
   const result = value;
   for (const rule of rules) {
     setInto(result, parsePath(rule.path), 0, () => makeValue(result, rule, rng));

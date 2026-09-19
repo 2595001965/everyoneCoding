@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react';
 
-import type { CapabilityPatch, ConnectionTestResult, Model, Provider, PurposeBinding } from '@ec/ai';
+import type {
+  CapabilityPatch,
+  ConnectionTestResult,
+  Model,
+  Provider,
+  PurposeBinding,
+} from '@ec/ai';
 
 import { useAiSettings } from '../ai-settings-context';
 
@@ -147,7 +153,10 @@ export function useProviderSettings(): UseProviderSettingsResult {
       let saved: Provider | null = null;
       let pendingKeyRef: string | null = null;
       await run(async () => {
-        const headers = draft.headersText.trim().length > 0 ? (JSON.parse(draft.headersText) as Record<string, string>) : {};
+        const headers =
+          draft.headersText.trim().length > 0
+            ? (JSON.parse(draft.headersText) as Record<string, string>)
+            : {};
         const manualModels = draft.manualModelsText
           .split('\n')
           .map((line) => line.trim())
@@ -170,8 +179,15 @@ export function useProviderSettings(): UseProviderSettingsResult {
           pendingKeyRef = await api.persistApiKey({ apiKey: draft.apiKey.trim() });
         }
         saved = draft.id
-          ? await api.updateProvider(draft.id, { ...payload, ...(pendingKeyRef ? { keyRef: pendingKeyRef } : {}), version: draft.version })
-          : await api.createProvider({ ...payload, ...(pendingKeyRef ? { keyRef: pendingKeyRef } : {}) });
+          ? await api.updateProvider(draft.id, {
+              ...payload,
+              ...(pendingKeyRef ? { keyRef: pendingKeyRef } : {}),
+              version: draft.version,
+            })
+          : await api.createProvider({
+              ...payload,
+              ...(pendingKeyRef ? { keyRef: pendingKeyRef } : {}),
+            });
         setDraft({ ...EMPTY_DRAFT });
       });
       // 保存失败时清掉临时 Key，避免密钥环里留下孤儿条目
@@ -214,13 +230,27 @@ export function useProviderSettings(): UseProviderSettingsResult {
       });
     },
     testDraft: async () => {
-      const headers = draft.headersText.trim().length > 0 ? (JSON.parse(draft.headersText) as Record<string, string>) : {};
-      const manualModels = draft.manualModelsText.split('\n').map((line) => line.trim()).filter(Boolean);
+      const headers =
+        draft.headersText.trim().length > 0
+          ? (JSON.parse(draft.headersText) as Record<string, string>)
+          : {};
+      const manualModels = draft.manualModelsText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
       const input = {
         ...(draft.id ? { id: draft.id } : {}),
-        name: draft.name, protocol: draft.protocol, baseUrl: draft.baseUrl, headers,
-        timeoutMs: draft.timeoutMs, supportsStream: draft.supportsStream, supportsTools: draft.supportsTools,
-        supportsVision: draft.supportsVision, enabled: draft.enabled, order: 0, manualModels,
+        name: draft.name,
+        protocol: draft.protocol,
+        baseUrl: draft.baseUrl,
+        headers,
+        timeoutMs: draft.timeoutMs,
+        supportsStream: draft.supportsStream,
+        supportsTools: draft.supportsTools,
+        supportsVision: draft.supportsVision,
+        enabled: draft.enabled,
+        order: 0,
+        manualModels,
       };
       // 表单里的 Key 只用于这一次试连：写入临时引用，用完立即丢弃
       let keyRef: string | null = null;

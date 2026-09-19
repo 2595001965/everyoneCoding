@@ -1,6 +1,6 @@
 import type { DslStorePort } from '../dsl/serialize';
 import type { PageDsl } from '../dsl/types';
-import type { HistoryStore} from './snapshot';
+import type { HistoryStore } from './snapshot';
 import { type SnapshotMeta, type SnapshotReason } from './snapshot';
 
 /**
@@ -86,7 +86,11 @@ export function createAutoSnapshotScheduler(options: AutoSnapshotOptions): AutoS
     if (files === undefined) return;
     const dsl = options.getDsl();
     if (dsl === null) return;
-    const payload = JSON.stringify({ pageId: dsl.id, snapshots: options.history.list(dsl.id) }, null, 2);
+    const payload = JSON.stringify(
+      { pageId: dsl.id, snapshots: options.history.list(dsl.id) },
+      null,
+      2,
+    );
     await files.writeAtomic(pathFor(dsl.id), payload);
   };
 
@@ -96,7 +100,12 @@ export function createAutoSnapshotScheduler(options: AutoSnapshotOptions): AutoS
     const dsl = options.getDsl();
     if (dsl === null) return null;
     lastRunAt = clock();
-    const meta = options.history.capture({ dsl, reason: 'auto', label: '定时自动快照', now: lastRunAt });
+    const meta = options.history.capture({
+      dsl,
+      reason: 'auto',
+      label: '定时自动快照',
+      now: lastRunAt,
+    });
     void persist();
     return meta;
   };

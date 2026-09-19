@@ -285,7 +285,8 @@ export function createJavaParser(port?: ExternalAstParserPort): AstParser {
           const t = tokens[j]!;
           if (t.type === 'op' && t.value.startsWith('<')) {
             let k = j;
-            while (k < tokens.length && !(tokens[k]!.type === 'op' && tokens[k]!.value === '>')) k += 1;
+            while (k < tokens.length && !(tokens[k]!.type === 'op' && tokens[k]!.value === '>'))
+              k += 1;
             j = k + 1;
             continue;
           }
@@ -346,7 +347,8 @@ export function createJavaParser(port?: ExternalAstParserPort): AstParser {
               if (last !== undefined && !importWildcard && current().level === 0) {
                 bind(last, true);
                 const k = identifierTargets.get(last);
-                if (k !== undefined) emit(k, last, tok.line, tok.col, last.length, 'import', 1.0, null);
+                if (k !== undefined)
+                  emit(k, last, tok.line, tok.col, last.length, 'import', 1.0, null);
               }
               importMode = false;
               importBuffer = [];
@@ -413,7 +415,8 @@ export function createJavaParser(port?: ExternalAstParserPort): AstParser {
             bind(w, current().level <= 1);
             if (current().level <= 1) {
               const k = identifierTargets.get(w);
-              if (k !== undefined) emit(k, w, tok.line, tok.col, w.length, 'declaration', 1.0, null);
+              if (k !== undefined)
+                emit(k, w, tok.line, tok.col, w.length, 'declaration', 1.0, null);
             }
           }
           typeKeywordMode = false;
@@ -456,7 +459,8 @@ export function createJavaParser(port?: ExternalAstParserPort): AstParser {
             bind(w, current().level <= 1);
             if (current().level <= 1) {
               const k = identifierTargets.get(w);
-              if (k !== undefined) emit(k, w, tok.line, tok.col, w.length, 'declaration', 1.0, null);
+              if (k !== undefined)
+                emit(k, w, tok.line, tok.col, w.length, 'declaration', 1.0, null);
             }
           } else {
             const k = identifierTargets.get(w);

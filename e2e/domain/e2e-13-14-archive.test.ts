@@ -22,7 +22,13 @@ import {
 } from '@ec/package-kit';
 import { runImport, type ImportJobRequest } from '@ec/package-kit';
 
-import { makeMemoryItem, makeTargetPort, makeLocalPort, buildPackage, type PackageSpec } from './import-testkit-helper';
+import {
+  makeMemoryItem,
+  makeTargetPort,
+  makeLocalPort,
+  buildPackage,
+  type PackageSpec,
+} from './import-testkit-helper';
 
 let workDir: string;
 
@@ -95,10 +101,12 @@ function createFullProjectPort(): ExportSourcePort {
     readDocument: () => ({ content: Buffer.from('# 需求文档\n内容…') }),
     listCodeFiles: () => ['src/main.ts', 'src/api/user.ts'],
     readCodeFile: (_projectId, rel) => Buffer.from(`// ${rel}\nexport const version = 1;\n`),
-    readAnchors: () => JSON.stringify([{ id: 'anc-1', symbol: 'UserController', file: 'src/api/user.ts' }]),
+    readAnchors: () =>
+      JSON.stringify([{ id: 'anc-1', symbol: 'UserController', file: 'src/api/user.ts' }]),
     listPipelineFiles: () => ['S1/需求.v1.json'],
     readPipelineFile: () => Buffer.from(JSON.stringify({ stage: 'S1', version: 1 })),
-    readRegistry: () => JSON.stringify([{ entityType: 'element', entityId: 'el-1', canonicalName: '登录按钮' }]),
+    readRegistry: () =>
+      JSON.stringify([{ entityType: 'element', entityId: 'el-1', canonicalName: '登录按钮' }]),
     listDesignPages: () => ['home.dsl.json'],
     readDesignPage: () => JSON.stringify({ pageId: 'home', elements: [] }),
     listDesignComponents: () => [],
@@ -163,7 +171,10 @@ describe('E2E-14 归档冲突合并：冲突列出且默认不覆盖', () => {
     memoryLongterm: [makeMemoryItem({ id: 'M-DUP', content: '包内新版记忆', updatedAt: 600 })],
   };
 
-  function createLocalWithConflict(): { local: ReturnType<typeof makeLocalPort>; target: ReturnType<typeof makeTargetPort> } {
+  function createLocalWithConflict(): {
+    local: ReturnType<typeof makeLocalPort>;
+    target: ReturnType<typeof makeTargetPort>;
+  } {
     // 本地已有同 id 对象（updatedAt=500，旧于包内 600 → conflicted）
     const local = makeLocalPort([
       {
@@ -172,7 +183,9 @@ describe('E2E-14 归档冲突合并：冲突列出且默认不覆盖', () => {
         projectId: null,
         name: '记忆',
         updatedAt: 500,
-        payload: JSON.stringify(makeMemoryItem({ id: 'M-DUP', content: '本地旧版记忆', updatedAt: 500 })),
+        payload: JSON.stringify(
+          makeMemoryItem({ id: 'M-DUP', content: '本地旧版记忆', updatedAt: 500 }),
+        ),
       },
     ]);
     return { local, target: makeTargetPort() };
@@ -184,10 +197,10 @@ describe('E2E-14 归档冲突合并：冲突列出且默认不覆盖', () => {
 
     // merge 模式下 conflicted 条目无决策 → runImport 抛错（E2E-14 硬约束）
     await expect(
-      runImport(
-        { packagePath: pkg, mode: 'merge', decisions: [] } satisfies ImportJobRequest,
-        { local, target: target.port },
-      ),
+      runImport({ packagePath: pkg, mode: 'merge', decisions: [] } satisfies ImportJobRequest, {
+        local,
+        target: target.port,
+      }),
     ).rejects.toThrow(/未决策的冲突条目/);
     // 目标库无写入（记忆合并走 target.memory Map）
     expect(target.memory.size).toBe(0);

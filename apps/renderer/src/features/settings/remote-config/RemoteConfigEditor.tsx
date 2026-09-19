@@ -48,26 +48,42 @@ export function RemoteConfigEditor({
       <div className="ec-ai__grid">
         <label className="ec-ai__field">
           <span>名称</span>
-          <Input value={draft.name} onChange={(value) => onChange({ name: value })} placeholder="例如：团队共享配置" />
+          <Input
+            value={draft.name}
+            onChange={(value) => onChange({ name: value })}
+            placeholder="例如：团队共享配置"
+          />
         </label>
 
         <label className="ec-ai__field">
           <span>更新频率（分钟）</span>
           <Input
             value={String(draft.updateIntervalMin)}
-            onChange={(value) => onChange({ updateIntervalMin: Number.parseInt(value, 10) || 1440 })}
+            onChange={(value) =>
+              onChange({ updateIntervalMin: Number.parseInt(value, 10) || 1440 })
+            }
           />
         </label>
 
         <label className="ec-ai__field ec-ai__field--wide">
           <span>配置地址 URL</span>
-          <Input value={draft.url} onChange={(value) => onChange({ url: value })} placeholder="https://example.com/ai-config.json" />
+          <Input
+            value={draft.url}
+            onChange={(value) => onChange({ url: value })}
+            placeholder="https://example.com/ai-config.json"
+          />
         </label>
 
         <label className="ec-ai__field ec-ai__field--wide">
           <span>Ed25519 公钥（可选，PEM 或 base64）</span>
-          <Textarea value={draft.publicKey} onChange={(value) => onChange({ publicKey: value })} placeholder="留空表示不校验签名" />
-          <em className="ec-ai__hint">一旦填写，响应必须带签名字段（x-signature 或正文 signature），否则视为拉取失败。</em>
+          <Textarea
+            value={draft.publicKey}
+            onChange={(value) => onChange({ publicKey: value })}
+            placeholder="留空表示不校验签名"
+          />
+          <em className="ec-ai__hint">
+            一旦填写，响应必须带签名字段（x-signature 或正文 signature），否则视为拉取失败。
+          </em>
         </label>
 
         <div className="ec-ai__field">

@@ -28,7 +28,9 @@ describe('安装包文件名解析版本号', () => {
   it('认 Tauri 下划线命名与 Electron 连字符命名', () => {
     expect(parseVersionFromInstallerName('EveryoneCoding_0.1.0_x64-setup.exe')).toBe('0.1.0');
     expect(parseVersionFromInstallerName('EveryoneCoding-0.2.0-x64-setup.exe')).toBe('0.2.0');
-    expect(parseVersionFromInstallerName('EveryoneCoding_1.0.0-beta.1_x64-setup.exe')).toBe('1.0.0-beta.1');
+    expect(parseVersionFromInstallerName('EveryoneCoding_1.0.0-beta.1_x64-setup.exe')).toBe(
+      '1.0.0-beta.1',
+    );
   });
 
   it('解析不出时返回 null（该文件不算候选备份）', () => {
@@ -68,18 +70,18 @@ describe('外壳更新端口（双形态共用）', () => {
     });
 
     await ports.restoreBackup(installer);
-    expect(shell.process.handles.map((handle) => ({ command: handle.command, args: handle.args }))).toEqual([
-      { command: installer, args: ['/S'] },
-    ]);
+    expect(
+      shell.process.handles.map((handle) => ({ command: handle.command, args: handle.args })),
+    ).toEqual([{ command: installer, args: ['/S'] }]);
     expect(relaunched).toBe(1);
   });
 
   it('备份文件丢失时回滚抛错（不会静默变成"回滚成功"）', async () => {
     const { shell } = await createEnv();
     const { ports } = await createShellUpdatePorts({ shell });
-    await expect(ports.restoreBackup(shell.path.join(DATA_DIR, 'nowhere', 'setup.exe'))).rejects.toThrow(
-      /找不到上一版本安装包/,
-    );
+    await expect(
+      ports.restoreBackup(shell.path.join(DATA_DIR, 'nowhere', 'setup.exe')),
+    ).rejects.toThrow(/找不到上一版本安装包/);
   });
 
   it('运行时状态可落盘再读回；坏 JSON 返回 null 不阻塞启动', async () => {
@@ -116,7 +118,11 @@ describe('外壳更新端口（双形态共用）', () => {
     await service.bootstrap();
     expect(await service.install()).toBe(true);
     // 备份路径指向"当前已安装版本"的留档安装包，不是随便一个文件
-    expect(service.currentRecord).toMatchObject({ toVersion: '0.2.0', fromVersion: '0.1.0', backupPath: installer });
+    expect(service.currentRecord).toMatchObject({
+      toVersion: '0.2.0',
+      fromVersion: '0.1.0',
+      backupPath: installer,
+    });
 
     // 新版本启动即崩：第二次启动由台账判定回滚 → 重跑留档安装包
     shell.nextUpdateInfo = null;

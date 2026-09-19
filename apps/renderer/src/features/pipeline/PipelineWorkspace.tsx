@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ImpactReport, PipelineStage, PipelineStageSnapshot, SplitModel, TechChoice } from '@ec/pipeline';
+import type {
+  ImpactReport,
+  PipelineStage,
+  PipelineStageSnapshot,
+  SplitModel,
+  TechChoice,
+} from '@ec/pipeline';
 import { STAGE_DEFS, SplitModel as SplitModelClass } from '@ec/pipeline';
 import { Button, EmptyState, Modal, Textarea } from '@ec/ui';
 
@@ -31,7 +37,11 @@ export interface PipelineWorkspaceProps {
   projectName: string;
 }
 
-export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWorkspaceProps): JSX.Element {
+export function PipelineWorkspace({
+  projectId,
+  userId,
+  projectName,
+}: PipelineWorkspaceProps): JSX.Element {
   const api = usePipelineApi();
   const [description, setDescription] = useState('');
   const [snapshot, setSnapshot] = useState<PipelineStageSnapshot>(() => api.snapshot(projectId));
@@ -67,7 +77,9 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
   /** S1 起点：输入想法 → 生成需求文档 */
   const handleGenerateS1 = useCallback(
     async (instruction?: string | undefined) => {
-      const text = (instruction !== undefined && instruction.trim().length > 0 ? instruction : description).trim();
+      const text = (
+        instruction !== undefined && instruction.trim().length > 0 ? instruction : description
+      ).trim();
       if (text.length === 0) {
         setError('请先输入想法（约 200 字）');
         return;
@@ -86,7 +98,10 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
           stage: 'S1',
           artifactType: 'requirement_doc',
           content: result.content,
-          note: instruction !== undefined && instruction.trim().length > 0 ? `追加要求：${instruction}` : '初始生成',
+          note:
+            instruction !== undefined && instruction.trim().length > 0
+              ? `追加要求：${instruction}`
+              : '初始生成',
         });
         api.submitForReview(projectId, 'S1');
         setSnapshot(api.snapshot(projectId));
@@ -107,7 +122,9 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
       }
       try {
         api.startStage(projectId, 'S3');
-        const requirement = await api.readArtifact(projectId, 'S1', api.listArtifacts(projectId, 'S1')[0]?.version ?? 1).catch(() => '');
+        const requirement = await api
+          .readArtifact(projectId, 'S1', api.listArtifacts(projectId, 'S1')[0]?.version ?? 1)
+          .catch(() => '');
         const result = await api.generateTechDoc({
           projectId,
           userId,
@@ -122,7 +139,10 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
           stage: 'S3',
           artifactType: 'tech_doc',
           content: result.content,
-          note: instruction !== undefined && instruction.trim().length > 0 ? `追加要求：${instruction}` : '初始生成',
+          note:
+            instruction !== undefined && instruction.trim().length > 0
+              ? `追加要求：${instruction}`
+              : '初始生成',
         });
         api.submitForReview(projectId, 'S3');
         setSnapshot(api.snapshot(projectId));
@@ -245,14 +265,19 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
               <Button variant="ghost" onClick={() => setRollbackTarget(null)}>
                 取消
               </Button>
-              <Button variant="danger" data-testid="rollback-confirm" onClick={handleRollbackConfirm}>
+              <Button
+                variant="danger"
+                data-testid="rollback-confirm"
+                onClick={handleRollbackConfirm}
+              >
                 确认回退到 {STAGE_DEFS[rollbackTarget].name}
               </Button>
             </>
           }
         >
           <p>
-            回退到 {STAGE_DEFS[rollbackTarget].name} 将把该阶段之后的全部产物置为「已过期」，下游需要重新生成。此操作不可撤销，请确认。
+            回退到 {STAGE_DEFS[rollbackTarget].name}{' '}
+            将把该阶段之后的全部产物置为「已过期」，下游需要重新生成。此操作不可撤销，请确认。
           </p>
         </Modal>
       )}
@@ -284,7 +309,11 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
             data-testid="idea-input"
             rows={5}
           />
-          <Button variant="primary" data-testid="idea-generate" onClick={() => void handleGenerateS1()}>
+          <Button
+            variant="primary"
+            data-testid="idea-generate"
+            onClick={() => void handleGenerateS1()}
+          >
             生成需求文档
           </Button>
         </div>
@@ -302,11 +331,22 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
             onRegenerate={() => handleRegenerate(activeView)}
           />
           <div className="ec-pipe-workspace__stage-actions">
-            <Button size="sm" variant="secondary" data-testid="stage-advance" onClick={handleAdvance} disabled={snapshot[activeView].status !== 'confirmed'}>
+            <Button
+              size="sm"
+              variant="secondary"
+              data-testid="stage-advance"
+              onClick={handleAdvance}
+              disabled={snapshot[activeView].status !== 'confirmed'}
+            >
               进入下一阶段
             </Button>
             {snapshot[activeView].status === 'awaiting_confirm' && (
-              <Button size="sm" variant="primary" data-testid="stage-confirm" onClick={() => handleConfirm(activeView)}>
+              <Button
+                size="sm"
+                variant="primary"
+                data-testid="stage-confirm"
+                onClick={() => handleConfirm(activeView)}
+              >
                 确认{STAGE_DEFS[activeView].artifactLabel}
               </Button>
             )}
@@ -320,7 +360,12 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
               {choice === null ? (
                 <div className="ec-pipe-side__empty">
                   <p>尚未完成技术选型问卷，无法进入 S3。</p>
-                  <Button size="sm" variant="primary" data-testid="open-tech-wizard" onClick={() => setWizardOpen(true)}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    data-testid="open-tech-wizard"
+                    onClick={() => setWizardOpen(true)}
+                  >
                     立即填写问卷
                   </Button>
                 </div>
@@ -330,7 +375,11 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
             </div>
           )}
           {activeView === 'S4' && splitModel !== null && (
-            <SplitEditor projectId={projectId} model={splitModel} onChange={(model) => setSplitModel(model)} />
+            <SplitEditor
+              projectId={projectId}
+              model={splitModel}
+              onChange={(model) => setSplitModel(model)}
+            />
           )}
           {activeView === 'S5' && splitModel !== null && (
             <GenerationQueuePanel
@@ -371,7 +420,9 @@ export function PipelineWorkspace({ projectId, userId, projectName }: PipelineWo
 
 function nextStageOf(stage: PipelineStage): PipelineStage | null {
   const index = STAGE_ORDER_LIST.indexOf(stage);
-  return index >= 0 && index < STAGE_ORDER_LIST.length - 1 ? (STAGE_ORDER_LIST[index + 1] as PipelineStage) : null;
+  return index >= 0 && index < STAGE_ORDER_LIST.length - 1
+    ? (STAGE_ORDER_LIST[index + 1] as PipelineStage)
+    : null;
 }
 
 function defaultChoice(): TechChoice {

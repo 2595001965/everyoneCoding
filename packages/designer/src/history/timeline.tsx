@@ -53,14 +53,31 @@ export function Timeline({
   if (snapshots.length === 0) {
     return (
       <div className={className} data-testid="timeline">
-        <EmptyState title="还没有快照" description="编辑过程中会每 5 分钟自动快照，关键操作也会立即留档。" />
+        <EmptyState
+          title="还没有快照"
+          description="编辑过程中会每 5 分钟自动快照，关键操作也会立即留档。"
+        />
       </div>
     );
   }
 
   return (
-    <div className={className} data-testid="timeline" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <ol className="ec-timeline__list" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div
+      className={className}
+      data-testid="timeline"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
+      <ol
+        className="ec-timeline__list"
+        style={{
+          listStyle: 'none',
+          margin: 0,
+          padding: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}
+      >
         {[...snapshots].reverse().map((snapshot) => (
           <li
             key={snapshot.id}
@@ -71,7 +88,10 @@ export function Timeline({
               alignItems: 'center',
               gap: 8,
               padding: '6px 8px',
-              border: snapshot.id === previewId ? '1px solid var(--ec-accent, #2f6bff)' : '1px solid #e9ecef',
+              border:
+                snapshot.id === previewId
+                  ? '1px solid var(--ec-accent, #2f6bff)'
+                  : '1px solid #e9ecef',
               borderRadius: 6,
               fontSize: 12,
             }}
@@ -84,7 +104,9 @@ export function Timeline({
             <span data-testid={`snapshot-label-${snapshot.id}`} style={{ flex: 1 }}>
               {snapshot.label ?? '（无说明）'}
             </span>
-            <span data-testid={`snapshot-changed-${snapshot.id}`}>{`变更 ${snapshot.changedElements} 个元素`}</span>
+            <span
+              data-testid={`snapshot-changed-${snapshot.id}`}
+            >{`变更 ${snapshot.changedElements} 个元素`}</span>
             <span data-testid={`snapshot-size-${snapshot.id}`}>{`${snapshot.sizeBytes} B`}</span>
             <Button size="sm" variant="ghost" onClick={() => handlePreview(snapshot.id)}>
               预览
@@ -99,12 +121,23 @@ export function Timeline({
       </ol>
 
       {previewId !== null && (
-        <section data-testid="timeline-preview" aria-label="历史版本预览（只读）" style={{ borderTop: '1px solid #e9ecef', paddingTop: 8 }}>
+        <section
+          data-testid="timeline-preview"
+          aria-label="历史版本预览（只读）"
+          style={{ borderTop: '1px solid #e9ecef', paddingTop: 8 }}
+        >
           <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <strong style={{ fontSize: 13 }}>历史版本预览（只读）</strong>
             <Tag color="info">{previewId}</Tag>
             <span style={{ flex: 1 }} />
-            <Button size="sm" variant="ghost" onClick={() => { setPreviewId(null); setPreviewDsl(null); }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setPreviewId(null);
+                setPreviewDsl(null);
+              }}
+            >
               关闭预览
             </Button>
           </header>
@@ -113,7 +146,14 @@ export function Timeline({
               该快照无法回放（数据缺失）
             </p>
           ) : (
-            <div style={{ height: previewHeight, border: '1px solid #e9ecef', borderRadius: 6, overflow: 'hidden' }}>
+            <div
+              style={{
+                height: previewHeight,
+                border: '1px solid #e9ecef',
+                borderRadius: 6,
+                overflow: 'hidden',
+              }}
+            >
               {renderPreview ? renderPreview(previewDsl) : <Canvas dsl={previewDsl} />}
             </div>
           )}

@@ -102,7 +102,8 @@ function splitKey(text: string): { key: string; rest: string } {
     return { key, rest };
   }
   const idx = text.indexOf(':');
-  if (idx >= 0) return { key: unquoteKey(text.slice(0, idx).trim()), rest: text.slice(idx + 1).trim() };
+  if (idx >= 0)
+    return { key: unquoteKey(text.slice(0, idx).trim()), rest: text.slice(idx + 1).trim() };
   return { key: unquoteKey(text.trim()), rest: '' };
 }
 
@@ -174,7 +175,9 @@ function parseFlowMap(t: string): Record<string, unknown> {
 }
 
 function asObj(v: unknown): Record<string, unknown> | null {
-  return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
 }
 
 function normalizeNodes(lines: YNode[]): YNode[] {
@@ -197,7 +200,11 @@ function normalizeNodes(lines: YNode[]): YNode[] {
   return out;
 }
 
-function parseMap(nodes: YNode[], start: number, indent: number): [Record<string, unknown>, number] {
+function parseMap(
+  nodes: YNode[],
+  start: number,
+  indent: number,
+): [Record<string, unknown>, number] {
   const obj: Record<string, unknown> = {};
   let i = start;
   const n = nodes.length;
@@ -331,7 +338,9 @@ function derefSchema(node: unknown, root: Record<string, unknown>): JsonSchemaLi
       merged = { ...merged, properties: { ...baseProps, ...outProps } };
     }
     if (Array.isArray(obj['required'])) {
-      const extra = (obj['required'] as unknown[]).filter((x): x is string => typeof x === 'string');
+      const extra = (obj['required'] as unknown[]).filter(
+        (x): x is string => typeof x === 'string',
+      );
       merged = { ...merged, required: [...(merged.required ?? []), ...extra] };
     }
     return merged;
@@ -346,7 +355,8 @@ function derefSchema(node: unknown, root: Record<string, unknown>): JsonSchemaLi
     for (const [k, v] of Object.entries(props)) outProps[k] = derefSchema(v, root);
     out.properties = outProps;
   }
-  if (typeof obj['items'] === 'object' && obj['items'] !== null) out.items = derefSchema(obj['items'], root);
+  if (typeof obj['items'] === 'object' && obj['items'] !== null)
+    out.items = derefSchema(obj['items'], root);
   if (Array.isArray(obj['required'])) {
     out.required = (obj['required'] as unknown[]).filter((x): x is string => typeof x === 'string');
   }
@@ -361,7 +371,10 @@ function derefSchema(node: unknown, root: Record<string, unknown>): JsonSchemaLi
 
 /* ----------------------------- 构建 LoadedOpenApi ----------------------------- */
 
-function extractRequestSchema(op: Record<string, unknown>, root: Record<string, unknown>): JsonSchemaLike | null {
+function extractRequestSchema(
+  op: Record<string, unknown>,
+  root: Record<string, unknown>,
+): JsonSchemaLike | null {
   const rb = asObj(op['requestBody']);
   const content = asObj(rb?.['content']);
   const json = asObj(content?.['application/json']);
@@ -370,7 +383,10 @@ function extractRequestSchema(op: Record<string, unknown>, root: Record<string, 
   return schema ? derefSchema(schema, root) : null;
 }
 
-function extractResponseSchema(op: Record<string, unknown>, root: Record<string, unknown>): JsonSchemaLike | null {
+function extractResponseSchema(
+  op: Record<string, unknown>,
+  root: Record<string, unknown>,
+): JsonSchemaLike | null {
   const responses = asObj(op['responses']);
   if (!responses) return null;
   const r = asObj(responses['200']) ?? asObj(responses['201']) ?? asObj(responses['default']);

@@ -148,7 +148,11 @@ export function scanLogic(
     }
 
     for (const binding of node.bindings ?? []) {
-      const tail = binding.split(/[.[\]]/).filter((part) => part.length > 0).pop() ?? binding;
+      const tail =
+        binding
+          .split(/[.[\]]/)
+          .filter((part) => part.length > 0)
+          .pop() ?? binding;
       const kind = symbols.get(binding) ?? symbols.get(tail);
       if (kind !== undefined || symbols.has(binding) || symbols.has(tail)) {
         const symbol = symbols.has(binding) ? binding : tail;

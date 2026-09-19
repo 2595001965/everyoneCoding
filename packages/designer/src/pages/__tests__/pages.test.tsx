@@ -7,8 +7,21 @@ import { DesignerProvider } from '../../store/designer-context';
 import { createEditorStore } from '../../store/editor-store';
 import { PageTree } from '../PageTree';
 import { RouteGraph } from '../RouteGraph';
-import { MultiPageProvider, MultiPageStore, PAGE_TEMPLATES, createPageFromTemplate } from '../page-store';
-import { buildRouteEdges, detectRouteIssues, generateRouteTable, normalizePath, parseRouteParams, patchPageEventAction, useRouteMemorySync } from '../route-table';
+import {
+  MultiPageProvider,
+  MultiPageStore,
+  PAGE_TEMPLATES,
+  createPageFromTemplate,
+} from '../page-store';
+import {
+  buildRouteEdges,
+  detectRouteIssues,
+  generateRouteTable,
+  normalizePath,
+  parseRouteParams,
+  patchPageEventAction,
+  useRouteMemorySync,
+} from '../route-table';
 
 function pagesFixture(): PageDsl[] {
   const login = createLoginPageDsl();
@@ -39,7 +52,12 @@ function pagesFixture(): PageDsl[] {
 describe('T3-07 路由表生成与冲突检测', () => {
   it('由页面 DSL 生成路由总表（路径 / 页面 / 端 / 参数）', () => {
     const entries = generateRouteTable(pagesFixture());
-    expect(entries.map((entry) => entry.path)).toEqual(['/login', '/dashboard', '/user/:id', '/home']);
+    expect(entries.map((entry) => entry.path)).toEqual([
+      '/login',
+      '/dashboard',
+      '/user/:id',
+      '/home',
+    ]);
     const detail = entries.find((entry) => entry.pageId === 'user-detail');
     expect(detail?.platform).toBe('web');
     expect(detail?.params).toEqual([{ name: 'id', type: 'string', required: true }]);
@@ -54,7 +72,15 @@ describe('T3-07 路由表生成与冲突检测', () => {
 
   it('同一端下路径重复 → DUPLICATE_PATH 并给出建议', () => {
     const pages = pagesFixture();
-    pages.push(createPageDsl({ id: 'dup', projectId: 'P1', name: '重复页', platform: 'web', route: '/login' }));
+    pages.push(
+      createPageDsl({
+        id: 'dup',
+        projectId: 'P1',
+        name: '重复页',
+        platform: 'web',
+        route: '/login',
+      }),
+    );
     const issues = detectRouteIssues(generateRouteTable(pages));
     const duplicate = issues.find((issue) => issue.code === 'DUPLICATE_PATH');
     expect(duplicate).toBeDefined();
@@ -63,16 +89,42 @@ describe('T3-07 路由表生成与冲突检测', () => {
   });
 
   it('不同端允许相同路径（互不冲突）', () => {
-    const web = createPageDsl({ id: 'w', projectId: 'P1', name: 'W', platform: 'web', route: '/home' });
-    const android = createPageDsl({ id: 'a', projectId: 'P1', name: 'A', platform: 'android', route: '/home' });
+    const web = createPageDsl({
+      id: 'w',
+      projectId: 'P1',
+      name: 'W',
+      platform: 'web',
+      route: '/home',
+    });
+    const android = createPageDsl({
+      id: 'a',
+      projectId: 'P1',
+      name: 'A',
+      platform: 'android',
+      route: '/home',
+    });
     expect(detectRouteIssues(generateRouteTable([web, android]))).toEqual([]);
   });
 
   it('非法路径与含参数未声明被检出', () => {
-    const bad = createPageDsl({ id: 'bad', projectId: 'P1', name: '非法', platform: 'web', route: '/has space' });
-    expect(detectRouteIssues(generateRouteTable([bad])).map((issue) => issue.code)).toContain('INVALID_PATH');
+    const bad = createPageDsl({
+      id: 'bad',
+      projectId: 'P1',
+      name: '非法',
+      platform: 'web',
+      route: '/has space',
+    });
+    expect(detectRouteIssues(generateRouteTable([bad])).map((issue) => issue.code)).toContain(
+      'INVALID_PATH',
+    );
 
-    const entry: RouteEntry = { path: '/user/:id', pageId: 'x', pageName: 'X', platform: 'web', params: [] };
+    const entry: RouteEntry = {
+      path: '/user/:id',
+      pageId: 'x',
+      pageName: 'X',
+      platform: 'web',
+      params: [],
+    };
     expect(detectRouteIssues([entry]).map((issue) => issue.code)).toContain('MISSING_PARAM');
   });
 });
@@ -113,7 +165,9 @@ describe('T3-07 跳转关系图', () => {
   });
 
   it('RouteGraph 渲染页面节点与跳转边（点击边可打开参数编辑）', () => {
-    const { container } = render(<RouteGraph pages={pagesFixture()} height={320} onUpdateAction={() => undefined} />);
+    const { container } = render(
+      <RouteGraph pages={pagesFixture()} height={320} onUpdateAction={() => undefined} />,
+    );
     expect(screen.getByLabelText('路由跳转关系图')).toBeInTheDocument();
     expect(container.querySelectorAll('.ec-route-graph__edge').length).toBeGreaterThan(0);
     // 页面节点文字
@@ -127,7 +181,13 @@ describe('T3-07 跳转关系图', () => {
 });
 
 describe('T3-07 路由表写入项目记忆', () => {
-  function MemorySyncHarness({ projectId, pages }: { projectId: string; pages: PageDsl[] }): JSX.Element {
+  function MemorySyncHarness({
+    projectId,
+    pages,
+  }: {
+    projectId: string;
+    pages: PageDsl[];
+  }): JSX.Element {
     useRouteMemorySync(projectId, pages);
     return <span data-testid="sync">ok</span>;
   }
@@ -144,7 +204,12 @@ describe('T3-07 路由表写入项目记忆', () => {
     expect(upsertRoutes).toHaveBeenCalledTimes(1);
     const payload = upsertRoutes.mock.calls[0]?.[0] as { projectId: string; routes: RouteEntry[] };
     expect(payload.projectId).toBe('P1');
-    expect(payload.routes.map((route) => route.path)).toEqual(['/login', '/dashboard', '/user/:id', '/home']);
+    expect(payload.routes.map((route) => route.path)).toEqual([
+      '/login',
+      '/dashboard',
+      '/user/:id',
+      '/home',
+    ]);
   });
 
   it('未注入项目记忆端口时静默跳过（不崩溃）', () => {
@@ -159,7 +224,13 @@ describe('T3-07 路由表写入项目记忆', () => {
 
 describe('T3-07 页面 CRUD 与模板复用', () => {
   it('内置 5 个页面模板', () => {
-    expect(PAGE_TEMPLATES.map((template) => template.id)).toEqual(['blank', 'login', 'list', 'detail', 'dashboard']);
+    expect(PAGE_TEMPLATES.map((template) => template.id)).toEqual([
+      'blank',
+      'login',
+      'list',
+      'detail',
+      'dashboard',
+    ]);
   });
 
   it('每个模板都能生成合法页面 DSL', () => {
@@ -211,7 +282,10 @@ describe('T3-07 页面 CRUD 与模板复用', () => {
 describe('T3-07 页面树组件', () => {
   it('按端分组展示；删除二次确认（软删除）后可恢复', () => {
     const store = new MultiPageStore({ pages: pagesFixture() });
-    const editorStore = createEditorStore({ dsl: pagesFixture()[0] as PageDsl, coalesceWindowMs: 0 });
+    const editorStore = createEditorStore({
+      dsl: pagesFixture()[0] as PageDsl,
+      coalesceWindowMs: 0,
+    });
     render(
       <DesignerProvider store={editorStore}>
         <MultiPageProvider store={store}>

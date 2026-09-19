@@ -30,7 +30,7 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
   const cycles = model.detectCycles();
   const hasCycle = cycles.length > 0;
 
-  const selectedData = selected !== null ? graph.nodeData(selected) ?? null : null;
+  const selectedData = selected !== null ? (graph.nodeData(selected) ?? null) : null;
   const isFeature = selectedData?.kind === 'feature';
   const upstream = selected !== null ? graph.dependencies(selected) : [];
 
@@ -42,7 +42,9 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
   };
 
   const toggleMerge = (id: string, checked: boolean): void => {
-    setMergeSelected((prev) => (checked ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id)));
+    setMergeSelected((prev) =>
+      checked ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id),
+    );
   };
 
   const handleAddEdge = (): void => {
@@ -85,13 +87,28 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
 
   const nodeOptions = nodeIds.map((id) => {
     const data = graph.nodeData(id);
-    return { value: id, label: `${data?.name ?? id}（${data?.kind === 'feature' ? '功能' : '页面'}）` };
+    return {
+      value: id,
+      label: `${data?.name ?? id}（${data?.kind === 'feature' ? '功能' : '页面'}）`,
+    };
   });
 
   return (
     <div className="ec-pipe-split-editor" style={{ display: 'flex', gap: 16, height: '100%' }}>
-      <div style={{ flex: '1 1 60%', minWidth: 0, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-        <SplitGraph model={model} highlightedIds={selected !== null ? [selected] : []} onNodeClick={setSelected} />
+      <div
+        style={{
+          flex: '1 1 60%',
+          minWidth: 0,
+          border: '1px solid #e5e7eb',
+          borderRadius: 8,
+          overflow: 'hidden',
+        }}
+      >
+        <SplitGraph
+          model={model}
+          highlightedIds={selected !== null ? [selected] : []}
+          onNodeClick={setSelected}
+        />
       </div>
 
       <div
@@ -105,7 +122,14 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
         }}
       >
         {hasCycle && (
-          <div style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '8px 10px' }}>
+          <div
+            style={{
+              background: '#fef2f2',
+              color: '#dc2626',
+              borderRadius: 6,
+              padding: '8px 10px',
+            }}
+          >
             <div style={{ fontWeight: 600 }}>检测到环形依赖，请删除回边：</div>
             <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
               {cycles.map((cycle, i) => (
@@ -116,7 +140,10 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
         )}
 
         <div style={{ color: '#475569', fontSize: 13 }}>
-          已选节点：<strong>{selected !== null ? (selectedData?.name ?? selected) : '（在左侧点击选择）'}</strong>
+          已选节点：
+          <strong>
+            {selected !== null ? (selectedData?.name ?? selected) : '（在左侧点击选择）'}
+          </strong>
           {selectedData !== null && `（${selectedData.kind === 'feature' ? '功能' : '页面'}）`}
         </div>
 
@@ -135,7 +162,13 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
               />
             </div>
           </div>
-          <Button variant="secondary" size="sm" style={{ marginTop: 8 }} disabled={selected === null || addEdgeTarget === ''} onClick={handleAddEdge}>
+          <Button
+            variant="secondary"
+            size="sm"
+            style={{ marginTop: 8 }}
+            disabled={selected === null || addEdgeTarget === ''}
+            onClick={handleAddEdge}
+          >
             添加依赖
           </Button>
         </fieldset>
@@ -144,9 +177,20 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
         <fieldset style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 10 }}>
           <legend style={{ fontSize: 13, fontWeight: 600 }}>删除依赖边</legend>
           {selected === null && <div style={{ fontSize: 12, color: '#9ca3af' }}>请先选择节点</div>}
-          {selected !== null && upstream.length === 0 && <div style={{ fontSize: 12, color: '#9ca3af' }}>该节点无出边</div>}
+          {selected !== null && upstream.length === 0 && (
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>该节点无出边</div>
+          )}
           {upstream.map((dep) => (
-            <div key={dep} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '2px 0' }}>
+            <div
+              key={dep}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: 13,
+                padding: '2px 0',
+              }}
+            >
               <span>{graph.nodeData(dep)?.name ?? dep}</span>
               <Button variant="ghost" size="sm" onClick={() => handleRemoveEdge(dep)}>
                 删除
@@ -158,7 +202,15 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
         {/* 合并节点 */}
         <fieldset style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 10 }}>
           <legend style={{ fontSize: 13, fontWeight: 600 }}>合并节点</legend>
-          <div style={{ maxHeight: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div
+            style={{
+              maxHeight: 120,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}
+          >
             {nodeIds.map((id) => (
               <Checkbox
                 key={id}
@@ -192,7 +244,12 @@ export function SplitEditor({ model, onChange }: SplitEditorProps): ReactElement
             仅当选中节点为「功能」时可用，拆分为两个新功能。
           </div>
           <Input value={splitA} onChange={setSplitA} placeholder="新功能一名称" />
-          <Input value={splitB} onChange={setSplitB} placeholder="新功能二名称" style={{ marginTop: 6 }} />
+          <Input
+            value={splitB}
+            onChange={setSplitB}
+            placeholder="新功能二名称"
+            style={{ marginTop: 6 }}
+          />
           <Button
             variant="secondary"
             size="sm"

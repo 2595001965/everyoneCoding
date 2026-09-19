@@ -13,10 +13,16 @@ export interface DrilldownPanelProps {
   loading: boolean;
   onClose: () => void;
   /** 点击明细行跳转到对应视图（refId 为关联对象 id） */
-  onOpenRow?: ((key: MetricDetail['key'], refId: string | undefined, label: string) => void) | undefined;
+  onOpenRow?:
+    ((key: MetricDetail['key'], refId: string | undefined, label: string) => void) | undefined;
 }
 
-export function DrilldownPanel({ detail, loading, onClose, onOpenRow }: DrilldownPanelProps): JSX.Element | null {
+export function DrilldownPanel({
+  detail,
+  loading,
+  onClose,
+  onOpenRow,
+}: DrilldownPanelProps): JSX.Element | null {
   if (!detail && !loading) return null;
 
   return (

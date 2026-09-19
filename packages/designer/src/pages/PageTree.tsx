@@ -50,10 +50,15 @@ export function PageTree({ height = 520 }: PageTreeProps): React.ReactElement {
   }, [snapshot.activePageId, snapshot.pages, editorStore]);
 
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
-  const confirmPage = confirmId ? snapshot.pages.find((p) => p.id === confirmId) ?? null : null;
+  const confirmPage = confirmId ? (snapshot.pages.find((p) => p.id === confirmId) ?? null) : null;
 
   const addPage = (platform: Platform): void => {
-    store.createPage({ id: newPageId(platform, snapshot.pages.length), projectId, platform, template: 'blank' });
+    store.createPage({
+      id: newPageId(platform, snapshot.pages.length),
+      projectId,
+      platform,
+      template: 'blank',
+    });
   };
 
   const handleUpdateAction = (
@@ -92,7 +97,10 @@ export function PageTree({ height = 520 }: PageTreeProps): React.ReactElement {
                 <header className="ec-page-group__header">
                   <span className="ec-page-group__title">{platform}</span>
                   <span className="ec-page-group__count">{pages.length}</span>
-                  <IconAddButton label={`在 ${platform} 新建页面`} onClick={() => addPage(platform)} />
+                  <IconAddButton
+                    label={`在 ${platform} 新建页面`}
+                    onClick={() => addPage(platform)}
+                  />
                 </header>
                 <div className="ec-page-group__items">
                   {pages.map((page) => (
@@ -115,7 +123,11 @@ export function PageTree({ height = 520 }: PageTreeProps): React.ReactElement {
       </div>
 
       <div className="ec-page-tree__routes" style={{ height: graphHeight }}>
-        <RouteGraph pages={snapshot.pages} height={graphHeight} onUpdateAction={handleUpdateAction} />
+        <RouteGraph
+          pages={snapshot.pages}
+          height={graphHeight}
+          onUpdateAction={handleUpdateAction}
+        />
       </div>
 
       <Modal
@@ -139,17 +151,27 @@ export function PageTree({ height = 520 }: PageTreeProps): React.ReactElement {
           </>
         }
       >
-        <p>
-          确定要删除页面「{confirmPage?.name}」吗？该操作会移入回收站，可在回收站中恢复。
-        </p>
+        <p>确定要删除页面「{confirmPage?.name}」吗？该操作会移入回收站，可在回收站中恢复。</p>
       </Modal>
     </div>
   );
 }
 
-function IconAddButton({ label, onClick }: { label: string; onClick: () => void }): React.ReactElement {
+function IconAddButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}): React.ReactElement {
   return (
-    <button type="button" className="ec-page-group__add" aria-label={label} title={label} onClick={onClick}>
+    <button
+      type="button"
+      className="ec-page-group__add"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
       ＋
     </button>
   );

@@ -2,7 +2,12 @@ import * as React from 'react';
 
 import { Checkbox, Input, Select, Textarea } from '@ec/ui';
 
-import { groupFields, visibleFields, type PropField, type PropSchema } from '../registry/prop-schema';
+import {
+  groupFields,
+  visibleFields,
+  type PropField,
+  type PropSchema,
+} from '../registry/prop-schema';
 
 /**
  * SchemaForm：据组件属性 JSON Schema **自动生成表单**（T3-05 要点 1）。
@@ -40,7 +45,9 @@ function useDebouncedText(
   commit: (value: string) => void,
   delay: number,
 ): [string, (next: string) => void] {
-  const [local, setLocal] = React.useState(() => (external === undefined || external === null ? '' : String(external)));
+  const [local, setLocal] = React.useState(() =>
+    external === undefined || external === null ? '' : String(external),
+  );
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touched = React.useRef(false);
 
@@ -135,7 +142,10 @@ export function SchemaForm({
               {group}
             </button>
             {!isCollapsed && (
-              <div className="ec-schema-form__fields" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div
+                className="ec-schema-form__fields"
+                style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+              >
                 {fields.map((field) => (
                   <PropFieldControl
                     key={field.key}
@@ -156,7 +166,16 @@ export function SchemaForm({
 }
 
 /** 文本类字段类型（走防抖 + 本地回显） */
-const DEBOUNCED_TYPES: ReadonlySet<PropField['type']> = new Set(['text', 'textarea', 'size', 'spacing', 'shadow', 'border', 'image', 'color']);
+const DEBOUNCED_TYPES: ReadonlySet<PropField['type']> = new Set([
+  'text',
+  'textarea',
+  'size',
+  'spacing',
+  'shadow',
+  'border',
+  'image',
+  'color',
+]);
 
 export interface PropFieldControlProps {
   field: PropField;
@@ -167,12 +186,25 @@ export interface PropFieldControlProps {
 }
 
 /** 单个字段控件：按 `PropFieldType` 分派（导出便于单测覆盖全部控件类型） */
-export function PropFieldControl({ field, value, disabled, onChange, debounceMs = DEFAULT_DEBOUNCE_MS }: PropFieldControlProps): React.ReactElement {
-  const label = field.unit !== undefined && field.unit.length > 0 ? `${field.label}（${field.unit}）` : field.label;
+export function PropFieldControl({
+  field,
+  value,
+  disabled,
+  onChange,
+  debounceMs = DEFAULT_DEBOUNCE_MS,
+}: PropFieldControlProps): React.ReactElement {
+  const label =
+    field.unit !== undefined && field.unit.length > 0
+      ? `${field.label}（${field.unit}）`
+      : field.label;
   const debounced = DEBOUNCED_TYPES.has(field.type);
   const rawValue = value === undefined || value === null ? '' : String(value);
   const commit = React.useCallback((next: string) => onChange(next), [onChange]);
-  const [local, setLocal] = useDebouncedText(debounced ? value : '', commit, debounced ? debounceMs : 0);
+  const [local, setLocal] = useDebouncedText(
+    debounced ? value : '',
+    commit,
+    debounced ? debounceMs : 0,
+  );
 
   const textLike = (rows?: number): React.ReactElement => {
     const shared = {
@@ -201,7 +233,12 @@ export function PropFieldControl({ field, value, disabled, onChange, debounceMs 
     case 'boolean':
       return (
         <FieldShell field={field} label={label}>
-          <Checkbox aria-label={label} checked={Boolean(value)} disabled={disabled} onChange={(checked) => onChange(checked)} />
+          <Checkbox
+            aria-label={label}
+            checked={Boolean(value)}
+            disabled={disabled}
+            onChange={(checked) => onChange(checked)}
+          />
         </FieldShell>
       );
     case 'enum':
@@ -210,7 +247,10 @@ export function PropFieldControl({ field, value, disabled, onChange, debounceMs 
           <Select
             aria-label={label}
             value={rawValue}
-            options={(field.options ?? []).map((option) => ({ label: option.label, value: option.value }))}
+            options={(field.options ?? []).map((option) => ({
+              label: option.label,
+              value: option.value,
+            }))}
             disabled={disabled}
             onChange={(next) => onChange(next)}
           />
@@ -239,11 +279,23 @@ export function PropFieldControl({ field, value, disabled, onChange, debounceMs 
       );
     case 'options':
     case 'columns':
-      return <FieldShell field={field} label={label}>{textLike(4)}</FieldShell>;
+      return (
+        <FieldShell field={field} label={label}>
+          {textLike(4)}
+        </FieldShell>
+      );
     case 'textarea':
-      return <FieldShell field={field} label={label}>{textLike(3)}</FieldShell>;
+      return (
+        <FieldShell field={field} label={label}>
+          {textLike(3)}
+        </FieldShell>
+      );
     default:
-      return <FieldShell field={field} label={label}>{textLike()}</FieldShell>;
+      return (
+        <FieldShell field={field} label={label}>
+          {textLike()}
+        </FieldShell>
+      );
   }
 }
 
@@ -259,7 +311,9 @@ function JsonField({
   disabled: boolean;
   onChange: (value: unknown) => void;
 }): React.ReactElement {
-  const [raw, setRaw] = React.useState(() => (value === undefined ? '' : JSON.stringify(value, null, 2)));
+  const [raw, setRaw] = React.useState(() =>
+    value === undefined ? '' : JSON.stringify(value, null, 2),
+  );
   const [error, setError] = React.useState<string | null>(null);
   const focused = React.useRef(false);
 

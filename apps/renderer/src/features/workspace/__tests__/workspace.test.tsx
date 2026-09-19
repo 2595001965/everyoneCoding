@@ -7,8 +7,16 @@ import { NewProjectDialog } from '../NewProjectDialog';
 import { ProjectSettings } from '../ProjectSettings';
 import { RecycleBin } from '../RecycleBin';
 import { WorkspaceHome, GRID_WINDOW_SIZE } from '../WorkspaceHome';
-import { WorkspaceApiProvider, type WorkspaceApi, type WorkspaceImportProgress } from '../workspace-api';
-import { buildTargetsPayload, onTargetsChanged, type TargetsChangedPayload } from '../workspace-events';
+import {
+  WorkspaceApiProvider,
+  type WorkspaceApi,
+  type WorkspaceImportProgress,
+} from '../workspace-api';
+import {
+  buildTargetsPayload,
+  onTargetsChanged,
+  type TargetsChangedPayload,
+} from '../workspace-events';
 import { createFakeWorkspace, seedProjects, type FakeWorkspaceEnvironment } from './fake-workspace';
 import { normalizeTiming, reportTiming } from './perf-probe';
 
@@ -179,8 +187,12 @@ describe('新建项目四类来源（FR-WSP-02）', () => {
   it('Git 来源：克隆 + 类型识别后落目标端与技术栈指纹', async () => {
     const { onCreated } = renderDialog();
     fireEvent.click(screen.getByRole('tab', { name: '从 Git 仓库' }));
-    fireEvent.change(screen.getByLabelText('Git 仓库地址'), { target: { value: 'https://example.com/mobile.git' } });
-    fireEvent.change(screen.getByLabelText('克隆目录'), { target: { value: 'D:/projects/mobile' } });
+    fireEvent.change(screen.getByLabelText('Git 仓库地址'), {
+      target: { value: 'https://example.com/mobile.git' },
+    });
+    fireEvent.change(screen.getByLabelText('克隆目录'), {
+      target: { value: 'D:/projects/mobile' },
+    });
     fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
@@ -219,8 +231,12 @@ describe('新建项目四类来源（FR-WSP-02）', () => {
     );
 
     fireEvent.click(screen.getByRole('tab', { name: '从 Git 仓库' }));
-    fireEvent.change(screen.getByLabelText('Git 仓库地址'), { target: { value: 'https://example.com/mobile.git' } });
-    fireEvent.change(screen.getByLabelText('克隆目录'), { target: { value: 'D:/projects/mobile' } });
+    fireEvent.change(screen.getByLabelText('Git 仓库地址'), {
+      target: { value: 'https://example.com/mobile.git' },
+    });
+    fireEvent.change(screen.getByLabelText('克隆目录'), {
+      target: { value: 'D:/projects/mobile' },
+    });
     fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
 
     await waitFor(() => expect(report).not.toBeNull());
@@ -248,11 +264,13 @@ describe('新建项目四类来源（FR-WSP-02）', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
-  it('文档来源：解析预览显示功能清单，创建后落功能与页面', async () => {    renderDialog();
+  it('文档来源：解析预览显示功能清单，创建后落功能与页面', async () => {
+    renderDialog();
     fireEvent.click(screen.getByRole('tab', { name: '从需求文档' }));
     fireEvent.change(screen.getByLabelText('需求文档内容'), {
       target: {
-        value: '# 课程平台\n\n## 功能\n- 课程管理：支持上下架\n- 学习进度：支持续播\n\n## 页面清单\n- 首页 /home\n',
+        value:
+          '# 课程平台\n\n## 功能\n- 课程管理：支持上下架\n- 学习进度：支持续播\n\n## 页面清单\n- 首页 /home\n',
       },
     });
     fireEvent.click(screen.getByRole('button', { name: '解析文档' }));
@@ -351,7 +369,11 @@ describe('项目设置与目标端联动（FR-WSP-03）', () => {
     // 画布预设与设计器预设一致（联动口径可核对）
     const webPreset = defaultPresetFor('web');
     const expectWeb = canvasSizeOf(webPreset);
-    expect(payload.canvasPresets[0]).toMatchObject({ presetId: webPreset.id, width: expectWeb.width, height: expectWeb.height });
+    expect(payload.canvasPresets[0]).toMatchObject({
+      presetId: webPreset.id,
+      width: expectWeb.width,
+      height: expectWeb.height,
+    });
     expect(payload.canvasPresets[1]!.presetId).toBe(defaultPresetFor('android').id);
     expect(payload.componentGroups.length).toBeGreaterThan(0);
     // 事件总线也确实广播了（设计器工作区据此切换）
@@ -361,7 +383,10 @@ describe('项目设置与目标端联动（FR-WSP-03）', () => {
     // 落库校验
     const row = env.store.rows.get(project.id)!;
     expect(JSON.parse(row.target_platforms)).toEqual(['web', 'android']);
-    expect(JSON.parse(row.tech_stack_fingerprint ?? '{}')).toMatchObject({ web: 'react', android: 'flutter' });
+    expect(JSON.parse(row.tech_stack_fingerprint ?? '{}')).toMatchObject({
+      web: 'react',
+      android: 'flutter',
+    });
     unsubscribe();
   });
 
@@ -390,7 +415,15 @@ describe('项目设置与目标端联动（FR-WSP-03）', () => {
   });
 
   it('buildTargetsPayload 对七端都给出画布预设（与设计器预设逐端对齐）', () => {
-    const payload = buildTargetsPayload('p-1', ['web', 'android', 'ios', 'harmonyos', 'windows', 'linux', 'macos']);
+    const payload = buildTargetsPayload('p-1', [
+      'web',
+      'android',
+      'ios',
+      'harmonyos',
+      'windows',
+      'linux',
+      'macos',
+    ]);
     expect(payload.canvasPresets).toHaveLength(7);
     for (const preset of payload.canvasPresets) {
       expect(preset.presetId).toBe(defaultPresetFor(preset.platform).id);

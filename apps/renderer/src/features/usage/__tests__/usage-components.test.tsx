@@ -16,9 +16,42 @@ import type { UsageApi, UsageReportRow } from '../usage-api';
 
 function fakeRows(): UsageReportRow[] {
   return [
-    { providerId: 'prov-1', modelId: 'gpt-a', projectId: 'p1', purpose: 'generate', promptTokens: 1000, completionTokens: 500, totalTokens: 1500, cost: 0.02, latencyMs: 900, createdAt: 1 },
-    { providerId: 'prov-1', modelId: 'gpt-a', projectId: 'p1', purpose: 'chat', promptTokens: 200, completionTokens: 100, totalTokens: 300, cost: 0.01, latencyMs: 700, createdAt: 2 },
-    { providerId: 'prov-2', modelId: 'claude-b', projectId: 'p2', purpose: 'generate', promptTokens: 800, completionTokens: 400, totalTokens: 1200, cost: null, latencyMs: null, createdAt: 3 },
+    {
+      providerId: 'prov-1',
+      modelId: 'gpt-a',
+      projectId: 'p1',
+      purpose: 'generate',
+      promptTokens: 1000,
+      completionTokens: 500,
+      totalTokens: 1500,
+      cost: 0.02,
+      latencyMs: 900,
+      createdAt: 1,
+    },
+    {
+      providerId: 'prov-1',
+      modelId: 'gpt-a',
+      projectId: 'p1',
+      purpose: 'chat',
+      promptTokens: 200,
+      completionTokens: 100,
+      totalTokens: 300,
+      cost: 0.01,
+      latencyMs: 700,
+      createdAt: 2,
+    },
+    {
+      providerId: 'prov-2',
+      modelId: 'claude-b',
+      projectId: 'p2',
+      purpose: 'generate',
+      promptTokens: 800,
+      completionTokens: 400,
+      totalTokens: 1200,
+      cost: null,
+      latencyMs: null,
+      createdAt: 3,
+    },
   ];
 }
 
@@ -64,7 +97,10 @@ describe('UsageDashboard', () => {
   });
 
   it('切换到项目视图只显示该项目的记录', async () => {
-    renderDashboard(createFakeUsageApi(), [{ id: 'p1', name: '课程平台' }, { id: 'p2', name: '电商后台' }]);
+    renderDashboard(createFakeUsageApi(), [
+      { id: 'p1', name: '课程平台' },
+      { id: 'p2', name: '电商后台' },
+    ]);
     await waitFor(() => expect(screen.getByText('gpt-a')).toBeTruthy());
     fireEvent.click(screen.getByRole('tab', { name: '项目视图' }));
     await waitFor(() => expect(screen.getByLabelText('选择项目')).toBeTruthy());
@@ -85,9 +121,19 @@ describe('UsageDashboard', () => {
   it('导出 CSV 触发下载', async () => {
     const createObjectURL = vi.fn(() => 'blob:mock');
     const revokeObjectURL = vi.fn();
-    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true, writable: true });
-    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true, writable: true });
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: createObjectURL,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: revokeObjectURL,
+      configurable: true,
+      writable: true,
+    });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
 
     renderDashboard(createFakeUsageApi());
     await waitFor(() => expect(screen.getByText('gpt-a')).toBeTruthy());
@@ -148,7 +194,9 @@ describe('BudgetSettings', () => {
     const monthly = await screen.findByLabelText('月预算');
     fireEvent.change(monthly, { target: { value: '100' } });
     fireEvent.click(screen.getByRole('button', { name: '保存预算' }));
-    await waitFor(() => expect(setBudget).toHaveBeenCalledWith({ dailyUsd: null, monthlyUsd: 100, alertRatio: 0.8 }));
+    await waitFor(() =>
+      expect(setBudget).toHaveBeenCalledWith({ dailyUsd: null, monthlyUsd: 100, alertRatio: 0.8 }),
+    );
     expect(await screen.findByText('已保存')).toBeTruthy();
   });
 

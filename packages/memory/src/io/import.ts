@@ -1,4 +1,9 @@
-import type { MemoryItem, MemoryStatus, MemorySourceType, IssueStatus } from '../domain/memory-item';
+import type {
+  MemoryItem,
+  MemoryStatus,
+  MemorySourceType,
+  IssueStatus,
+} from '../domain/memory-item';
 import type { MemoryScope } from '../domain/scope';
 import { parseExportJson } from './export-json';
 
@@ -49,7 +54,9 @@ export interface ParseResult {
  * 领域不变量校验——测试只比对 structured / tags / title / content / importance /
  * confidence / sourceRef 等往返关键字段即可。
  */
-export function parseMarkdownFiles(files: readonly { path: string; content: string }[]): ParseResult {
+export function parseMarkdownFiles(
+  files: readonly { path: string; content: string }[],
+): ParseResult {
   const items: MemoryItem[] = [];
   const skipped: ParseResult['skipped'] = [];
 
@@ -59,7 +66,10 @@ export function parseMarkdownFiles(files: readonly { path: string; content: stri
       if (item) items.push(item);
       else skipped.push({ path: file.path, reason: '缺少合法 front-matter 或必需字段' });
     } catch (error) {
-      skipped.push({ path: file.path, reason: error instanceof Error ? error.message : String(error) });
+      skipped.push({
+        path: file.path,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -166,7 +176,10 @@ function parseScalar(raw: string): unknown {
   return text;
 }
 
-function extractBodyAndStructured(bodyRaw: string): { body: string; structured: Record<string, unknown> | null } {
+function extractBodyAndStructured(bodyRaw: string): {
+  body: string;
+  structured: Record<string, unknown> | null;
+} {
   const markerIndex = bodyRaw.indexOf('<details><summary>structured</summary>');
   if (markerIndex === -1) {
     return { body: stripLeadingNewline(bodyRaw), structured: null };
@@ -180,7 +193,10 @@ function extractBodyAndStructured(bodyRaw: string): { body: string; structured: 
     const jsonText = after.slice(jsonStart + 7, fenceEnd).trim();
     try {
       const parsed: unknown = JSON.parse(jsonText);
-      structured = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+      structured =
+        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? (parsed as Record<string, unknown>)
+          : null;
     } catch {
       structured = null;
     }
@@ -232,7 +248,10 @@ export interface ImportPreview {
  *
  * **默认不覆盖本地**：`conflicted` 需要用户逐条决策，本函数不写库。
  */
-export function classifyImport(incoming: readonly MemoryItem[], local: readonly MemoryItem[]): ImportPreview {
+export function classifyImport(
+  incoming: readonly MemoryItem[],
+  local: readonly MemoryItem[],
+): ImportPreview {
   const localById = new Map(local.map((item) => [item.id, item]));
   const incomingIds = new Set(incoming.map((item) => item.id));
 
@@ -281,7 +300,10 @@ export function readImport(source: ImportSource): ParseResult {
         return { items: envelope.items, skipped: [] };
       } catch (error) {
         if (error instanceof MemoryImportError) throw error;
-        throw new MemoryImportError('PARSE', error instanceof Error ? error.message : String(error));
+        throw new MemoryImportError(
+          'PARSE',
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
     case 'jsonl': {
@@ -294,7 +316,10 @@ export function readImport(source: ImportSource): ParseResult {
         try {
           items.push(JSON.parse(trimmed) as MemoryItem);
         } catch (error) {
-          skipped.push({ path: `line:${index + 1}`, reason: error instanceof Error ? error.message : String(error) });
+          skipped.push({
+            path: `line:${index + 1}`,
+            reason: error instanceof Error ? error.message : String(error),
+          });
         }
       });
       return { items, skipped };

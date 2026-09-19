@@ -50,7 +50,11 @@ function projectWithSecrets(): FakeProject {
   };
 }
 
-const PLAINTEXT_MARKERS = ['sk-abcdefghijklmnopqrstuvwxyz012345', 'hunter2-password', 'supersecret'];
+const PLAINTEXT_MARKERS = [
+  'sk-abcdefghijklmnopqrstuvwxyz012345',
+  'hunter2-password',
+  'supersecret',
+];
 
 function packageTextBlob(reader: EcpkgReader): string {
   return reader
@@ -68,7 +72,15 @@ describe('导出脱敏（FR-PKG-07）', () => {
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: fullMem(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: fullMem(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: true,
       useDefaultExcludes: false,
@@ -98,7 +110,15 @@ describe('导出脱敏（FR-PKG-07）', () => {
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: fullMem(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: fullMem(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: false,
       useDefaultExcludes: false,
@@ -126,7 +146,15 @@ describe('导出脱敏（FR-PKG-07）', () => {
       selection: {
         scope: 'all',
         projectIds: [],
-        content: { memory: fullMem(), documents: false, code: true, pipeline: false, anchors: false, registry: false, attachments: false },
+        content: {
+          memory: fullMem(),
+          documents: false,
+          code: true,
+          pipeline: false,
+          anchors: false,
+          registry: false,
+          attachments: false,
+        },
       },
       redact: true,
       useDefaultExcludes: false,

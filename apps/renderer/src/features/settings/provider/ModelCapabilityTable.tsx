@@ -68,10 +68,15 @@ export function ModelCapabilityTable({
                   </th>
                   <td>
                     <Input
-                      value={row.capability.contextWindow === null ? '' : String(row.capability.contextWindow)}
+                      value={
+                        row.capability.contextWindow === null
+                          ? ''
+                          : String(row.capability.contextWindow)
+                      }
                       onChange={(value) =>
                         onPatch(row.id, {
-                          contextWindow: value.trim().length === 0 ? null : Number.parseInt(value, 10) || null,
+                          contextWindow:
+                            value.trim().length === 0 ? null : Number.parseInt(value, 10) || null,
                         })
                       }
                     />
@@ -92,20 +97,30 @@ export function ModelCapabilityTable({
                   </td>
                   <td>
                     <Input
-                      value={row.capability.inputPricePerMTok === null ? '' : String(row.capability.inputPricePerMTok)}
+                      value={
+                        row.capability.inputPricePerMTok === null
+                          ? ''
+                          : String(row.capability.inputPricePerMTok)
+                      }
                       onChange={(value) =>
                         onPatch(row.id, {
-                          inputPricePerMTok: value.trim().length === 0 ? null : Number.parseFloat(value) || null,
+                          inputPricePerMTok:
+                            value.trim().length === 0 ? null : Number.parseFloat(value) || null,
                         })
                       }
                     />
                   </td>
                   <td>
                     <Input
-                      value={row.capability.outputPricePerMTok === null ? '' : String(row.capability.outputPricePerMTok)}
+                      value={
+                        row.capability.outputPricePerMTok === null
+                          ? ''
+                          : String(row.capability.outputPricePerMTok)
+                      }
                       onChange={(value) =>
                         onPatch(row.id, {
-                          outputPricePerMTok: value.trim().length === 0 ? null : Number.parseFloat(value) || null,
+                          outputPricePerMTok:
+                            value.trim().length === 0 ? null : Number.parseFloat(value) || null,
                         })
                       }
                     />
@@ -120,7 +135,13 @@ export function ModelCapabilityTable({
   );
 }
 
-function ManualModelInput({ onAdd, disabled }: { onAdd(name: string): void; disabled?: boolean }): JSX.Element {
+function ManualModelInput({
+  onAdd,
+  disabled,
+}: {
+  onAdd(name: string): void;
+  disabled?: boolean;
+}): JSX.Element {
   const [name, setName] = useState('');
 
   const submit = (): void => {
@@ -141,7 +162,12 @@ function ManualModelInput({ onAdd, disabled }: { onAdd(name: string): void; disa
           if (event.key === 'Enter') submit();
         }}
       />
-      <Button size="sm" variant="secondary" onClick={submit} disabled={disabled || name.trim().length === 0}>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={submit}
+        disabled={disabled || name.trim().length === 0}
+      >
         添加
       </Button>
     </span>

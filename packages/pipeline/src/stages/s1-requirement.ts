@@ -49,7 +49,11 @@ export interface RequirementMemoryPort {
   /** 长期记忆偏好与禁止事项 */
   getPreferences(userId: string): Promise<{ preferences: string[]; forbidden: string[] }>;
   /** 相似项目检索（取 topN 项目记忆摘要） */
-  findSimilarProjects(userId: string, description: string, limit: number): Promise<SimilarProjectSummary[]>;
+  findSimilarProjects(
+    userId: string,
+    description: string,
+    limit: number,
+  ): Promise<SimilarProjectSummary[]>;
 }
 
 /** 文档入档端口（外壳装配文档服务 / @ec/data document 表） */
@@ -64,14 +68,21 @@ export interface DocumentArchivePort {
     note?: string | undefined;
   }): Promise<{ documentId: string; version: number }>;
   /** 关联记忆与文档 */
-  linkMemory(input: { documentId: string; memoryId: string; linkType: 'derived_from' | 'related' }): Promise<void>;
+  linkMemory(input: {
+    documentId: string;
+    memoryId: string;
+    linkType: 'derived_from' | 'related';
+  }): Promise<void>;
   /** 查询某项目某类文档的最新版本（未有过返回 0） */
   latestVersion(projectId: string, kind: 'requirement' | 'techdoc'): Promise<number>;
 }
 
 /** 单次模型调用端口（外壳适配 @ec/ai Generator：rawText=true 返回完整文本） */
 export interface StageGenerationPort {
-  generate(prompt: { system: string; user: string }): Promise<{ content: string; degraded: boolean }>;
+  generate(prompt: {
+    system: string;
+    user: string;
+  }): Promise<{ content: string; degraded: boolean }>;
 }
 
 export interface S1RequirementDeps {
@@ -95,7 +106,11 @@ export class S1RequirementStage {
    */
   async generate(input: StageGenerateRequest): Promise<RequirementGenerationResult> {
     const { preferences, forbidden } = await this.deps.memory.getPreferences(input.userId);
-    const similarProjects = await this.deps.memory.findSimilarProjects(input.userId, input.description, 3);
+    const similarProjects = await this.deps.memory.findSimilarProjects(
+      input.userId,
+      input.description,
+      3,
+    );
 
     const prompt = buildRequirementPrompt({
       projectName: input.projectName,
@@ -103,7 +118,9 @@ export class S1RequirementStage {
       preferences,
       forbidden,
       similarProjects,
-      ...(input.instruction !== undefined && input.instruction.trim().length > 0 ? { instruction: input.instruction } : {}),
+      ...(input.instruction !== undefined && input.instruction.trim().length > 0
+        ? { instruction: input.instruction }
+        : {}),
     });
 
     const { content, degraded } = await this.deps.generate.generate(prompt);
@@ -119,7 +136,10 @@ export class S1RequirementStage {
       kind: 'requirement',
       content,
       version,
-      note: input.instruction !== undefined && input.instruction.trim().length > 0 ? `追加要求：${input.instruction.trim()}` : '初始生成',
+      note:
+        input.instruction !== undefined && input.instruction.trim().length > 0
+          ? `追加要求：${input.instruction.trim()}`
+          : '初始生成',
     });
 
     // 关联记忆（偏好 / 禁止事项 / 相似项目所属记忆；无 id 可关联时跳过）
@@ -133,7 +153,11 @@ export class S1RequirementStage {
   }
 
   /** 记忆 id 收集：偏好 / 禁止事项条目中带 (id:xxx) 后缀的；相似项目按 projectId 组装 */
-  private collectMemoryIds(preferences: string[], forbidden: string[], similar: SimilarProjectSummary[]): string[] {
+  private collectMemoryIds(
+    preferences: string[],
+    forbidden: string[],
+    similar: SimilarProjectSummary[],
+  ): string[] {
     const ids: string[] = [];
     const push = (text: string): void => {
       const match = /\(id:\s*([A-Za-z0-9_-]+)\)/.exec(text);

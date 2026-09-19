@@ -15,7 +15,8 @@ import { componentRegistry, type ComponentRegistry } from '../registry/component
  * 4. 生成结果落到画布后**仍可自由编辑**（本函数只做校验与规整，不改动合法结构）。
  */
 
-export type AiDslIssueKind = 'unknown-component' | 'depth-trimmed' | 'invalid-structure' | 'auto-filled';
+export type AiDslIssueKind =
+  'unknown-component' | 'depth-trimmed' | 'invalid-structure' | 'auto-filled';
 
 export interface AiDslIssue {
   kind: AiDslIssueKind;
@@ -67,7 +68,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** 推断 AI 返回的原始形态：既支持完整 PageDsl，也支持「裸树」片段 */
-export function normalizeCandidate(candidate: unknown, context: DslFromAiContext): Record<string, unknown> | null {
+export function normalizeCandidate(
+  candidate: unknown,
+  context: DslFromAiContext,
+): Record<string, unknown> | null {
   if (!isRecord(candidate)) return null;
   // 兼容 { page: {...} } 信封
   if (isRecord(candidate['page'])) return normalizeCandidate(candidate['page'], context);
@@ -83,7 +87,8 @@ export function normalizeCandidate(candidate: unknown, context: DslFromAiContext
 
   const normalized: Record<string, unknown> = {
     id: typeof candidate['id'] === 'string' ? candidate['id'] : context.id,
-    projectId: typeof candidate['projectId'] === 'string' ? candidate['projectId'] : context.projectId,
+    projectId:
+      typeof candidate['projectId'] === 'string' ? candidate['projectId'] : context.projectId,
     name: typeof candidate['name'] === 'string' ? candidate['name'] : context.name,
     platform: typeof candidate['platform'] === 'string' ? candidate['platform'] : context.platform,
     route: typeof candidate['route'] === 'string' ? candidate['route'] : context.route,
@@ -98,7 +103,8 @@ export function normalizeCandidate(candidate: unknown, context: DslFromAiContext
   normalized['viewport'] = isRecord(candidate['viewport'])
     ? candidate['viewport']
     : defaultViewportFor(
-        typeof candidate['platform'] === 'string' && (PLATFORMS as readonly string[]).includes(candidate['platform'])
+        typeof candidate['platform'] === 'string' &&
+          (PLATFORMS as readonly string[]).includes(candidate['platform'])
           ? (candidate['platform'] as Platform)
           : context.platform,
       );
@@ -119,14 +125,23 @@ function sanitizeTree(
   let type = rawType;
   if (allowedTypes !== null && !allowedTypes.has(rawType)) {
     if (context.degradeUnknownComponents === false) {
-      issues.push({ kind: 'unknown-component', message: `未知组件类型「${rawType}」，已跳过该节点` });
+      issues.push({
+        kind: 'unknown-component',
+        message: `未知组件类型「${rawType}」，已跳过该节点`,
+      });
       return null;
     }
     type = 'Container';
-    issues.push({ kind: 'unknown-component', message: `未知组件类型「${rawType}」已降级为容器（Container）` });
+    issues.push({
+      kind: 'unknown-component',
+      message: `未知组件类型「${rawType}」已降级为容器（Container）`,
+    });
   }
 
-  const id = typeof node['id'] === 'string' && node['id'].length > 0 ? node['id'] : `el-${Math.random().toString(36).slice(2, 8)}`;
+  const id =
+    typeof node['id'] === 'string' && node['id'].length > 0
+      ? node['id']
+      : `el-${Math.random().toString(36).slice(2, 8)}`;
   const element: ElementNode = { id, type };
   if (typeof node['name'] === 'string') element.name = node['name'];
   if (isRecord(node['props'])) element.props = node['props'];
@@ -168,7 +183,11 @@ export function dslFromAi(candidate: unknown, context: DslFromAiContext): AiDslR
   const issues: AiDslIssue[] = [];
 
   if (candidate === null || candidate === undefined) {
-    return { dsl: null, issues: [{ kind: 'invalid-structure', message: '模型返回内容为空或不是合法 JSON' }], degraded: false };
+    return {
+      dsl: null,
+      issues: [{ kind: 'invalid-structure', message: '模型返回内容为空或不是合法 JSON' }],
+      degraded: false,
+    };
   }
 
   const registry = context.registry ?? componentRegistry;
@@ -177,19 +196,30 @@ export function dslFromAi(candidate: unknown, context: DslFromAiContext): AiDslR
 
   const normalized = normalizeCandidate(candidate, context);
   if (normalized === null) {
-    return { dsl: null, issues: [{ kind: 'invalid-structure', message: '模型返回结构不可识别' }], degraded: false };
+    return {
+      dsl: null,
+      issues: [{ kind: 'invalid-structure', message: '模型返回结构不可识别' }],
+      degraded: false,
+    };
   }
 
   const tree = sanitizeTree(normalized['tree'], context, issues, allowedTypes, 0);
   if (tree === null) {
-    return { dsl: null, issues: [...issues, { kind: 'invalid-structure', message: '组件树为空，无法落地' }], degraded: false };
+    return {
+      dsl: null,
+      issues: [...issues, { kind: 'invalid-structure', message: '组件树为空，无法落地' }],
+      degraded: false,
+    };
   }
 
   const platform = normalized['platform'];
   const page = {
     ...normalized,
     tree,
-    platform: typeof platform === 'string' && (PLATFORMS as readonly string[]).includes(platform) ? platform : context.platform,
+    platform:
+      typeof platform === 'string' && (PLATFORMS as readonly string[]).includes(platform)
+        ? platform
+        : context.platform,
   };
 
   const validation = validatePageDsl(page);
@@ -198,7 +228,10 @@ export function dslFromAi(candidate: unknown, context: DslFromAiContext): AiDslR
       dsl: null,
       issues: [
         ...issues,
-        { kind: 'invalid-structure', message: `结构校验未通过：${validation.issues.slice(0, 5).join('；')}` },
+        {
+          kind: 'invalid-structure',
+          message: `结构校验未通过：${validation.issues.slice(0, 5).join('；')}`,
+        },
       ],
       degraded: false,
     };
@@ -207,7 +240,9 @@ export function dslFromAi(candidate: unknown, context: DslFromAiContext): AiDslR
   return {
     dsl: validation.value,
     issues,
-    degraded: issues.some((issue) => issue.kind === 'unknown-component' || issue.kind === 'depth-trimmed'),
+    degraded: issues.some(
+      (issue) => issue.kind === 'unknown-component' || issue.kind === 'depth-trimmed',
+    ),
   };
 }
 

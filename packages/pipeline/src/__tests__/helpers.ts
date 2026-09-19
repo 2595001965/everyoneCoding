@@ -75,7 +75,10 @@ export function seedGraph(db: Database.Database): void {
 }
 
 export function migrationsDir(): string {
-  return new URL('../../../data/migrations', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  return new URL('../../../data/migrations', import.meta.url).pathname.replace(
+    /^\/([A-Za-z]:)/,
+    '$1',
+  );
 }
 
 export function createFixture(): Fixture {
@@ -103,7 +106,11 @@ export function createFixture(): Fixture {
   const snapshotDir = 'snapshots';
   const crash = new CrashRecovery({
     shell: {
-      path: { join: (...parts: string[]) => parts.join('/'), sep: '/', resolve: (...parts: string[]) => parts.join('/') },
+      path: {
+        join: (...parts: string[]) => parts.join('/'),
+        sep: '/',
+        resolve: (...parts: string[]) => parts.join('/'),
+      },
       fs: {
         async exists(path: string) {
           return fs.exists(path);
@@ -112,7 +119,10 @@ export function createFixture(): Fixture {
           return (await fs.readText(path)) ?? '';
         },
         async writeAtomic(path: string, data: string | Uint8Array) {
-          await fs.writeAtomic(path, typeof data === 'string' ? data : new TextDecoder().decode(data));
+          await fs.writeAtomic(
+            path,
+            typeof data === 'string' ? data : new TextDecoder().decode(data),
+          );
         },
         async remove(path: string) {
           await fs.remove(path);
@@ -121,7 +131,12 @@ export function createFixture(): Fixture {
           const prefix = `${path}/`;
           return [...fs.files.keys()]
             .filter((key) => key.startsWith(prefix))
-            .map((key) => ({ path: key, name: key.slice(prefix.length), isFile: true, isDirectory: false }));
+            .map((key) => ({
+              path: key,
+              name: key.slice(prefix.length),
+              isFile: true,
+              isDirectory: false,
+            }));
         },
         async mkdir() {
           return undefined;
@@ -131,7 +146,13 @@ export function createFixture(): Fixture {
     dir: snapshotDir,
     intervalMs: 20_000,
   });
-  const recovery = new PipelineRecovery({ projectId: 'P1', machine, artifacts, repo, recovery: crash });
+  const recovery = new PipelineRecovery({
+    projectId: 'P1',
+    machine,
+    artifacts,
+    repo,
+    recovery: crash,
+  });
 
   const events: string[] = [];
   machine.bus.onAny('pipeline:*', (event) => {
@@ -164,9 +185,18 @@ export function blankSnapshot(): PipelineStageSnapshot {
 }
 
 /** 走一遍 S1 生成 → 待确认的常规路径 */
-export async function saveS1(machine: PipelineMachine, artifacts: ArtifactStore, content = '# 需求文档 v1'): Promise<ArtifactVersion> {
+export async function saveS1(
+  machine: PipelineMachine,
+  artifacts: ArtifactStore,
+  content = '# 需求文档 v1',
+): Promise<ArtifactVersion> {
   machine.startStage('S1');
-  const version = await artifacts.save({ stage: 'S1', artifactType: 'requirement_doc', content, note: '初始生成' });
+  const version = await artifacts.save({
+    stage: 'S1',
+    artifactType: 'requirement_doc',
+    content,
+    note: '初始生成',
+  });
   machine.submitForReview('S1');
   return version;
 }

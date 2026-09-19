@@ -9,9 +9,19 @@ import { memoryFs, unifiedDiff, type MemoryFs } from './helpers';
 
 /* ------------------------------ 夹具 ------------------------------ */
 
-const EXISTING_SERVICE = ['export class UserService {', '  find(id: string) {', '    return id;', '  }', '}', ''].join('\n');
+const EXISTING_SERVICE = [
+  'export class UserService {',
+  '  find(id: string) {',
+  '    return id;',
+  '  }',
+  '}',
+  '',
+].join('\n');
 
-function output(files: GenerationOutput['files'], extra: Partial<GenerationOutput> = {}): GenerationOutput {
+function output(
+  files: GenerationOutput['files'],
+  extra: Partial<GenerationOutput> = {},
+): GenerationOutput {
   return {
     files,
     anchors: [],
@@ -22,7 +32,10 @@ function output(files: GenerationOutput['files'], extra: Partial<GenerationOutpu
   };
 }
 
-function pipeline(local: MemoryFs, clock = 1_000): { pipeline: WritePipeline; events: WriteEvent[] } {
+function pipeline(
+  local: MemoryFs,
+  clock = 1_000,
+): { pipeline: WritePipeline; events: WriteEvent[] } {
   const events: WriteEvent[] = [];
   let tick = clock;
   const instance = createWritePipeline({
@@ -89,7 +102,12 @@ describe('WritePipeline.plan（T4-05 要点 1）', () => {
     const plan = await instance.plan({
       output: output([
         { path: CREATE_FILE, content: CREATE_CONTENT, action: 'create', language: 'ts' },
-        { path: 'src/modules/user/user.service.ts', content: 'x', action: 'create', language: 'ts' },
+        {
+          path: 'src/modules/user/user.service.ts',
+          content: 'x',
+          action: 'create',
+          language: 'ts',
+        },
       ]),
       mode: 'create',
     });
@@ -115,7 +133,12 @@ describe('WritePipeline.plan（T4-05 要点 1）', () => {
     });
     const plan = await instance.plan({
       output: output([
-        { path: 'src/modules/user/user.service.ts', content: goodPatch, action: 'patch', language: 'ts' },
+        {
+          path: 'src/modules/user/user.service.ts',
+          content: goodPatch,
+          action: 'patch',
+          language: 'ts',
+        },
       ]),
       mode: 'patch',
     });
@@ -126,7 +149,12 @@ describe('WritePipeline.plan（T4-05 要点 1）', () => {
 
     const bad = await instance.plan({
       output: output([
-        { path: 'src/modules/user/user.service.ts', content: '@@ -1,1 +1,1 @@\n-没有的\n+有', action: 'patch', language: 'ts' },
+        {
+          path: 'src/modules/user/user.service.ts',
+          content: '@@ -1,1 +1,1 @@\n-没有的\n+有',
+          action: 'patch',
+          language: 'ts',
+        },
       ]),
       mode: 'patch',
     });
@@ -138,7 +166,9 @@ describe('WritePipeline.plan（T4-05 要点 1）', () => {
     const local = memoryFs();
     const { pipeline: instance } = pipeline(local);
     const plan = await instance.plan({
-      output: output([{ path: 'src/x.ts', content: '@@ -1,1 +1,1 @@\n-a\n+b', action: 'patch', language: 'ts' }]),
+      output: output([
+        { path: 'src/x.ts', content: '@@ -1,1 +1,1 @@\n-a\n+b', action: 'patch', language: 'ts' },
+      ]),
       mode: 'patch',
     });
     expect(plan.entries[0]?.blocked).toBe(true);
@@ -198,7 +228,11 @@ describe('WritePipeline.apply（T4-05 要点 5）', () => {
             language: 'ts',
           },
         ],
-        { anchors: [{ elementId: 'el-btn', filePath: CREATE_FILE, symbol: 'UserRepo.find', kind: 'repo' }] },
+        {
+          anchors: [
+            { elementId: 'el-btn', filePath: CREATE_FILE, symbol: 'UserRepo.find', kind: 'repo' },
+          ],
+        },
       ),
       mode: 'preview',
       noteIds: ['note-1'],
@@ -230,7 +264,13 @@ describe('WritePipeline.apply（T4-05 要点 5）', () => {
     // 手工放开阻塞，模拟"计划基于某个版本、之后磁盘变了"
     const tampered: WritePlan = {
       ...plan,
-      entries: plan.entries.map((entry) => ({ ...entry, blocked: false, action: 'patch', after: 'after\n', changed: true })),
+      entries: plan.entries.map((entry) => ({
+        ...entry,
+        blocked: false,
+        action: 'patch',
+        after: 'after\n',
+        changed: true,
+      })),
     };
     local.files.set('a.ts', '被外部改过了\n');
 
@@ -256,7 +296,9 @@ describe('WritePipeline.apply（T4-05 要点 5）', () => {
     const patched: WritePlan = {
       ...plan,
       entries: plan.entries.map((entry) =>
-        entry.path === 'b.ts' ? { ...entry, blocked: false, after: 'replaced\n', changed: true } : entry,
+        entry.path === 'b.ts'
+          ? { ...entry, blocked: false, after: 'replaced\n', changed: true }
+          : entry,
       ),
     };
 
@@ -289,7 +331,9 @@ describe('WritePipeline.apply（T4-05 要点 5）', () => {
     const local = memoryFs();
     const { pipeline: instance } = pipeline(local);
     const plan = await instance.plan({
-      output: output([{ path: 'a.ts', content: '来自 AI 的内容\n', action: 'create', language: 'ts' }]),
+      output: output([
+        { path: 'a.ts', content: '来自 AI 的内容\n', action: 'create', language: 'ts' },
+      ]),
       mode: 'create',
     });
     await instance.apply(plan);
@@ -305,7 +349,9 @@ describe('「要求 AI 重改」指令构造（T4-05 要点 4）', () => {
     const local = memoryFs();
     const { pipeline: instance } = pipeline(local);
     const plan = await instance.plan({
-      output: output([{ path: 'a.ts', content: 'const a = 1;\nconst b = 2;\n', action: 'create', language: 'ts' }]),
+      output: output([
+        { path: 'a.ts', content: 'const a = 1;\nconst b = 2;\n', action: 'create', language: 'ts' },
+      ]),
       mode: 'preview',
     });
 

@@ -1,0 +1,18 @@
+# Prettier 忽略清单
+#
+# 原则：只对"人写的源码与文档"做格式门禁，机器生成物与增量记录不纳入。
+
+# 依赖目录（prettier 默认也会跳过，此处显式声明防误改）
+node_modules/
+
+# pnpm 自己写回此文件，格式由 pnpm 决定。
+# 若交给 prettier 改写，下一次 `pnpm install` 会被 pnpm 改回原样，
+# 导致 `pnpm format:check` 反复红/绿往复，属自相矛盾的门禁。
+pnpm-lock.yaml
+
+# 打包产物目录（`.gitignore` 已排除，本地出包后不应污染 format:check）
+release/
+
+# Agent 工作记忆：append-only 的增量记录，不是源码。
+# 每次追加都按记录者自己的排版书写，纳入格式化必然再次失败。
+.workbuddy/

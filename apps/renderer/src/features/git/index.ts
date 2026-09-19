@@ -25,7 +25,12 @@ export { BranchTree } from './BranchTree';
 export { BranchGraph, BRANCH_GRAPH_GEOMETRY } from './BranchGraph';
 export { RemoteManager } from './RemoteManager';
 export { HistoryTimeline, formatTime, type HistoryDetail } from './HistoryTimeline';
-export { HistoryFilter, EMPTY_HISTORY_FILTER, toLogOptions, type HistoryFilterValue } from './HistoryFilter';
+export {
+  HistoryFilter,
+  EMPTY_HISTORY_FILTER,
+  toLogOptions,
+  type HistoryFilterValue,
+} from './HistoryFilter';
 export { MergePanel } from './MergePanel';
 export { ConflictEditor } from './ConflictEditor';
 export { RollbackDialog } from './RollbackDialog';

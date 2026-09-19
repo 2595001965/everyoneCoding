@@ -282,12 +282,17 @@ export const IDENTIFIER_PROJECTIONS: readonly ProjectionKind[] = [
  * i18n key、路由片段、测试用例名在代码里本就是字符串内容；对它们做
  * **精确整串匹配**是语义正确的（字符串是它们的唯一载体），不属于"误伤字符串"。
  */
-export const STRING_PROJECTIONS: readonly ProjectionKind[] = ['i18nKey', 'routeSegment', 'testName'];
+export const STRING_PROJECTIONS: readonly ProjectionKind[] = [
+  'i18nKey',
+  'routeSegment',
+  'testName',
+];
 
 /** 把投影集合拆成两类目标 */
-export function splitTargets(
-  projections: Partial<ProjectionSet>,
-): { identifiers: SymbolTarget[]; strings: SymbolTarget[] } {
+export function splitTargets(projections: Partial<ProjectionSet>): {
+  identifiers: SymbolTarget[];
+  strings: SymbolTarget[];
+} {
   const identifiers: SymbolTarget[] = [];
   const strings: SymbolTarget[] = [];
   for (const kind of IDENTIFIER_PROJECTIONS) {

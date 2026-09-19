@@ -19,7 +19,6 @@ import type { SecureNamespace } from '@ec/shell-api';
 import { createAiStack } from '@ec/ai';
 import type { SafeStorageLike } from '../types';
 
-declare module 'better-sqlite3' {}
 export interface ElectronAiRuntimeOptions {
   dataDir: string;
   secureDir: string;

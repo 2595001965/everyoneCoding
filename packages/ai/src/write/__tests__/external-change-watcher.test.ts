@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, watch as fsWatch } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -11,6 +12,16 @@ import {
   shouldIgnorePath,
 } from '../external-change-watcher';
 import { createReadOnlyGuard, isAllowedKey, scanReadOnlyCompliance } from '../read-only-guard';
+
+/**
+ * 仓库根目录。
+ *
+ * **不能用 `process.cwd()`**：CI 跑的是 `pnpm test` → `pnpm -r test`，
+ * 每个包的 cwd 是**该包自己的目录**，用 cwd 拼 `apps/renderer/...` 会解析成
+ * `packages/ai/apps/renderer/...` 从而 ENOENT。本文件位于
+ * `packages/ai/src/write/__tests__/`，自身上溯 5 层即仓库根，与 cwd 无关。
+ */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 
 /**
  * 外部改动检测（T4-05 要点 3 / 验收：用脚本改文件验证）。
@@ -49,7 +60,10 @@ function writeFileByScript(path: string, content: string): void {
  * 因此这里只调用 close 并立刻 resolve —— 这正是 `WatchHandleLike` 的契约
  * （调用方不应依赖"关闭回调必达"）。
  */
-function realWatch(path: string, listener: (event: { type: 'create' | 'modify' | 'remove'; path: string }) => void) {
+function realWatch(
+  path: string,
+  listener: (event: { type: 'create' | 'modify' | 'remove'; path: string }) => void,
+) {
   const handle = fsWatch(path, { recursive: true }, (eventType, filename) => {
     const name = typeof filename === 'string' ? filename : String(filename ?? '');
     const type: 'create' | 'modify' | 'remove' =
@@ -92,7 +106,10 @@ describe('外部改动检测（T4-05 要点 3）', () => {
     expect(change?.path.replace(/\\/g, '/')).toContain('auth.controller.ts');
     expect(detected.length).toBeGreaterThan(0);
     expect(ExternalChangeWatcher.describe(change ?? null)).toContain('代码已被外部修改');
-    expect(ExternalChangeWatcher.actions().map((action) => action.label)).toEqual(['回滚到最近提交', '让 AI 重新生成']);
+    expect(ExternalChangeWatcher.actions().map((action) => action.label)).toEqual([
+      '回滚到最近提交',
+      '让 AI 重新生成',
+    ]);
     // 文件确实变了（证明检测的是真实变更而不是误报）
     expect(readFileSync(target, 'utf8')).toBe('export const v2 = 2;\n');
   });
@@ -102,7 +119,10 @@ describe('外部改动检测（T4-05 要点 3）', () => {
     const target = join(dir, 'b.ts');
     writeFileByScript(target, 'v1\n');
 
-    const watcher = createExternalChangeWatcher({ watch: realWatch, suppressWindowMs: 5_000 });
+    // 抑制窗口必须明显长于「起子进程写文件 + 事件投递」的总耗时：
+    // 满负载下（CI 2 核 runner + 全量并发）这段耗时实测可达 13 秒，
+    // 用 5 秒窗口会被拖穿，事件落在窗口外被报成外部改动，导致环境性假红。
+    const watcher = createExternalChangeWatcher({ watch: realWatch, suppressWindowMs: 30_000 });
     await watcher.start(dir);
     watcher.suppress(target);
 
@@ -137,7 +157,9 @@ describe('外部改动检测（T4-05 要点 3）', () => {
   it('同路径的连续事件在合并窗口内只记一条，drain 后清空', async () => {
     let now = 1_000;
     // 用对象持有回调：直接 `let emit` 会被 TS 的控制流分析永久窄化成 null
-    const captured: { emit: ((event: { type: 'modify'; path: string }) => void) | null } = { emit: null };
+    const captured: { emit: ((event: { type: 'modify'; path: string }) => void) | null } = {
+      emit: null,
+    };
     const watcher = createExternalChangeWatcher({
       watch: (_path, listener) => {
         captured.emit = listener;
@@ -232,7 +254,7 @@ describe('只读守卫（T4-05 要点 2 / E2E-18）', () => {
   it('静态扫描：代码视图本体必须声明只读且不含任何可编辑标记', () => {
     const codeViewPath = 'apps/renderer/src/features/code/CodeView.tsx';
     const result = scanReadOnlyCompliance([
-      { path: codeViewPath, content: readFileSync(join(process.cwd(), codeViewPath), 'utf8') },
+      { path: codeViewPath, content: readFileSync(join(REPO_ROOT, codeViewPath), 'utf8') },
     ]);
 
     expect(result.violations).toEqual([]);
@@ -243,20 +265,40 @@ describe('只读守卫（T4-05 要点 2 / E2E-18）', () => {
 
   it('扫描会剥掉注释：说明性文字里出现 contentEditable 不算违规', () => {
     const result = scanReadOnlyCompliance([
-      { path: 'ok.tsx', content: '// 这里不使用 contentEditable，也不放 <textarea>\nconst a = { readOnly: true };\n' },
+      {
+        path: 'ok.tsx',
+        content:
+          '// 这里不使用 contentEditable，也不放 <textarea>\nconst a = { readOnly: true };\n',
+      },
     ]);
     expect(result.ok).toBe(true);
   });
 
   it('静态扫描能识别各种违规写法（反例）', () => {
     const cases: { name: string; content: string; rule: string }[] = [
-      { name: 'contentEditable', content: '<pre readOnly contentEditable>code</pre>', rule: 'contentEditable' },
+      {
+        name: 'contentEditable',
+        content: '<pre readOnly contentEditable>code</pre>',
+        rule: 'contentEditable',
+      },
       { name: 'textarea', content: '<textarea readOnly />', rule: 'textarea' },
       { name: 'input', content: '<input readOnly />', rule: 'input' },
-      { name: 'onChange 写回', content: 'const x = readOnly; onChange={save}', rule: 'writeback-handler' },
+      {
+        name: 'onChange 写回',
+        content: 'const x = readOnly; onChange={save}',
+        rule: 'writeback-handler',
+      },
       { name: 'readOnly=false', content: 'readOnly={false}', rule: 'readOnly-false' },
-      { name: 'designMode', content: 'document.designMode = "on"; // readOnly', rule: 'designMode' },
-      { name: '缺只读标记', content: 'export function CodeView() { return null; }', rule: 'missing-readonly-marker' },
+      {
+        name: 'designMode',
+        content: 'document.designMode = "on"; // readOnly',
+        rule: 'designMode',
+      },
+      {
+        name: '缺只读标记',
+        content: 'export function CodeView() { return null; }',
+        rule: 'missing-readonly-marker',
+      },
     ];
 
     for (const item of cases) {

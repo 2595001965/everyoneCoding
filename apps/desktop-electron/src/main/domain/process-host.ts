@@ -159,9 +159,11 @@ export function createControlledProcessHost(
 
       const id = `dp-${Date.now().toString(36)}-${(seq += 1).toString(36)}`;
       let resolveExit!: (result: { code: number | null; signal: string | null }) => void;
-      const exited = new Promise<{ code: number | null; signal: string | null }>((resolvePromise) => {
-        resolveExit = resolvePromise;
-      });
+      const exited = new Promise<{ code: number | null; signal: string | null }>(
+        (resolvePromise) => {
+          resolveExit = resolvePromise;
+        },
+      );
 
       const entry: Entry = {
         id,

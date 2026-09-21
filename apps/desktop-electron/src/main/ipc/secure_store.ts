@@ -1,5 +1,9 @@
 import type { IpcDependencies, IpcMainLike, SafeStorageLike } from '../types';
-import { createSecureFileStorage, isSafeSecureKey, type SecureFileStorage } from '../secure-storage';
+import {
+  createSecureFileStorage,
+  isSafeSecureKey,
+  type SecureFileStorage,
+} from '../secure-storage';
 import { CHANNELS } from '../channels';
 
 /**

@@ -66,4 +66,3 @@ export function WorkspacePage(): JSX.Element {
     <WorkspaceUnavailable />
   );
 }
-

@@ -284,20 +284,28 @@ async function prepareThroughS4(projectId: string, projectName: string): Promise
     method: 'generateRequirement',
     params: { userId: USER_ID, projectName, description: '做一个轻量项目管理系统' },
   });
-  await p({ projectId, method: 'saveArtifact', params: {
-    stage: 'S1',
-    artifactType: 'requirement_doc',
-    content: s1.content,
-    note: '初始生成',
-  } });
+  await p({
+    projectId,
+    method: 'saveArtifact',
+    params: {
+      stage: 'S1',
+      artifactType: 'requirement_doc',
+      content: s1.content,
+      note: '初始生成',
+    },
+  });
   await runStage(projectId, 'S1');
   await p({ projectId, method: 'advance', params: { from: 'S1', to: 'S2' } });
 
-  await p({ projectId, method: 'saveArtifact', params: {
-    stage: 'S2',
-    artifactType: 'design_dsl',
-    content: JSON.stringify({ pages: ['p-1'] }),
-  } });
+  await p({
+    projectId,
+    method: 'saveArtifact',
+    params: {
+      stage: 'S2',
+      artifactType: 'design_dsl',
+      content: JSON.stringify({ pages: ['p-1'] }),
+    },
+  });
   await runStage(projectId, 'S2');
 
   // 未完成选型 → 阻断进入 S3（FR-PIPE-13）
@@ -323,12 +331,16 @@ async function prepareThroughS4(projectId: string, projectName: string): Promise
       requirementDoc: s1.content,
     },
   });
-  await p({ projectId, method: 'saveArtifact', params: {
-    stage: 'S3',
-    artifactType: 'tech_doc',
-    content: s3.content,
-    note: '初始生成',
-  } });
+  await p({
+    projectId,
+    method: 'saveArtifact',
+    params: {
+      stage: 'S3',
+      artifactType: 'tech_doc',
+      content: s3.content,
+      note: '初始生成',
+    },
+  });
   await runStage(projectId, 'S3');
   await p({ projectId, method: 'advance', params: { from: 'S3', to: 'S4' } });
 
@@ -370,8 +382,7 @@ describe('S3 阻断与选型落库', () => {
          WHERE project_id = ? AND title = '技术选型' AND status = 'active'`,
       )
       .get(projectId) as
-      | { title: string; scope: string; content: string; structured: string }
-      | undefined;
+      { title: string; scope: string; content: string; structured: string } | undefined;
     expect(row).toBeDefined();
     expect(row?.scope).toBe('project');
     expect(JSON.parse(row?.structured ?? '{}')).toMatchObject({
@@ -409,7 +420,12 @@ describe('S1→S5 全链路 + 关停重启续跑', () => {
     // ---- 文档入档：document / doc_version 行 + docs/<title> 实体文件 ----
     const docs = db
       .prepare(`SELECT title, kind, version, content_ref FROM document WHERE project_id = ?`)
-      .all(projectId) as Array<{ title: string; kind: string; version: number; content_ref: string }>;
+      .all(projectId) as Array<{
+      title: string;
+      kind: string;
+      version: number;
+      content_ref: string;
+    }>;
     expect(docs.some((doc) => doc.kind === 'requirement')).toBe(true);
     expect(docs.some((doc) => doc.kind === 'techdoc')).toBe(true);
     for (const doc of docs) {
@@ -548,7 +564,8 @@ describe('S1→S5 全链路 + 关停重启续跑', () => {
   });
 });
 
-describe('S5 单节点失败不阻塞其余节点', () => {  it('第 2 个节点生成失败，其余节点照常产出并落盘', async () => {
+describe('S5 单节点失败不阻塞其余节点', () => {
+  it('第 2 个节点生成失败，其余节点照常产出并落盘', async () => {
     const ai = createFakeAi({ s5FailAt: 1 });
     runtime = buildRuntime(db, ai.handle);
     const projectId = await newProject('节点隔离');
@@ -588,12 +605,16 @@ describe('阶段版本回看 / diff / 回退 / 下游 stale', () => {
     // 先走完 S1→S4（下游非 pending 才有"stale 可标记"的前提）
     await prepareThroughS4(projectId, '版本回看');
 
-    await p({ projectId, method: 'saveArtifact', params: {
-      stage: 'S1',
-      artifactType: 'requirement_doc',
-      content: `${REQUIREMENT_DOC}\n\n## 追加要求\n- P2：甘特图`,
-      note: '追加要求：补 P2',
-    } });
+    await p({
+      projectId,
+      method: 'saveArtifact',
+      params: {
+        stage: 'S1',
+        artifactType: 'requirement_doc',
+        content: `${REQUIREMENT_DOC}\n\n## 追加要求\n- P2：甘特图`,
+        note: '追加要求：补 P2',
+      },
+    });
 
     const versions = pSync<Array<{ version: number; note: string }>>({
       projectId,
@@ -610,15 +631,21 @@ describe('阶段版本回看 / diff / 回退 / 下游 stale', () => {
     });
     expect(diff).toContain('+ ## 追加要求');
     expect(
-      await p<string | null>({ projectId, method: 'readDiff', params: { stage: 'S1', version: 1 } }),
+      await p<string | null>({
+        projectId,
+        method: 'readDiff',
+        params: { stage: 'S1', version: 1 },
+      }),
     ).toBeNull();
 
     // 回退到 v1：只改生效指针，历史版本不删除
     pSync({ projectId, method: 'switchVersion', params: { stage: 'S1', version: 1 } });
-    const snapshot = pSync<Record<string, { activeVersion: number | null; latestVersion: number }>>({
-      projectId,
-      method: 'snapshot',
-    });
+    const snapshot = pSync<Record<string, { activeVersion: number | null; latestVersion: number }>>(
+      {
+        projectId,
+        method: 'snapshot',
+      },
+    );
     expect(snapshot['S1']?.activeVersion).toBe(1);
     expect(snapshot['S1']?.latestVersion).toBe(2);
     expect(

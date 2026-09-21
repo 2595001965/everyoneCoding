@@ -103,7 +103,8 @@ export function createCodeDomain(options: CodeDomainOptions): {
   writePort: CodeWritePort;
 } {
   const { db } = options;
-  const watchHandles = new Map<string, { close: () => void }>();  const suppressed = new Map<string, number>();
+  const watchHandles = new Map<string, { close: () => void }>();
+  const suppressed = new Map<string, number>();
   /** AI 自身写入的抑制窗口（毫秒）：文件监听会把刚写的文件也报成 modify */
   const SUPPRESS_WINDOW_MS = 1_500;
 
@@ -256,7 +257,11 @@ export function createCodeDomain(options: CodeDomainOptions): {
       const changed: string[] = [];
       for (const [rel, stamp] of next) {
         const previous = index.get(rel);
-        if (previous === undefined || previous.size !== stamp.size || previous.mtimeMs !== stamp.mtimeMs) {
+        if (
+          previous === undefined ||
+          previous.size !== stamp.size ||
+          previous.mtimeMs !== stamp.mtimeMs
+        ) {
           changed.push(rel);
         }
       }
@@ -460,7 +465,10 @@ export function createCodeDomain(options: CodeDomainOptions): {
           purpose: 'code',
           projectId,
           messages: [
-            { role: 'system', content: `${OUTPUT_CONTRACT_TEXT}\n\n你正在按用户要求重改已有代码。` },
+            {
+              role: 'system',
+              content: `${OUTPUT_CONTRACT_TEXT}\n\n你正在按用户要求重改已有代码。`,
+            },
             {
               role: 'user',
               content: [instruction, '', '当前差异（供你定位）：', contextText].join('\n'),

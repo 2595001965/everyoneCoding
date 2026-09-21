@@ -85,7 +85,11 @@ export function createDomainRuntime(options: DomainRuntimeOptions): DomainContro
   const events = options.events ?? createDomainEventSink();
 
   /** 同步与异步共用的问题描述，避免两处措辞漂移 */
-  const methodNotAllowed = (domain: DomainKind, method: string, sync: boolean): DomainRpcResponse => ({
+  const methodNotAllowed = (
+    domain: DomainKind,
+    method: string,
+    sync: boolean,
+  ): DomainRpcResponse => ({
     requestId: 'invalid',
     ok: false,
     error: {

@@ -51,9 +51,13 @@ interface FakeHostOptions {
   /** 是否提供同步口（Tauri / mock 的常态是**不**提供） */
   sync?: boolean;
   /** 脚本化异步响应；返回 undefined 时按成功回显方法名 */
-  script?: (request: DomainRpcRequest) => { ok: boolean; result?: unknown; error?: DomainRpcError } | undefined;
+  script?: (
+    request: DomainRpcRequest,
+  ) => { ok: boolean; result?: unknown; error?: DomainRpcError } | undefined;
   /** 脚本化同步响应 */
-  scriptSync?: (request: DomainRpcRequest) => { ok: boolean; result?: unknown; error?: DomainRpcError } | undefined;
+  scriptSync?: (
+    request: DomainRpcRequest,
+  ) => { ok: boolean; result?: unknown; error?: DomainRpcError } | undefined;
 }
 
 function fakeHost(options: FakeHostOptions = {}): {
@@ -317,8 +321,9 @@ describe('跨进程错误码映射到端口约定形状', () => {
         request.method === 'getTechChoice' ? { ok: true, result: null } : undefined,
     });
     const pipeline = globals['__EC_PIPELINE__'] as PipelineApi;
-    expect(() => pipeline.evaluateImpact('P-A', { kind: 'rename', from: 'a', to: 'b' } as never))
-      .toThrowError(expect.objectContaining({ code: 'INVALID_ARGUMENT' }));
+    expect(() =>
+      pipeline.evaluateImpact('P-A', { kind: 'rename', from: 'a', to: 'b' } as never),
+    ).toThrowError(expect.objectContaining({ code: 'INVALID_ARGUMENT' }));
   });
 });
 
@@ -407,8 +412,7 @@ describe('进度事件按 requestId 关联', () => {
 describe('未装配的域不注入任何槽位', () => {
   it('describe 报 available=false 的域既不产端口也不被合并进 installed', async () => {
     const { host } = fakeHost();
-    const subscribed: DomainEventSubscriber = (listener) =>
-      host.onEvent?.(listener) ?? (() => {});
+    const subscribed: DomainEventSubscriber = (listener) => host.onEvent?.(listener) ?? (() => {});
     const globals: ProductionPortGlobals = {};
     const result = await installProductionPorts(
       host,

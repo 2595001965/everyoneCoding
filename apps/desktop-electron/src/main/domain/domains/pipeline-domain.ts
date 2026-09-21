@@ -87,10 +87,7 @@ type Stage = (typeof STAGES)[number];
 /** 同步处理器：不得 await（由渲染层 sendSync 驱动） */
 type SyncHandler = (params: Record<string, unknown>, ctx: DomainRouterContext) => unknown;
 /** 异步处理器：AI 生成 / 子进程 IO 等长任务只走这里 */
-type AsyncHandler = (
-  params: Record<string, unknown>,
-  ctx: DomainRouterContext,
-) => Promise<unknown>;
+type AsyncHandler = (params: Record<string, unknown>, ctx: DomainRouterContext) => Promise<unknown>;
 
 /* ------------------------------ S5 队列运行时 ------------------------------ */
 
@@ -267,7 +264,13 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
       db.prepare(
         `INSERT OR IGNORE INTO memory_doc_link (id, memory_id, document_id, link_type, created_at)
          VALUES (?, ?, ?, ?, ?)`,
-      ).run(`mdl-${input.memoryId}-${input.documentId}`, input.memoryId, input.documentId, input.linkType, now);
+      ).run(
+        `mdl-${input.memoryId}-${input.documentId}`,
+        input.memoryId,
+        input.documentId,
+        input.linkType,
+        now,
+      );
     },
     async latestVersion(projectId, kind) {
       const prefix = kind === 'requirement' ? '需求文档' : '技术文档';
@@ -305,10 +308,7 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
       })) {
         if (chunk.type === 'chunk' && typeof chunk['text'] === 'string') text += chunk['text'];
         if (chunk.type === 'error') {
-          throw new ShellError(
-            'UNKNOWN',
-            `模型生成失败：${String(chunk['error'] ?? '未知错误')}`,
-          );
+          throw new ShellError('UNKNOWN', `模型生成失败：${String(chunk['error'] ?? '未知错误')}`);
         }
       }
       if (text.trim().length === 0) {
@@ -360,9 +360,8 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
         .all(limit) as Array<{ project_id: string; content: string }>;
       const result: SimilarProjectSummary[] = [];
       for (const row of rows) {
-        const name = db
-          .prepare(`SELECT name FROM project WHERE id = ?`)
-          .get(row.project_id) as { name: string } | undefined;
+        const name = db.prepare(`SELECT name FROM project WHERE id = ?`).get(row.project_id) as
+          { name: string } | undefined;
         result.push({
           projectId: row.project_id,
           name: name?.name ?? row.project_id,
@@ -1129,23 +1128,21 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
     const entry = loadEntry(projectId);
     const techDocVersion = Number(params['techDocVersion'] ?? 0);
     const techDoc =
-      techDocVersion > 0
-        ? await entry.artifacts.read('S3', techDocVersion).catch(() => '')
-        : '';
+      techDocVersion > 0 ? await entry.artifacts.read('S3', techDocVersion).catch(() => '') : '';
     let split = techDoc.length > 0 ? parseSplitFromTechDoc(techDoc) : { features: [], pages: [] };
     if (split.features.length === 0) {
       // 回退：从需求文档 P0/P1 清单提取功能单元
       const reqDocVersion = Number(params['requirementDocVersion'] ?? 0);
       const reqDoc =
-        reqDocVersion > 0
-          ? await entry.artifacts.read('S1', reqDocVersion).catch(() => '')
-          : '';
-      const features = [...reqDoc.matchAll(/^[-*]\s*(P[0-2])[：:]\s*(.+)$/gm)].map((match, index) => ({
-        id: `f-${index + 1}`,
-        name: (match[2] ?? '').trim(),
-        pageIds: [],
-        dependsOn: [],
-      }));
+        reqDocVersion > 0 ? await entry.artifacts.read('S1', reqDocVersion).catch(() => '') : '';
+      const features = [...reqDoc.matchAll(/^[-*]\s*(P[0-2])[：:]\s*(.+)$/gm)].map(
+        (match, index) => ({
+          id: `f-${index + 1}`,
+          name: (match[2] ?? '').trim(),
+          pageIds: [],
+          dependsOn: [],
+        }),
+      );
       split =
         features.length > 0
           ? { features, pages: [] }
@@ -1202,7 +1199,8 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
       requirementDoc: String(params['requirementDoc'] ?? ''),
       techDoc: String(params['techDoc'] ?? ''),
       splitJson: JSON.stringify(split),
-      resumeProgress: typeof params['resumeProgress'] === 'string' ? params['resumeProgress'] : null,
+      resumeProgress:
+        typeof params['resumeProgress'] === 'string' ? params['resumeProgress'] : null,
       ctx,
     });
     const stats = (result.state as QueueState).stats;
@@ -1270,10 +1268,7 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
       integrityProblems,
       // 正常退出（dispose 把快照标干净）时为 false；只有异常退出才为 true
       unexpectedExit: entry.unexpectedExit,
-      artifactVersions: STAGES.reduce(
-        (sum, stage) => sum + entry.artifacts.list(stage).length,
-        0,
-      ),
+      artifactVersions: STAGES.reduce((sum, stage) => sum + entry.artifacts.list(stage).length, 0),
     };
   };
 
@@ -1409,7 +1404,8 @@ function runProcess(
 /**
  * 第一个待续生成的阶段：running 优先（断点），其次 awaiting_confirm，再次 stale
  */
-function findResumeStage(snapshot: PipelineStageSnapshot): Stage | null {  for (const stage of STAGES) {
+function findResumeStage(snapshot: PipelineStageSnapshot): Stage | null {
+  for (const stage of STAGES) {
     if (snapshot[stage].status === 'running') return stage;
   }
   for (const stage of STAGES) {
@@ -1438,4 +1434,3 @@ function deriveNodeTarget(
   const first = choice.targets[0] ?? 'web';
   return { platform: first, framework: first === 'web' ? choice.frontend : choice.desktop };
 }
-

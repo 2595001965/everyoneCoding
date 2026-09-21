@@ -54,10 +54,10 @@ interface PendingImport {
 /** 待提交导入的存活上限：超过即视为放弃（大包场景下不宜长期驻留内存） */
 const PENDING_IMPORT_TTL_MS = 30 * 60 * 1000;
 
-export function createMemoryDomain(options: {
-  db: Database.Database;
-  userId: string;
-}): { router: DomainRouter; syncRouter: SyncDomainRouter } {
+export function createMemoryDomain(options: { db: Database.Database; userId: string }): {
+  router: DomainRouter;
+  syncRouter: SyncDomainRouter;
+} {
   const repo = new MemoryRepo(options.db);
   const userId = options.userId;
   const pendingImports = new Map<string, PendingImport>();
@@ -155,9 +155,7 @@ export function createMemoryDomain(options: {
       /* --------- 同步读的拉取口（渲染层快照缓存的刷新入口） --------- */
       case 'listProjects': {
         const rows = options.db
-          .prepare(
-            `SELECT id, name FROM project WHERE deleted_at IS NULL ORDER BY updated_at DESC`,
-          )
+          .prepare(`SELECT id, name FROM project WHERE deleted_at IS NULL ORDER BY updated_at DESC`)
           .all() as Array<{ id: string; name: string }>;
         return rows;
       }

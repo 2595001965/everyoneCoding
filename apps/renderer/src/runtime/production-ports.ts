@@ -23,12 +23,14 @@ import {
   type DomainEvent,
   type DomainKind,
 } from '@ec/shell-api';
-import { SplitModel, type ImpactReport, type QueueState, type SplitResult, type TechChoice } from '@ec/pipeline';
-import type {
-  BudgetConfig,
-  BudgetDecision,
-  UsageReportRow,
-} from '@ec/ai';
+import {
+  SplitModel,
+  type ImpactReport,
+  type QueueState,
+  type SplitResult,
+  type TechChoice,
+} from '@ec/pipeline';
+import type { BudgetConfig, BudgetDecision, UsageReportRow } from '@ec/ai';
 import type { AssembledContext, ContextAssemblyRequest, ContextSources, WritePlan } from '@ec/ai';
 import type { AutoCommitPolicy, CredentialBinding, GitResult } from '@ec/git';
 import type { PipelineStage, PipelineStageSnapshot } from '@ec/pipeline';
@@ -57,12 +59,7 @@ import type { UsageApi } from '../features/usage/usage-api';
 import type { DesignerPortApi } from '../features/designer/designer-api';
 
 import { getActiveProject, requireActiveProject } from './project-context';
-import {
-  toDomainError,
-  type DomainCaller,
-  type DomainEventSubscriber,
-} from './domain-ports';
-
+import { toDomainError, type DomainCaller, type DomainEventSubscriber } from './domain-ports';
 
 /* ------------------------------ 同步调用器 ------------------------------ */
 
@@ -192,7 +189,8 @@ export function createPipelineApi(
   subscribe: DomainEventSubscriber,
 ): PipelineApi | null {
   if (sync === null) return null;
-  const p = <T>(method: string, params?: unknown): T => sync.callSync<T>('pipeline', method, params);
+  const p = <T>(method: string, params?: unknown): T =>
+    sync.callSync<T>('pipeline', method, params);
   const pa = <T>(method: string, params?: unknown): Promise<T> =>
     call.call<T>('pipeline', method, params);
   return {
@@ -249,7 +247,12 @@ export function createPipelineApi(
       pa('recoverProject', { projectId }) as Promise<{
         snapshot: PipelineStageSnapshot;
         resumeStage: PipelineStage | null;
-        integrityProblems: Array<{ stage: string; version: number; contentRef: string; reason: string }>;
+        integrityProblems: Array<{
+          stage: string;
+          version: number;
+          contentRef: string;
+          reason: string;
+        }>;
         unexpectedExit: boolean;
         artifactVersions: number;
       }>,
@@ -258,9 +261,7 @@ export function createPipelineApi(
       return subscribe((domainEvent: DomainEvent) => {
         if (domainEvent.domain !== 'pipeline') return;
         const payload = domainEvent.payload as
-          | { type?: unknown; projectId?: unknown }
-          | null
-          | undefined;
+          { type?: unknown; projectId?: unknown } | null | undefined;
         if (
           payload === null ||
           payload === undefined ||
@@ -285,16 +286,10 @@ export function createPipelineApi(
 
 /* ------------------------------- Git ------------------------------- */
 
-export function createGitApi(
-  call: DomainCaller,
-  subscribe: DomainEventSubscriber,
-): GitApi {
+export function createGitApi(call: DomainCaller, subscribe: DomainEventSubscriber): GitApi {
   const g = <T>(method: string, params?: unknown): Promise<GitResult<T>> =>
     call.call<GitResult<T>>('git', method, withProject(params));
-  const gOrFail = async <T>(
-    method: string,
-    params?: unknown,
-  ): Promise<GitResult<T>> => {
+  const gOrFail = async <T>(method: string, params?: unknown): Promise<GitResult<T>> => {
     try {
       return await g<T>(method, params);
     } catch (error) {
@@ -371,8 +366,7 @@ export function createGitApi(
       call.call('git', 'saveSshCredential', withProject({ input })).then(() => undefined),
     removeCredential: (remoteName) =>
       call.call('git', 'removeCredential', withProject({ remoteName })).then(() => undefined),
-    autoCommitPolicy: () =>
-      call.call<AutoCommitPolicy>('git', 'autoCommitPolicy', withProject()),
+    autoCommitPolicy: () => call.call<AutoCommitPolicy>('git', 'autoCommitPolicy', withProject()),
     setAutoCommitPolicy: (policy) =>
       call.call('git', 'setAutoCommitPolicy', withProject({ policy })).then(() => undefined),
     changeSources: () => call.call('git', 'changeSources', withProject()),
@@ -395,10 +389,7 @@ function previewFail<T>(error: unknown): PreviewResult<T> {
   } as PreviewResult<T>;
 }
 
-export function createPreviewApi(
-  call: DomainCaller,
-  subscribe: DomainEventSubscriber,
-): PreviewApi {
+export function createPreviewApi(call: DomainCaller, subscribe: DomainEventSubscriber): PreviewApi {
   const p = <T>(method: string, params?: unknown): Promise<T> =>
     call.call<T>('preview', method, withProject(params));
   const ok = async <T>(run: () => Promise<T>): Promise<PreviewResult<T>> => {
@@ -426,14 +417,12 @@ export function createPreviewApi(
       ok(() => p('replayRequest', input)) as ReturnType<PreviewApi['replayRequest']>,
     toCurl: (input) => p('toCurl', input),
     clearRequests: () => p('clearRequests').then(() => undefined),
-    projectProfile: () =>
-      ok(() => p('projectProfile')) as ReturnType<PreviewApi['projectProfile']>,
+    projectProfile: () => ok(() => p('projectProfile')) as ReturnType<PreviewApi['projectProfile']>,
     installDependencies: () =>
       ok(() => p('installDependencies')) as ReturnType<PreviewApi['installDependencies']>,
     startBackend: () => ok(() => p('startBackend')) as ReturnType<PreviewApi['startBackend']>,
     stopBackend: () => ok(() => p('stopBackend').then(() => null)),
-    restartBackend: () =>
-      ok(() => p('restartBackend')) as ReturnType<PreviewApi['restartBackend']>,
+    restartBackend: () => ok(() => p('restartBackend')) as ReturnType<PreviewApi['restartBackend']>,
     backendStatus: () => p('backendStatus'),
     logs: (filter) => p('logs', filter),
     /**
@@ -487,8 +476,6 @@ export function createPreviewApi(
   };
 }
 
-
-
 /* ------------------------------- 导航 ------------------------------- */
 
 export function createNavApi(call: DomainCaller): NavApi {
@@ -508,10 +495,7 @@ export function createNavApi(call: DomainCaller): NavApi {
 
 /* ------------------------------- 统一重命名 ------------------------------- */
 
-export function createRenameApi(
-  call: DomainCaller,
-  subscribe: DomainEventSubscriber,
-): RenameApi {
+export function createRenameApi(call: DomainCaller, subscribe: DomainEventSubscriber): RenameApi {
   const r = <T>(method: string, params?: unknown): Promise<T> =>
     call.call<T>('rename', method, withProject(params));
   return {
@@ -544,10 +528,7 @@ export function createRenameApi(
 
 /* ------------------------------- 代码视图 ------------------------------- */
 
-export function createCodeApi(
-  call: DomainCaller,
-  subscribe: DomainEventSubscriber,
-): CodeViewApi {
+export function createCodeApi(call: DomainCaller, subscribe: DomainEventSubscriber): CodeViewApi {
   return {
     files: {
       listFiles: () => call.call('code', 'listFiles', withProject()),
@@ -562,7 +543,8 @@ export function createCodeApi(
     subscribeExternalChanges: (listener) =>
       subscribe((event: DomainEvent) => {
         if (event.domain !== 'code') return;
-        const payload = event.payload as { type?: unknown; path?: unknown; message?: unknown } | null | undefined;
+        const payload = event.payload as
+          { type?: unknown; path?: unknown; message?: unknown } | null | undefined;
         if (payload?.type !== 'code:external-change') return;
         listener({
           path: String(payload.path ?? ''),
@@ -584,10 +566,12 @@ export function createCodeApi(
       subscribe((event: DomainEvent) => {
         if (event.domain !== 'code') return;
         const payload = event.payload as
-          | { type?: unknown; plan?: unknown; source?: unknown }
-          | null
-          | undefined;
-        if (payload?.type !== 'code:write-plan' || payload.plan === null || payload.plan === undefined) {
+          { type?: unknown; plan?: unknown; source?: unknown } | null | undefined;
+        if (
+          payload?.type !== 'code:write-plan' ||
+          payload.plan === null ||
+          payload.plan === undefined
+        ) {
           return;
         }
         listener({
@@ -610,7 +594,13 @@ export function createAiContextApi(call: DomainCaller): ContextPanelApi {
      * 谎报一项就会让用户以为某个空块是"没有数据"而不是"没接线"。
      * 缺 `elements` 时元素祖先链块永远跳过，这正是本轮修掉的缺口。
      */
-    availableSources: ['memory', 'notes', 'elements', 'documents', 'code'] as (keyof ContextSources)[],
+    availableSources: [
+      'memory',
+      'notes',
+      'elements',
+      'documents',
+      'code',
+    ] as (keyof ContextSources)[],
     assemble: (request: ContextAssemblyRequest) =>
       call.call<AssembledContext>('ai-context', 'assemble', { request }),
   };
@@ -628,14 +618,9 @@ export function createUsageApi(call: DomainCaller): UsageApi {
   };
 }
 
-
-
 /* ------------------------------- 归档与迁移 ------------------------------- */
 
-export function createPackageApi(
-  call: DomainCaller,
-  subscribe: DomainEventSubscriber,
-): PackageApi {
+export function createPackageApi(call: DomainCaller, subscribe: DomainEventSubscriber): PackageApi {
   return {
     pickExportPath: (defaultName) => call.call('package', 'pickExportPath', { defaultName }),
     exportPackage: (request: ExportJobRequest) => {
@@ -660,9 +645,15 @@ export function createPackageApi(
                 stage: String(wire.stage ?? 'enumerating') as ExportProgressSnapshot['stage'],
                 processed: Number(wire.processed ?? 0),
                 total: Number(wire.total ?? 0),
-                currentFile:
-                  typeof wire.currentFile === 'string' ? wire.currentFile : null,
-                counts: { projects: 0, memoryItems: 0, documents: 0, pages: 0, codeFiles: 0, attachments: 0 },
+                currentFile: typeof wire.currentFile === 'string' ? wire.currentFile : null,
+                counts: {
+                  projects: 0,
+                  memoryItems: 0,
+                  documents: 0,
+                  pages: 0,
+                  codeFiles: 0,
+                  attachments: 0,
+                },
                 failures: [],
                 excludeStats: null,
                 redactionFindings: [],
@@ -729,7 +720,6 @@ export function createPackageApi(
   };
 }
 
-
 /* ------------------------------- 设计器 ------------------------------- */
 
 export function createDesignerApi(call: DomainCaller): DesignerPortApi {
@@ -748,14 +738,13 @@ export function createDesignerApi(call: DomainCaller): DesignerPortApi {
     generatePage: (projectId, request) => d('generatePage', { projectId, request }),
     readNotes: (input) => d('readNotes', input),
     saveNote: (input) => d('saveNote', { projectId: input.projectId, input }),
-    updateNote: (input) => d('updateNote', { projectId: input.projectId, id: input.id, patch: input.patch }),
+    updateNote: (input) =>
+      d('updateNote', { projectId: input.projectId, id: input.id, patch: input.patch }),
     setNoteStatus: (input) => d('setNoteStatus', input),
     removeNote: (input) => d('removeNote', input),
     noteBadges: (input) => d('noteBadges', input),
   };
 }
-
-
 
 /* ------------------------------ 装配与注入 ------------------------------ */
 

@@ -257,9 +257,10 @@ describe('真实项目 ID 贯穿', () => {
     expect(pagesA.map((item) => item.pageId)).toEqual([pageA]);
 
     // 页面行归属正确
-    const rows = db
-      .prepare(`SELECT project_id, id FROM page ORDER BY project_id`)
-      .all() as Array<{ project_id: string; id: string }>;
+    const rows = db.prepare(`SELECT project_id, id FROM page ORDER BY project_id`).all() as Array<{
+      project_id: string;
+      id: string;
+    }>;
     expect(rows).toEqual([
       { project_id: a, id: pageA },
       { project_id: b, id: pageB },
@@ -279,8 +280,16 @@ describe('真实项目 ID 贯穿', () => {
     const a = await newProject('路由甲');
     const b = await newProject('路由乙');
 
-    await call({ domain: 'designer', method: 'upsertRoutes', params: { projectId: a, routes: ['/', '/orders'] } });
-    await call({ domain: 'designer', method: 'upsertRoutes', params: { projectId: b, routes: ['/login'] } });
+    await call({
+      domain: 'designer',
+      method: 'upsertRoutes',
+      params: { projectId: a, routes: ['/', '/orders'] },
+    });
+    await call({
+      domain: 'designer',
+      method: 'upsertRoutes',
+      params: { projectId: b, routes: ['/login'] },
+    });
 
     expect(
       await call<string[]>({ domain: 'designer', method: 'readRoutes', params: { projectId: a } }),
@@ -300,7 +309,11 @@ describe('重启后可重新读取', () => {
 
     // 只推进 A 的流水线：S1 跑完并确认
     await call({ domain: 'pipeline', method: 'startStage', params: { projectId: a, stage: 'S1' } });
-    await call({ domain: 'pipeline', method: 'submitForReview', params: { projectId: a, stage: 'S1' } });
+    await call({
+      domain: 'pipeline',
+      method: 'submitForReview',
+      params: { projectId: a, stage: 'S1' },
+    });
     await call({ domain: 'pipeline', method: 'confirm', params: { projectId: a, stage: 'S1' } });
 
     // —— 模拟进程重启：换一套运行时（同一 dataDir / projectsDir）——
@@ -310,9 +323,9 @@ describe('重启后可重新读取', () => {
     runtime = buildRuntime(db);
 
     // DSL 仍在，且是"改过"的那份
-    const reloadedA = await call<{ page: { name: string; tree: { children: Array<{ name: string }> } } }>(
-      { domain: 'designer', method: 'loadPage', params: { projectId: a, pageId: pageA } },
-    );
+    const reloadedA = await call<{
+      page: { name: string; tree: { children: Array<{ name: string }> } };
+    }>({ domain: 'designer', method: 'loadPage', params: { projectId: a, pageId: pageA } });
     expect(reloadedA.page.name).toBe('首页（已修改）');
     expect(reloadedA.page.tree.children.map((child) => child.name)).toEqual(['KEEP-A']);
 
@@ -520,7 +533,12 @@ describe('并发项目不串数据', () => {
     await call({
       domain: 'pipeline',
       method: 'saveArtifact',
-      params: { projectId: a, stage: 'S1', artifactType: 'requirement_doc', content: 'A 的需求 v2' },
+      params: {
+        projectId: a,
+        stage: 'S1',
+        artifactType: 'requirement_doc',
+        content: 'A 的需求 v2',
+      },
     });
 
     // 台账条数各自独立
@@ -556,8 +574,12 @@ describe('并发项目不串数据', () => {
     // 不按阶段分子目录（ArtifactStore.contentPath 的口径，改布局会破坏已生成产物）。
     const dirA = join(projectsDir, a, 'pipeline');
     const dirB = join(projectsDir, b, 'pipeline');
-    const markdownA = readdirSync(dirA).filter((name) => name.startsWith('s1-') && name.endsWith('.md'));
-    const markdownB = readdirSync(dirB).filter((name) => name.startsWith('s1-') && name.endsWith('.md'));
+    const markdownA = readdirSync(dirA).filter(
+      (name) => name.startsWith('s1-') && name.endsWith('.md'),
+    );
+    const markdownB = readdirSync(dirB).filter(
+      (name) => name.startsWith('s1-') && name.endsWith('.md'),
+    );
     expect(markdownA).toHaveLength(2);
     expect(markdownB).toHaveLength(1);
     // 内容不跨项目：A 的目录里不会出现 B 的文本
@@ -571,7 +593,11 @@ describe('并发项目不串数据', () => {
     // 合法序列是 running → awaiting_confirm → confirmed（confirm 不接受 running，
     // 这是状态机的真实约束，不是可以顺手放宽的实现细节）。
     callSync({ domain: 'pipeline', method: 'startStage', params: { projectId: a, stage: 'S1' } });
-    callSync({ domain: 'pipeline', method: 'submitForReview', params: { projectId: a, stage: 'S1' } });
+    callSync({
+      domain: 'pipeline',
+      method: 'submitForReview',
+      params: { projectId: a, stage: 'S1' },
+    });
     callSync({ domain: 'pipeline', method: 'confirm', params: { projectId: a, stage: 'S1' } });
     expect(
       callSync<{ S1: { status: string } }>({

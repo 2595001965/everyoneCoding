@@ -296,4 +296,3 @@ function DesignerSession({ api, projectId }: DesignerSessionProps): JSX.Element 
     </DesignerProvider>
   );
 }
-

@@ -40,4 +40,3 @@ export function GitPage(): JSX.Element {
     </section>
   );
 }
-

@@ -79,9 +79,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
 
   const anchorsOf = (projectId: string): CodeAnchor[] =>
     (
-      db
-        .prepare(`SELECT * FROM code_anchor WHERE project_id = ?`)
-        .all(projectId) as CodeAnchorRow[]
+      db.prepare(`SELECT * FROM code_anchor WHERE project_id = ?`).all(projectId) as CodeAnchorRow[]
     ).map(fromCodeAnchorRow);
 
   const pagesOf = (projectId: string): NavPageRef[] => {
@@ -151,7 +149,8 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
       }
       for (const entry of entries) {
         if (out.length >= limit) return;
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist')
+          continue;
         const full = join(dir, entry.name);
         if (entry.isDirectory()) {
           walk(full, depth + 1);
@@ -172,7 +171,9 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
     return 'other';
   };
 
-  const docSectionsOf = (projectId: string): Array<{
+  const docSectionsOf = (
+    projectId: string,
+  ): Array<{
     id: string;
     title: string;
     documentId: string;
@@ -522,8 +523,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         const page = services.source
           .listPages()
           .find((item) => item.elements.some((el) => el.elementId === anchor.elementId));
-        const element =
-          page?.elements.find((el) => el.elementId === anchor.elementId) ?? null;
+        const element = page?.elements.find((el) => el.elementId === anchor.elementId) ?? null;
         return {
           success: true,
           hits: [

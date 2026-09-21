@@ -1,11 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createLoginPageDsl,
-  serializePageDsl,
-  type PageDsl,
-} from '@ec/designer';
+import { createLoginPageDsl, serializePageDsl, type PageDsl } from '@ec/designer';
 
 import { DesignerPage } from '../../../pages/DesignerPage';
 import {

@@ -189,9 +189,7 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
   const generateCommitMessage = async (
     projectId: string,
     params: Record<string, unknown>,
-  ): Promise<
-    GitResult<{ subject: string; body: string; text: string; adjustments: string[] }>
-  > => {
+  ): Promise<GitResult<{ subject: string; body: string; text: string; adjustments: string[] }>> => {
     if (options.aiStack === null) {
       throw new ShellError(
         'NOT_SUPPORTED',
@@ -469,7 +467,10 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
         if (result.ok) {
           const identity = await client.readIdentity();
           if (!identity.ok || identity.data?.name == null || identity.data.name.length === 0) {
-            const fallback = await client.setIdentity('EveryoneCoding', 'local@everyonecoding.local');
+            const fallback = await client.setIdentity(
+              'EveryoneCoding',
+              'local@everyonecoding.local',
+            );
             if (fallback.ok) {
               result.logs.push({
                 level: 'info',
@@ -855,10 +856,7 @@ function buildFullFilePatch(before: string, after: string, filePath: string): st
   };
   const oldLines = normalize(before);
   const newLines = normalize(after);
-  const body = [
-    ...oldLines.map((line) => `-${line}`),
-    ...newLines.map((line) => `+${line}`),
-  ];
+  const body = [...oldLines.map((line) => `-${line}`), ...newLines.map((line) => `+${line}`)];
   return [
     `--- a/${filePath}`,
     `+++ b/${filePath}`,

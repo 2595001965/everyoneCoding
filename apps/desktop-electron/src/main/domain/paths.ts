@@ -124,7 +124,12 @@ export function createProjectPaths(options: CreateProjectPathsOptions): ProjectP
     if (raw.length === 0) throw invalidArgument('缺少文件路径');
     if (raw.includes('\0')) throw invalidArgument('文件路径含非法字符');
     // 绝对路径与驱动器 / UNC 前缀一律拒绝：这类输入应被上层识别为"调用方搞错了"
-    if (isAbsolute(raw) || /^[A-Za-z]:/.test(raw) || raw.startsWith('\\\\') || raw.startsWith('//')) {
+    if (
+      isAbsolute(raw) ||
+      /^[A-Za-z]:/.test(raw) ||
+      raw.startsWith('\\\\') ||
+      raw.startsWith('//')
+    ) {
       throw pathEscape('拒绝绝对路径');
     }
     const normalized = raw.replace(/\\/g, '/');

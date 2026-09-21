@@ -41,7 +41,10 @@ export interface DesignerPortApi {
   /** 项目记忆的路由总表读取 */
   readRoutes(projectId: string): Promise<readonly unknown[]>;
   /** AI 生成页面候选（AI 栈未装配时外壳如实报 NOT_SUPPORTED + 引导） */
-  generatePage(projectId: string, request: { prompt: string; platform?: string; route?: string }): Promise<{
+  generatePage(
+    projectId: string,
+    request: { prompt: string; platform?: string; route?: string },
+  ): Promise<{
     candidate: unknown;
     raw: string;
     model: string;

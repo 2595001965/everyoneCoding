@@ -93,7 +93,9 @@ function fakeAiStack(text: string): AiStackHandle {
   };
 }
 
-function buildRuntime(options: { aiStack?: AiStackHandle | null } = {}): ReturnType<typeof createDomainRuntime> {
+function buildRuntime(
+  options: { aiStack?: AiStackHandle | null } = {},
+): ReturnType<typeof createDomainRuntime> {
   const ctx: DomainFactoryContext = {
     db,
     projectsDir,
@@ -141,7 +143,11 @@ interface PageFixture {
  * 再往里塞子树与状态 / 事件 / 接口依赖 —— 上下文引擎的元素祖先链、
  * 页面摘要与精简器都吃这些字段。
  */
-async function createStructuredPage(projectId: string, name = '登录页', route = '/login'): Promise<PageFixture> {
+async function createStructuredPage(
+  projectId: string,
+  name = '登录页',
+  route = '/login',
+): Promise<PageFixture> {
   const envelope = await call<{ page: PageDsl }>({
     domain: 'designer',
     method: 'createPage',
@@ -212,11 +218,7 @@ async function createStructuredPage(projectId: string, name = '登录页', route
 }
 
 /** 轮询等待（外部改动检测走文件监听，是异步的） */
-async function waitFor(
-  predicate: () => boolean,
-  timeoutMs = 5_000,
-  stepMs = 50,
-): Promise<boolean> {
+async function waitFor(predicate: () => boolean, timeoutMs = 5_000, stepMs = 50): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (predicate()) return true;
@@ -367,9 +369,7 @@ describe('设计器 → 页面记忆与结构变更台账', () => {
       method: 'upsertRoutes',
       params: {
         projectId,
-        routes: [
-          { path: '/login', pageId: 'p1', pageName: '登录页', platform: 'web', params: [] },
-        ],
+        routes: [{ path: '/login', pageId: 'p1', pageName: '登录页', platform: 'web', params: [] }],
       },
     });
     expect(first).toEqual(['/login']);
@@ -454,7 +454,11 @@ describe('设计器 → 页面记忆与结构变更台账', () => {
     });
     expect(resolved.status).toBe('resolved');
     expect(
-      await call({ domain: 'designer', method: 'noteBadges', params: { projectId, targetType: 'element' } }),
+      await call({
+        domain: 'designer',
+        method: 'noteBadges',
+        params: { projectId, targetType: 'element' },
+      }),
     ).toEqual({});
 
     expect(
@@ -482,7 +486,11 @@ describe('设计器 → 页面记忆与结构变更台账', () => {
       },
     });
     expect(
-      await call({ domain: 'designer', method: 'noteBadges', params: { projectId, targetType: 'element' } }),
+      await call({
+        domain: 'designer',
+        method: 'noteBadges',
+        params: { projectId, targetType: 'element' },
+      }),
     ).toEqual({});
   });
 
@@ -667,12 +675,22 @@ describe('上下文组装：真实来源、跳过原因与硬约束', () => {
 describe('代码写入管线：plan → preview → apply', () => {
   it('新建与补丁都走 WritePipeline，应用后落盘内容与计划一致', async () => {
     const projectId = await newProject('写入');
-    writeCodeFile(projectId, 'src/util.ts', ['export const a = 1;', 'export const b = 2;'].join('\n'));
+    writeCodeFile(
+      projectId,
+      'src/util.ts',
+      ['export const a = 1;', 'export const b = 2;'].join('\n'),
+    );
 
     const plan = await call<{
       id: string;
       mode: string;
-      entries: Array<{ path: string; action: string; changed: boolean; blocked: boolean; after: string | null }>;
+      entries: Array<{
+        path: string;
+        action: string;
+        changed: boolean;
+        blocked: boolean;
+        after: string | null;
+      }>;
       addedLines: number;
       blockedCount: number;
     }>({
@@ -683,7 +701,12 @@ describe('代码写入管线：plan → preview → apply', () => {
         mode: 'preview',
         output: {
           files: [
-            { path: 'src/new.ts', content: 'export const created = true;\n', action: 'create', language: 'ts' },
+            {
+              path: 'src/new.ts',
+              content: 'export const created = true;\n',
+              action: 'create',
+              language: 'ts',
+            },
             {
               path: 'src/util.ts',
               content: [
@@ -708,7 +731,12 @@ describe('代码写入管线：plan → preview → apply', () => {
     expect(plan.entries.map((entry) => entry.changed)).toEqual([true, true]);
     expect(plan.addedLines).toBe(2);
 
-    const result = await call<{ ok: boolean; applied: string[]; rolledBack: string[]; error: string | null }>({
+    const result = await call<{
+      ok: boolean;
+      applied: string[];
+      rolledBack: string[];
+      error: string | null;
+    }>({
       domain: 'code',
       method: 'apply',
       params: { projectId, plan },
@@ -742,7 +770,12 @@ describe('代码写入管线：plan → preview → apply', () => {
     // 外部进程（比如用户的编辑器）改了同一个文件
     writeCodeFile(projectId, 'src/old.ts', 'export const legacy = 2;\n');
 
-    const result = await call<{ ok: boolean; applied: string[]; error: string | null; rolledBack: string[] }>({
+    const result = await call<{
+      ok: boolean;
+      applied: string[];
+      error: string | null;
+      rolledBack: string[];
+    }>({
       domain: 'code',
       method: 'apply',
       params: { projectId, plan },
@@ -767,8 +800,18 @@ describe('代码写入管线：plan → preview → apply', () => {
         mode: 'preview',
         output: {
           files: [
-            { path: 'src/rolled-back.ts', content: 'export const first = 1;\n', action: 'create', language: 'ts' },
-            { path: 'blocker.ts/inner.ts', content: 'export const inner = 1;\n', action: 'create', language: 'ts' },
+            {
+              path: 'src/rolled-back.ts',
+              content: 'export const first = 1;\n',
+              action: 'create',
+              language: 'ts',
+            },
+            {
+              path: 'blocker.ts/inner.ts',
+              content: 'export const inner = 1;\n',
+              action: 'create',
+              language: 'ts',
+            },
           ],
           anchors: [],
           summary: '触发回滚',
@@ -779,7 +822,12 @@ describe('代码写入管线：plan → preview → apply', () => {
     });
     expect(plan.entries.map((entry) => entry.blocked)).toEqual([false, false]);
 
-    const result = await call<{ ok: boolean; applied: string[]; rolledBack: string[]; error: string | null }>({
+    const result = await call<{
+      ok: boolean;
+      applied: string[];
+      rolledBack: string[];
+      error: string | null;
+    }>({
       domain: 'code',
       method: 'apply',
       params: { projectId, plan },
@@ -832,7 +880,14 @@ describe('外部改动检测与 AI 重改', () => {
         projectId,
         mode: 'preview',
         output: {
-          files: [{ path: 'src/ai-made.ts', content: 'export const ai = 1;\n', action: 'create', language: 'ts' }],
+          files: [
+            {
+              path: 'src/ai-made.ts',
+              content: 'export const ai = 1;\n',
+              action: 'create',
+              language: 'ts',
+            },
+          ],
           anchors: [],
           summary: 'AI 写入',
           notes: '',
@@ -843,7 +898,9 @@ describe('外部改动检测与 AI 重改', () => {
     await call({ domain: 'code', method: 'apply', params: { projectId, plan: ownPlan } });
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(
-      emitted.filter((event) => (event.payload as { type?: string }).type === 'code:external-change'),
+      emitted.filter(
+        (event) => (event.payload as { type?: string }).type === 'code:external-change',
+      ),
     ).toHaveLength(0);
 
     // 外部进程（绕过域）直接改文件 → 必须被检测到
@@ -980,7 +1037,12 @@ describe('外部改动检测与 AI 重改', () => {
 
     const rows = db
       .prepare(`SELECT element_id, file_path, symbol, kind FROM code_anchor WHERE project_id = ?`)
-      .all(projectId) as Array<{ element_id: string; file_path: string; symbol: string; kind: string }>;
+      .all(projectId) as Array<{
+      element_id: string;
+      file_path: string;
+      symbol: string;
+      kind: string;
+    }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]).toEqual({
       element_id: 'el-submit',

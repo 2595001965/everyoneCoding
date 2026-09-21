@@ -38,4 +38,3 @@ export function PreviewPage(): JSX.Element {
     </section>
   );
 }
-

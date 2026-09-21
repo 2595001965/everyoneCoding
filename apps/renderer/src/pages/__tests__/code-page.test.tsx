@@ -46,7 +46,13 @@ function contextFixture(): AssembledContext {
       source: '会话上下文',
       editable: true,
       items: [
-        { key: 'task', label: '任务指令', tokens: 12, weight: 1000, text: '本次生成目标：后端代码' },
+        {
+          key: 'task',
+          label: '任务指令',
+          tokens: 12,
+          weight: 1000,
+          text: '本次生成目标：后端代码',
+        },
       ],
     },
     {
@@ -167,7 +173,14 @@ function installFakePorts(): FakeState {
       plan: async () => planFixture(),
       apply: async (plan: WritePlan) => {
         created.applied.push(plan);
-        return { ok: true, planId: plan.id, applied: [plan.entries[0]?.path ?? ''], skipped: [], rolledBack: [], error: null };
+        return {
+          ok: true,
+          planId: plan.id,
+          applied: [plan.entries[0]?.path ?? ''],
+          skipped: [],
+          rolledBack: [],
+          error: null,
+        };
       },
       requestRework: async (request: unknown) => {
         created.reworked.push(request);

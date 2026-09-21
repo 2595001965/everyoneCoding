@@ -299,10 +299,7 @@ export async function installDomainPorts(
   // 同步签名端口（memory / pipeline）在外壳没有 invokeSync 时不注入——
   // 消费方会在写入后立刻同步读回，异步通道给不出正确结果，宁可保留装配引导。
   const production = await installProductionPorts(host, call, subscribe, available, globals);
-  const installed = [
-    ...selectAvailableDomains(descriptors),
-    ...production.installed,
-  ];
+  const installed = [...selectAvailableDomains(descriptors), ...production.installed];
   // 两个装配批次可能重叠（基础四域不产出生产能力端口，但 keep 语义清晰），按序去重
   const deduped = [...new Set(installed)];
   return {

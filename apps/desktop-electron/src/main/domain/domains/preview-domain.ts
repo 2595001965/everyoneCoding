@@ -218,7 +218,10 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       const text = readSafely(file);
       if (text === null) continue;
       try {
-        return { spec: parseOpenApiDocument(text), source: relative(paths.projectRoot(projectId), file) };
+        return {
+          spec: parseOpenApiDocument(text),
+          source: relative(paths.projectRoot(projectId), file),
+        };
       } catch (error) {
         logs.warn(
           `OpenAPI 文件解析失败（已跳过）：${relative(paths.projectRoot(projectId), file)} ${
@@ -290,8 +293,9 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       });
     });
     const { root: staticRoot, fallback } = resolveStaticRoot(projectId);
-    const mockSettings =
-      settings.read<MockSettings>(mockSettingsKey(projectId)) ?? { ...DEFAULT_MOCK_SETTINGS };
+    const mockSettings = settings.read<MockSettings>(mockSettingsKey(projectId)) ?? {
+      ...DEFAULT_MOCK_SETTINGS,
+    };
     const mock = new MockResponseGenerator({ settings: mockSettings });
     const { spec, source } = loadOpenApiFor(projectId, logs);
     if (fallback) {
@@ -339,10 +343,13 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       requests: [],
       requestSeq: 0,
       runner: null,
-      installer: options.process === null ? null : new DependencyInstaller({
-        process: options.process,
-        logs,
-      }),
+      installer:
+        options.process === null
+          ? null
+          : new DependencyInstaller({
+              process: options.process,
+              logs,
+            }),
       profile: null,
       mock,
       openapi: spec,
@@ -534,7 +541,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
     instance.server = server;
     instance.port = allocation.port;
-    instance.url = `http://${lanSharing ? localLanAddress() ?? '127.0.0.1' : '127.0.0.1'}:${allocation.port}`;
+    instance.url = `http://${lanSharing ? (localLanAddress() ?? '127.0.0.1') : '127.0.0.1'}:${allocation.port}`;
     instance.mode = mode;
     instance.logs.info(
       `预览已启动：${instance.url}（模式 ${mode}，${
@@ -771,7 +778,10 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         if (entry === undefined) {
           throw new ShellError('NOT_FOUND', `未找到该请求记录：${String(input.id ?? '')}`);
         }
-        return buildCurl(entry, instance.url ?? `http://127.0.0.1:${instance.port ?? DEFAULT_PREVIEW_PORT}`);
+        return buildCurl(
+          entry,
+          instance.url ?? `http://127.0.0.1:${instance.port ?? DEFAULT_PREVIEW_PORT}`,
+        );
       }
 
       case 'replayRequest': {

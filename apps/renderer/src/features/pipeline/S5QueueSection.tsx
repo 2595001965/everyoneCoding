@@ -39,10 +39,16 @@ export function S5QueueSection({
     const s1Active = s1[s1.length - 1]?.version ?? 0;
     const s3Active = s3[s3.length - 1]?.version ?? 0;
     if (s1Active > 0) {
-      void api.readArtifact(projectId, 'S1', s1Active).then(setRequirementDoc).catch(() => {});
+      void api
+        .readArtifact(projectId, 'S1', s1Active)
+        .then(setRequirementDoc)
+        .catch(() => {});
     }
     if (s3Active > 0) {
-      void api.readArtifact(projectId, 'S3', s3Active).then(setTechDoc).catch(() => {});
+      void api
+        .readArtifact(projectId, 'S3', s3Active)
+        .then(setTechDoc)
+        .catch(() => {});
     }
   }, [api, projectId]);
 
@@ -172,10 +178,7 @@ export function S5QueueSection({
         >
           {state.nodes.map((node) => (
             <div key={node.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <NodeStatusCard
-                node={node}
-                result={result?.results[node.id] ?? null}
-              />
+              <NodeStatusCard node={node} result={result?.results[node.id] ?? null} />
               <div style={{ display: 'flex', gap: 6 }}>
                 {(node.status === 'failed' || node.status === 'success') && (
                   <Button size="sm" variant="secondary" onClick={() => void handleRetry(node.id)}>

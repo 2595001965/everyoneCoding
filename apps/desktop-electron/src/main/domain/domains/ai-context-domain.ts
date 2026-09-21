@@ -85,12 +85,12 @@ function rankByWeight(items: readonly MemoryItem[]): MemoryItem[] {
 
 export function createAiContextDomain(options: AiContextDomainOptions): DomainRouter {
   const repo = new MemoryRepo(options.db);
-  const notes = options.notes ?? createDesignerNoteStore({ db: options.db, userId: options.userId });
+  const notes =
+    options.notes ?? createDesignerNoteStore({ db: options.db, userId: options.userId });
   const pages = createPageDslReader({ projectsDir: options.projectsDir });
   const keyword = new FtsKeywordSearcher(options.db);
 
-  const codeRootOf = (projectId: string): string =>
-    join(options.projectsDir, projectId, 'code');
+  const codeRootOf = (projectId: string): string => join(options.projectsDir, projectId, 'code');
 
   /* ------------------------------ 记忆端口 ------------------------------ */
 
@@ -341,9 +341,7 @@ export function createAiContextDomain(options: AiContextDomainOptions): DomainRo
           });
         }
       }
-      return results
-        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-        .slice(0, input.limit);
+      return results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, input.limit);
     },
   };
 
@@ -395,7 +393,11 @@ export function createAiContextDomain(options: AiContextDomainOptions): DomainRo
       const lines = readFileSync(full, 'utf8').split('\n');
       const from = Math.max(0, start - 1);
       const to = Math.min(lines.length, end);
-      return { snippet: lines.slice(from, to).join('\n').slice(0, 2_000), startLine: start, endLine: end };
+      return {
+        snippet: lines.slice(from, to).join('\n').slice(0, 2_000),
+        startLine: start,
+        endLine: end,
+      };
     } catch {
       return { snippet: '', startLine: start, endLine: end };
     }
@@ -446,7 +448,10 @@ export function createAiContextDomain(options: AiContextDomainOptions): DomainRo
             startLine: index + 1,
             endLine: Math.min(lines.length, index + 30),
             language: languageOf(rel),
-            snippet: lines.slice(index, index + 30).join('\n').slice(0, 2_000),
+            snippet: lines
+              .slice(index, index + 30)
+              .join('\n')
+              .slice(0, 2_000),
             score: 0.4,
           });
           break;
@@ -471,7 +476,9 @@ export function createAiContextDomain(options: AiContextDomainOptions): DomainRo
         const { snippet, startLine, endLine } = snippetOf(root, row);
         // 命中度：元素精确匹配最高，其次页面，最后是项目内其余锚点
         const score =
-          input.elementId !== null && input.elementId !== undefined && row.element_id === input.elementId
+          input.elementId !== null &&
+          input.elementId !== undefined &&
+          row.element_id === input.elementId
             ? 1
             : row.element_id === null
               ? 0.6

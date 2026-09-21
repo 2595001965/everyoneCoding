@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  readdirSync,
+} from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import type Database from 'better-sqlite3';
 
@@ -113,9 +120,7 @@ function toCondenserElement(node: ElementNode): CondenserElementNode {
     ...(node.props !== undefined ? { props: node.props } : {}),
     ...(node.bindings !== undefined ? { bindings: node.bindings } : {}),
     featureRef: node.featureRef ?? null,
-    ...(node.children !== undefined
-      ? { children: node.children.map(toCondenserElement) }
-      : {}),
+    ...(node.children !== undefined ? { children: node.children.map(toCondenserElement) } : {}),
   };
 }
 
@@ -167,7 +172,8 @@ export function createDesignerDomain(options: DesignerDomainOptions): {
     const refs = new Set<string>();
     if (typeof page.featureId === 'string' && page.featureId.length > 0) refs.add(page.featureId);
     const walk = (node: ElementNode): void => {
-      if (typeof node.featureRef === 'string' && node.featureRef.length > 0) refs.add(node.featureRef);
+      if (typeof node.featureRef === 'string' && node.featureRef.length > 0)
+        refs.add(node.featureRef);
       for (const child of node.children ?? []) walk(child);
     };
     walk(page.tree);
@@ -201,7 +207,9 @@ export function createDesignerDomain(options: DesignerDomainOptions): {
           node.name ?? node.type,
           node.props !== undefined ? JSON.stringify(node.props) : null,
           node.style !== undefined ? JSON.stringify(node.style) : null,
-          typeof node.featureRef === 'string' && node.featureRef.length > 0 ? node.featureRef : null,
+          typeof node.featureRef === 'string' && node.featureRef.length > 0
+            ? node.featureRef
+            : null,
           order,
           now,
           now,
@@ -469,7 +477,13 @@ export function createDesignerDomain(options: DesignerDomainOptions): {
             },
             options: { sourceType: 'auto_design' },
           });
-          return { id: outcome.item.id, revision: 0, changed: [], tokenEstimate: 0, truncated: false };
+          return {
+            id: outcome.item.id,
+            revision: 0,
+            changed: [],
+            tokenEstimate: 0,
+            truncated: false,
+          };
         }
 
         // DSL 本体先过领域校验：非法结构直接拒绝，而不是把垃圾摘要写进记忆

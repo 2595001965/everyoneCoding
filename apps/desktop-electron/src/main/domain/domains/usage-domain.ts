@@ -40,10 +40,13 @@ function monthRange(now: number): [number, number] {
 }
 
 export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
-  const readBudget = (): { dailyUsd: number | null; monthlyUsd: number | null; alertRatio: number } => {
-    const row = options.db
-      .prepare(`SELECT value FROM setting WHERE key = 'usage_budget'`)
-      .get() as { value: string | null } | undefined;
+  const readBudget = (): {
+    dailyUsd: number | null;
+    monthlyUsd: number | null;
+    alertRatio: number;
+  } => {
+    const row = options.db.prepare(`SELECT value FROM setting WHERE key = 'usage_budget'`).get() as
+      { value: string | null } | undefined;
     if (!row?.value) return { dailyUsd: null, monthlyUsd: null, alertRatio: 0.8 };
     try {
       return JSON.parse(row.value) as ReturnType<typeof readBudget>;
@@ -52,7 +55,11 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
     }
   };
 
-  const writeBudget = (config: { dailyUsd: number | null; monthlyUsd: number | null; alertRatio: number }): void => {
+  const writeBudget = (config: {
+    dailyUsd: number | null;
+    monthlyUsd: number | null;
+    alertRatio: number;
+  }): void => {
     options.db
       .prepare(
         `INSERT INTO setting (key, value) VALUES ('usage_budget', ?)
@@ -147,15 +154,25 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
         }
         const warnDaily =
           config.dailyUsd !== null && daily / config.dailyUsd >= config.alertRatio
-            ? { scope: 'daily' as const, ratio: daily / config.dailyUsd, spent: daily, limit: config.dailyUsd }
+            ? {
+                scope: 'daily' as const,
+                ratio: daily / config.dailyUsd,
+                spent: daily,
+                limit: config.dailyUsd,
+              }
             : undefined;
         const warnMonthly =
           config.monthlyUsd !== null && monthly / config.monthlyUsd >= config.alertRatio
-            ? { scope: 'monthly' as const, ratio: monthly / config.monthlyUsd, spent: monthly, limit: config.monthlyUsd }
+            ? {
+                scope: 'monthly' as const,
+                ratio: monthly / config.monthlyUsd,
+                spent: monthly,
+                limit: config.monthlyUsd,
+              }
             : undefined;
         return {
           ok: true,
-          ...(warnDaily ?? warnMonthly ? { warn: warnDaily ?? warnMonthly } : {}),
+          ...((warnDaily ?? warnMonthly) ? { warn: warnDaily ?? warnMonthly } : {}),
         };
       }
 

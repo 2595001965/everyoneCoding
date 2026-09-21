@@ -7,16 +7,18 @@ import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDomainEventSink, type DomainControlServiceHost } from '@ec/shell-api';
-import { createElement, createEmptyPage, deserializePageDsl, serializePageDsl } from '@ec/designer/dsl';
+import {
+  createElement,
+  createEmptyPage,
+  deserializePageDsl,
+  serializePageDsl,
+} from '@ec/designer/dsl';
 
 import { openBusinessDb } from '../domain/db';
 import { createProjectPaths } from '../domain/paths';
 import { createControlledProcessHost } from '../domain/process-host';
 import { createDomainRuntime } from '../domain/runtime';
-import {
-  createProductionDomains,
-  type DomainFactoryContext,
-} from '../domain/domain-factories';
+import { createProductionDomains, type DomainFactoryContext } from '../domain/domain-factories';
 import { upsertRegistryEntry } from '../domain/domains/rename-domain';
 
 /**
@@ -170,7 +172,10 @@ describe('工程根目录安全校验', () => {
 
   it('四域在收到越界 projectId 时一律拒绝，而不是去读磁盘', async () => {
     for (const domain of ['git', 'preview', 'rename']) {
-      await expectCode({ domain, method: 'openProject', params: { projectId: '../evil' } }, 'INVALID_ARGUMENT');
+      await expectCode(
+        { domain, method: 'openProject', params: { projectId: '../evil' } },
+        'INVALID_ARGUMENT',
+      );
     }
     await expectCode(
       { domain: 'nav', method: 'openProject', params: { projectId: '..\\evil' } },
@@ -191,7 +196,10 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
   it('静态预览可访问；未匹配接口走 Mock；端口顺延有提示', async () => {
     // 静态产物目录（优先托管 dist）
     projectFile('code/dist/index.html', '<!doctype html><title>预览页</title><h1>demo</h1>');
-    projectFile('code/package.json', JSON.stringify({ name: 'demo', scripts: { dev: 'node server.js' } }));
+    projectFile(
+      'code/package.json',
+      JSON.stringify({ name: 'demo', scripts: { dev: 'node server.js' } }),
+    );
 
     const started = await call<{ port: number; url: string; shifted: boolean }>({
       domain: 'preview',
@@ -249,7 +257,11 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
 
     await call({ domain: 'preview', method: 'clearRequests', params: { projectId: PROJECT_ID } });
     expect(
-      await call<unknown[]>({ domain: 'preview', method: 'requests', params: { projectId: PROJECT_ID } }),
+      await call<unknown[]>({
+        domain: 'preview',
+        method: 'requests',
+        params: { projectId: PROJECT_ID },
+      }),
     ).toEqual([]);
   });
 
@@ -280,12 +292,24 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
   });
 
   it('局域网预览默认关闭；开启前取二维码被拒并说明风险；开启后给局域网地址', async () => {
-    await call({ domain: 'preview', method: 'start', params: { projectId: PROJECT_ID, mode: 'static' } });
+    await call({
+      domain: 'preview',
+      method: 'start',
+      params: { projectId: PROJECT_ID, mode: 'static' },
+    });
     expect(
-      await call<boolean>({ domain: 'preview', method: 'lanSharingEnabled', params: { projectId: PROJECT_ID } }),
+      await call<boolean>({
+        domain: 'preview',
+        method: 'lanSharingEnabled',
+        params: { projectId: PROJECT_ID },
+      }),
     ).toBe(false);
     await expectCode(
-      { domain: 'preview', method: 'deviceQr', params: { projectId: PROJECT_ID, channelId: 'mobile' } },
+      {
+        domain: 'preview',
+        method: 'deviceQr',
+        params: { projectId: PROJECT_ID, channelId: 'mobile' },
+      },
       'NOT_SUPPORTED',
     );
 
@@ -305,7 +329,11 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
       params: { projectId: PROJECT_ID, enabled: true },
     });
     expect(
-      await call<boolean>({ domain: 'preview', method: 'lanSharingEnabled', params: { projectId: PROJECT_ID } }),
+      await call<boolean>({
+        domain: 'preview',
+        method: 'lanSharingEnabled',
+        params: { projectId: PROJECT_ID },
+      }),
     ).toBe(true);
     const qr = await call<{ url: string; qrText: string }>({
       domain: 'preview',
@@ -321,7 +349,11 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
       params: { projectId: PROJECT_ID, enabled: false },
     });
     await expectCode(
-      { domain: 'preview', method: 'deviceQr', params: { projectId: PROJECT_ID, channelId: 'mobile' } },
+      {
+        domain: 'preview',
+        method: 'deviceQr',
+        params: { projectId: PROJECT_ID, channelId: 'mobile' },
+      },
       'NOT_SUPPORTED',
     );
     await call({ domain: 'preview', method: 'stop', params: { projectId: PROJECT_ID } });
@@ -341,7 +373,9 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
     expect(settings.delayMs).toBe(12);
     expect(settings.errorStatus).toBe(503);
     expect(
-      db.prepare(`SELECT COUNT(*) AS n FROM setting WHERE key LIKE 'preview_mock_settings:%'`).get(),
+      db
+        .prepare(`SELECT COUNT(*) AS n FROM setting WHERE key LIKE 'preview_mock_settings:%'`)
+        .get(),
     ).toEqual({ n: 1 });
   });
 });
@@ -362,7 +396,7 @@ describe('真实后端托管（受控进程端口）', () => {
     '      port,',
     '      method: req.method,',
     '      path: req.url,',
-    "      echo: body.length > 0 ? JSON.parse(body) : null,",
+    '      echo: body.length > 0 ? JSON.parse(body) : null,',
     '    }));',
     '  });',
     '});',
@@ -372,9 +406,16 @@ describe('真实后端托管（受控进程端口）', () => {
 
   it('启动 Node demo 后，表单请求打到真实后端（source=backend），日志可查', async () => {
     projectFile('code/server.js', DEMO);
-    projectFile('code/package.json', JSON.stringify({ name: 'demo', scripts: { dev: 'node server.js' } }));
+    projectFile(
+      'code/package.json',
+      JSON.stringify({ name: 'demo', scripts: { dev: 'node server.js' } }),
+    );
 
-    const profile = await call<{ kind: string; startCmd: string | null; requiresManualCommand: boolean }>({
+    const profile = await call<{
+      kind: string;
+      startCmd: string | null;
+      requiresManualCommand: boolean;
+    }>({
       domain: 'preview',
       method: 'projectProfile',
       params: { projectId: PROJECT_ID },
@@ -382,7 +423,11 @@ describe('真实后端托管（受控进程端口）', () => {
     expect(profile.kind).toBe('node');
     expect(profile.startCmd).toBe('npm run dev');
 
-    const started = await call<{ ok: boolean; data: { port: number; url: string } | null; error: unknown }>({
+    const started = await call<{
+      ok: boolean;
+      data: { port: number; url: string } | null;
+      error: unknown;
+    }>({
       domain: 'preview',
       method: 'startBackend',
       params: { projectId: PROJECT_ID },
@@ -444,7 +489,11 @@ describe('真实后端托管（受控进程端口）', () => {
       );
     });
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { ok: boolean; echo: { username: string } | null; port: number };
+    const body = (await response.json()) as {
+      ok: boolean;
+      echo: { username: string } | null;
+      port: number;
+    };
     expect(body.ok).toBe(true);
     expect(body.echo?.username).toBe('wu');
     // 端口一致性：应用真实监听的端口就是预分配并注入 PORT 的那个
@@ -541,9 +590,7 @@ describe('导航生产端口（跳转 / 反向跳转 / 关系图 / 数据流）'
       name: '登录页',
       route: '/login',
     });
-    page.tree.children = [
-      createElement({ id: ELEMENT_ID, type: 'Button', name: '登录按钮' }),
-    ];
+    page.tree.children = [createElement({ id: ELEMENT_ID, type: 'Button', name: '登录按钮' })];
     const envelope = serializePageDsl(page);
     // 合法性唯一判据：反序列化通过
     expect(deserializePageDsl(envelope).dsl.id).toBe(PAGE_ID);
@@ -605,7 +652,10 @@ describe('导航生产端口（跳转 / 反向跳转 / 关系图 / 数据流）'
     expect(stats.forward.success).toBe(1);
 
     // 反向跳转：注释标记命中（第 1 行）
-    const reverse = await call<{ success: boolean; hits: Array<{ elementId: string; element: { name: string } | null }> }>({
+    const reverse = await call<{
+      success: boolean;
+      hits: Array<{ elementId: string; element: { name: string } | null }>;
+    }>({
       domain: 'nav',
       method: 'reverseJump',
       params: { projectId: PROJECT_ID, input: { filePath: 'src/LoginController.ts', line: 1 } },
@@ -690,7 +740,12 @@ describe('统一重命名生产端口（事务 / 不误伤 / 可撤销）', () =
       .map((item) => item.id);
     expect(selection.length).toBeGreaterThan(0);
 
-    const result = await call<{ ok: boolean; event: { id: string } | null; applied: number; failures: string[] }>({
+    const result = await call<{
+      ok: boolean;
+      event: { id: string } | null;
+      applied: number;
+      failures: string[];
+    }>({
       domain: 'rename',
       method: 'execute',
       params: { projectId: PROJECT_ID, registryId: REGISTRY_ID, newName: NEW_NAME, selection },
@@ -708,7 +763,9 @@ describe('统一重命名生产端口（事务 / 不误伤 / 可撤销）', () =
       canonicalName: OLD_NAME,
     });
 
-    const targets = await call<Array<{ registryId: string; canonicalName: string; projections: Record<string, string> }>>({
+    const targets = await call<
+      Array<{ registryId: string; canonicalName: string; projections: Record<string, string> }>
+    >({
       domain: 'rename',
       method: 'listTargets',
       params: { projectId: PROJECT_ID },
@@ -860,7 +917,12 @@ describe('统一重命名生产端口（事务 / 不误伤 / 可撤销）', () =
   }, 120_000);
 
   it('批量计划与规范化：diff 预览齐备，无漂移时为无操作', async () => {
-    const plan = await call<{ batchId: string; steps: unknown[]; blocked: unknown[]; scopeNotice: string }>({
+    const plan = await call<{
+      batchId: string;
+      steps: unknown[];
+      blocked: unknown[];
+      scopeNotice: string;
+    }>({
       domain: 'rename',
       method: 'planBatch',
       params: { projectId: PROJECT_ID, normalize: true },
@@ -886,7 +948,11 @@ describe('统一重命名生产端口（事务 / 不误伤 / 可撤销）', () =
     expect(missing.error?.code).toBe('NOT_FOUND');
 
     expect(
-      await call<unknown[]>({ domain: 'rename', method: 'pendingCleanup', params: { projectId: PROJECT_ID } }),
+      await call<unknown[]>({
+        domain: 'rename',
+        method: 'pendingCleanup',
+        params: { projectId: PROJECT_ID },
+      }),
     ).toEqual([]);
     expect(
       await call<number>({
@@ -942,7 +1008,10 @@ describe('Git 生产端口（凭据 / 自动提交策略 / 破坏性操作拦截
       {
         domain: 'git',
         method: 'saveHttpsCredential',
-        params: { projectId: PROJECT_ID, input: { remoteName: 'origin', token: 'sk-should-not-leak' } },
+        params: {
+          projectId: PROJECT_ID,
+          input: { remoteName: 'origin', token: 'sk-should-not-leak' },
+        },
       },
       'NOT_SUPPORTED',
     );
@@ -969,7 +1038,9 @@ describe('Git 生产端口（凭据 / 自动提交策略 / 破坏性操作拦截
     expect(updated.trigger).toBe('per-stage');
     expect(
       db
-        .prepare(`SELECT value_json FROM setting WHERE user_id = ? AND key = 'git_auto_commit_policy'`)
+        .prepare(
+          `SELECT value_json FROM setting WHERE user_id = ? AND key = 'git_auto_commit_policy'`,
+        )
         .get(USER_ID),
     ).toBeTruthy();
   });

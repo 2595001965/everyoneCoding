@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync, type Dirent } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+  type Dirent,
+} from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 
@@ -264,9 +273,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
     join(paths.pagesDir(projectId), `${documentId}.dsl.json`);
 
   const platformOf = (projectId: string): NamingPlatform => {
-    const row = db
-      .prepare(`SELECT target_platforms FROM project WHERE id = ?`)
-      .get(projectId) as { target_platforms: string | null } | undefined;
+    const row = db.prepare(`SELECT target_platforms FROM project WHERE id = ?`).get(projectId) as
+      { target_platforms: string | null } | undefined;
     if (row?.target_platforms == null) return 'web';
     const parsed = parseJsonSafe(row.target_platforms);
     if (!Array.isArray(parsed) || parsed.length === 0) return 'web';
@@ -278,8 +286,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
     const row = db
       .prepare(`SELECT value_json FROM setting WHERE user_id = ? AND key = ?`)
       .get(options.userId, `rename_override:${projectId}`) as
-      | { value_json: string | null }
-      | undefined;
+      { value_json: string | null } | undefined;
     if (row?.value_json == null) return null;
     const parsed = parseJsonSafe(row.value_json);
     return parsed !== null && typeof parsed === 'object' ? (parsed as NamingOverride) : null;
@@ -309,7 +316,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       }
       for (const entry of entries) {
         if (out.length >= INDEX_LIMITS.maxFiles) return;
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist')
+          continue;
         const full = join(dir, entry.name);
         if (entry.isDirectory()) {
           walk(full, depth + 1);
@@ -331,7 +339,12 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
 
   const collectDocs = (
     projectId: string,
-  ): Array<{ id: string; title: string; content: string; type: 'requirement' | 'tech' | 'related' }> =>
+  ): Array<{
+    id: string;
+    title: string;
+    content: string;
+    type: 'requirement' | 'tech' | 'related';
+  }> =>
     (
       db
         .prepare(
@@ -349,8 +362,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       title: row.title,
       type: row.kind === 'requirement' || row.kind === 'tech' ? row.kind : 'related',
       content:
-        row.content_text ??
-        (row.content_ref !== null ? (readTextSafe(row.content_ref) ?? '') : ''),
+        row.content_text ?? (row.content_ref !== null ? (readTextSafe(row.content_ref) ?? '') : ''),
     }));
 
   const collectMemories = (
@@ -410,8 +422,9 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         const record = raw as Record<string, unknown>;
         const id = typeof record['id'] === 'string' ? record['id'] : '';
         if (id.length === 0) return;
-        const bindingValues = Object.values((record['bindings'] ?? {}) as Record<string, unknown>)
-          .filter((value): value is string => typeof value === 'string');
+        const bindingValues = Object.values(
+          (record['bindings'] ?? {}) as Record<string, unknown>,
+        ).filter((value): value is string => typeof value === 'string');
         const flat: LogicNodeFlat = {
           documentId,
           id,
@@ -516,8 +529,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
           const row = db
             .prepare(`SELECT content_text, content_ref FROM document WHERE id = ?`)
             .get(documentId) as
-            | { content_text: string | null; content_ref: string | null }
-            | undefined;
+            { content_text: string | null; content_ref: string | null } | undefined;
           if (row === undefined) return null;
           if (row.content_text !== null) return row.content_text;
           return row.content_ref === null ? null : readTextSafe(row.content_ref);
@@ -549,9 +561,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
           return { structured: parseJsonSafe(row.structured), content: row.content };
         },
         setStructured: (itemId, jsonPath, value) => {
-          const row = db
-            .prepare(`SELECT structured FROM memory_item WHERE id = ?`)
-            .get(itemId) as { structured: string | null } | undefined;
+          const row = db.prepare(`SELECT structured FROM memory_item WHERE id = ?`).get(itemId) as
+            { structured: string | null } | undefined;
           if (row === undefined) return;
           const root = (parseJsonSafe(row.structured) ?? {}) as Record<string, unknown>;
           if (!setLeaf(root, jsonPath, value)) return;
@@ -562,9 +573,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
           );
         },
         replaceInContent: (itemId, from, to, occurrenceIndex) => {
-          const row = db
-            .prepare(`SELECT content FROM memory_item WHERE id = ?`)
-            .get(itemId) as { content: string } | undefined;
+          const row = db.prepare(`SELECT content FROM memory_item WHERE id = ?`).get(itemId) as
+            { content: string } | undefined;
           if (row === undefined) return;
           db.prepare(`UPDATE memory_item SET content = ?, updated_at = ? WHERE id = ?`).run(
             replaceNth(row.content, from, to, occurrenceIndex),
@@ -657,9 +667,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       },
       anchors: {
         read: (anchorId) => {
-          const row = db
-            .prepare(`SELECT symbol FROM code_anchor WHERE id = ?`)
-            .get(anchorId) as { symbol: string | null } | undefined;
+          const row = db.prepare(`SELECT symbol FROM code_anchor WHERE id = ?`).get(anchorId) as
+            { symbol: string | null } | undefined;
           return row?.symbol ?? null;
         },
         update: (anchorId, to) => {
@@ -738,7 +747,10 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
 
   /* ------------------------------ 迁移 ------------------------------ */
 
-  const pendingMigrations = new Map<string, { migration: GeneratedMigration; preview: MigrationPreview }>();
+  const pendingMigrations = new Map<
+    string,
+    { migration: GeneratedMigration; preview: MigrationPreview }
+  >();
 
   const generateMigrationFor = async (
     projectId: string,
@@ -762,7 +774,11 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       dependents: Array.isArray(input['dependents']) ? (input['dependents'] as string[]) : [],
       estimatedRows: null,
     };
-    if (request.table.length === 0 || request.oldColumn.length === 0 || request.newColumn.length === 0) {
+    if (
+      request.table.length === 0 ||
+      request.oldColumn.length === 0 ||
+      request.newColumn.length === 0
+    ) {
       throw new ShellError('INVALID_ARGUMENT', '表名与新旧字段名不能为空');
     }
     const gateway = options.aiStack.gateway;
@@ -797,8 +813,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
     const row = db
       .prepare(`SELECT value_json FROM setting WHERE user_id = ? AND key = ?`)
       .get(options.userId, `rename:datasource:${projectId}`) as
-      | { value_json: string | null }
-      | undefined;
+      { value_json: string | null } | undefined;
     if (row?.value_json == null) return null;
     const parsed = parseJsonSafe(row.value_json) as Record<string, unknown> | null;
     if (parsed === null) return null;
@@ -820,9 +835,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
 
       case 'projectContext': {
         const projectId = requireProject(params);
-        const nameRow = db
-          .prepare(`SELECT name FROM project WHERE id = ?`)
-          .get(projectId) as { name: string } | undefined;
+        const nameRow = db.prepare(`SELECT name FROM project WHERE id = ?`).get(projectId) as
+          { name: string } | undefined;
         return {
           projectId,
           projectName: nameRow?.name ?? projectId,
@@ -917,7 +931,9 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         // 直接放行会出现两种坏结果：静默什么都不改（用户以为改了），
         // 或退回"全部勾选"（改了用户没确认的位置）。两者都不可接受，故拒绝并要求重新分析。
         if (selection.size > 0) {
-          const known = new Set(report.groups.flatMap((group) => group.items.map((item) => item.id)));
+          const known = new Set(
+            report.groups.flatMap((group) => group.items.map((item) => item.id)),
+          );
           const matched = [...selection].filter((id) => known.has(id)).length;
           if (matched === 0) {
             throw new ShellError(
@@ -996,7 +1012,11 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
           options.emit('rename', { type: 'rename:migration-log', ...line, projectId });
         };
         const datasource = datasourceOf(projectId);
-        if (datasource === null || datasource.dialect !== 'sqlite' || datasource.file.length === 0) {
+        if (
+          datasource === null ||
+          datasource.dialect !== 'sqlite' ||
+          datasource.file.length === 0
+        ) {
           return {
             ok: false,
             executed: [],
@@ -1042,7 +1062,9 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
               },
             },
             projectId,
-            ...(typeof params['registryId'] === 'string' ? { registryId: params['registryId'] } : {}),
+            ...(typeof params['registryId'] === 'string'
+              ? { registryId: params['registryId'] }
+              : {}),
             onLog,
           });
           pendingMigrations.delete(migrationId);
@@ -1173,7 +1195,9 @@ export function upsertRegistryEntry(
 ): void {
   const rule = resolveNamingRule({
     platform: entry.platform ?? 'web',
-    ...(entry.override !== null && entry.override !== undefined ? { override: entry.override } : {}),
+    ...(entry.override !== null && entry.override !== undefined
+      ? { override: entry.override }
+      : {}),
   });
   const now = Date.now();
   const id = `reg-${entry.entityType}-${entry.entityId}`;
@@ -1200,7 +1224,11 @@ export function upsertRegistryEntry(
       ? {
           createdAt: existing.created_at,
           ...(Array.isArray(parseJsonSafe(existing.name_history_json))
-            ? { nameHistory: parseJsonSafe(existing.name_history_json) as RegistryEntry['nameHistory'] }
+            ? {
+                nameHistory: parseJsonSafe(
+                  existing.name_history_json,
+                ) as RegistryEntry['nameHistory'],
+              }
             : {}),
           ...(Array.isArray(parseJsonSafe(existing.aliases_json))
             ? { aliases: parseJsonSafe(existing.aliases_json) as RegistryEntry['aliases'] }
@@ -1300,15 +1328,13 @@ function ownerNameOf(db: Database.Database, entry: RegistryEntry): string | null
       return row?.name ?? null;
     }
     if (entry.entityType === 'page') {
-      const row = db
-        .prepare(`SELECT name FROM page WHERE id = ?`)
-        .get(entry.entityId) as { name: string } | undefined;
+      const row = db.prepare(`SELECT name FROM page WHERE id = ?`).get(entry.entityId) as
+        { name: string } | undefined;
       return row?.name ?? null;
     }
     if (entry.entityType === 'feature') {
-      const row = db
-        .prepare(`SELECT name FROM feature WHERE id = ?`)
-        .get(entry.entityId) as { name: string } | undefined;
+      const row = db.prepare(`SELECT name FROM feature WHERE id = ?`).get(entry.entityId) as
+        { name: string } | undefined;
       return row?.name ?? null;
     }
   } catch {

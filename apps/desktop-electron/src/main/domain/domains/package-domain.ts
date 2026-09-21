@@ -42,9 +42,8 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
   const exportsDir = join(process.env['EC_ELECTRON_USER_DATA_DIR'] ?? '.', 'data', 'exports');
 
   const readBackupDir = (): string => {
-    const row = options.db
-      .prepare(`SELECT value FROM setting WHERE key = 'backup_dir'`)
-      .get() as { value: string | null } | undefined;
+    const row = options.db.prepare(`SELECT value FROM setting WHERE key = 'backup_dir'`).get() as
+      { value: string | null } | undefined;
     return row?.value && row.value.length > 0 ? row.value : exportsDir;
   };
 
@@ -74,7 +73,11 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
             redact: request['redact'] !== false,
             ...(password !== undefined ? { password } : {}),
           },
-          createExportSourcePort({ db: options.db, projectsDir: options.projectsDir, userId: options.userId }),
+          createExportSourcePort({
+            db: options.db,
+            projectsDir: options.projectsDir,
+            userId: options.userId,
+          }),
         );
         ctx.emit({ type: 'package:progress', stage: 'done', processed: 1, total: 1 });
         return {
@@ -95,11 +98,9 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
       case 'verifyPackage': {
         const packagePath = String(params['packagePath'] ?? '');
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
-        if (!existsSync(packagePath)) throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
-        const report = verifyPackage(
-          packagePath,
-          password !== undefined ? { password } : {},
-        );
+        if (!existsSync(packagePath))
+          throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
+        const report = verifyPackage(packagePath, password !== undefined ? { password } : {});
         return report;
       }
 
@@ -111,7 +112,11 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
           const objects = collectPackageObjects(reader);
           const preview = buildDiffPreview(
             objects,
-            createImportLocalStatePort({ db: options.db, projectsDir: options.projectsDir, userId: options.userId }),
+            createImportLocalStatePort({
+              db: options.db,
+              projectsDir: options.projectsDir,
+              userId: options.userId,
+            }),
           );
           const counts = { added: 0, conflicted: 0, unchanged: 0, missing: 0 };
           for (const item of preview.items) counts[item.classification] += 1;
@@ -147,9 +152,15 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
           const objects = collectPackageObjects(reader);
           const preview = buildDiffPreview(
             objects,
-            createImportLocalStatePort({ db: options.db, projectsDir: options.projectsDir, userId: options.userId }),
+            createImportLocalStatePort({
+              db: options.db,
+              projectsDir: options.projectsDir,
+              userId: options.userId,
+            }),
           );
-          const conflicted = preview.items.filter((item) => item.classification === 'conflicted').length;
+          const conflicted = preview.items.filter(
+            (item) => item.classification === 'conflicted',
+          ).length;
           const added = preview.items.filter((item) => item.classification === 'added').length;
           const toApply = mode === 'full-restore' ? objects.length : added + conflicted;
           return {
@@ -171,7 +182,8 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
         const request = params['request'] as Record<string, unknown>;
         const packagePath = String(request['packagePath'] ?? '');
         const password = typeof request['password'] === 'string' ? request['password'] : undefined;
-        if (!existsSync(packagePath)) throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
+        if (!existsSync(packagePath))
+          throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
 
         const reader = EcpkgReader.open(packagePath, password !== undefined ? { password } : {});
         let objects: PackageObject[] = [];
@@ -190,13 +202,18 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
           .filter((item) => item.classification === 'conflicted')
           .map((item) => ({
             id: item.incoming.id,
-            resolution:
-              ((request['decisions'] as Array<{ id: string; resolution: string }> | undefined)?.find(
-                (decision) => decision.id === item.incoming.id,
-              )?.resolution ?? 'keepLocal') as ConflictResolution,
+            resolution: ((
+              request['decisions'] as Array<{ id: string; resolution: string }> | undefined
+            )?.find((decision) => decision.id === item.incoming.id)?.resolution ??
+              'keepLocal') as ConflictResolution,
           }));
 
-        ctx.emit({ type: 'package:progress', stage: 'importing', processed: 0, total: objects.length });
+        ctx.emit({
+          type: 'package:progress',
+          stage: 'importing',
+          processed: 0,
+          total: objects.length,
+        });
         const report = await runImport(
           {
             packagePath,
@@ -213,7 +230,12 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
             }),
           },
         );
-        ctx.emit({ type: 'package:progress', stage: 'done', processed: objects.length, total: objects.length });
+        ctx.emit({
+          type: 'package:progress',
+          stage: 'done',
+          processed: objects.length,
+          total: objects.length,
+        });
         return {
           mode: (request['mode'] ?? 'merge') as never,
           counts: report.counts,
@@ -288,7 +310,11 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
             selection: { scope: 'all', projectIds: [], content: defaultContentSelection() },
             redact: true,
           },
-          createExportSourcePort({ db: options.db, projectsDir: options.projectsDir, userId: options.userId }),
+          createExportSourcePort({
+            db: options.db,
+            projectsDir: options.projectsDir,
+            userId: options.userId,
+          }),
         );
         return {
           fileName,
@@ -302,7 +328,13 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
       case 'listSnapshots': {
         const dir = readBackupDir();
         if (!existsSync(dir)) return [];
-        const out: Array<{ fileName: string; path: string; createdAt: number; sizeBytes: number; scope: string }> = [];
+        const out: Array<{
+          fileName: string;
+          path: string;
+          createdAt: number;
+          sizeBytes: number;
+          scope: string;
+        }> = [];
         for (const entry of readdirSync(dir)) {
           if (!entry.startsWith('ec-backup-') || !entry.endsWith('.ecpkg')) continue;
           const full = join(dir, entry);
@@ -331,7 +363,11 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
             selection: { scope: 'all', projectIds: [], content: defaultContentSelection() },
             redact: true,
           },
-          createExportSourcePort({ db: options.db, projectsDir: options.projectsDir, userId: options.userId }),
+          createExportSourcePort({
+            db: options.db,
+            projectsDir: options.projectsDir,
+            userId: options.userId,
+          }),
         );
 
         const reader = EcpkgReader.open(path, {});
@@ -388,16 +424,14 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
       case 'deleteExportPreset': {
         const key = 'export_presets';
         if (method === 'listExportPresets') {
-          const row = options.db
-            .prepare(`SELECT value FROM setting WHERE key = ?`)
-            .get(key) as { value: string | null } | undefined;
+          const row = options.db.prepare(`SELECT value FROM setting WHERE key = ?`).get(key) as
+            { value: string | null } | undefined;
           return row?.value ? (JSON.parse(row.value) as unknown[]) : [];
         }
         if (method === 'saveExportPreset') {
           const preset = params['preset'] as Record<string, unknown>;
-          const row = options.db
-            .prepare(`SELECT value FROM setting WHERE key = ?`)
-            .get(key) as { value: string | null } | undefined;
+          const row = options.db.prepare(`SELECT value FROM setting WHERE key = ?`).get(key) as
+            { value: string | null } | undefined;
           const presets = row?.value ? (JSON.parse(row.value) as unknown[]) : [];
           const name = String(preset['name'] ?? '');
           const next = presets.filter((item) => (item as { name?: string })['name'] !== name);
@@ -410,9 +444,8 @@ export function createPackageDomain(options: PackageDomainOptions): DomainRouter
           return undefined;
         }
         const name = String(params['name'] ?? '');
-        const row = options.db
-          .prepare(`SELECT value FROM setting WHERE key = ?`)
-          .get(key) as { value: string | null } | undefined;
+        const row = options.db.prepare(`SELECT value FROM setting WHERE key = ?`).get(key) as
+          { value: string | null } | undefined;
         const presets = row?.value ? (JSON.parse(row.value) as Array<{ name?: string }>) : [];
         const next = presets.filter((item) => item['name'] !== name);
         options.db

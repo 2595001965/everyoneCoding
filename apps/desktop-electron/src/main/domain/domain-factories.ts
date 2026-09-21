@@ -172,7 +172,11 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     emit: (domain, payload) => ctx.emit(domain, payload),
   });
   const usage = createUsageDomain({ db: ctx.db, userId: ctx.userId });
-  const pack = createPackageDomain({ db: ctx.db, projectsDir: ctx.projectsDir, userId: ctx.userId });
+  const pack = createPackageDomain({
+    db: ctx.db,
+    projectsDir: ctx.projectsDir,
+    userId: ctx.userId,
+  });
 
   disposers.push(pipeline.dispose, preview.dispose, code.dispose);
 

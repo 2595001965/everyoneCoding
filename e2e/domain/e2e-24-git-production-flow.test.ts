@@ -52,10 +52,7 @@ async function gitOk<T>(
     logs?: Array<{ level: string; message: string }>;
     error?: { code: string; message: string } | null;
   };
-  expect(
-    result.ok,
-    `git.${method} 失败：${JSON.stringify(result.error ?? result)}`,
-  ).toBe(true);
+  expect(result.ok, `git.${method} 失败：${JSON.stringify(result.error ?? result)}`).toBe(true);
   return { data: result.data as T, logs: result.logs ?? [] };
 }
 
@@ -155,7 +152,11 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
     await gitOk<number>('stage', { paths: ['src/login.ts'] });
     await gitOk<string>('commit', { input: { subject: 'feat: 主问候' } });
 
-    const mergeResult = (await git('merge', { projectId: PROJECT_ID, source: 'feat/alias' }, ctx)) as {
+    const mergeResult = (await git(
+      'merge',
+      { projectId: PROJECT_ID, source: 'feat/alias' },
+      ctx,
+    )) as {
       ok: boolean;
       data: { status: string; conflictFiles: string[] } | null;
       error?: { message: string } | null;
@@ -174,7 +175,12 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
     /* ⑤ 冲突解决（选「当前」一侧）→ 写入管线落盘 + git add */
     const resolved = await gitOk<{ path: string; resolvedBlocks: number; strategy: string }>(
       'applyResolution',
-      { input: { path: 'src/login.ts', choices: { [String(conflicted?.blocks[0]?.index ?? 1)]: 'ours' } } },
+      {
+        input: {
+          path: 'src/login.ts',
+          choices: { [String(conflicted?.blocks[0]?.index ?? 1)]: 'ours' },
+        },
+      },
     );
     expect(resolved.data.resolvedBlocks).toBe(1);
     expect(resolved.data.strategy).toBe('choices');
@@ -213,7 +219,11 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
     expect(plan.data.warnings.join('\n')).toContain('软回退');
 
     // 未带 confirmed 的执行必须被拒（破坏性操作的保护不依赖 UI 自觉）
-    const unconfirmed = await git('rollbackExecute', { projectId: PROJECT_ID, plan: plan.data }, ctx);
+    const unconfirmed = await git(
+      'rollbackExecute',
+      { projectId: PROJECT_ID, plan: plan.data },
+      ctx,
+    );
     expect((unconfirmed as { ok: boolean }).ok).toBe(false);
 
     const rolled = await gitOk<{
@@ -247,9 +257,9 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
     const restored = await gitOk<number>('stashApply', { index: 0, drop: true });
     // stashApply 返回被恢复的 stash 下标（而非变更文件数），0 即 stash@{0}
     expect(restored.data).toBe(0);
-    expect(readFileSync(join(projectsDir, PROJECT_ID, 'code', 'src', 'login.ts'), 'utf8')).toContain(
-      '// 草稿：暂存一下',
-    );
+    expect(
+      readFileSync(join(projectsDir, PROJECT_ID, 'code', 'src', 'login.ts'), 'utf8'),
+    ).toContain('// 草稿：暂存一下');
     const afterDrop = await gitOk<Array<{ message: string }>>('stashList');
     expect(afterDrop.data.length).toBe(0);
 

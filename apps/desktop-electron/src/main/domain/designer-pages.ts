@@ -58,7 +58,8 @@ export function createPageDslReader(options: { projectsDir: string }): {
     const page = envelope.page;
     if (page === null || typeof page !== 'object') return null;
     const dsl = page as PageDsl;
-    if (typeof dsl.id !== 'string' || dsl.tree === null || typeof dsl.tree !== 'object') return null;
+    if (typeof dsl.id !== 'string' || dsl.tree === null || typeof dsl.tree !== 'object')
+      return null;
     return { pageId: dsl.id, page: dsl, fileName };
   };
 

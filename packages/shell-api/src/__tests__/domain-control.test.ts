@@ -293,7 +293,11 @@ describe('域事件载荷守卫注册表（常驻事件）', () => {
       }),
     ).toBe(true);
     expect(
-      isKnownDomainEventPayload(RENAME_MIGRATION_LOG_EVENT, { level: 'debug', message: 'x', at: 1 }),
+      isKnownDomainEventPayload(RENAME_MIGRATION_LOG_EVENT, {
+        level: 'debug',
+        message: 'x',
+        at: 1,
+      }),
     ).toBe(false);
   });
 });

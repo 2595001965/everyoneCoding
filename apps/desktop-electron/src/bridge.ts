@@ -438,8 +438,7 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
         ? {
             invokeSync: (request: DomainRpcRequest): DomainRpcResponse => {
               const response = requirePreloadDomain().invokeSync?.(request) as
-                | DomainRpcResponse
-                | undefined;
+                DomainRpcResponse | undefined;
               if (response && typeof response === 'object' && typeof response.ok === 'boolean') {
                 return response;
               }

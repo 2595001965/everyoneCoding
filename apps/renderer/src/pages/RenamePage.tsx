@@ -39,4 +39,3 @@ export function RenamePage(): JSX.Element {
     </section>
   );
 }
-

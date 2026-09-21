@@ -10,7 +10,7 @@ use std::sync::Arc;
 use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command as TokioCommand};
 use tokio::sync::Mutex;
 
@@ -232,7 +232,7 @@ pub async fn process_list(state: State<'_, AppState>) -> Result<Vec<ProcessInfoW
 #[tauri::command(rename_all = "snake_case")]
 pub async fn process_kill_all(state: State<'_, AppState>) -> Result<(), CommandError> {
     let mut guard = state.processes.lock().await;
-    for (_, p) in guard.iter_mut() {
+    for p in guard.values_mut() {
         let _ = p.child.start_kill();
     }
     guard.clear();

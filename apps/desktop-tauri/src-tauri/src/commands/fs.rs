@@ -209,6 +209,7 @@ pub fn fs_readdir(path: String) -> Result<Vec<FsDirent>, CommandError> {
 #[tauri::command(rename_all = "snake_case")]
 pub fn fs_mkdir(path: String, recursive: Option<bool>) -> Result<(), CommandError> {
     let p = Path::new(&path);
+    let mut recursive = recursive;
     if *recursive.get_or_insert(true) {
         fs::create_dir_all(p)?;
     } else {

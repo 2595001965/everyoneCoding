@@ -8,12 +8,16 @@ TypeScript 桥接层（`src/bridge.ts`）。渲染层只依赖 `@ec/shell-api`�
 
 ## 环境要求
 
-- **Rust 工具链**：stable ≥ 1.77（`rustup toolchain install stable`）
+- **Rust 工具链**：stable ≥ 1.77（`rustup toolchain install stable`）；Windows 上请安装
+  MSVC 宿主工具链（`x86_64-pc-windows-msvc`）。本机已装：`rustc 1.98.1`。
 - **MSVC 生成工具**：Visual Studio 2022 的「使用 C++ 的桌面开发」工作负载
+  （或 VS Build Tools 的 `Microsoft.VisualStudio.Workload.VCTools` + Windows 11 SDK）
 - **Windows 10 / 11 SDK**
 - **WebView2 运行时**：Evergreen 版（[下载](https://go.microsoft.com/fwlink/p/?LinkId=2124703)）；
   缺失时应用启动会经 `webview2-check.ts` 渲染安装引导，不会白屏
 - **Node.js** ≥ 18 与 pnpm（workspace 根）
+
+> 一键脚本：`scripts/setup-rust-tauri.ps1`（需管理员）可完成 rustup + VS Build Tools 安装与环境体检。
 
 ## 启动命令
 
@@ -31,6 +35,16 @@ pnpm --filter @ec/desktop-tauri test
 
 > 说明：`tauri.conf.json` 的 `beforeDevCommand` / `beforeBuildCommand` 依赖 `apps/renderer`
 > 提供前端产物（见 Wave 0 其它任务）。首次构建前请确认渲染层已就绪。
+
+### 构建注意事项（本机实测，2026-09-19）
+
+- **NSIS 工具链需预置**：bundler 首次打包会从 GitHub 下载 `nsis-3.11.zip` 与
+  `nsis_tauri_utils.dll`，国内网络易超时。可手动下载并解压到 `%LOCALAPPDATA%\tauri\NSIS`
+  （`makensis.exe`、`Include/`、`Stubs/`、`Plugins/x86-unicode/additional/nsis_tauri_utils.dll`
+  均在该目录根部），bundler 校验 SHA1 后直接复用。
+- **updater 签名**：`bundle.createUpdaterArtifacts: true` 且 `plugins.updater.pubkey` 非空时，
+  构建要求 `TAURI_SIGNING_PRIVATE_KEY`（CI Secret 注入）。本地无密钥时该步报
+  `A public key has been found, but no private key`；**NSIS 安装包此时已产出**，只是没有更新包签名。
 
 ## 目录结构
 
@@ -63,10 +77,13 @@ vitest.config.ts
 
 ## 已知限制
 
-- **Rust 侧未编译验证**：本机未安装 Rust 工具链，无法执行 `cargo build`；源码按可直接
-  `cargo build` 编写，但语法/依赖 API 细节需待首次编译复核（尤其 `tauri-plugin-*` 的方法签名
-  与 Windows DPAPI FFI）。
+- **构建验证已闭环（2026-09-19）**：`cargo check`、`cargo clippy -- -D warnings`、
+  `cargo build`、`tauri build`（release + NSIS 出包）全部通过，release 产物实机启动渲染正常。
+  首轮编译曾修正 20 余处与真实依赖 API 的偏差（windows 0.58 的 `CRYPT_INTEGER_BLOB`/
+  `LocalFree` 位置、`AppState::default` 缺失、`dialog_confirm` 按钮语义、`Update.body` 字段名等）。
 - **updater**：端点与公钥在 `tauri.conf.json` 中为占位符，发布前须替换为真实 `pubkey`。
 - **fs.watch**：采用轻量轮询实现（约 400ms 粒度），非原生 inotify/ReadDirectoryChangesW。
 - **clipboard**：依赖 `tauri-plugin-clipboard-manager`，需确认其 API 与所用版本一致。
+- **域端口 / AI 栈未接入**：`bridge.ts` 的 `domain` 与 `ai` 如实返回 `NOT_SUPPORTED`，
+  `capabilities()` 对应报 `false`（四域 69 个方法目前只在 Electron 形态可用）。
 - 开源项目：采用 Apache License 2.0，许可文本见仓库根目录 `LICENSE`。

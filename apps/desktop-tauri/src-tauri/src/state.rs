@@ -29,6 +29,19 @@ pub struct AppState {
     pub watchers: Mutex<HashMap<String, WatcherHandle>>,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            process_seq: AtomicU64::new(1),
+            processes: Mutex::new(HashMap::new()),
+            allowed_hosts: Mutex::new(AllowedHosts::default()),
+            workspace_root: Mutex::new(None),
+            updater_subs: Mutex::new(HashMap::new()),
+            watchers: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
 impl AppState {
     /// 分配下一个进程 id。
     pub fn next_process_id(&self) -> String {

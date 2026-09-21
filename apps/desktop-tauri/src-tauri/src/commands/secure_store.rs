@@ -96,7 +96,6 @@ fn dpapi_encrypt(plain: &[u8]) -> Result<Vec<u8>, CommandError> {
 
 /// DPAPI 解密（当前用户上下文）。
 fn dpapi_decrypt(cipher: &[u8]) -> Result<Vec<u8>, CommandError> {
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{
         CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,

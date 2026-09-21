@@ -125,7 +125,7 @@ pub async fn updater_download_and_install(
                             ((chunk_len as f64 / c as f64) * 100.0).min(100.0) as u8
                         }
                     });
-                    for (_id, ch) in &subs {
+                    for ch in subs.values() {
                         let _ = ch.send(UpdateProgressEvent {
                             phase: "downloading".into(),
                             percent,
@@ -137,7 +137,7 @@ pub async fn updater_download_and_install(
             {
                 let subs = subs.clone();
                 move || {
-                    for (_id, ch) in &subs {
+                    for ch in subs.values() {
                         let _ = ch.send(UpdateProgressEvent {
                             phase: "installing".into(),
                             percent: Some(100),
@@ -151,7 +151,7 @@ pub async fn updater_download_and_install(
         .map_err(|e| CommandError::unknown(format!("下载/安装失败: {e}")))?;
 
     // 推送 done
-    for (_id, ch) in &subs {
+    for ch in subs.values() {
         let _ = ch.send(UpdateProgressEvent {
             phase: "done".into(),
             percent: Some(100),
@@ -164,7 +164,7 @@ pub async fn updater_download_and_install(
 /// 向所有订阅推送一条进度事件。
 async fn broadcast(state: &State<'_, AppState>, event: UpdateProgressEvent) {
     let subs = state.updater_subs.lock().await.clone();
-    for (_id, ch) in subs {
+    for ch in subs.values() {
         let _ = ch.send(event.clone());
     }
 }

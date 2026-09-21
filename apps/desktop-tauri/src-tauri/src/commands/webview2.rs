@@ -23,13 +23,13 @@ const WEBVIEW2_GUIDE_URL: &str =
 
 /// 检查注册表中是否存在 WebView2 客户端键。
 fn registry_has_webview2() -> bool {
+    let subkey: windows::core::HSTRING = windows::core::HSTRING::from(
+        "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8E18-1CDC1A920E41}",
+    );
     for hkey in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
-        let subkey = windows::core::HSTRING::from(
-            "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8E18-1CDC1A920E41}",
-        );
         let mut h = windows::Win32::System::Registry::HKEY::default();
         let res = unsafe {
-            RegOpenKeyExW(hkey, PCWSTR::from(&subkey), 0, KEY_READ, &mut h)
+            RegOpenKeyExW(hkey, PCWSTR(subkey.as_ptr()), 0, KEY_READ, &mut h)
         };
         if res.is_ok() {
             unsafe {

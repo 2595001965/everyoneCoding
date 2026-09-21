@@ -25,31 +25,41 @@ fn main_window(app: &AppHandle) -> Result<tauri::WebviewWindow, CommandError> {
 /// 设置窗口标题。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_set_title(app: AppHandle, title: String) -> Result<(), CommandError> {
-    main_window(&app)?.set_title(&title).map_err(CommandError::io_error)
+    main_window(&app)?
+        .set_title(&title)
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 最小化窗口。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_minimize(app: AppHandle) -> Result<(), CommandError> {
-    main_window(&app)?.minimize().map_err(CommandError::io_error)
+    main_window(&app)?
+        .minimize()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 最大化窗口。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_maximize(app: AppHandle) -> Result<(), CommandError> {
-    main_window(&app)?.maximize().map_err(CommandError::io_error)
+    main_window(&app)?
+        .maximize()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 取消最大化。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_unmaximize(app: AppHandle) -> Result<(), CommandError> {
-    main_window(&app)?.unmaximize().map_err(CommandError::io_error)
+    main_window(&app)?
+        .unmaximize()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 是否最大化。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_is_maximized(app: AppHandle) -> Result<bool, CommandError> {
-    main_window(&app)?.is_maximized().map_err(CommandError::io_error)
+    main_window(&app)?
+        .is_maximized()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 设置全屏状态。
@@ -57,13 +67,15 @@ pub fn window_is_maximized(app: AppHandle) -> Result<bool, CommandError> {
 pub fn window_set_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), CommandError> {
     main_window(&app)?
         .set_fullscreen(fullscreen)
-        .map_err(CommandError::io_error)
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 是否全屏。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_is_fullscreen(app: AppHandle) -> Result<bool, CommandError> {
-    main_window(&app)?.is_fullscreen().map_err(CommandError::io_error)
+    main_window(&app)?
+        .is_fullscreen()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 设置窗口尺寸（物理像素）。
@@ -71,13 +83,15 @@ pub fn window_is_fullscreen(app: AppHandle) -> Result<bool, CommandError> {
 pub fn window_set_size(app: AppHandle, width: u32, height: u32) -> Result<(), CommandError> {
     main_window(&app)?
         .set_size(tauri::PhysicalSize::new(width, height))
-        .map_err(CommandError::io_error)
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 获取窗口尺寸。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_get_size(app: AppHandle) -> Result<WindowSizeWire, CommandError> {
-    let size = main_window(&app)?.inner_size().map_err(CommandError::io_error)?;
+    let size = main_window(&app)?
+        .inner_size()
+        .map_err(|e| CommandError::unknown(e.to_string()))?;
     Ok(WindowSizeWire {
         width: size.width,
         height: size.height,
@@ -87,17 +101,23 @@ pub fn window_get_size(app: AppHandle) -> Result<WindowSizeWire, CommandError> {
 /// 窗口居中。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_center(app: AppHandle) -> Result<(), CommandError> {
-    main_window(&app)?.center().map_err(CommandError::io_error)
+    main_window(&app)?
+        .center()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 聚焦窗口。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_focus(app: AppHandle) -> Result<(), CommandError> {
-    main_window(&app)?.set_focus().map_err(CommandError::io_error)
+    main_window(&app)?
+        .set_focus()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }
 
 /// 关闭窗口（应用退出）。
 #[tauri::command(rename_all = "snake_case")]
 pub fn window_close(app: AppHandle) -> Result<(), CommandError> {
-    main_window(&app)?.close().map_err(CommandError::io_error)
+    main_window(&app)?
+        .close()
+        .map_err(|e| CommandError::unknown(e.to_string()))
 }

@@ -28,3 +28,8 @@ pnpm-lock.yaml -diff linguist-generated
 *.css text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# Rust 外壳源码与配置：同样钉 LF，避免跨机检出差异
+*.rs text eol=lf
+*.toml text eol=lf
+*.nsh text eol=lf

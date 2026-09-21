@@ -14,6 +14,7 @@
  */
 
 export {
+  CODE_API_GLOBAL_KEY,
   CodeViewProvider,
   useCodeViewApi,
   useCodeViewOptional,
@@ -24,6 +25,7 @@ export {
   type CodeWriteApi,
   type ExternalChangeHint,
   type ReworkRequest,
+  type WritePlanHint,
 } from './code-api';
 export { CodeView, describeReadOnlyBlock, type CodeViewProps } from './CodeView';
 export { AiFixEntry, type AiFixEntryProps } from './AiFixEntry';

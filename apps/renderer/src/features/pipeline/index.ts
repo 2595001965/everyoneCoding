@@ -41,4 +41,5 @@ export { TechDocPanel } from './TechDocPanel';
 export { SplitGraph } from './SplitGraph';
 export { SplitEditor } from './SplitEditor';
 export { GenerationQueuePanel } from './GenerationQueuePanel';
+export { S5QueueSection } from './S5QueueSection';
 export { NodeStatusCard } from './NodeStatusCard';

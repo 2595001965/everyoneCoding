@@ -16,7 +16,7 @@ import { StagePanel } from './StagePanel';
 import { SupplementDialog } from './SupplementDialog';
 import { TechChoiceWizard } from './TechChoiceWizard';
 import { SplitEditor } from './SplitEditor';
-import { GenerationQueuePanel } from './GenerationQueuePanel';
+import { S5QueueSection } from './S5QueueSection';
 
 const STAGE_ORDER_LIST: readonly PipelineStage[] = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
 
@@ -122,9 +122,14 @@ export function PipelineWorkspace({
       }
       try {
         api.startStage(projectId, 'S3');
-        const requirement = await api
-          .readArtifact(projectId, 'S1', api.listArtifacts(projectId, 'S1')[0]?.version ?? 1)
-          .catch(() => '');
+        // 需求文档读 S1 真实产物（生效版本），读不到给占位文案
+        const s1Versions = api.listArtifacts(projectId, 'S1');
+        const activeVersion =
+          snapshot.S1.activeVersion ?? s1Versions[s1Versions.length - 1]?.version ?? 0;
+        const requirement =
+          activeVersion > 0
+            ? await api.readArtifact(projectId, 'S1', activeVersion).catch(() => '')
+            : '';
         const result = await api.generateTechDoc({
           projectId,
           userId,
@@ -150,24 +155,28 @@ export function PipelineWorkspace({
         setError(cause instanceof Error ? cause.message : String(cause));
       }
     },
-    [api, projectId, userId, projectName, description],
+    [api, projectId, userId, projectName, description, snapshot],
   );
 
-  /** S4：保存拆分结果 */
+  /** S4：自动拆分（规则解析技术文档 → 落 S4/split.json）并装载编辑模型 */
   const handleGenerateS4 = useCallback(async () => {
-    if (splitModel === null) {
-      setError('请先解析/构建拆分结果');
-      return;
-    }
     try {
       api.startStage(projectId, 'S4');
-      await api.saveSplit(projectId, splitModel.result());
+      // 传当前生效版本号：S3/S1 产物从主进程真实读取，而不是让 UI 传全文
+      const s1Versions = api.listArtifacts(projectId, 'S1');
+      const s3Versions = api.listArtifacts(projectId, 'S3');
+      const split = await api.generateSplit(projectId, {
+        techDocVersion: s3Versions[s3Versions.length - 1]?.version ?? 0,
+        requirementDocVersion: s1Versions[s1Versions.length - 1]?.version ?? 0,
+      });
+      await api.saveSplit(projectId, split);
+      setSplitModel(SplitModelClass.fromResult(split));
       api.submitForReview(projectId, 'S4');
       setSnapshot(api.snapshot(projectId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
-  }, [api, projectId, splitModel]);
+  }, [api, projectId]);
 
   const handleRegenerate = useCallback(
     (stage: PipelineStage) => {
@@ -382,14 +391,11 @@ export function PipelineWorkspace({
             />
           )}
           {activeView === 'S5' && splitModel !== null && (
-            <GenerationQueuePanel
+            <S5QueueSection
               projectId={projectId}
               userId={userId}
               projectName={projectName}
               choice={choice ?? defaultChoice()}
-              requirementDoc={''}
-              techDoc={''}
-              split={splitModel.result()}
             />
           )}
         </aside>

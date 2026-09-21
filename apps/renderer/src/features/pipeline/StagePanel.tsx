@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { ArtifactVersion, PipelineStage, PipelineStageSnapshot } from '@ec/pipeline';
 import { STAGE_DEFS, STAGE_STATUS_LABELS } from '@ec/pipeline';
@@ -45,11 +45,31 @@ export function StagePanel({
   const [content, setContent] = useState<string>('');
   const [manualEdit, setManualEdit] = useState(false);
   const [draft, setDraft] = useState<string>('');
+  const [saving, setSaving] = useState(false);
 
   const state = snapshot[stage];
   const hasArtifact = versions.length > 0;
   const isCodeStage = stage === 'S5' || stage === 'S6' || stage === 'S7';
   const allowManualEdit = !isCodeStage;
+
+  /** 手动编辑保存：走 saveArtifact 版本化落库（写主进程产物文件 + stage_artifact 表），
+   * 绝不把 UI 本地 textarea 状态当持久化实现 */
+  const handleSaveManualEdit = useCallback(async () => {
+    setSaving(true);
+    try {
+      await api.saveArtifact({
+        projectId,
+        stage,
+        artifactType: STAGE_DEFS[stage].artifactType,
+        content: draft,
+        note: '手动编辑',
+      });
+      setContent(draft);
+      setManualEdit(false);
+    } finally {
+      setSaving(false);
+    }
+  }, [api, projectId, stage, draft]);
 
   // 装载版本台账与生效内容
   useEffect(() => {
@@ -121,12 +141,10 @@ export function StagePanel({
               size="sm"
               variant="primary"
               data-testid="manual-edit-save"
-              onClick={() => {
-                setContent(draft);
-                setManualEdit(false);
-              }}
+              disabled={saving}
+              onClick={() => void handleSaveManualEdit()}
             >
-              保存草稿（本地）
+              {saving ? '保存中…' : '保存为新版本'}
             </Button>
           </div>
         </div>

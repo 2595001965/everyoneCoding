@@ -15,6 +15,7 @@ export const zhCN = {
   'panel.toggle': '切换工作指南',
   'nav.workspace': '工作台',
   'nav.designer': '设计器',
+  'nav.code': '代码与上下文',
   'nav.memory': '记忆中心',
   'nav.pipeline': '流水线',
   'nav.git': '版本管理',

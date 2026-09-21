@@ -36,8 +36,10 @@ import type { DocsApi } from '../features/docs/docs-api';
 import type { SettingsApi } from '../features/settings/settings-api';
 import type { WorkspaceApi } from '../features/workspace/workspace-api';
 
+import { installProductionPorts } from './production-ports';
+
 /** 把跨进程 error 还原为带 code 的 ShellError */
-function toDomainError(
+export function toDomainError(
   error: DomainRpcError | undefined,
   domain: DomainKind,
   method: string,
@@ -292,8 +294,26 @@ export async function installDomainPorts(
   if (available.has('auth')) globals['__EC_AUTH__'] = createAuthApi(call);
   if (available.has('settings')) globals['__EC_SETTINGS__'] = createSettingsApi(call);
 
+  // T12-01：十一域生产能力端口（memory / pipeline / git / preview / rename /
+  // package / usage / ai-context / code / nav / designer）。
+  // 同步签名端口（memory / pipeline）在外壳没有 invokeSync 时不注入——
+  // 消费方会在写入后立刻同步读回，异步通道给不出正确结果，宁可保留装配引导。
+  const production = await installProductionPorts(host, call, subscribe, available, globals);
+  const installed = [
+    ...selectAvailableDomains(descriptors),
+    ...production.installed,
+  ];
+  // 两个装配批次可能重叠（基础四域不产出生产能力端口，但 keep 语义清晰），按序去重
+  const deduped = [...new Set(installed)];
   return {
-    installed: selectAvailableDomains(descriptors),
-    unavailable: descriptors.filter((item) => !item.available),
+    installed: deduped,
+    unavailable: [
+      ...descriptors.filter((item) => !item.available),
+      ...production.unavailable.map((item) => ({
+        kind: item.kind,
+        available: false,
+        reason: item.reason,
+      })),
+    ],
   };
 }

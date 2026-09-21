@@ -52,11 +52,27 @@ export interface ExternalChangeHint {
   actions: readonly { key: 'rollback' | 'regenerate'; label: string }[];
 }
 
+/**
+ * AI 重改产生的写入计划（两段式回执）。
+ *
+ * `requestRework` 的返回类型是 `Promise<void>`：一次重改要经过"真实模型调用 →
+ * 输出契约解析 → 生成计划"三段，耗时不可控，且计划**不能由主进程自行落盘**
+ * （必须先给人看 diff）。因此计划经域事件回流，由 UI 渲染 DiffView，
+ * 用户确认后再调 `write.apply` 走同一份事务。
+ */
+export interface WritePlanHint {
+  plan: WritePlan;
+  /** 计划来源：'rework' = 由「交给 AI 修改」触发 */
+  source: string;
+}
+
 export interface CodeViewApi {
   files: CodeFileApi;
   write: CodeWriteApi;
   /** 订阅外部改动提示（可选：未接入时为 null） */
   subscribeExternalChanges?(listener: (change: ExternalChangeHint) => void): () => void;
+  /** 订阅 AI 重改产出的写入计划（未接入时不订阅） */
+  subscribeWritePlan?(listener: (hint: WritePlanHint) => void): () => void;
 }
 
 const CodeViewContext = createContext<CodeViewApi | null>(null);
@@ -80,9 +96,12 @@ export function useCodeViewApi(): CodeViewApi {
   return api;
 }
 
+/** 端口注入键（外壳装配时写入） */
+export const CODE_API_GLOBAL_KEY = '__EC_CODE__';
+
 /** 从全局读取外壳注入的实现 */
 export function readInjectedCodeApi(): CodeViewApi | null {
-  const injected = (globalThis as unknown as { __EC_CODE__?: CodeViewApi }).__EC_CODE__;
+  const injected = (globalThis as unknown as { __EC_CODE__?: CodeViewApi })[CODE_API_GLOBAL_KEY];
   if (typeof injected !== 'object' || injected === null) return null;
   return injected.files !== undefined && injected.write !== undefined ? injected : null;
 }

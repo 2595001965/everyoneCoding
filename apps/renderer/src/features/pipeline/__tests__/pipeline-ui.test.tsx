@@ -10,6 +10,7 @@ import {
   type ImpactReport,
   type PipelineStage,
   type PipelineStageSnapshot,
+  type QueueState,
   type RequirementGenerationResult,
   type S5RunResult,
   type SplitResult,
@@ -61,6 +62,15 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
   const listeners = new Set<(payload: unknown) => void>();
 
   const key = (stage: PipelineStage, version: number): string => `${stage}-${version}`;
+
+  const emptyQueue = (): QueueState => ({
+    nodes: [],
+    currentId: null,
+    paused: false,
+    finished: true,
+    order: [],
+    stats: { total: 0, success: 0, failed: 0, skipped: 0, pending: 0, running: 0 },
+  });
 
   void machine.bus.onAny('pipeline:*', (payload) => {
     for (const listener of listeners) listener(payload);
@@ -195,6 +205,36 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
         results: {},
         progress: '{}',
         commits: [],
+      };
+    },
+    async generateSplit(): Promise<SplitResult> {
+      split = {
+        features: [{ id: 'F-1', name: '商品浏览', pageIds: ['PG-1'], dependsOn: [] }],
+        pages: [
+          { id: 'PG-1', name: '商品列表页', featureId: 'F-1', dependsOn: [], route: '/products' },
+        ],
+      };
+      return split;
+    },
+    async retryNode(): Promise<QueueState> {
+      return emptyQueue();
+    },
+    skipNode(): QueueState {
+      return emptyQueue();
+    },
+    pauseQueue(): QueueState {
+      return emptyQueue();
+    },
+    getResumeProgress() {
+      return { snapshot: machine.snapshot(), s5Progress: null, resumeStage: null };
+    },
+    async recoverProject() {
+      return {
+        snapshot: machine.snapshot(),
+        resumeStage: null,
+        integrityProblems: [],
+        unexpectedExit: false,
+        artifactVersions: [...artifacts.values()].reduce((sum, list) => sum + list.length, 0),
       };
     },
     subscribe(_event, listener) {

@@ -9,6 +9,7 @@ export const navigation: Array<{
 }> = [
   { to: '/', label: 'nav.workspace', icon: 'workspace', group: 'build' },
   { to: '/designer', label: 'nav.designer', icon: 'designer', group: 'build' },
+  { to: '/code', label: 'nav.code', icon: 'code', group: 'build' },
   { to: '/pipeline', label: 'nav.pipeline', icon: 'pipeline', group: 'build' },
   { to: '/preview', label: 'nav.preview', icon: 'preview', group: 'build' },
   { to: '/memory', label: 'nav.memory', icon: 'memory', group: 'manage' },

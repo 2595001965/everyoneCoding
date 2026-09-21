@@ -34,6 +34,9 @@ const DocsCenterPage = lazy(() =>
 const AccountPage = lazy(() =>
   import('./pages/AccountPage').then((module) => ({ default: module.AccountPage })),
 );
+const CodeWorkspacePage = lazy(() =>
+  import('./pages/CodePage').then((module) => ({ default: module.CodeWorkspacePage })),
+);
 
 /**
  * 根组件：主题应用 + 主路由（工作台 / 设计器 / 记忆 / 流水线 / Git / 预览 / 统一重命名 / 文档 / 账号 / 用量 / 设置）。
@@ -57,6 +60,7 @@ export function App(): JSX.Element {
           <Routes>
             <Route path="/" element={<WorkspacePage />} />
             <Route path="/designer" element={<DesignerPage />} />
+            <Route path="/code" element={<CodeWorkspacePage />} />
             <Route path="/memory" element={<MemoryPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />
             <Route path="/git" element={<GitPage />} />

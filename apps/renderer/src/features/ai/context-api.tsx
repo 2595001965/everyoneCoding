@@ -46,6 +46,9 @@ export function useContextPanelApi(): ContextPanelApi {
   return api;
 }
 
+/** 端口注入键（外壳装配时写入；与 code-api / designer-api 同一约定） */
+export const CONTEXT_API_GLOBAL_KEY = '__EC_AI_CONTEXT__';
+
 /** 从全局读取外壳注入的实现（页面用） */
 export function readInjectedContextApi(): ContextPanelApi | null {
   const injected = (globalThis as unknown as { __EC_AI_CONTEXT__?: ContextPanelApi })

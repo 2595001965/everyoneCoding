@@ -41,6 +41,7 @@ export const COMMAND_PALETTE_KEY = 'Ctrl+K';
 export const APP_COMMANDS: readonly AppCommandDescriptor[] = [
   { id: 'nav.workspace', title: '工作台', group: '导航', route: '/', defaultKey: null },
   { id: 'nav.designer', title: '设计器', group: '导航', route: '/designer', defaultKey: null },
+  { id: 'nav.code', title: '代码与上下文', group: '导航', route: '/code', defaultKey: null },
   { id: 'nav.pipeline', title: '流水线', group: '导航', route: '/pipeline', defaultKey: null },
   { id: 'nav.preview', title: '预览', group: '导航', route: '/preview', defaultKey: null },
   { id: 'nav.memory', title: '记忆中心', group: '导航', route: '/memory', defaultKey: null },

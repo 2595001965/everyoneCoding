@@ -71,6 +71,20 @@ export function CodeView({
     if (path !== undefined) setActivePath(path);
   }, [path]);
 
+  /**
+   * 首次装载后默认选中第一个文件。
+   *
+   * 不加这一步，只读视图会停在「请选择一个文件查看」—— 用户打开代码页却看到空白，
+   * 误以为端口没装配。受控用法（`files` / `path` 由调用方给）保持不动，
+   * 由调用方决定选中的文件。
+   */
+  useEffect(() => {
+    if (files !== undefined || path !== undefined || activePath !== null) return;
+    const first = loadedFiles[0];
+    if (first === undefined) return;
+    setActivePath(first.path);
+  }, [files, path, activePath, loadedFiles]);
+
   useEffect(() => {
     if (effectivePath === null) return;
     let cancelled = false;

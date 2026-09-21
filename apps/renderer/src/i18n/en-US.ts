@@ -15,6 +15,7 @@ export const enUS = {
   'panel.toggle': 'Toggle workspace guide',
   'nav.workspace': 'Workspace',
   'nav.designer': 'Designer',
+  'nav.code': 'Code & Context',
   'nav.memory': 'Memory',
   'nav.pipeline': 'Pipeline',
   'nav.git': 'Version Control',

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, safeStorage, clipboard, dialog, shell } from 'electron';
 import path from 'node:path';
+import { createDomainEventSink, type DomainKind } from '@ec/shell-api';
 import { registerAllIpc, type RegisteredIpc } from './ipc';
 import type { IpcDependencies } from './types';
 import { createElectronAiRuntime } from './ai/runtime';
@@ -8,9 +9,12 @@ import { createSettingsDomain } from './domain/settings';
 import { createWorkspaceDomain } from './domain/workspace';
 import { createDocsDomain } from './domain/docs';
 import { createAuthDomain, type SafeStorageLike } from './domain/auth';
+import { createGitCredentialStore } from './domain/git-credentials';
+import { createControlledProcessHost } from './domain/process-host';
 import { openBusinessDb } from './domain/db';
 import { resolveProjectsDir } from './domain/settings-file';
 import { UNAVAILABLE_DOMAIN_REASONS } from './domain/reasons';
+import { createProductionDomains, type AiStackHandle } from './domain/domain-factories';
 
 /**
  * Electron 主进程入口。
@@ -44,6 +48,13 @@ let mainWindow: BrowserWindow | null = null;
 let registered: RegisteredIpc | null = null;
 let aiRuntime: Awaited<ReturnType<typeof createElectronAiRuntime>> | null = null;
 let domainRuntime: ReturnType<typeof createDomainRuntime> | null = null;
+
+/**
+ * 无所属请求的域事件所用信封 id（见 `buildDomainRuntime` 的 emit 绑定）。
+ * 渲染层按 `domain + payload.type` 过滤这类事件，不依赖 requestId 匹配；
+ * 但 preload 会丢弃缺 requestId 的载荷，故必须给一个非空哨兵。
+ */
+const WATCHER_EVENT_REQUEST_ID = 'domain-watcher-event';
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -124,6 +135,9 @@ function buildDependencies(): IpcDependencies {
 function buildDomainRuntime(
   dataDir: string,
   cacheDir: string,
+  aiStackHandle: AiStackHandle | null,
+  secureDir: string,
+  safeStorageLike: SafeStorageLike | null,
 ): ReturnType<typeof createDomainRuntime> {
   const defaultWorkspaceRoot = path.join(app.getPath('userData'), 'workspace');
   const projectsDir = resolveProjectsDir(dataDir, defaultWorkspaceRoot);
@@ -140,7 +154,6 @@ function buildDomainRuntime(
 
   const workspace = createWorkspaceDomain({ db, dataDir, projectsDir });
   const docs = createDocsDomain({ db });
-
   // auth 域依赖系统加密能力（DPAPI）保存凭据：不可用时**不装配**并如实上报原因，
   // 而不是装配一个"所有动作都报错"的端口。可用时基址取环境变量，缺省为本机自建账号服务。
   let auth: ReturnType<typeof createAuthDomain> | null = null;
@@ -164,19 +177,75 @@ function buildDomainRuntime(
       '系统加密能力不可用（safeStorage），无法安全保存登录凭据，账号域未装配';
   }
 
+  // 域事件 sink 必须先于域工厂创建：code 域的外部改动监视器由 fs.watch 触发，
+  // 不属于任何一次 RPC 请求，需要一条独立的事件投递路径（见下方 emit 绑定）。
+  const events = createDomainEventSink();
+
+  /**
+   * 受控进程端口（T12-04）：预览后端的唯一启动通道。
+   *
+   * `allowedRoot = projectsDir` 是硬约束——渲染层递上来的 cwd 必须落在工程根内，
+   * 否则域内直接拒绝 spawn（避免"预览"变成"在任意目录跑任意命令"）。
+   */
+  const processHost = createControlledProcessHost({ allowedRoot: projectsDir });
+  /**
+   * Git 凭据（DPAPI）。safeStorage 不可用时为 null，git 域的凭据方法如实报 NOT_SUPPORTED，
+   * 而不是降级成明文文件。
+   */
+  const credentials =
+    safeStorageLike === null
+      ? null
+      : createGitCredentialStore({ secureDir, safeStorage: safeStorageLike });
+
+  // T12-01 生产端口总装：十一个生产能力域（memory/pipeline/git/preview/rename/
+  // ai-context/code/nav/designer/usage/package）一次性装配。AI 栈未就绪时
+  // aiStack 传 null，域内按此如实降级（生成类方法报 NOT_SUPPORTED + 引导）。
+  const production = createProductionDomains({
+    db,
+    projectsDir,
+    dataDir,
+    userId: 'local-user',
+    aiStack: aiStackHandle,
+    process: processHost,
+    credentials,
+    /**
+     * 非请求来源的事件发射口（当前消费者：code 域的外部改动监视器、
+     * preview 域的后端进程日志、rename 域的迁移流式日志）。
+     *
+     * 请求内产生的进度事件走 `ctx.emit`（runtime 补齐 requestId/domain）；
+     * 这些事件没有所属请求，用固定哨兵 id 作为信封关联字段，并走 `events.broadcast`
+     * ——它是**常驻下发**，不依赖"某个 requestId 正在飞"，因此后端进程日志、
+     * 外部改动监视、迁移流式日志都真的能到达渲染层。
+     * 渲染层按 `domain + payload.type` 过滤，不依赖 requestId 匹配。
+     * 哨兵仍必须是**非空字符串**：preload 会丢弃缺 requestId 的事件。
+     */
+    emit: (domain: DomainKind, payload: unknown) => {
+      events.broadcast({ requestId: WATCHER_EVENT_REQUEST_ID, domain, payload });
+    },
+  });
+
   return createDomainRuntime({
     routers: {
       settings: settings.router,
       workspace: workspace.router,
       docs: docs.router,
       ...(auth ? { auth: auth.router } : {}),
+      ...production.routers,
     },
+    // 同步域口：只承载 MemoryApi / PipelineApi 的同步签名方法（见 shell-api 的 DOMAIN_SYNC_METHODS）。
+    // 未装配同步路由的域在同步通道上如实返回 NOT_SUPPORTED，渲染层据此不注入对应端口。
+    syncRouters: production.syncRouters,
     unavailableReasons: unavailableReasons,
+    // 事件 sink 与域工厂共用同一实例：否则监视器类事件会发到另一个 sink 而无人接收
+    events,
     disposers: [
       () => settings.dispose(),
       async () => {
         db.close();
       },
+      ...production.disposers,
+      // 预览后端等外部进程必须在退出前杀干净：否则下次启动会撞端口、留下孤儿进程
+      () => processHost.dispose(),
     ],
   });
 }
@@ -202,7 +271,15 @@ void app.whenReady().then(async () => {
 
   const userData = app.getPath('userData');
   try {
-    domainRuntime = buildDomainRuntime(path.join(userData, 'data'), path.join(userData, 'cache'));
+    // AI 栈桥接属 T12-08：域内生成调用将在该任务接入真实 gateway（共用绑定/预算），
+    // 当前传 null，生成类方法如实报 NOT_SUPPORTED + 引导。
+    domainRuntime = buildDomainRuntime(
+      path.join(userData, 'data'),
+      path.join(userData, 'cache'),
+      null,
+      deps.secureDir,
+      deps.safeStorage,
+    );
     const descriptors = await domainRuntime.describe();
     const installed = descriptors.filter((item) => item.available).map((item) => item.kind);
     console.info(`[domain] 已装配域=[${installed.join(', ') || '无'}]`);

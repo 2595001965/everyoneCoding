@@ -1,11 +1,14 @@
-import { promises as fsp } from 'node:fs';
-import path from 'node:path';
 import type { IpcDependencies, IpcMainLike, SafeStorageLike } from '../types';
+import { createSecureFileStorage, isSafeSecureKey, type SecureFileStorage } from '../secure-storage';
 import { CHANNELS } from '../channels';
 
 /**
  * secure_store IPC：DPAPI 加密密钥环。
- * electron safeStorage 底层即 DPAPI（用户上下文）；密文落 userData/secure/<ns>.dat。
+ *
+ * 底层的"加密 + 落盘"已下沉到 `main/secure-storage.ts`（域层的 git 凭据要复用同一份
+ * 实现，但域不该 import ipc 模块）。本文件只保留 **IPC 边界该做的事**：
+ * 命名空间白名单、键名白名单、参数校验与错误码包装。
+ *
  * 磁盘上只允许出现密文，任何异常不得把明文带出主进程。
  */
 
@@ -26,52 +29,12 @@ function validateNamespace(namespace: string): string {
 }
 
 function sanitizeKey(key: string): string {
-  if (!/^[A-Za-z0-9._-]{1,120}$/.test(key)) {
+  if (!isSafeSecureKey(key)) {
     throw new Error(
       JSON.stringify({ code: 'INVALID_ARGUMENT', message: '键名只允许字母数字与 . _ -' }),
     );
   }
   return key;
-}
-
-function storage(
-  deps: IpcDependencies,
-  safeStorage: SafeStorageLike,
-): {
-  write: (ns: string, key: string, value: string) => Promise<void>;
-  read: (ns: string, key: string) => Promise<string | null>;
-  remove: (ns: string, key: string) => Promise<void>;
-  keys: (ns: string) => Promise<string[]>;
-} {
-  const dirOf = (ns: string): string => path.join(deps.secureDir, ns);
-  const fileOf = (ns: string, key: string): string => path.join(dirOf(ns), `${key}.dat`);
-
-  return {
-    write: async (ns, key, value) => {
-      await fsp.mkdir(dirOf(ns), { recursive: true });
-      const cipher = safeStorage.encryptString(value);
-      await fsp.writeFile(fileOf(ns, key), cipher);
-    },
-    read: async (ns, key) => {
-      try {
-        const cipher = await fsp.readFile(fileOf(ns, key));
-        return safeStorage.decryptString(cipher);
-      } catch {
-        return null;
-      }
-    },
-    remove: async (ns, key) => {
-      await fsp.rm(fileOf(ns, key), { force: true });
-    },
-    keys: async (ns) => {
-      try {
-        const entries = await fsp.readdir(dirOf(ns));
-        return entries.filter((name) => name.endsWith('.dat')).map((name) => name.slice(0, -4));
-      } catch {
-        return [];
-      }
-    },
-  };
 }
 
 /** 当 safeStorage 不可用（如 Linux 无 keyring）时明确拒绝，绝不降级为明文 */
@@ -83,6 +46,10 @@ function requireSafeStorage(deps: IpcDependencies): SafeStorageLike {
     );
   }
   return safeStorage;
+}
+
+function storage(deps: IpcDependencies, safeStorage: SafeStorageLike): SecureFileStorage {
+  return createSecureFileStorage({ secureDir: deps.secureDir, safeStorage });
 }
 
 export function registerSecureStoreIpc(ipc: IpcMainLike, deps: IpcDependencies): void {

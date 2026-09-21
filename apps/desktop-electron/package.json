@@ -28,7 +28,12 @@
     "@ec/core": "workspace:*",
     "@ec/data": "workspace:*",
     "@ec/designer": "workspace:*",
+    "@ec/git": "workspace:*",
+    "@ec/memory": "workspace:*",
     "@ec/package-kit": "workspace:*",
+    "@ec/pipeline": "workspace:*",
+    "@ec/preview": "workspace:*",
+    "@ec/registry": "workspace:*",
     "@ec/shell-api": "workspace:*",
     "better-sqlite3": "^12.11.1"
   },

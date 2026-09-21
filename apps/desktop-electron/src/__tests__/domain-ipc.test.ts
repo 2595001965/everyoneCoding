@@ -24,7 +24,20 @@ import {
   type DomainControlServiceHost,
   type DomainDescriptor,
   type DomainRpcRequest,
+  type DomainRpcResponse,
 } from '@ec/shell-api';
+/**
+ * 同步口的最小桩：这些用例只覆盖异步 invoke 与事件通道，
+ * 同步口返回 NOT_SUPPORTED 即可（真实同步行为由 §同步域通道 用例覆盖）。
+ */
+function unusedSync(request: DomainRpcRequest): DomainRpcResponse {
+  return {
+    requestId: request.requestId,
+    ok: false,
+    error: { code: 'NOT_SUPPORTED', message: '本用例不覆盖同步口' },
+  };
+}
+
 function collector(): {
   ipc: IpcMainLike;
   handlers: Map<string, (event: unknown, payload: unknown) => unknown>;
@@ -49,7 +62,7 @@ describe('域端口通道登记', () => {
     expect(CHANNELS.domain.describe).toBe('ec:domain:describe');
     expect(CHANNELS.domain.event).toBe('ec:domain:event');
     expect((PRELOAD_TOP_LEVEL_KEYS as readonly string[]).includes('domain')).toBe(true);
-    expect(PRELOAD_METHOD_KEYS['domain']).toEqual(['invoke', 'describe', 'onEvent']);
+    expect(PRELOAD_METHOD_KEYS['domain']).toEqual(['invoke', 'invokeSync', 'describe', 'onEvent']);
   });
 
   it('事件通道登记为单向推送（无 handler，仅 main→renderer）', () => {
@@ -109,6 +122,7 @@ describe('已装配域运行时的透传', () => {
         ok: true,
         result: { echoed: request.method },
       })),
+      invokeSync: vi.fn(unusedSync),
       describe: vi.fn(async () => descriptors),
       dispose: vi.fn(async () => undefined),
     };
@@ -145,6 +159,7 @@ describe('域事件下发（invoke 期间按 requestId 绑定发送器）', () =
       events: createDomainEventSink(),
       describe: vi.fn(async () => descriptors),
       dispose: vi.fn(async () => undefined),
+      invokeSync: vi.fn(unusedSync),
       invoke: vi.fn(async (request: DomainRpcRequest) => {
         host.events.send({
           requestId: request.requestId,
@@ -230,6 +245,7 @@ describe('域事件下发（invoke 期间按 requestId 绑定发送器）', () =
       events: createDomainEventSink(),
       describe: vi.fn(async () => descriptors),
       dispose: vi.fn(async () => undefined),
+      invokeSync: vi.fn(unusedSync),
       invoke: vi.fn(async () => {
         throw new Error('克隆失败');
       }),

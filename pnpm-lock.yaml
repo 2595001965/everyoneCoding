@@ -80,9 +80,24 @@ importers:
       '@ec/designer':
         specifier: workspace:*
         version: link:../../packages/designer
+      '@ec/git':
+        specifier: workspace:*
+        version: link:../../packages/git
+      '@ec/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@ec/package-kit':
         specifier: workspace:*
         version: link:../../packages/package-kit
+      '@ec/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
+      '@ec/preview':
+        specifier: workspace:*
+        version: link:../../packages/preview
+      '@ec/registry':
+        specifier: workspace:*
+        version: link:../../packages/registry
       '@ec/shell-api':
         specifier: workspace:*
         version: link:../../packages/shell-api

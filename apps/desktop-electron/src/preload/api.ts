@@ -8,6 +8,14 @@ export interface InvokeIpcRendererLike {
   invoke(channel: string, payload?: unknown): Promise<unknown>;
   on(channel: string, listener: (event: unknown, payload: unknown) => void): void;
   off(channel: string, listener: (event: unknown, payload: unknown) => void): void;
+  /**
+   * 同步 IPC（`ipcRenderer.sendSync`）。
+   *
+   * 只用于域端口的同步方法（`MemoryApi` / `PipelineApi`，白名单在 shell-api 的
+   * `DOMAIN_SYNC_METHODS`）：渲染层在调用期间会阻塞，主进程必须同步应答。
+   * 可选：测试里的假 ipc 不提供它，由断言面（assertSurface）保证真实 preload 一定有。
+   */
+  sendSync?(channel: string, payload?: unknown): unknown;
 }
 
 function assertString(value: unknown, name: string): void {
@@ -336,6 +344,20 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
     invoke: (request: unknown) => {
       assertDomainRequest(request);
       return ipc.invoke(CHANNELS.domain.invoke, request);
+    },
+    /**
+     * 同步域调用：供渲染层的同步签名端口（`MemoryApi` / `PipelineApi`）使用。
+     *
+     * 与 `invoke` 的差别仅在于它阻塞渲染进程直到主进程把结果放进
+     * `event.returnValue`。方法白名单是主进程的职责（`DOMAIN_SYNC_METHODS`），
+     * 这里只做形状校验——同一理由：preload 维护第二份白名单必然漂移。
+     */
+    invokeSync: (request: unknown) => {
+      assertDomainRequest(request);
+      if (typeof ipc.sendSync !== 'function') {
+        throw new TypeError('当前外壳不支持同步域调用（sendSync 缺失）');
+      }
+      return ipc.sendSync(CHANNELS.domain.invokeSync, request);
     },
     describe: () => ipc.invoke(CHANNELS.domain.describe),
     /**

@@ -86,6 +86,14 @@ export const CHANNELS = {
   /** 领域端口（工作台 / 文档 / 账号 / 设置）：单通道 + 方法白名单，避免通道表膨胀 */
   domain: {
     invoke: 'ec:domain:invoke',
+    /**
+     * 同步领域调用（`ipcRenderer.sendSync`）。
+     *
+     * 只承载同步签名的端口（`MemoryApi` / `PipelineApi`），方法白名单另有
+     * `DOMAIN_SYNC_METHODS`；主进程侧用 `ipcMain.on` + `event.returnValue` 应答，
+     * 因此它**不做异步等待**，域路由必须是纯 CPU / 本地 IO。
+     */
+    invokeSync: 'ec:domain:invokeSync',
     describe: 'ec:domain:describe',
     /** 域事件（主进程 → 渲染层单向推送），payload 携带 requestId 供渲染层关联调用 */
     event: 'ec:domain:event',
@@ -102,6 +110,12 @@ export const EVENT_CHANNELS: readonly string[] = [
   CHANNELS.ai.stream,
   CHANNELS.domain.event,
 ];
+
+/**
+ * 用 `ipcMain.on` 应答的同步通道（不适用 `ipcMain.handle`）。
+ * 主进程注册完整性校验（`registerAllIpc`）必须把它们排除，否则会要求一个永不存在的 handle。
+ */
+export const SYNC_CHANNELS: readonly string[] = [CHANNELS.domain.invokeSync];
 
 /** preload 允许暴露到渲染层的顶层命名空间白名单（安全审计依据） */
 export const PRELOAD_TOP_LEVEL_KEYS = [
@@ -156,5 +170,5 @@ export const PRELOAD_METHOD_KEYS: Record<string, readonly string[]> = {
   clipboard: ['readText', 'writeText', 'clear'],
   net: ['fetch', 'isHostAllowed', 'setAllowedHosts'],
   ai: ['invoke', 'stream', 'abort'],
-  domain: ['invoke', 'describe', 'onEvent'],
+  domain: ['invoke', 'invokeSync', 'describe', 'onEvent'],
 };

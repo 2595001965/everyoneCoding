@@ -148,6 +148,11 @@ export interface EcShellPreload {
   };
   domain: {
     invoke(request: DomainRpcRequest): Promise<DomainRpcResponse>;
+    /**
+     * 同步域调用（`sendSync`）。只承载 `MemoryApi` / `PipelineApi` 的同步签名方法；
+     * 不存在同步口的外壳（Tauri / mock）没有该方法，渲染层据此不注入这两个端口。
+     */
+    invokeSync?(request: DomainRpcRequest): DomainRpcResponse;
     describe(): Promise<DomainDescriptor[]>;
     /** 域事件订阅（返回退订函数）；载荷形状由渲染层校验 */
     onEvent(listener: (event: DomainEvent) => void): () => void;
@@ -197,6 +202,27 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
   const api = preload ?? getEcShellPreload();
   const pathApi = createPathApi('\\');
   let localAllowlist: string[] | '*' = [];
+
+  /**
+   * preload 的域命名空间。
+   *
+   * 契约上必填，但**不能假定运行时一定存在**：早期版本或被裁剪过的 preload 没有它。
+   * 若在构造阶段直接读 `api.domain.invokeSync`，整个外壳会构造失败 ——
+   * 连文件系统这些完全无关的能力也一起不可用（实测：契约测试的假 preload 正是这种情形）。
+   * 故这里退化为「按需读取 + 缺失时如实报 NOT_SUPPORTED」。
+   */
+  const preloadDomain = (api as { domain?: EcShellPreload['domain'] }).domain;
+  const requirePreloadDomain = (): EcShellPreload['domain'] => {
+    if (preloadDomain === undefined) {
+      throw new ShellError(
+        'NOT_SUPPORTED',
+        '当前 preload 未暴露域端口通道（ecShell.domain），域端口不可用',
+        undefined,
+        'electron',
+      );
+    }
+    return preloadDomain;
+  };
 
   const watchHandles = new Set<{ id: string; close(): Promise<void> }>();
 
@@ -400,10 +426,33 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
       abort: (requestId) => call(() => api.ai.abort(requestId)),
     },
     domain: {
-      invoke: (request: DomainRpcRequest) => call(() => api.domain.invoke(request)),
-      describe: () => call(() => api.domain.describe()),
+      invoke: (request: DomainRpcRequest) => call(() => requirePreloadDomain().invoke(request)),
+      describe: () => call(() => requirePreloadDomain().describe()),
+      /**
+       * 同步域调用（仅 preload 提供 sendSync 时才挂载）。
+       *
+       * 渲染层把「有没有这个函数」当作「这个外壳有没有同步端口」的信号——
+       * 没有就不注入同步签名的端口，页面保留如实的装配引导，而不是同步读拿到脏数据。
+       */
+      ...(typeof preloadDomain?.invokeSync === 'function'
+        ? {
+            invokeSync: (request: DomainRpcRequest): DomainRpcResponse => {
+              const response = requirePreloadDomain().invokeSync?.(request) as
+                | DomainRpcResponse
+                | undefined;
+              if (response && typeof response === 'object' && typeof response.ok === 'boolean') {
+                return response;
+              }
+              return {
+                requestId: request.requestId,
+                ok: false,
+                error: { code: 'UNKNOWN', message: '同步域调用没有返回合法响应' },
+              };
+            },
+          }
+        : {}),
       // 取消订阅由调用方按 requestId 自行收口（见 runtime/domain-ports.ts）
-      onEvent: (listener) => api.domain.onEvent(listener),
+      onEvent: (listener) => requirePreloadDomain().onEvent(listener),
     },
     openExternal: (url) => call(() => api.openExternal(url)),
     capabilities: async () => ({

@@ -10,7 +10,7 @@ import { registerUpdaterIpc } from './updater';
 import { registerNetIpc } from './net';
 import { registerAiIpc } from './ai';
 import { registerDomainIpc, registerUnavailableDomainIpc } from './domain';
-import { CHANNELS, EVENT_CHANNELS } from '../channels';
+import { CHANNELS, EVENT_CHANNELS, SYNC_CHANNELS } from '../channels';
 
 /**
  * IPC 注册总入口：通道与 ShellHost 方法一一对应。
@@ -37,6 +37,18 @@ export function registerAllIpc(ipc: IpcMainLike, deps: IpcDependencies): Registe
       handlers.delete(channel);
       ipc.removeHandler(channel);
     },
+    /**
+     * 同步通道（`ipcMain.on`）必须一并转发。
+     *
+     * 教训：注册器此前只转发 `handle`/`removeHandler`，而 `registerDomainIpc` 是用
+     * `ipc.on` 注册 `ec:domain:invokeSync` 的 —— 于是包装对象上没有 `on`，
+     * 同步路由**从未被注册**。渲染层的 `sendSync` 没有对端应答会**永久阻塞整个渲染进程**
+     * （记忆 / 流水线页面直接卡死），且症状只在真实外壳里出现、单测发现不了。
+     */
+    ...(ipc.on !== undefined ? { on: (channel, listener) => ipc.on?.(channel, listener) } : {}),
+    ...(ipc.removeAllListeners !== undefined
+      ? { removeAllListeners: (channel) => ipc.removeAllListeners?.(channel) }
+      : {}),
   };
 
   registerFsIpc(wrapped);
@@ -79,7 +91,9 @@ export function registerAllIpc(ipc: IpcMainLike, deps: IpcDependencies): Registe
     return undefined;
   });
 
-  const expectedChannels = flattenChannels().filter((channel) => !EVENT_CHANNELS.includes(channel));
+  const expectedChannels = flattenChannels().filter(
+    (channel) => !EVENT_CHANNELS.includes(channel) && !SYNC_CHANNELS.includes(channel),
+  );
   const missing = expectedChannels.filter((channel) => !handlers.has(channel));
   if (missing.length > 0) {
     throw new Error(`IPC 通道注册不完整，缺少: ${missing.join(', ')}`);
@@ -91,6 +105,7 @@ export function registerAllIpc(ipc: IpcMainLike, deps: IpcDependencies): Registe
       disposeFsIpc();
       disposeProcessIpc();
       for (const channel of handlers.keys()) ipc.removeHandler(channel);
+      for (const channel of SYNC_CHANNELS) ipc.removeAllListeners?.(channel);
       handlers.clear();
     },
   };

@@ -14,10 +14,23 @@ export interface IpcMainLike {
     handler: (event: unknown, payload: unknown) => Promise<unknown> | unknown,
   ): void;
   removeHandler(channel: string): void;
+  /**
+   * 同步通道注册（`ipcRenderer.sendSync` 对端）。
+   * 可选：测试用的假 ipcMain 只需覆盖 handle/removeHandler；真实 Electron 一定提供。
+   */
+  on?(channel: string, listener: (event: unknown, ...args: unknown[]) => void): void;
+  /** 清理同步通道监听（`dispose` 用）；与 `on` 成对出现 */
+  removeAllListeners?(channel: string): void;
 }
 
 export interface IpcSenderLike {
   send(channel: string, payload: unknown): void;
+}
+
+/** `ipcMain.on` 事件对象中本模块要用的字段（returnValue 用于同步应答） */
+export interface IpcSyncEventLike {
+  sender?: IpcSenderLike | undefined;
+  returnValue?: unknown;
 }
 
 export interface ElectronDialogLike {

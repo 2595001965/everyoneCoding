@@ -9,7 +9,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./dsl": "./src/dsl-entry.ts"
+    "./dsl": "./src/dsl-entry.ts",
+    "./notes": "./src/notes-entry.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

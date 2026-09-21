@@ -22,10 +22,20 @@ export interface PageMemoryPort {
     pageId: string;
     dsl: PageDsl;
   }): void | Promise<void>;
-  /** 读取最近若干次结构变更（供 StructurePreview 展示） */
+  /**
+   * 读取最近若干次结构变更（供 StructurePreview 展示）。
+   *
+   * 返回类型允许 Promise：生产实现走外壳 RPC（异步），而领域层测试用内存假实现
+   * 直接给同步数组。消费方一律 `await`/`Promise.resolve` 收口，
+   * 不允许把 Promise 当数组直接渲染（那会渲染出 `[object Promise]`）。
+   */
   listStructureRevisions?(
     pageId: string,
-  ): Array<{ revision: number; tokenEstimate: number; createdAt: number; changed?: string[] }>;
+  ):
+    | Array<{ revision: number; tokenEstimate: number; createdAt: number; changed?: string[] }>
+    | Promise<
+        Array<{ revision: number; tokenEstimate: number; createdAt: number; changed?: string[] }>
+      >;
 }
 
 /** 项目记忆的路由总表读写（外壳适配 ProjectMemoryService.mergeRoutes） */

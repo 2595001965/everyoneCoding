@@ -13,6 +13,10 @@ const userRole = z.enum(['owner', 'admin', 'member']);
 const projectStatus = z.enum(['active', 'archived']);
 const featureStatus = z.enum(['planned', 'in_progress', 'done']);
 const noteKind = z.enum(['design', 'note', 'comment']);
+/** 备注目标层级（与 @ec/designer 的 NoteTargetType 对齐） */
+const noteTargetType = z.enum(['element', 'page', 'feature']);
+/** 备注处置状态（FR-ANN：未解决备注计入项目仪表盘） */
+const noteStatus = z.enum(['open', 'resolved']);
 const documentKind = z.enum(['requirement', 'tech', 'design', 'api', 'imported']);
 const docFormat = z.enum(['markdown', 'docx', 'pdf', 'txt', 'image']);
 /** 项目来源（T9-01 四类新建来源） */
@@ -199,6 +203,21 @@ export interface NoteRow {
   kind: z.infer<typeof noteKind>;
   created_at: number;
   updated_at: number;
+  /** 归属元素（target_type='element' 时与 target_id 一致；便于按元素索引） */
+  element_id: string | null;
+  /** 三级备注：元素 / 页面 / 功能（T4-01） */
+  target_type: z.infer<typeof noteTargetType>;
+  target_id: string | null;
+  /** 六类备注：业务规则 / 校验要求 / 交互说明 / 待办 / 疑问 / 禁止事项 */
+  note_type: string;
+  status: z.infer<typeof noteStatus>;
+  priority: number;
+  manual_priority: number | null;
+  version: number;
+  resolved_at: number | null;
+  created_by: string | null;
+  /** 富文本正文 / checklist / 代码片段 / 历史版本的 JSON 载荷 */
+  payload_json: string | null;
 }
 export const noteSchema = z.object({
   id: z.string(),
@@ -209,6 +228,17 @@ export const noteSchema = z.object({
   kind: noteKind,
   created_at: z.number().int(),
   updated_at: z.number().int(),
+  element_id: z.string().nullable(),
+  target_type: noteTargetType,
+  target_id: z.string().nullable(),
+  note_type: z.string(),
+  status: noteStatus,
+  priority: z.number().int(),
+  manual_priority: z.number().int().nullable(),
+  version: z.number().int(),
+  resolved_at: z.number().int().nullable(),
+  created_by: z.string().nullable(),
+  payload_json: z.string().nullable(),
 });
 
 /* --------------------------- element ---------------------------- */
@@ -898,7 +928,27 @@ export const TABLE_COLUMNS = {
   ],
   feature: ['id', 'project_id', 'name', 'description', 'status', 'created_at', 'updated_at'],
   page: ['id', 'project_id', 'feature_id', 'name', 'route', 'dsl_ref', 'created_at', 'updated_at'],
-  note: ['id', 'project_id', 'page_id', 'title', 'content', 'kind', 'created_at', 'updated_at'],
+  note: [
+    'id',
+    'project_id',
+    'page_id',
+    'title',
+    'content',
+    'kind',
+    'created_at',
+    'updated_at',
+    'element_id',
+    'target_type',
+    'target_id',
+    'note_type',
+    'status',
+    'priority',
+    'manual_priority',
+    'version',
+    'resolved_at',
+    'created_by',
+    'payload_json',
+  ],
   element: [
     'id',
     'page_id',

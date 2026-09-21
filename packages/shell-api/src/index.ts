@@ -11,8 +11,15 @@ import type { ShellCapabilities, ShellHost, ShellKind } from './types';
 export { AI_RPC_METHODS, aiErrorFromUnknown, createRequestId, isAiRpcMethod } from './ai-control';
 export type { AiControlHost } from './ai-control';
 export {
+  CODE_EXTERNAL_CHANGE_EVENT,
   DOMAIN_KINDS,
   DOMAIN_RPC_METHODS,
+  DOMAIN_SYNC_METHODS,
+  GIT_PROGRESS_EVENT,
+  PACKAGE_PROGRESS_EVENT,
+  PIPELINE_PROGRESS_EVENT,
+  PIPELINE_STAGE_EVENT,
+  PREVIEW_LOG_EVENT,
   WORKSPACE_IMPORT_PROGRESS_EVENT,
   WORKSPACE_IMPORT_STAGES,
   createDomainEventSink,
@@ -22,6 +29,8 @@ export {
   domainUnavailableError,
   isDomainKind,
   isDomainRpcMethod,
+  isDomainSyncMethod,
+  isKnownDomainEventPayload,
   isWorkspaceImportProgressEvent,
   sanitizeDomainMessage,
 } from './domain-control';
@@ -32,6 +41,7 @@ export type {
   DomainEvent,
   DomainEventSink,
   DomainKind,
+  DomainProgressEvent,
   DomainRpcError,
   DomainRpcRequest,
   DomainRpcResponse,

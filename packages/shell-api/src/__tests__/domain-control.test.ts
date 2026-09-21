@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMAIN_KINDS,
   DOMAIN_RPC_METHODS,
+  PREVIEW_LOG_EVENT,
+  RENAME_MIGRATION_LOG_EVENT,
   WORKSPACE_IMPORT_PROGRESS_EVENT,
   WORKSPACE_IMPORT_STAGES,
   createDomainEventSink,
@@ -12,6 +14,7 @@ import {
   domainUnavailableError,
   isDomainKind,
   isDomainRpcMethod,
+  isKnownDomainEventPayload,
   isWorkspaceImportProgressEvent,
   sanitizeDomainMessage,
   type DomainDescriptor,
@@ -191,6 +194,41 @@ describe('域事件下发注册表', () => {
     });
     expect(() => sink.send({ requestId: 'r1', domain: 'workspace', payload: 'x' })).not.toThrow();
   });
+
+  it('broadcast 只走常驻订阅者，与请求内 send 互不干扰', () => {
+    const sink = createDomainEventSink();
+    const requestScoped: unknown[] = [];
+    const resident: unknown[] = [];
+    sink.register('r1', (event) => requestScoped.push(event.payload));
+    const off = sink.subscribe((event) => resident.push(event.payload));
+
+    // 请求内事件：只到请求目标，常驻订阅者不收到（否则 UI 会把同一条进度渲染两次）
+    sink.send({ requestId: 'r1', domain: 'git', payload: 'progress' });
+    expect(requestScoped).toEqual(['progress']);
+    expect(resident).toEqual([]);
+
+    // 常驻事件：只到常驻订阅者，即使 requestId 恰好撞上某个在飞的请求
+    sink.broadcast({ requestId: 'r1', domain: 'preview', payload: 'log-line' });
+    expect(resident).toEqual(['log-line']);
+    expect(requestScoped).toEqual(['progress']);
+
+    off();
+    sink.broadcast({ requestId: 'r1', domain: 'preview', payload: 'after-off' });
+    expect(resident).toEqual(['log-line']);
+  });
+
+  it('broadcast 的某个订阅者抛错不影响其它订阅者', () => {
+    const sink = createDomainEventSink();
+    const seen: unknown[] = [];
+    sink.subscribe(() => {
+      throw new Error('窗口已销毁');
+    });
+    sink.subscribe((event) => seen.push(event.payload));
+    expect(() =>
+      sink.broadcast({ requestId: 'sentinel', domain: 'preview', payload: 'x' }),
+    ).not.toThrow();
+    expect(seen).toEqual(['x']);
+  });
 });
 
 describe('导入进度事件载荷守卫', () => {
@@ -234,5 +272,28 @@ describe('导入进度事件载荷守卫', () => {
     );
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: '42%' })).toBe(false);
     expect(isWorkspaceImportProgressEvent({ ...valid, ratio: undefined })).toBe(false);
+  });
+});
+
+describe('域事件载荷守卫注册表（常驻事件）', () => {
+  it('预览日志与迁移日志已登记，形状不符的载荷被丢弃', () => {
+    // 未登记的 type 一律不投递：这是"脏数据不进 UI"的最后一道闸门
+    expect(isKnownDomainEventPayload(PREVIEW_LOG_EVENT, { line: 'ok', at: 1 })).toBe(true);
+    expect(isKnownDomainEventPayload(PREVIEW_LOG_EVENT, { line: 'ok' })).toBe(false);
+    expect(isKnownDomainEventPayload(PREVIEW_LOG_EVENT, { line: 'ok', at: 'now' })).toBe(false);
+    expect(isKnownDomainEventPayload('preview:unknown', { line: 'ok', at: 1 })).toBe(false);
+
+    expect(
+      isKnownDomainEventPayload(RENAME_MIGRATION_LOG_EVENT, {
+        level: 'info',
+        message: 'ALTER TABLE',
+        at: 1,
+        index: 0,
+        total: 2,
+      }),
+    ).toBe(true);
+    expect(
+      isKnownDomainEventPayload(RENAME_MIGRATION_LOG_EVENT, { level: 'debug', message: 'x', at: 1 }),
+    ).toBe(false);
   });
 });

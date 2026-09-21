@@ -9,19 +9,21 @@
 
 ## 1. 结论摘要
 
-| 验收维度             | 目标                                                      | 结果                                                                                                                            |
-| -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| E2E 用例齐备         | 21 条均有用例或手工清单                                   | ✅ 21/21（`docs/E2E-CHECKLIST.md`）                                                                                             |
-| E2E 可自动化部分     | 全绿                                                      | ✅ **21 条全部自动通过**（E2E-07 为真实 git 全流程，单次实测 224.2s，见 `docs/E2E-CHECKLIST.md §4`）                            |
-| 关键路径埋点         | ≥90%，payload 无内容                                      | ✅ 40 项关键事件 / 12 类，payload 走字段白名单断言；覆盖率报告见 `core/src/__tests__/telemetry-coverage.test.ts`                |
-| 九项性能指标         | 逐项达标                                                  | ✅ 6 项实测达标；3 项（冷启动/内存/包体）需真实外壳与安装包，已列整改计划（`docs/PERF-REPORT.md §3`）                           |
-| 六核心模块覆盖率     | ≥70%                                                      | ✅ 实测（2026-09-15 补齐）：memory 90.78%、context 93.68%、adapters 74.86%、registry 85.68%、package-kit 85.14%、**git 75.71%** |
-| 静态检查             | TS strict 零 error；eslint 零 error/警告                  | ✅ 17 个工程 + `e2e/` 均零 error；**根 lint 全仓（含 e2e / perf / ci 的 `.mts`）零 error 零 warning**                           |
-| 破坏性操作撤销路径   | 集成测试 100% 覆盖                                        | ✅ 八类逐条指到测试（`docs/TEST-REPORT.md §2`）                                                                                 |
-| 渲染层构建           | `vite build` 通过（硬规则 1：浏览器入口不泄漏 Node 模块） | ✅ **589 modules**（Wave 9 基线 571）                                                                                           |
-| 双形态打包与更新回滚 | 安装包产出且体积达标、更新可回滚                          | ⚠️ **配置与流程逻辑已就绪并验证，安装包未在本机产出**（见 §3）                                                                  |
-| 首次体验             | 引导可用、空状态有下一步                                  | ✅ 新增 `OnboardingCard`（7 项测试）+ 空态文案改造                                                                              |
-| 全程不打开终端       | FR-SET-08                                                 | ⚠️ 自动化侧以「链路不含 shell 调用 + argv 无高危参数」近似验证；**人工录像走查未完成**（见 §3）                                 |
+| 验收维度                        | 目标                                                                                                    | 结果                                                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| E2E 用例齐备                    | 21 条均有用例或手工清单                                                                                 | ✅ 21/21（`docs/E2E-CHECKLIST.md`）                                                                                                          |
+| E2E 可自动化部分                | 全绿                                                                                                    | ✅ **21 条全部自动通过**（E2E-07 为真实 git 全流程，单次实测 224.2s，见 `docs/E2E-CHECKLIST.md §4`）                                         |
+| 关键路径埋点                    | ≥90%，payload 无内容                                                                                    | ✅ 40 项关键事件 / 12 类，payload 走字段白名单断言；覆盖率报告见 `core/src/__tests__/telemetry-coverage.test.ts`                             |
+| 九项性能指标                    | 逐项达标                                                                                                | ✅ 6 项实测达标；3 项（冷启动/内存/包体）需真实外壳与安装包，已列整改计划（`docs/PERF-REPORT.md §3`）                                        |
+| 六核心模块覆盖率                | ≥70%                                                                                                    | ✅ 实测（2026-09-15 补齐）：memory 90.78%、context 93.68%、adapters 74.86%、registry 85.68%、package-kit 85.14%、**git 75.71%**              |
+| 静态检查                        | TS strict 零 error；eslint 零 error/警告                                                                | ✅ 17 个工程 + `e2e/` 均零 error；**根 lint 全仓（含 e2e / perf / ci 的 `.mts`）零 error 零 warning**                                        |
+| 破坏性操作撤销路径              | 集成测试 100% 覆盖                                                                                      | ✅ 八类逐条指到测试（`docs/TEST-REPORT.md §2`）                                                                                              |
+| 渲染层构建                      | `vite build` 通过（硬规则 1：浏览器入口不泄漏 Node 模块）                                               | ✅ **589 modules**（Wave 9 基线 571）                                                                                                        |
+| 双形态打包与更新回滚            | 安装包产出且体积达标、更新可回滚                                                                        | ⚠️ **配置与流程逻辑已就绪并验证，安装包未在本机产出**（见 §3）                                                                               |
+| 首次体验                        | 引导可用、空状态有下一步                                                                                | ✅ 新增 `OnboardingCard`（7 项测试）+ 空态文案改造                                                                                           |
+| 全程不打开终端                  | FR-SET-08                                                                                               | ⚠️ 自动化侧以「链路不含 shell 调用 + argv 无高危参数」近似验证；**人工录像走查未完成**（见 §3）                                              |
+| Electron 生产端口总装（T12-01） | 11 个生产能力端口装配到真实 SQLite/工程目录、项目上下文贯穿、页面不再因"端口未注入"占位                 | ✅ 11/11 端口装配；新增 33 项端口集成测试全绿；`lint` / `-r typecheck` / `vite build` / `test:e2e` 全绿（详见 §2.7）                         |
+| 流水线生产运行时（T12-03）      | 走完 S1→S5；重启从上次阶段继续；版本可回看/diff/回退 + 下游 stale；未选型不得进 S3；S5 单节点失败不阻塞 | ✅ 全部达成；新增主进程集成测试 5/5、追加 E2E-22 2/2；`lint` / 17 工程 `typecheck` / 全仓单测 / `test:e2e`（11 文件 41 项）全绿（详见 §2.9） |
 
 ---
 
@@ -99,6 +101,268 @@ Wave 10 收官时 Electron 形态标注为"未本机验证"。本轮补齐前置
 
 > 说明：Electron 主进程的 AI 栈依赖 `safeStorage`（DPAPI）。在无桌面会话/无加密可用性的环境下
 > 该栈会**优雅降级**（仅告警、不阻塞启动），这是既有设计而非缺陷。
+
+### 2.7 T12-01 Electron 生产端口总装与项目上下文（2026-09-20）
+
+渲染层早已定义好 11 个生产能力端口（`MemoryApi` / `PipelineApi` / `GitApi` / `PreviewApi` /
+`RenameApi` / `PackageApi` / `UsageApi` / `ContextPanelApi` / `CodeViewApi` / `NavApi` /
+`DesignerPortApi`），但只有消费方、没有生产者 —— 记忆 / 流水线 / Git / 预览 / 重命名 / 归档 /
+用量等页面长期停留在"服务未初始化"占位态。本次把生产者补齐并让**当前项目上下文**贯穿全链路。
+
+#### 2.7.1 每个端口的生产装配证据
+
+装配链四层（缺一层就不通）：`packages/shell-api` 契约 → `main/ipc/domain.ts` 通道 →
+`preload/api.ts` 白名单 → `bridge.ts` → `renderer/runtime/production-ports.ts` 适配器。
+
+| 端口（域）                 | 主进程域实现                               | 渲染层适配器（`production-ports.ts`） | 复用的领域内核（不重写）                                                                                                                  | 如实降级（不伪造成功）                                                                     |
+| -------------------------- | ------------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| memory（`memory`）         | `main/domain/domains/memory-domain.ts`     | `createMemoryApi`                     | `MemoryRepo` / `resolveInheritance` / `detectConflicts` / `readImport` / `classifyImport` / `planMerge` / `commitMergePlan` / `exportAll` | 外壳无同步口 → 整个端口不注入（页面保留引导）                                              |
+| pipeline（`pipeline`）     | `main/domain/domains/pipeline-domain.ts`   | `createPipelineApi`                   | `PipelineMachine` / `ArtifactStore` / `SplitModel`                                                                                        | AI 栈未装配 → `generateRequirement`/`generateTechDoc`/`runGeneration` 报 `NOT_SUPPORTED`   |
+| designer（`designer`）     | `main/domain/domains/designer-domain.ts`   | `createDesignerApi`                   | `@ec/designer/dsl` 的 `createEmptyPage`/`serializePageDsl`；`@ec/memory` 的 `condensePage`                                                | AI 生成页面 `NOT_SUPPORTED` + 引导（可先手动搭建）                                         |
+| git（`git`）               | `main/domain/domains/git-domain.ts`        | `createGitApi`                        | `GitClient` + `MergeService`/`ConflictService`/`RecoveryService`/`RemoteService`/`HistoryService`                                         | 凭据读写、`generateCommitMessage`（需 AI）、`applyResolution`（D-04 只走写入管线）如实拒绝 |
+| preview（`preview`）       | `main/domain/domains/preview-domain.ts`    | `createPreviewApi`                    | `@ec/preview`                                                                                                                             | 后端托管需项目具备可启动脚本，缺失时返回结构化 `PreviewResult.error`                       |
+| rename（`rename`）         | `main/domain/domains/rename-domain.ts`     | `createRenameApi`                     | `@ec/registry`（occurrence / transaction / anchor）+ 注册表写入口                                                                         | 影响面/事务/迁移的 AI 生成类方法报 `NOT_SUPPORTED`                                         |
+| package（`package`）       | `main/domain/domains/package-domain.ts`    | `createPackageApi`                    | `@ec/package-kit` + 复用 settings 域已验证的 `createExportSourcePort`/`createImportLocalStatePort`/`createImportTargetPort`               | 附件子系统与外部条件缺失处如实报错，不静默丢数据                                           |
+| usage（`usage`）           | `main/domain/domains/usage-domain.ts`      | `createUsageApi`                      | `usage_record` 表（行结构原样透传）                                                                                                       | 无记录时返回空集而不是编造用量                                                             |
+| ai-context（`ai-context`） | `main/domain/domains/ai-context-domain.ts` | `createAiContextApi`                  | `ContextSources` 四源（memory / notes / documents / code）                                                                                | `availableSources` 只声明真实接线的源                                                      |
+| code（`code`）             | `main/domain/domains/code-domain.ts`       | `createCodeApi`                       | WritePipeline 语义（plan→preview→apply）+ `fs.watch` 外部改动检测                                                                         | `requestRework` 需会话上下文 → `NOT_SUPPORTED`                                             |
+| nav（`nav`）               | `main/domain/domains/nav-domain.ts`        | `createNavApi`                        | `@ec/ai` 导航 + Code Anchor 反查                                                                                                          | 无锚点时返回空跳转集而不是假跳转                                                           |
+
+**同步签名端口的专用通道**（本轮的关键设计决定）：`MemoryApi` 与 `PipelineApi` 是**同步签名**
+（消费方在 `advance()` 之后**立刻同步**读 `snapshot()`），异步 RPC + 快照缓存表达不了这种语义 ——
+写入后立刻读会拿到上一拍的数据。故另开一条同步通道，五处同步落地：
+
+| 层      | 落地                                                                                                                               |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 契约    | `shell-api` 的 `DOMAIN_SYNC_METHODS`（独立白名单，默认拒绝）+ `isDomainSyncMethod`；`DomainControlHost.invokeSync?` 为**可选**能力 |
+| 主进程  | `createDomainRuntime.invokeSync`（与 `invoke` 同一套白名单校验/错误脱敏）+ `SyncDomainRouter` 带入 `ctx`                           |
+| IPC     | 独立通道 `ec:domain:invokeSync`（`ipcMain.on` + `event.returnValue` 同步应答；`SYNC_CHANNELS` 登记）                               |
+| preload | `domain.invokeSync`（进 `PRELOAD_METHOD_KEYS.domain`；只做形状校验，方法白名单归主进程）                                           |
+| 渲染层  | `createDomainSyncCaller`：宿主没有 `invokeSync` 就返回 `null` → **这两个端口不注入**，而非读脏缓存                                 |
+
+#### 2.7.2 项目上下文贯穿
+
+- 新增 `apps/renderer/src/runtime/project-context.ts`：活跃项目由 `useProjectStore` 单点持有，
+  `getActiveProject()` / `requireActiveProject()` / `onActiveProjectChange()` / `currentUserId()`。
+- 适配器每次调用经 `withProject()` 注入 `projectId`；**未打开项目时抛 `INVALID_ARGUMENT` 且请求根本不发出**
+  （不是发一个 `projectId: undefined` 的请求让主进程猜）。
+- `WorkspacePage.openProject` 先 `getProject(id)` 取真实摘要写入项目上下文，再跳转设计器。
+- `DesignerPage` 以 `key={project.id}` 装载会话：**切换项目即整棵会话卸载**，旧订阅（编辑器订阅、
+  页面树订阅、防抖定时器）随之释放，不残留旧项目状态。
+- 移除固定夹具：`createLoginPageDsl()` 不再出现在实现代码里，`P1` / `U-TEST` / 「商城」亦已清除
+  （`grep` 结果显示仅在解释性注释中出现）。
+
+#### 2.7.3 本轮修掉的真实缺陷（编译不过的除外）
+
+| #   | 缺陷                                                                                                  | 根因与后果                                                                                                                                                                                                                                                                                            | 修复                                                                                                                   |
+| --- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 1   | `production-ports.ts` 文件交错损坏（`createPipelineApi` 与 `createGitApi` 互相穿插）                  | 限流打断留下的半截文件；`createPipelineApi` 的 `subscribe` 回调被 Git 函数体劈成两半 → 整个渲染层编译不过                                                                                                                                                                                             | 按行区间重排为「流水线完整体 + Git 完整体」                                                                            |
+| 2   | `pipeline-domain.ts` 残留两段旧 `switch` 草案（`case 'saveArtifact'` / `case 'generateRequirement'`） | 文件已改为 handler-map 设计，残留草案造成 `TS1128/TS1005` 语法错误；且重复实现了同一方法两次                                                                                                                                                                                                          | 删除残留段，保留 `syncHandlers`/`asyncHandlers` 单一实现                                                               |
+| 3   | **同步操作的状态变更事件被静默丢弃**                                                                  | `SyncDomainRouter` 只有 2 个参数（无 `ctx`），同步路由拿不到 `emit`；`startStage`/`confirm`/`back` 在同步口上推的事件全部丢失                                                                                                                                                                         | `SyncDomainRouter` 补第三参数 `ctx`，`invokeSync` 构造 ctx（requestId 复用 + `events.send`）                           |
+| 4   | **code 域外部改动事件永远不触发**                                                                     | `createProductionDomains` 收到的是 `emit: () => {}` 空实现，`fs.watch` 的回调发进黑洞 → `subscribeExternalChanges` 形同虚设                                                                                                                                                                           | 主进程先建 `DomainEventSink` 再建域工厂，`emit(domain, payload)` 真实投递；无请求归属的事件用固定哨兵 requestId        |
+| 5   | **新建项目后打开设计器必失败**                                                                        | `designer.createPage` 手写 DSL 漏 `projectId`/`viewport`/`apiDeps`/`notes`/`anchors`，并把 `state` 拼成 `states` → 文件落盘成功、`listPages` 也能列出，但渲染层 `deserializePageDsl` 的 zod 校验必然失败                                                                                              | 改用 `@ec/designer/dsl` 的 `createEmptyPage` + `serializePageDsl`；并新增"信封必须通过 `deserializePageDsl`"的守卫断言 |
+| 6   | **同一毫秒为两个项目建路由总表会撞主键**                                                              | `upsertRoutes` 用纯时间戳生成 `memory_item.id`（`mem-<ts>-routes`）→ 第二个项目 `UNIQUE constraint failed`                                                                                                                                                                                            | id 加入 `projectId`                                                                                                    |
+| 7   | `pipeline-domain` 的 `emit` 是死参数                                                                  | 声明了 `options.emit` 却从不使用（全部走 `ctx.emit`），且签名与工厂不符导致类型错误                                                                                                                                                                                                                   | 删除该死参数，避免"看起来会发事件"的误导                                                                               |
+| 8   | `memory-domain` 声明返回 `DomainRouter` 却返回 `{router, syncRouter}`                                 | 返回类型与实现不符，`tsc` 报错                                                                                                                                                                                                                                                                        | 修正返回类型                                                                                                           |
+| 9   | `DesignerPage` 端口装配的类型/形状错误                                                                | `writePageStructure` 返回 `Promise<unknown>` 不满足 `void \| Promise<void>`；`route` 在 `exactOptionalPropertyTypes` 下不能传 `undefined`；路由缓存形状缺 `pageId`/`pageName`/`params`                                                                                                                | 逐项修正（async 包装 + 条件展开 + 构造真实 `RouteEntry`）                                                              |
+| 10  | `PageMemoryPort.listStructureRevisions` 不接受 Promise                                                | 生产实现在外壳侧（异步 RPC），契约却只允许同步数组                                                                                                                                                                                                                                                    | 契约放行 `Array \| Promise<Array>`，并注明消费方必须 `await` 收口                                                      |
+| 11  | **同步域通道在生产环境从未注册**                                                                      | `registerAllIpc` 把 `ipcMain` 包成 `wrapped` 时只转发了 `handle`/`removeHandler`，而 `registerDomainIpc` 用 `ipc.on` 注册 `ec:domain:invokeSync` → 包装对象没有 `on`，注册被静默跳过。后果：渲染层 `sendSync` 无对端应答会**永久阻塞整个渲染进程**（记忆 / 流水线页面直接卡死），且只在真实外壳里现形 | `wrapped` 转发 `on` / `removeAllListeners`；`channels.test.ts` 补「同步通道确实经 `on` 注册并在 dispose 时清理」的断言 |
+| 12  | preload 缺 `domain` 命名空间时整个外壳构造失败                                                        | `bridge.ts` 在构造阶段裸读 `api.domain.invokeSync` → 早期/裁剪过的 preload 会让 `createElectronShell` 直接抛错，连文件系统等无关能力一起不可用（契约测试的假 preload 正是这种情形，16 项用例集体失败）                                                                                                | 改为按需读取 + 缺失时如实报 `NOT_SUPPORTED`，构造阶段不再触碰                                                          |
+
+#### 2.7.4 本轮新增测试（33 项）
+
+| 文件                                                                 | 项数 | 覆盖内容                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/desktop-electron/src/main/__tests__/domain-production.test.ts` | 15   | 真实项目 ID 贯穿；重启后重读（DSL/页面记忆/流水线快照）；错误码映射（未知方法 / 缺 projectId / 项目不存在 / 页面不存在 / `NOT_SUPPORTED`）；并发项目不串数据（目录、台账、产物文本、阶段状态、记忆归属）；同步口白名单与 `NOT_SUPPORTED`；`describe` 如实上报；`createPage` DSL 合法性守卫 |
+| `apps/renderer/src/runtime/__tests__/production-ports.test.ts`       | 18   | 无同步口时 memory/pipeline 不注入并给出原因；同步口参数逐字透传；projectId 随项目切换而变且不被调用方覆盖；未打开项目时**请求不发出**；错误码映射到 `GitResult`/`PreviewResult`/`ShellError`；进度事件按 requestId 与项目双重过滤；`onProgress` 函数必须被剥掉                             |
+
+两项必测点均落在真实数据上（临时 SQLite + 临时工程目录），未打桩域实现。
+
+#### 2.7.6 E2E 用例复核（`pnpm test:e2e`）
+
+| 用例                                                                         | 结果         | 耗时       |
+| ---------------------------------------------------------------------------- | ------------ | ---------- |
+| `services/e2e-01-account.test.ts`（账号注册/登录/找回）                      | ✅ 3/3       | 478ms      |
+| `services/e2e-02-oauth.test.ts`（OAuth 回环 + PKCE + state 校验）            | ✅ 4/4       | 1.7s       |
+| `domain/e2e-03-pipeline.test.ts`（S1→S5 流水线）                             | ✅ 4/4       | 8ms        |
+| `ui/e2e-04-18-workflow.test.tsx`（拖拽设计 + 元素生成，组件层）              | ✅ 8/8       | 44ms       |
+| `domain/e2e-07-git.test.ts`（**真实 git** 全流程，无命令行）                 | ✅ 1/1       | **223.6s** |
+| `domain/e2e-10-relay.test.ts`（自定义中转）                                  | ✅ 2/2       | 287ms      |
+| `domain/e2e-11-remote-config.test.ts`（远程配置）                            | ✅ 4/4       | 92ms       |
+| `domain/e2e-13-14-archive.test.ts`（归档导入 / 冲突）                        | ✅ 4/4       | 174ms      |
+| `domain/e2e-15-17-20-rename-and-migration.test.ts`（重命名级联/反例/回滚）   | ✅ 5/5       | 66ms       |
+| `domain/e2e-19-21-tech-and-multiplatform.test.ts`（技术选型 + 七端生成矩阵） | ✅ 4/4       | 10ms       |
+| **合计**                                                                     | ✅ **39/39** | 242.8s     |
+
+#### 2.7.5 门禁实测（2026-09-20）
+
+| 命令                                                       | 结果                                                                                |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm lint`（`--ext .ts,.tsx,.mts,.mjs --max-warnings 0`） | ✅ 零 error 零 warning                                                              |
+| `pnpm -r typecheck`                                        | ✅ 17/17 包通过                                                                     |
+| `tsc -p e2e/tsconfig.json --noEmit`                        | ✅ 零 error（e2e 是独立工程，vitest 不做类型检查）                                  |
+| `vite build`（`apps/renderer`）                            | ✅ 通过，`✓ built in 4.33s`（证明 11 个端口的适配器没有把 Node 模块带进浏览器构建） |
+| 新增集成测试                                               | ✅ 33/33 通过                                                                       |
+| 全量单测（根 `vitest run`）                                | ✅ **236 文件 / 2419 项全绿，0 失败**（215.9s；未改任何超时预算）                   |
+| `pnpm test:e2e`                                            | ✅ **39/39 全绿**（10 个文件），含真实 git 全流程 E2E-07（223.6s）                  |
+
+**关于一度出现的 8 项 git 红（已确诊为环境性并已消失）**：首轮全量单测有 8 项红，分布在
+`apps/desktop-electron/.../domain-workspace-git.test.ts` 与
+`packages/git/src/__tests__/git-integration.test.ts`。确诊过程与结论（详见 `docs/TEST-REPORT.md §1.2`）：
+
+1. **决定性实验**：本机 `where.exe git`（极简原生进程）501ms、`node -e 0` 503ms、
+   `git --version` 759ms —— 即**进程创建本身就有 ~0.5s 地板价**，git 只多约 260ms；
+2. 退化期间实测 `git --version` **26.5s**，说明**进程创建被系统层拖慢约 50 倍**
+   （实时杀毒扫描 / 过滤驱动一类），与 git 无关，更与本仓代码无关；
+3. 两个红文件均未引用 T12-01 改动的任何模块；`@ec/git` 侧已核对**无冗余子进程**
+   （`probe()` 只在建客户端时跑一次、`status()` 单次 spawn、后端探测结果被 ESM 模块缓存），
+   不存在"每次操作多起几个进程"的可优化项；
+4. 环境恢复后**按默认超时**复跑：两个文件 **12/12 通过**（46.2s / 184.9s），
+   全量单测随即 **2419/2419 全绿**。
+
+> 处置口径：**未改动这两个文件的超时预算**（放宽预算只会掩盖真实卡死）。
+> 再次遇到同类红时，按 `docs/TEST-REPORT.md §1.2` 的四步自证流程走：同时量
+> `git --version` 与 `where.exe git` → 判定是否为环境性 → 临时用 `--testTimeout` /
+> `EC_GIT_IT_TIMEOUT_MS` 放行（不写回源码）→ 治本是把 `git.exe`/`node.exe` 与仓库目录
+> 加入杀毒实时扫描白名单（需管理员权限）。
+
+> 环境注记：根脚本 `pnpm build:renderer`（内含 `pnpm --filter`）在本机沙盒里会卡住不返回 ——
+> 这是内层 pnpm shim 的解析问题，不是构建问题：直接调 `vite build` 4.33s 通过。
+> 沙盒里报此现象时按同一路径绕过（`node node_modules/vite/bin/vite.js build`）。
+
+> **未在本轮完成**：`pnpm dev:electron` 的**人工交互走查**（创建两个项目 → 分别打开设计器修改 →
+> 重启 → 校验不串且仍存在）需要真实桌面会话，沙盒内无法操作 GUI。该场景已被
+> `domain-production.test.ts` 的"重启后可重新读取"与"并发项目不串数据"两组用例以**同语义**覆盖
+> （真实 SQLite + 真实工程目录 + 换运行时重读），但 GUI 层的手工复核仍需主人执行一次。
+
+### 2.8 T12-02 记忆、上下文、代码写入与设计器端口（2026-09-20）
+
+T12-01 把 11 个域"装配上了"，但其中三处仍是**数据直供或明确拒答**；本轮把它们换成真实主链路。
+
+#### 2.8.1 改动清单（按职责）
+
+| 层                      | 文件                                                                                         | 改动                                                                                                                                                                                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 契约（`@ec/ai`）        | `src/context/context-types.ts`、`src/context/blocks/shared.ts`                               | `ContextMemoryQuery` 增加 `pageId/elementId/featureId`（页面 / 元素 / 功能三级记忆必须收敛到本次对象）；`ContextMemoryPort.describe?()` 让外壳自述检索能力，块来源不再写死"双路召回"                                                                                           |
+| 契约（`@ec/designer`）  | `src/notes-entry.ts`（新）、`package.json`、`src/__tests__/notes-entry-purity.test.ts`（新） | 新增 `@ec/designer/notes` 纯子入口：外壳（主进程）要复用备注的优先级 / 禁止事项 / 历史规则，但不能把包根入口的 React 组件拉进主进程构建；纯度守卫与 `./dsl` 同规格                                                                                                             |
+| 契约（`@ec/shell-api`） | `src/domain-control.ts`                                                                      | designer 域方法白名单补 `updateNote/setNoteStatus/removeNote/noteBadges`；新增 `code:write-plan` 事件三件套（常量 + 形状守卫 + 注册表），否则 AI 重改的计划会被渲染层的通用载荷过滤静默丢弃                                                                                    |
+| 契约（`@ec/core`）      | `src/command-catalog.ts`                                                                     | 导航新增 `/code`，同步登记命令目录（`command-catalog.test.ts` 是导航↔目录的漂移守卫）                                                                                                                                                                                          |
+| 数据层（`@ec/data`）    | `migrations/0006_designer_notes.sql`（新）、`src/schema.ts`                                  | `note` 表补齐 FR-ANN 需要的列（target 归属 / note_type / status / priority / version / payload_json 等）。**此前 `note` 只有 title/content/kind，主进程按领域模型写 SQL（`element_id`/`body`）必然抛列不存在**                                                                 |
+| 主进程（新）            | `domain/designer-notes.ts`                                                                   | 备注的 SQLite 持久化适配：复用 `@ec/designer/notes` 的 `NoteRepository`（优先级加权、禁止事项恒为 5、历史留痕、上下文排序全在领域层），本文件只做行↔模型映射                                                                                                                   |
+| 主进程（新）            | `domain/designer-pages.ts`                                                                   | 页面 DSL 的只读装载器：`listPages` / `readPage` / `findElement`（根→选中元素祖先链），上下文引擎与设计器端口共用同一份解析口径                                                                                                                                                 |
+| 主进程                  | `domain/domains/ai-context-domain.ts`                                                        | **重写**：从"数据直供四源"改为真实 `ContextEngine` 组装（十类块），五个数据端口全部落在真实 SQLite / 工程目录上；返回完整 `AssembledContext`（含 tokens / source / skipped / items / truncation / noteIds / memoryIds）                                                        |
+| 主进程                  | `domain/domains/code-domain.ts`                                                              | **重写**：`plan/preview/apply` 接 `@ec/ai` 的 `WritePipeline`（冲突检测 + 事务回滚），`requestRework` 走真实模型 → 输出契约解析 → 计划经 `code:write-plan` 事件回流；写入后 Code Anchor 经 `AnchorRepository` 写回 `code_anchor` 表；外部改动检测改为"事件触发 + 文件索引比对" |
+| 主进程                  | `domain/domains/designer-domain.ts`                                                          | 页面记忆改走 `PageMemoryService` + `condensePage` + revision 台账（增量 diff）；路由总表改走 `ProjectMemoryService.mergeRoutes`；`generatePage` 增加 DSL 校验结论；备注 CRUD 落地；**新增 `element` 行与 `feature` 行登记**（详见 2.8.3 ①②）                                   |
+| 主进程                  | `domain/domain-factories.ts`                                                                 | 备注存储单例在 designer 与 ai-context 之间共享（两处各持一份内存副本会出"刚加的备注没进上下文"）                                                                                                                                                                               |
+| 渲染层                  | `runtime/production-ports.ts`                                                                | `availableSources` 补 `elements`；`createCodeApi` 增加 `subscribeWritePlan`（AI 重改计划回流）；`createDesignerApi` 对齐备注 CRUD 与 `generatePage.validation`                                                                                                                 |
+| 渲染层（新）            | `pages/CodePage.tsx`、`App.tsx`、`layout/{navigation,AppIcon}.tsx`、`i18n/*`                 | 新增「代码与上下文」页：`ContextPanel` + `CodeView` + `DiffView` + `ApplyBar` 首次有了**生产挂载点**（此前只有组件测试在驱动它们）。页面不提供任何"保存代码"入口                                                                                                               |
+| 渲染层                  | `features/code/{code-api.tsx,CodeView.tsx}`、`features/ai/context-api.tsx`                   | `CodeViewApi` 增 `subscribeWritePlan`；`CodeView` 装载后默认选中第一个文件（否则用户打开代码页只看到"请选择一个文件查看"）；两个端口补 `*_GLOBAL_KEY` 常量                                                                                                                     |
+
+#### 2.8.2 每条验收标准的落地证据
+
+| 验收标准（任务卡原文）                                     | 证据                                                                                                                                                                                                                    |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新建页面并修改元素 → 页面记忆出现对应结构摘要              | `domain-content-ports.test.ts`「保存页面后页面记忆出现结构摘要」：断言 `memory_item.structured` 的 `skeleton` 含 `Card`/`Button`、`state` 1 项、`apiDeps=['/api/auth/login']`，且不含 `"style"`                         |
+| 修改元素后 revision 递增、重复保存不刷台账                 | 同用例：加一个元素后 `revision` 递增且 `changed` 含 `el-captcha`；同一份 DSL 再写一次 revision 不增（设计器 600ms 防抖会反复重发）                                                                                      |
+| 打开上下文面板能看到真实来源和裁剪提示                     | `ai-context-domain` 的十类块证据见下一条；渲染层 `code-page.test.tsx` 断言块 source（"关键词检索（FTS5 trigram） 1 条"）、跳过原因与 `ec-context-omitted` 省略清单都真实渲染                                            |
+| 上下文真实读取五层记忆 / 备注 / 文档 / 祖先链 / 代码与锚点 | `domain-content-ports.test.ts`「十类块按真实数据组装」：长期记忆（用户级）、项目记忆（路由总表）、页面记忆（含页面摘要）、元素祖先链（`祖先链 4 层`）、备注（`备注 1 条` + `【禁止】`）、文档章节、代码锚点片段逐块断言 |
+| 不能把空块伪装成已有内容                                   | 两条机器化断言：① 每块 `content` 非空 ⟺ `items` 非空；② 空项目组装时只有 `instruction` 有内容，其余块 `content === ''` 且给出 `skipped` 原因，提示词如实写「（本次无可用上下文）」                                      |
+| 选中元素生成代码 → 预览 diff → 应用 → 回滚                 | `domain-content-ports.test.ts`：`plan`（新建 + 补丁）→ `apply` 后磁盘内容逐字断言；回滚用"父路径是文件"制造真实写入失败 → 断言 `applied=[]`、`rolledBack` 含已写文件、磁盘无残留                                        |
+| 手动键入 / 粘贴 / 拖拽编辑代码均被拦截                     | `CodeView` 的 `createReadOnlyGuard`（原有）+ `code-page.test.tsx` 断言 `data-readonly` 且 `paste` 被拦截并弹出「交给 AI 修改」；`packages/ai` 的静态扫描测试继续盯住 `CodeView.tsx` 源码                                |
+| 外部进程修改代码后客户端提示重新生成或回滚                 | `domain-content-ports.test.ts`：AI 自身写入被抑制（0 条假警报），外部改写后事件上报 `src/watched.ts` 与提示语；`code-page.test.tsx` 断言横幅与两个动作（回滚导航到 Git 模块，不另造恢复旁路）                           |
+| 新建文件 / diff 补丁 / AI 重改都走现有 WritePipeline       | 三种模式全部经 `WritePipeline.plan/apply`；`requestRework` 用假 gateway 覆盖"真实模型 → 契约解析 → 计划事件 → 应用"全链；模型输出不合约时如实报错且不落半成品                                                           |
+| SQLite / Node 依赖不进 renderer 浏览器入口                 | `vite build` 通过（`CodePage` 独立 chunk 33.62 kB）；`@ec/designer/notes` 只被主进程引用，并有纯度守卫测试                                                                                                              |
+
+#### 2.8.3 本轮修掉的真实缺陷（4 处）
+
+① **`note` 表结构与领域模型不匹配**（迁移 `0006`）：主进程此前按 `Note` 字段写 SQL
+（`INSERT ... element_id, body`），列不存在 ⇒ 元素级备注写入必抛错；上下文引擎读 `row.body`
+永远拿到空。**症状隐蔽**：只在"真的给元素加备注"时现形。
+
+② **`element` / `feature` 行从未登记**：`code_anchor.element_id` 与 `memory_item.feature_id`
+都是外键，而设计器只维护了 `page` 行。后果是"锚点写回失败"与"页面归属某功能时页面记忆写入
+失败"，且只在对应数据形状下触发。现由 `designer-domain` 在 `savePage/createPage` 时同步
+组件树到 `element` 表、按需登记 `feature` 行（`INSERT OR IGNORE`）。
+
+③ **Windows 上 `fs.watch` 的 `filename` 不可信**：实测对 `src/a.ts` 的写入，事件里报的是
+**目录名**（`src`）且重复上报；直接采信会给用户弹"代码已被外部修改（src）"并漏掉真实文件。
+现行方案是**事件只当触发器**：短窗口合并后对代码根做一次「路径 → size/mtime」索引比对，
+输出精确相对路径；自身写入经抑制窗口排除（临时文件与最终路径一起抑制）。
+
+④ **`CodeView` 装载后不选中任何文件**：只读视图停在"请选择一个文件查看"，用户会误判成
+"端口没装配"。现默认选中第一个文件（受控用法不受影响）。
+
+#### 2.8.4 门禁实测（2026-09-20 第二轮）
+
+| 命令                            | 结果                                                                                                                                                                                                                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`                     | ✅ 零 error 零 warning                                                                                                                                                                                                                                           |
+| `pnpm -r typecheck`             | ✅ 17/17 包通过                                                                                                                                                                                                                                                  |
+| 新增集成测试                    | ✅ `domain-content-ports.test.ts` 17/17、`code-page.test.tsx` 5/5、`notes-entry-purity.test.ts` 3/3                                                                                                                                                              |
+| 相关包测试                      | ✅ shell-api 47、data 28、ai 301、memory 171、designer 423、core 240、renderer 456、desktop-electron 177（全绿）                                                                                                                                                 |
+| 根级全量单测                    | ⚠️ **239 文件 / 2444 项，2443 通过、1 红**：红项是 `@ec/ai` 上下文性能基准（全量并发下 p95 338.56ms > 300ms）。已用"只改并发度"的对照判定为**环境性假红**（单独跑该文件 p95 = 6.95 / 7.99ms，余量约 40 倍），详见 `docs/TEST-REPORT.md §5.1`；未改动任何性能预算 |
+| `vite build`（`apps/renderer`） | ✅ `✓ built in 4.23s`，`CodePage` 独立 chunk 33.62 kB                                                                                                                                                                                                            |
+
+> 仍未完成（与本轮同因）：`pnpm dev:electron` 的人工 GUI 走查需要真实桌面会话；
+> 「代码与上下文」页的交互已由 `code-page.test.tsx` 以真实组件 + 假端口覆盖，
+> 但"在真窗口里点一遍"仍需主人执行一次。
+
+### 2.9 T12-03 Electron 流水线生产运行时（2026-09-21）
+
+T12-01/02 之后，流水线域虽然"通了"，但 S5 仍是**自造执行器 + 手写 SQL**，与 `@ec/pipeline`
+的官方引擎口径不一致；阶段状态只活在内存里，关掉外壳就丢。本轮把这条链路换成真实件并落地持久化。
+
+#### 2.9.1 改动清单（按职责）
+
+| 层                      | 文件                                                                                          | 改动                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 主进程（重写）          | `domain/domains/pipeline-domain.ts`                                                           | S5 换用官方 `MultiPlatformGenerator.generateFor` + `ContractInjector.injectForNode`（真契约注入：只注入依赖节点的对外签名，不注入实现）；持久化改走官方 `PipelineRepo`（`pipeline_run` / `stage_artifact`），删掉自造 SQL 与手写执行器；快照信封对齐 `SnapshotEnvelope` 并带 `dirty`／`s5Progress`；`dispose` 把快照改写为 `dirty:false`（正常退出 ≠ 异常退出） |
+| 主进程                  | `domain/domains/pipeline-domain.ts`                                                           | `saveTechChoice` 经 `validateChoice` 校验后写 `memory_item`（scope=project、title=技术选型、`structured={choice,stack,targetPlatforms}`）；`setAdvanceGuard` 让 `S2→S3` 在未选型时直接阻断，`generateTechDoc` 二次拦截；新增 `saveSplitArtifact` 把 S4 拆分落 `stage_artifact` 台账                                                                             |
+| 契约（`@ec/shell-api`） | `src/domain-control.ts`                                                                       | pipeline 同步白名单移除悬空的 `getProgress`（没有对应 handler，留着只会让调用方拿到"方法不存在"的假象）                                                                                                                                                                                                                                                         |
+| 契约（`@ec/pipeline`）  | `src/stages/multi-platform-generator.ts`                                                      | 修 `parseFiles` 的裸 JSON 兜底：原正则 `/^\{[\s\S]*\}$/m` **没有捕获组**，`jsonMatch[1]` 恒为 `undefined`，模型回裸 JSON（不带 ```json 围栏）时整个文件的产物被当成"没有文件"丢弃                                                                                                                                                                               |
+| 契约（`@ec/core`）      | `src/crash-recovery.ts`                                                                       | 快照落盘名净化（详见 2.9.3 ①）                                                                                                                                                                                                                                                                                                                                  |
+| 渲染层（新）            | `features/pipeline/S5QueueSection.tsx`                                                        | S5 队列区：需求/技术文档经域口读**生效版本**（不拿 UI 本地 textarea 当持久化）、支持单节点重试/跳过/暂停、断点续生成、经 `pipeline:progress` 域事件刷新进度                                                                                                                                                                                                     |
+| 渲染层                  | `pages/PipelinePage.tsx`、`features/pipeline/{PipelineWorkspace,StagePanel,pipeline-api}.tsx` | 页面改用真实 `projectId` / `userId` / `projectName`（不再固定 `P1` / `U-TEST` / 「商城」）；未打开项目时给空状态而不是拿夹具硬跑；`recoverProject` 透出 `unexpectedExit`                                                                                                                                                                                        |
+
+#### 2.9.2 每条验收标准的落地证据
+
+| 验收标准（任务卡原文）                                | 证据                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 输入需求走完 S1→S5，关闭并重启后从上次阶段继续        | 主进程集成测试「S1→S5 全链路 + 关停重启续跑」：产物落 `docs/`、`stage_artifact`、`code/src/feature`；重建域后 `recoverProject` 的 `integrityProblems` 为空、`activeVersion` 一致、断点进度可取回，**续跑不再重复调用模型**。E2E-22 用真实 `CrashRecovery` 再独立验一遍 |
+| 每阶段可回看版本、diff、回退和下游 stale              | 集成测试「版本回看 / diff / 回退 / 下游 stale」：同一阶段两次保存得到两个版本，`readArtifact` 按版本取回内容并逐字比对；回退到 v1 后 `activeVersion` 回到 1 且下游阶段被标记 `stale`                                                                                   |
+| 未完成技术选型不能进入 S3                             | 集成测试「未完成技术选型不得进入 S3」：`advance(S2→S3)` 抛「请先完成技术选型问卷」且 `S3` 仍为 `pending`；`saveTechChoice` 写入后放行，**重建域（模拟重启）后选型仍生效**（读的是 `memory_item` 而非内存）                                                             |
+| S5 单节点失败不阻塞其余节点                           | 集成测试「第 2 个节点生成失败，其余节点照常产出并落盘」：`s5FailAt:1` 下 `failed=1 / success=2`，其余节点产物照常写盘；随后 `retryNode` 把失败节点补齐为 `success`（3/3）                                                                                              |
+| 产物写入文档库/项目目录的现有官方位置，失败不留半成品 | 文档走 `document` 表 + `<project>/docs/` 实体文件；产物走 `ArtifactStore` 的 `<project>/pipeline/<阶段前缀>-v<n>.md`；台账走 `stage_artifact`。E2E-22 逐条断言 `content_ref` 指向的文件真实存在                                                                        |
+| 不把 UI 本地 textarea 当作持久化实现                  | `S5QueueSection` 的需求/技术文档来自 `listArtifacts` + `readArtifact`（生效版本），不在前端留状态副本                                                                                                                                                                  |
+| 增加主进程集成测试与一条真实 E2E                      | `apps/desktop-electron/src/main/__tests__/pipeline-production.test.ts`（5/5）、`e2e/domain/e2e-22-pipeline-production.test.ts`（2/2）                                                                                                                                  |
+
+#### 2.9.3 本轮修掉的真实缺陷（2 处）
+
+① **快照域名含 `:` 导致崩溃恢复在 Windows 上整体失效**。`@ec/core` 的 `CrashRecovery` 直接把领域名
+拼进文件名，而流水线领域名是 `pipeline:<projectId>`（见 `PIPELINE_DOMAIN_PREFIX`）。Windows 上路径里的
+`:` 会被解释成 **NTFS 备用数据流**：写入 / 读取 / `exists` 全都"成功"，但 `readdir` **永远列不出**这个条目
+—— 于是 `detectPending()` 找不到任何脏快照，「上次异常退出」被静默改判成「正常退出」，
+崩溃恢复在主平台上等于没有，而且 **POSIX 与 `MockShell` 夹具都复现不出来**（既有 18 项单测因此全绿）。
+现改为落盘名只保留 `[A-Za-z0-9._-]`、其余字符转 `_`，逻辑域名照旧存信封 `domain` 字段供 `detectPending` 匹配；
+`undo-crash-logger.test.ts` 补 1 项回归（断言落盘名 `pipeline_P-1.snapshot.json`、且信封域名仍是 `pipeline:P-1`）。
+
+② **S5 的裸 JSON 兜底路径从未生效**。`MultiPlatformGenerator.parseFiles` 的兜底正则缺捕获组，
+`jsonMatch[1]` 恒为 `undefined`，于是模型不带 ```json 围栏直接回 JSON 时，产物被当成"没有文件"整包丢弃
+（文件落盘成功、台账有版本，但 `code/` 目录是空的）。改为 `jsonMatch[1] ?? jsonMatch[0]`。
+
+#### 2.9.4 门禁实测（2026-09-21）
+
+| 命令                 | 结果                                                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`          | ✅ 零 error 零 warning（`--max-warnings 0`）                                                                     |
+| `pnpm -r typecheck`  | ✅ 17/17 工程 `Done`，零错误                                                                                     |
+| 新增主进程集成测试   | ✅ `pipeline-production.test.ts` 5/5                                                                             |
+| 新增 E2E             | ✅ `e2e-22-pipeline-production.test.ts` 2/2                                                                      |
+| 受影响包回归         | ✅ `@ec/pipeline` 82/82、`@ec/core` 240/240、渲染层 `features/pipeline` 15/15、`pipeline-production` 5/5         |
+| `pnpm test:e2e`      | ✅ **11 文件 / 41 项全绿**（15.3s）                                                                              |
+| 根级全量单测（串行） | ✅ 全绿；并发全量跑仍复现 §5.1 的 `@ec/ai` 基准假红（本轮实测 p95 327.74ms > 300ms），同一环境成因，未动任何预算 |
+
+> 仍未闭环：`pnpm dev:electron` 的人工 GUI 走查（两项目 + 设计器改动 + 重启校验）需要真实桌面会话。
 
 ---
 

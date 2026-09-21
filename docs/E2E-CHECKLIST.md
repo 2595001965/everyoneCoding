@@ -1,6 +1,9 @@
-# EveryoneCoding E2E 验收清单（E2E-01 ~ E2E-21）
+# EveryoneCoding E2E 验收清单（E2E-01 ~ E2E-22）
 
 > 对应 Wave 10 / T10-05，覆盖 PRD §10.1 的 21 条端到端验收用例。
+> **E2E-22 是 T12-03（Electron 流水线生产运行时）追加的一条**，用于验收「真实持久化 + 关停重启续跑」，
+> 不在 PRD §10.1 的 21 条之列。
+>
 > 产物：`e2e/` 自动化用例（本清单标注「自动」的行）+ 手工清单（标注「手工」的行）。
 >
 > 运行自动化用例：`pnpm test:e2e`（等价于 `vitest run -c e2e/vitest.config.ts`）。
@@ -11,31 +14,33 @@
 
 ## 1. 汇总
 
-| #      | 用例             | 方式                 | 自动化用例文件                                         | 结果                                       |
-| ------ | ---------------- | -------------------- | ------------------------------------------------------ | ------------------------------------------ |
-| E2E-01 | 新用户注册       | 自动 + 手工          | `e2e/services/e2e-01-account.test.ts`                  | ✅ 自动通过（邮箱链接验证为手工项，见 §3） |
-| E2E-02 | 第三方登录       | 自动（假出网）+ 手工 | `e2e/services/e2e-02-oauth.test.ts`                    | ✅ 自动通过（真实 GitHub 授权为手工项）    |
-| E2E-03 | 需求到项目       | 自动                 | `e2e/domain/e2e-03-pipeline.test.ts`                   | ✅ 通过                                    |
-| E2E-04 | 拖拽设计         | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-05 | 元素生成后端     | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-06 | Ctrl 跳转        | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-07 | Git 全可视化     | 自动（真实 git）     | `e2e/domain/e2e-07-git.test.ts`                        | ✅ 通过（224s，环境敏感，见 §4）           |
-| E2E-08 | 联动预览         | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-09 | 问题记忆触发     | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-10 | 自定义中转       | 自动（真实 HTTP）    | `e2e/domain/e2e-10-relay.test.ts`                      | ✅ 通过                                    |
-| E2E-11 | 用户自配远程配置 | 自动（真实 HTTP）    | `e2e/domain/e2e-11-remote-config.test.ts`              | ✅ 通过                                    |
-| E2E-12 | 记忆生效验证     | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-13 | 全量归档         | 自动                 | `e2e/domain/e2e-13-14-archive.test.ts`                 | ✅ 通过                                    |
-| E2E-14 | 归档冲突合并     | 自动                 | `e2e/domain/e2e-13-14-archive.test.ts`                 | ✅ 通过                                    |
-| E2E-15 | 重命名级联       | 自动                 | `e2e/domain/e2e-15-17-20-rename-and-migration.test.ts` | ✅ 通过                                    |
-| E2E-16 | 重命名安全性     | 自动                 | 同上                                                   | ✅ 通过                                    |
-| E2E-17 | 重命名回滚       | 自动                 | 同上                                                   | ✅ 通过                                    |
-| E2E-18 | 代码只读约束     | 自动                 | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
-| E2E-19 | 技术选型询问     | 自动                 | `e2e/domain/e2e-19-21-tech-and-multiplatform.test.ts`  | ✅ 通过                                    |
-| E2E-20 | 迁移一键执行     | 自动                 | `e2e/domain/e2e-15-17-20-rename-and-migration.test.ts` | ✅ 通过                                    |
-| E2E-21 | 多端目标与生成   | 自动 + 手工          | `e2e/domain/e2e-19-21-tech-and-multiplatform.test.ts`  | ✅ 自动通过（真机编译为手工项）            |
+| #      | 用例             | 方式                    | 自动化用例文件                                         | 结果                                       |
+| ------ | ---------------- | ----------------------- | ------------------------------------------------------ | ------------------------------------------ |
+| E2E-01 | 新用户注册       | 自动 + 手工             | `e2e/services/e2e-01-account.test.ts`                  | ✅ 自动通过（邮箱链接验证为手工项，见 §3） |
+| E2E-02 | 第三方登录       | 自动（假出网）+ 手工    | `e2e/services/e2e-02-oauth.test.ts`                    | ✅ 自动通过（真实 GitHub 授权为手工项）    |
+| E2E-03 | 需求到项目       | 自动                    | `e2e/domain/e2e-03-pipeline.test.ts`                   | ✅ 通过                                    |
+| E2E-04 | 拖拽设计         | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-05 | 元素生成后端     | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-06 | Ctrl 跳转        | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-07 | Git 全可视化     | 自动（真实 git）        | `e2e/domain/e2e-07-git.test.ts`                        | ✅ 通过（224s，环境敏感，见 §4）           |
+| E2E-08 | 联动预览         | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-09 | 问题记忆触发     | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-10 | 自定义中转       | 自动（真实 HTTP）       | `e2e/domain/e2e-10-relay.test.ts`                      | ✅ 通过                                    |
+| E2E-11 | 用户自配远程配置 | 自动（真实 HTTP）       | `e2e/domain/e2e-11-remote-config.test.ts`              | ✅ 通过                                    |
+| E2E-12 | 记忆生效验证     | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-13 | 全量归档         | 自动                    | `e2e/domain/e2e-13-14-archive.test.ts`                 | ✅ 通过                                    |
+| E2E-14 | 归档冲突合并     | 自动                    | `e2e/domain/e2e-13-14-archive.test.ts`                 | ✅ 通过                                    |
+| E2E-15 | 重命名级联       | 自动                    | `e2e/domain/e2e-15-17-20-rename-and-migration.test.ts` | ✅ 通过                                    |
+| E2E-16 | 重命名安全性     | 自动                    | 同上                                                   | ✅ 通过                                    |
+| E2E-17 | 重命名回滚       | 自动                    | 同上                                                   | ✅ 通过                                    |
+| E2E-18 | 代码只读约束     | 自动                    | `e2e/ui/e2e-04-18-workflow.test.tsx`                   | ✅ 通过                                    |
+| E2E-19 | 技术选型询问     | 自动                    | `e2e/domain/e2e-19-21-tech-and-multiplatform.test.ts`  | ✅ 通过                                    |
+| E2E-20 | 迁移一键执行     | 自动                    | `e2e/domain/e2e-15-17-20-rename-and-migration.test.ts` | ✅ 通过                                    |
+| E2E-21 | 多端目标与生成   | 自动 + 手工             | `e2e/domain/e2e-19-21-tech-and-multiplatform.test.ts`  | ✅ 自动通过（真机编译为手工项）            |
+| E2E-22 | 流水线生产运行时 | 自动（真实磁盘+SQLite） | `e2e/domain/e2e-22-pipeline-production.test.ts`        | ✅ 通过（2/2，见 §3 末的补充说明）         |
+| E2E-24 | Git 生产端口全流程 | 自动（真实 git + 生产域路由） | `e2e/domain/e2e-24-git-production-flow.test.ts`  | ✅ 通过（39s，T12-04）                     |
 
-**统计：21/21 有用例或手工清单；21 条的可自动化部分已全部自动化并取得绿色结果（含 E2E-07 的真实 git 全流程，单次实测 224s）。**
+**统计：21/21 有用例或手工清单；21 条的可自动化部分已全部自动化并取得绿色结果（含 E2E-07 的真实 git 全流程，单次实测 224s）。追加的 E2E-22 亦为 2/2 自动通过。**
 
 ---
 
@@ -150,6 +155,27 @@
 - **PRD 判定**：勾选 Web + Android + HarmonyOS + Windows 四端 → 走 S3（问卷确认）→ S5 生成；四套工程各一套；各端编译校验通过（环境缺失时输出引导与待验清单）；页面结构与设计器一致。
 - **自动化**：四端各产出工程文件；移动/鸿蒙/桌面三端在工具链可用时编译校验 `passed`；工具链缺失时返回 `skipped_toolchain_missing` 且带安装引导（不静默跳过）；三端框架在 `TOOLCHAIN_BY_FRAMEWORK` 中均有工具链定义与安装引导。
 - **手工**：真机 `flutter build apk --debug` / `hvigorw assembleHap` / `cargo tauri build` 的实际编译（本机无这三套工具链）。
+
+### E2E-22 流水线生产运行时（T12-03 追加）
+
+- **判定**：从一句需求走完 S1→S5，**关闭并重启 Electron 后从上次阶段继续**；每阶段可回看版本、diff、
+  回退与下游 stale；未完成技术选型不能进入 S3；S5 单节点失败不阻塞其余节点。
+- **自动化**（`e2e/domain/e2e-22-pipeline-production.test.ts`，2 项）：真实 `DataClient` + 真实迁移 +
+  真实 `Migrator` + 真实磁盘工程目录 + 官方 `PipelineMachine` / `ArtifactStore` / `S1` / `S3` / `S4` /
+  `MultiPlatformGenerator` / `GenerationQueue` / `CrashRecovery` / `PipelineRecovery`。
+  ① 全链路产物落表落盘（`document` 行 + `docs/` 实体文件、`stage_artifact` 台账、`code/src/feature` 三个节点）、
+  正常退出 `markClean` 后重启 `restoredFromSnapshot=false` 且断点续生成**零次模型调用**；
+  ② 未 `markClean` 的强杀场景重启 `restoredFromSnapshot=true`，断点阶段为 `S5(running)`。
+- **主进程侧对照**：`apps/desktop-electron/src/main/__tests__/pipeline-production.test.ts`（5 项）覆盖
+  真实域运行时装配下的 S3 阻断与选型落 `memory_item`、关停重启续跑、单节点失败隔离、版本回看/diff/回退/下游 stale、
+  异常退出识别。
+
+> **E2E-22 暴露并修掉的一处真实缺陷**：`@ec/core` 的 `CrashRecovery` 直接把领域名当文件名，
+> 而流水线领域名是 `pipeline:<projectId>` —— Windows 上路径里的 `:` 会被解释成 **NTFS 备用数据流**，
+> 写入 / 读取 / `exists` 全都"成功"但 `readdir` 永远列不出该条目，于是 `detectPending()` 找不到脏快照、
+> 「上次异常退出」被静默判成「正常退出」，**崩溃恢复在主平台上整体失效**（且在 POSIX 与 `MockShell` 夹具上
+> 完全复现不出，所以既有 18 项单测全绿也没能兜住它）。现改为落盘名只保留 `[A-Za-z0-9._-]`、其余字符转 `_`，
+> 逻辑域名仍存信封 `domain` 字段供匹配；`packages/core/src/__tests__/undo-crash-logger.test.ts` 补 1 项回归（19/19）。
 
 ---
 

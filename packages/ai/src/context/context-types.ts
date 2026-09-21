@@ -111,6 +111,17 @@ export interface ContextMemoryQuery {
   scope: ContextMemoryScope;
   query: string;
   limit: number;
+  /**
+   * 目标归属（可选）：页面 / 元素 / 功能。
+   *
+   * 为什么必须有：`scope='page'` 的记忆条目是**每页一条**（`memory_item.page_id` 区分），
+   * 只给 `projectId` 会让「页面记忆」块把整个项目的页面记忆全塞进来 —— 既超配额，
+   * 也让模型拿到别的页面的骨架。外壳据此把查询收敛到当前页面。
+   * 缺省（undefined / null）表示「该层级不限归属」，由外壳实现自行决定是列举还是忽略。
+   */
+  pageId?: string | null | undefined;
+  elementId?: string | null | undefined;
+  featureId?: string | null | undefined;
 }
 
 /** 记忆端口（外壳适配 @ec/memory 的双路召回与分层列举） */
@@ -123,6 +134,14 @@ export interface ContextMemoryPort {
   listByScope?(
     input: Omit<ContextMemoryQuery, 'query'>,
   ): readonly ContextMemoryHit[] | Promise<readonly ContextMemoryHit[]>;
+  /**
+   * 检索能力自述（块面板的"来源"文案）。
+   *
+   * 存在的理由：默认文案是「双路召回」，而当外壳只装配了关键词检索（未配置
+   * embedding / sqlite-vec）时，面板仍写「双路召回」就是**把降级伪装成完整能力**。
+   * 外壳如实回答自己实际用了哪条路，块来源才可信。
+   */
+  describe?(): string;
 }
 
 /** 备注（结构对齐 @ec/designer 的 `ContextNote`，鸭子类型即可赋值） */

@@ -69,8 +69,23 @@ export class CrashRecovery {
     this.domains.delete(domain);
   }
 
+  /**
+   * 快照文件名。
+   *
+   * **必须把逻辑域名转成文件系统安全名**：领域名是自由字符串，而流水线用的是
+   * `pipeline:<projectId>`（见 `@ec/pipeline` 的 `PIPELINE_DOMAIN_PREFIX`）。
+   * 在 Windows 上路径里的 `:` 会被解释成 **NTFS 备用数据流**（`pipeline` 文件的一个 ADS）：
+   * 写入 / 读取 / exists 全都"成功"，但 `readdir` 永远列不出这个条目 ——
+   * 于是 {@link detectPending} 找不到任何脏快照，"上次异常退出"被静默判成"正常退出"，
+   * 崩溃恢复在主平台上直接失效，而且在 POSIX 上完全复现不出来。
+   *
+   * 因此落盘名只保留 `[A-Za-z0-9._-]`，其余字符一律换成 `_`；
+   * 逻辑域名照旧存进信封的 `domain` 字段，{@link detectPending} 按信封字段匹配，
+   * 所以扩容名不会影响域识别。
+   */
   private snapshotPath(domain: string): string {
-    return this.shell.path.join(this.dir, `${domain}.snapshot.json`);
+    const safe = domain.replace(/[^A-Za-z0-9._-]/g, '_');
+    return this.shell.path.join(this.dir, `${safe}.snapshot.json`);
   }
 
   /** 立即为全部域写一次快照（原子写） */

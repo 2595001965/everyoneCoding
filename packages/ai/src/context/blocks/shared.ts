@@ -101,8 +101,22 @@ export async function buildMemoryBlock(
   }
 
   const now = context.clock();
+  // 目标归属随查询下发：页面 / 元素 / 功能三级记忆必须收敛到本次生成的对象，
+  // 否则「页面记忆」块会把项目里所有页面的骨架一起注入（见 ContextMemoryQuery 注释）。
+  const scopeRef = {
+    ...(context.request.pageId !== null && context.request.pageId !== undefined
+      ? { pageId: context.request.pageId }
+      : {}),
+    ...(context.request.elementId !== null && context.request.elementId !== undefined
+      ? { elementId: context.request.elementId }
+      : {}),
+    ...(context.request.featureId !== null && context.request.featureId !== undefined
+      ? { featureId: context.request.featureId }
+      : {}),
+  };
   let hits: readonly ContextMemoryHit[] = [];
-  let sourceLabel = '双路召回';
+  // 来源文案优先采信外壳的自述（可能是「关键词检索（FTS5）」而不是完整的双路召回）
+  let sourceLabel = port.describe?.() ?? '双路召回';
   try {
     hits = await port.search({
       userId: context.request.userId,
@@ -110,6 +124,7 @@ export async function buildMemoryBlock(
       scope: config.scope,
       query: context.query,
       limit: config.limit,
+      ...scopeRef,
     });
   } catch (error) {
     return {
@@ -130,6 +145,7 @@ export async function buildMemoryBlock(
       projectId: context.request.projectId,
       scope: config.scope,
       limit: config.limit,
+      ...scopeRef,
     });
   }
 

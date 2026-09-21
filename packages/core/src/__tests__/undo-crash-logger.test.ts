@@ -189,6 +189,32 @@ describe('崩溃恢复', () => {
     expect(await recovery.detectPending()).toHaveLength(0);
   });
 
+  it('域名含非法文件名字符（pipeline:P-1）时快照仍能被 readdir 检出并恢复', async () => {
+    const shell = new MockShell({ dataDir: 'C:/tmp/ec-core' });
+    const dir = 'C:/tmp/ec-core/snapshots';
+    const recovery = new CrashRecovery({ shell, dir, intervalMs: 1000 });
+    let state = { step: 'S5' };
+    recovery.register({
+      domain: 'pipeline:P-1',
+      getState: () => state,
+      applyState: (next) => {
+        state = next as { step: string };
+      },
+    });
+    await recovery.snapshotNow();
+
+    // Windows 上路径里的 `:` 会被解释成 NTFS 备用数据流：写入/读取/exists 全都"成功"，
+    // 但 readdir 永远列不出这个条目 ⇒ 脏快照检测静默失效。落盘名必须已净化。
+    const names = (await shell.fs.readdir(dir)).map((entry) => entry.name);
+    expect(names).toEqual(['pipeline_P-1.snapshot.json']);
+
+    // 净化只作用于文件名：信封里保留逻辑域名，detectPending / restore 仍按域名匹配
+    const pending = await recovery.detectPending();
+    expect(pending.map((item) => item.domain)).toEqual(['pipeline:P-1']);
+    expect(await recovery.restore('pipeline:P-1')).toBe(true);
+    expect(state).toEqual({ step: 'S5' });
+  });
+
   it('快照年龄可用于校验恢复窗口', async () => {
     const { recovery } = setup();
     await recovery.snapshotNow();

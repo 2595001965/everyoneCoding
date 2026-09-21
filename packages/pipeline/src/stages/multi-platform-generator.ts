@@ -313,10 +313,13 @@ export class MultiPlatformGenerator {
 
   /** 从生成内容解析文件清单（JSON 优先，代码块降级） */
   private parseFiles(raw: string): Array<{ path: string; content: string }> {
-    const jsonMatch = /```json\s*\n([\s\S]*?)```/.exec(raw) ?? /^\{[\s\S]*\}$/m.exec(raw);
-    if (jsonMatch !== null && jsonMatch[1] !== undefined) {
+    // 两种 JSON 形态都收：围栏块取组 1，裸 JSON 的整串就是第 0 组（此前只取组 1，
+    // 导致"裸 JSON"这条兜底路径实际上从未生效）。
+    const jsonMatch = /```json\s*\n([\s\S]*?)```/.exec(raw) ?? /^\s*\{[\s\S]*\}\s*$/m.exec(raw);
+    const jsonText = jsonMatch === null ? null : (jsonMatch[1] ?? jsonMatch[0]);
+    if (jsonText !== null) {
       try {
-        const parsed = JSON.parse(jsonMatch[1]) as {
+        const parsed = JSON.parse(jsonText) as {
           files?: Array<{ path: string; content: string }>;
         };
         if (Array.isArray(parsed.files))

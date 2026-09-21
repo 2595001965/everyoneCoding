@@ -1,121 +1,78 @@
 # EveryoneCoding 项目长期约定
 
+> 只留「文档里没有、容易踩坑」的硬约束。细节见 `docs/DEV-SETUP.md`、`docs/ACCEPTANCE-REPORT.md`、`docs/tasks/`。
+
 ## 定位与现状
-
-- Windows 桌面端 AI 全栈开发工作台（Tauri 2 / Electron 双形态）。链路：需求 → 界面 → 技术文档 → 代码。
-- 基线 `docs/PRD-EveryoneCoding.md`（v1.3，15 模块 162 条）；`docs/tasks/00~11`（Wave 0~10 **已全部落地**，2026-09-14 收官）。
-- 状态（2026-09-15）：六模块门禁全绿、E2E 39 项、全量 2188 项全绿，lint/typecheck 零问题，`pnpm dev:electron` 真机跑通。
-- 未闭环仅剩「环境缺失/权限不足」项，见 `docs/ACCEPTANCE-REPORT.md §3/§5`。接手先读 `docs/DEV-SETUP.md` 与最近两天日志。
-
-## 桌面启停脚本（2026-09-15 新增，`scripts/` 目录）
-
-- `start-desktop.bat`：渲染层 5173 → curl 轮询就绪 → Electron（经 `apps/desktop-electron/scripts/dev.mjs`）→
-  自检 electron.exe（**计数非 0 后等 3 秒复查**，避免把重启前那批崩溃进程误判成成功），4 步全自动。
-  该脚本**故意不清除 `ELECTRON_RUN_AS_NODE`**（理由见下方 Electron 硬规则）。
-- `stop-desktop.bat`：窗口标题（EC-Renderer / EC-Electron）→ electron.exe → 占用 5173 的 PID，末尾按端口做确定性校验。
-- 全部写死绝对路径，不依赖 PATH 与 pnpm shim，双击即用。
-- dev 模式**默认不自动弹 DevTools**（需要时设 `EC_ELECTRON_DEVTOOLS=1`）。DevTools 前端会往控制台吐
-  `Unknown VE context: language-mismatch`、`Request Autofill.enable failed` 等 `ERROR:CONSOLE` 告警，
-  与应用无关却极易被误判成故障（判据：报文尾部 `source: devtools://...`）。Ctrl+Shift+I 仍可随时打开。
-  另：渲染层没起来时主进程会打印 `渲染层加载失败：... ERR_CONNECTION_REFUSED`，不再只给白窗口。
-- **铁律：`.bat` 必须 GBK(cp936) + CRLF + 无 BOM**。UTF-8 会让 cmd.exe 解析多字节字符错位。
-- 转码只走 `node 规范 CRLF` + `iconv -f UTF-8 -t GBK`（Git Bash 自带 iconv）。
-  **禁止**用 Read/Write 工具往返 GBK 文件；**禁止** PowerShell `ReadAllText(UTF8)+WriteAllText(936)`（实测产出满篇 `?`）。
-- 验收口径：GBK 解码汉字数与源件一致、`0x3F` 字节为 0、无 U+FFFD。
-- `.bat` 延时用 `ping` 不用 `timeout`（stdin 被重定向时报错空转）；不用 `tasklist /V`（触发安全策略拦截）；
-  `taskkill /FI "WINDOWTITLE eq ..."` 无匹配也返回 0，不能当成功判据。
+Windows 桌面端 AI 全栈开发工作台（Tauri 2 / Electron 双形态），链路：需求→界面→技术文档→代码。
+基线 `docs/PRD-EveryoneCoding.md` v1.3；`docs/tasks/00~12` 已落地；2026-09-15 门禁全绿（2188 项）。
+未闭环＝「环境缺失/权限不足」项，见验收报告 §3/§5：docx/pdf 覆盖、图片 OCR、Tauri 形态域端口(69 方法)与 AI 栈仍 `NOT_SUPPORTED`（`bridge.ts` 报 capabilities=false，需落 Rust 或 sidecar）、`pnpm dev:electron` 人工 GUI 走查需真实桌面会话。
 
 ## 工程硬规则
+- **双入口包**：`@ec/core` 等有 `exports.browser`（排除 `node:zlib`、better-sqlite3 等 Node 侧模块）；`apps/renderer/vite.config.ts` 的 alias 必须指 `browser.ts`。新增包同步维护。
+- **依赖方向**：`core` 不得依赖 `@ec/pipeline`；特性间禁止直接 import，走 `features/workspace/workspace-events.ts`。
+- **渲染层**只 import `@ec/shell-api`，禁止 `@tauri-apps/*` 与 `electron`。测试性能用「毫秒 + DOM 行数」，禁止 jsdom 报帧率。
+- **设计器**：不得依赖 `@ec/memory`（better-sqlite3 污染浏览器构建），外部能力经 `store/ports.ts` 注入；DSL 加字段必须同步 `dsl/schema.ts`(zod)，否则静默剥离。
+- TS strict；pnpm workspace；包名 `@ec/*`；跨包只走单一入口；迁移 `-- migration/-- up/-- down`。
+- `.gitignore`：`release/`、安装包扩展名、`.tmp-*`（**只匹配目录**）。`.gitattributes` 钉 `*.bat eol=crlf`、`*.gbk -text`。许可 **Apache-2.0 且仓库公开**，`LICENSE`+`NOTICE` 随产物分发。
+- 新增导航必须同步 `layout/navigation.ts` + `packages/core/src/command-catalog.ts` + `i18n/*` + `AppIcon`，否则 `command-catalog.test.ts` 红。
 
-- **browser 入口**：`@ec/core` 是双入口包（`exports.browser` → `src/browser.ts`，排除用 `node:zlib` 的 docx/pdf/OCR 解析器）。
-  `apps/renderer/vite.config.ts` 的 `@ec/core` alias 必须指 `browser.ts`；`@ec/data`/`memory`/`ai`/`pipeline` 同规则。
-  新增包或 Node 侧模块时同步维护 browser 入口。
-- **依赖方向**：`core` 不得反向依赖 `@ec/pipeline`（七端常量在 core 侧镜像为 `TARGET_PLATFORM_KEYS`）。
-- **跨特性复用**：特性之间禁止直接 import，走 `features/workspace/workspace-events.ts` 事件总线。
-- **域调用只有请求/响应，过程反馈走域事件通道**（2026-09-18 落地）：跨进程函数（`onProgress` 之类）一律传不过去，
-  Electron 结构化克隆会直接抛 `An object could not be cloned`。长任务的中途进度/事件走 `ec:domain:event`：
-  契约在 `shell-api`（`DomainEvent` 信封 **复用请求 requestId**、`DomainEventSink`、`DomainControlHost.onEvent?` 可选能力、
-  `DomainControlServiceHost.events`）；域实现只调 `ctx.emit(payload)`，**requestId/domain 由 runtime 补齐**；
-  渲染层按 id 过滤并在请求定局后退订，主进程在 `finally` 注销 sender。
-  **新增域事件三件套**：shell-api 定载荷 + 加 `is*Event()` 守卫（跨进程数据不信任）、IPC 通道进 `EVENT_CHANNELS`、
-  preload 方法进 `PRELOAD_METHOD_KEYS`。比例不可知的阶段用 `ratio: null` 让 UI 走不确定进度，**不准假装 100%**。
-- **设计器**：不得依赖 `@ec/memory`（会传递 better-sqlite3 污染浏览器构建），外部能力一律经 `store/ports.ts` 的 `DesignerPorts` 注入；
-  文档变更唯一入口 `apply(label, recipe, { coalesceKey })`；选中态/hover 由 `editor-store` 单源持有；
-  **DSL 加可序列化字段必须同步改 zod（`dsl/schema.ts`）**，否则保存/加载被静默剥离。
-- **Electron**：`dev.mjs` 对 GPU 做**两层兜底** —— ① 启发式（有嵌入宿主特征就直接软件渲染）；
-  ② 首轮出现 GPU 崩溃特征则自动带 `--disable-gpu --disable-software-rasterizer --no-sandbox` 重启一次。
-  故**调用方不要提前清 `ELECTRON_RUN_AS_NODE`**：它正是"是否嵌入宿主"的判据，提前清掉会让第 ① 层失效；
-  dev.mjs 自己会在派生 Electron 子进程时删掉它。构建产物必须 `.cjs`；
-  `better-sqlite3` 需 Node 侧与 Electron 侧两套 ABI 共存，勿互相覆盖；路径推导禁用固定层数，用逐级向上探测。
-- **e2e 是独立工程**：`e2e/vitest.config.ts` 必须设 `root`，否则扫全仓测试文件批量假红；
-  改包导出名要 grep `e2e/`；交付前须 `tsc -p e2e/tsconfig.json` + lint（vitest 不做类型检查）。
-- **测试口径**：性能一律用「毫秒 + DOM 行数」或「单帧几何 ms + 重渲染节点数」，禁止在 jsdom 里报帧率。
-- 通用：pnpm workspace，包名 `@ec/*`，跨包只走单一入口、禁止深路径导入；TS strict 全家桶；
-  渲染层只 import `@ec/shell-api`，禁止直接 import `@tauri-apps/*` 或 `electron`；
-  迁移文件格式 `-- migration: <名>` + `-- up` + `-- down`（事务化、幂等）；
-  组件名与标识符用英文/拼音，显示文案保留中文。
+## Electron 域通道
+- **扩域四处同步**（少一处不通）：`shell-api` 的 `DOMAIN_KINDS`/`DOMAIN_RPC_METHODS` → 主进程 `domains/<域>-domain.ts` → `domain-factories.ts` 的 `routers` → 渲染层 `runtime/production-ports.ts` 适配器 + `__EC_*__` 槽位。
+- **跨进程只有请求/响应**：函数传不过去（Electron 克隆抛 `An object could not be cloned`）。进度走 `ec:domain:event`，信封 `DomainEvent` 复用请求 requestId；域实现只调 `ctx.emit(payload)`。新增域事件三件套：shell-api 定载荷 + `is*Event()` 守卫、通道进 `EVENT_CHANNELS`、preload 进 `PRELOAD_METHOD_KEYS`。未登记进 `DOMAIN_EVENT_PAYLOAD_GUARDS` 的事件会被渲染层静默丢弃。`ratio: null`＝不确定进度，不准假装 100%。
+- **同步签名端口走独立通道**（`MemoryApi`/`PipelineApi`，消费方写入后立刻同步读回）。链路五处：`DOMAIN_SYNC_METHODS`（独立白名单，默认拒绝）→ `createDomainRuntime.invokeSync` → IPC `ec:domain:invokeSync`（`ipcMain.on`）→ preload `domain.invokeSync` → `createDomainSyncCaller`。外壳没有 `invokeSync` 就不注入这两个端口。
+- **`registerAllIpc` 的 `wrapped` 必须转发 `ipc.on`/`removeAllListeners`**：否则用 `on` 注册的同步通道从未注册，渲染层 `sendSync` 无对端应答会**永久阻塞整个渲染进程**。只在真机现形。
+- **`createProductionDomains` 的 `emit` 必须接真实 sink**：给 `() => {}` 会让 `fs.watch` 类事件静默进黑洞。无请求归属的事件用固定哨兵 requestId（preload 会丢弃缺 id 的事件）。
+- **项目上下文**：`runtime/project-context.ts` 单点持有活跃项目；适配器经 `withProject()` 注入 `projectId`，未打开项目时抛 `INVALID_ARGUMENT` 且**请求根本不发出**；切项目用 `key={project.id}` 整棵卸载。
+- `dev.mjs` 两层 GPU 兜底，**不要提前清 `ELECTRON_RUN_AS_NODE`**（它是"是否嵌入宿主"判据）。产物 `.cjs`；better-sqlite3 需 Node/Electron 两套 ABI 共存。
 
-## 质量门禁与命令
+## 领域口径（踩过的，别再犯）
+- **`ArtifactStore` 产物是平坦布局 + 阶段前缀**：`<projectId>/pipeline/s1-<前缀>-v<n>.md`，无阶段子目录。
+- **pipeline 合法序列**：`startStage → submitForReview → confirm`（`confirm` 不接受 `running`）；`advance(from,to)` 要求 `from` 已 confirmed 且相邻。
+- **`designer.createPage` 必须用 `@ec/designer/dsl` 的 `createEmptyPage`**，不要手写对象字面量：漏 `projectId`/`viewport`/`apiDeps`/`notes`/`anchors` 或把 `state` 写成 `states` 时文件落盘成功、`listPages` 也列得出，但渲染层 zod 校验必失败 ⇒ 新建项目打开设计器直接报错。合法性唯一判据是 `deserializePageDsl(JSON.stringify(envelope))`。**`condensePage(dsl)` 收 PageDsl 本体**（读 `dsl.tree`），不是 `{dslVersion,page}` 信封。
+- **`element`/`feature` 行必须登记**：`code_anchor.element_id`、`memory_item.feature_id` 是指向 `feature` 表的外键，缺行只在特定数据形状下报 `FOREIGN KEY constraint failed`。
+- **`memory_item` 必填列**：`user_id`/`scope`/`title`/`content`/`source_type`/`created_at`/`updated_at` 全 NOT NULL（直接写 SQL 时最易漏 `source_type`）。`id` 不能只用时间戳（同毫秒撞唯一约束，已改为带 projectId）。
+- **`note` 表两套枚举禁止互转**：`note_type`（六类）vs `note.kind`（design|note|comment）；正文存 `content`，富文本/清单/代码片段/历史进 `payload_json`。领域规则只在 `@ec/designer/notes`（子入口闭包只允许 zod，有 purity 测试）。
+- **外部改动检测不采信 `fs.watch` 的 filename**（Windows 上常报目录名且重复上报）：事件只当触发器 + 250ms 合并 + 「路径→size/mtime」索引比对；自身写入在**写入前**抑制（含 `.ec-tmp` 临时路径）。
+- **上下文"空块不伪装"**：每块 `content` 非空 ⟺ `items` 非空；空项目组装时只有 `instruction` 有内容，其余块必须带 `skipped`。`ContextPanel`/`CodeView` 的生产挂载页是 `/code`（`pages/CodePage.tsx`）。
+- **代码写入只有一条路**：`WritePipeline` 的 `plan → preview → apply`；`requestRework` 返回 `void`，计划走**已登记**的域事件 `code:write-plan`。
+- **快照域名不能直接当文件名**：领域名是自由字符串（`pipeline:<projectId>`），Windows 上 `:` 被解释成 NTFS 备用数据流 —— 写入/读取/exists 全都"成功"，但 `readdir` 永远列不出该条目 ⇒ 脏快照检测静默失效、崩溃恢复在 Windows 上整体失灵（POSIX 上完全复现不出）。`CrashRecovery.snapshotPath` 已把非 `[A-Za-z0-9._-]` 替换为 `_`；逻辑域名仍存信封 `domain` 字段，`detectPending` 按信封字段匹配。
 
-- `pnpm lint` / `pnpm -r typecheck` / `pnpm test` / `pnpm test:e2e` / `pnpm quality-gate` / `pnpm perf` /
-  `pnpm version:check` / `pnpm release:manifest`；CI 定义在 `ci/*.yml`（未接远端）。
-- 启动：`pnpm dev:renderer`（5173，mock 外壳）/ `pnpm dev:electron`（真窗口）/ `pnpm dev:tauri`（本机权限不足）。
-- 发布前必做：替换 `tauri.conf.json` 的 `plugins.updater.pubkey` 与更新端点，否则更新验签全失败。
+## `.bat` 铁律（`scripts/`）
+必须 **GBK(cp936) + CRLF + 无 BOM**。转码：`node 规范 CRLF` + `iconv -f UTF-8 -t GBK`。
+**禁止** Read/Write 往返 GBK 文件；**禁止** PowerShell `ReadAllText(UTF8)+WriteAllText(936)`（满篇 `?`）。
+验收：GBK 汉字数与源件一致、`0x3F` 字节为 0。延时用 `ping`；不用 `tasklist /V`；`taskkill /FI WINDOWTITLE` 无匹配也返 0，不能当成功判据。
+`start-desktop.bat` 故意不清 `ELECTRON_RUN_AS_NODE`；dev 默认不弹 DevTools（`EC_ELECTRON_DEVTOOLS=1` 开启）。
 
-## 未闭环项
+## 命令与启动
+`pnpm lint` / `-r typecheck` / `test` / `test:e2e` / `quality-gate` / `perf`；CI 在 `ci/*.yml`（未接远端）。
+启动：`dev:renderer`(5173) / `dev:electron` / `dev:tauri`。出包前必换 `tauri.conf.json` 的 `updater.pubkey`。
+**`dev:electron` 不代起渲染层**：它只编译并拉起 Electron 主进程，必须先另开终端跑 `pnpm dev:renderer`，否则主进程报
+`-102 ERR_CONNECTION_REFUSED`。渲染层 `strictPort: true`（`apps/renderer/vite.config.ts`），端口被占会直接失败而非漂移。
+（沙盒里跑 `vite` dev **卡在 "Re-optimizing dependencies"** 不 bind 端口，别在沙盒里验证这条链路。）
 
-- **Tauri 受权限阻塞**：账号 `f2595` 无管理员权限且不在 Administrators 组，装不了 MSVC linker；没有 linker 时装 Rust 也无用。
-  需主人以管理员身份跑 `apps/desktop-tauri/scripts/setup-rust-tauri.ps1`，再 `cargo check` → `clippy -D warnings` → `pnpm build:tauri`。
-- 设计器真实端口装配、docx/pdf 真实文件覆盖面、图片 OCR 接入待补；`.quarantine/` 待主人手动清理。
-- 仓库已 `git init`（2026-09-17），首次提交 `addec09`（1175 文件 / 6.45 MB），远端
-  `git@github.com:2595001965/everyoneCoding.git`。**推送仍待主人把 ed25519 公钥登记到 GitHub**
-  （`~/.ssh/id_ed25519`，无口令短语）。登记后 `ssh -T git@github.com` 应回 `Hi 2595001965!`，
-  再 `git push -u origin main`；若报 non-fast-forward（远端有初始提交），用 `git pull --rebase origin main`。
+## 本机命令环境（每次会话都要用，别重新踩）
+- **跑测试/门禁必须让 `node` = nvm v24.20.0**：better-sqlite3 的 Node 侧 `.node` 按 ABI 137 构建，托管 v22.22.2 是 ABI 127，用它跑测试满屏 `NODE_MODULE_VERSION ... requires 127`。首选
+  `/c/Users/f2595/AppData/Local/Author Software/nvm/installs/v24.20.0/node.exe`（`.nodejs` 是会被切走的软链，只作临时手段）。
+- **经 pnpm 转发的命令（`pnpm test:e2e` / `pnpm -r test` / `pnpm lint`）必须把 nvm v24 的目录放进 `PATH` 前缀**，
+  只把 node.exe 的绝对路径喂给 `pnpm.cjs` 没用 —— 脚本由 pnpm 重新 spawn，子进程里裸 `node` 会解析到托管的
+  v22.22.2，于是 `pnpm test:e2e` 满屏 ABI 127/137，**看起来像代码坏了**。写法：
+  `export PATH="/c/Users/f2595/AppData/Local/Author Software/nvm/installs/v24.20.0:$PATH"`。
+- **bash 里 corepack 版 `pnpm` shim 调不通**（basedir 是 POSIX 路径，被 node 解析成 `D:\c\Users\...`）。用真入口：
+  `node "C:/Users/f2595/AppData/Local/node/corepack/v1/pnpm/9.15.9/bin/pnpm.cjs" <args>`。
+- node 的脚本/参数路径**不要写 `/d/...`**（会变 `D:\d\...`），一律 `D:/code/...`。
+- bash 缺 Git Bash 的 `/usr/bin`（`dirname`/`head`/`ls` not found）。需要时前置
+  `/c/Users/f2595/.workbuddy/binaries/PortableGit/versions/1.2.0/usr/bin`。
+- **根脚本 `pnpm build:renderer` 在沙盒里会卡住不返回**（11 分钟无输出）；直接 `cd apps/renderer && node node_modules/vite/bin/vite.js build`（约 4s）。
+- **包内单测要在仓库根跑**：根 `vitest.config.ts` 的 include 是 `{packages,apps}/*/src/**/*.test.{ts,tsx}`，从包目录跑会 "No test files found"（`packages/core` 例外，它有自己可用的配置）。
+- **同一 message 里对同一文件发多个 `Edit` 会互相覆盖**（实测 4 个只有最后一个生效，其余"成功"但被回滚）。改同一文件必须一次一个 Edit。
+- 全量并发跑单测时 `@ec/ai` 上下文性能基准会假红（判据见 `docs/TEST-REPORT.md §5.1`），不改预算。
+  **根级全量单测最稳的跑法是串行**：`pnpm -r --workspace-concurrency=1 test` —— 并发下 renderer 的
+  `pipeline-workspace`(6.7s)/`rename-dialog`(11.8s) 等时间敏感用例也会因 CPU 争用超时（一边跑全量一边跑 `tsc`
+  就会踩到）。**另外 `pnpm -r test` 在第一个失败的包就停**（`ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL`），
+  后面的包根本不跑，只看尾部输出会误判成"全绿"。
 
-## 开源与保密（2026-09-17 口径变更，与此前相反）
-
-- **主人已决定开源，仓库 `2595001965/everyoneCoding` 为公开仓库**（主人 2026-09-17 当场确认）。
-  此决定**推翻了 2026-09-14 之前的"闭源、All Rights Reserved、不写 LICENSE、不写贡献引导"约定**，
-  后续新增文档/注释/打包配置**不必再回避开源与贡献表述**。
-- **许可已定为 Apache License 2.0（主人 2026-09-17 决定），全仓口径已统一**。落地清单：
-  - 根目录新增 `LICENSE`（11358 字节，Apache-2.0 逐字正文，无 BOM、LF 行尾，
-    sha256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`）与 `NOTICE`（署名 + 第三方组件说明）。
-  - 18 个 `package.json` 的 `"license": "UNLICENSED"` → `"Apache-2.0"`（根 + 3 apps + 13 packages + services/account），
-    两处 description 中「（闭源项目）」→「（Apache-2.0）」。
-  - `README.md`：许可表格行、§九「内部协作」→「协作方式」、§十 FCL 段落全部改写为 Apache-2.0；
-    克隆地址由 `<内部仓库地址>` 占位换成公开 HTTPS 地址。
-  - `services/account/README.md`（标题 + 版权行）、`openapi.yaml`（`info.license`）、
-    `docs/DEV-SETUP.md`、`docs/RELEASE.md`、`docs/TEST-REPORT.md`、
-    `ci/quality-gate.yml`、`ci/release.yml`、`ci/make-release.mts`、
-    `apps/desktop-tauri/README.md`、`Cargo.toml`（`license = "proprietary"` → `"Apache-2.0"`）、
-    `build.rs`、`main.rs`、`electron-builder.yml`（copyright）、`docs/tasks/00`（治理性约定块）同步更新。
-  - **随产物分发许可文本**（Apache-2.0 第 4 条要求）：`electron-builder.yml` 加 `extraResources`
-    带入 `LICENSE`/`NOTICE`；`tauri.conf.json` 的 `bundle.resources` 加同两项。
-    ⚠️ **两处打包配置本次未重新构建验证**（Tauri 本机本就无法构建），下次出包需确认这两个文件进了 `resources/`。
-- `docs/tasks/01-Wave0-工程底座与内核.md` 是**历史任务卡**，其中「闭源 / 不写 LICENSE」原文**刻意保留未改**，
-  只在文首加了 2026-09-17 的口径变更提示，避免改写执行记录。
-- 公开仓库前敏感信息核查已做（2026-09-17，结论干净）：全仓无真实 API key、私钥、口令或主机 IP；
-  命中的 `sk-live-abcdef*`、`example.com` 邮箱、`127.0.0.1` 均为测试夹具。
-- `.gitignore` 已收口：`release/`（electron-builder 输出，内含 180 MB exe，超 GitHub 100 MB 单文件硬限）、
-  安装包扩展名、`.tmp-*`、`*.log`。**注意 `.tmp-*/` 只匹配目录**，文件形式必须另写 `.tmp-*`。
-- `.gitattributes` 已钉 `*.bat text eol=crlf` + `*.gbk -text`：系统级 `core.autocrlf=true`，
-  不钉住会有改写 GBK 批处理脚本行尾/编码的风险。
-
-## 环境异常：D 盘过滤驱动拦截 `refs/remotes`（2026-09-17 定案）
-
-- **现象**：`git fetch` / `git update-ref` 写远端跟踪引用时**返回 0、零报错，但文件不存在**，
-  且会把 `refs/remotes/origin` **整个目录删掉**；refs 的 reflog（`.git/logs/refs/remotes/...`）
-  反而写成功。后果是 `git status` 长期显示 `## main...origin/main [gone]`，
-  `git fetch` 每次都打印 `* [new branch] ... -> origin/main` 却永远建不起来。
-- **范围：D 盘卷层面，与本仓库无关**。跨盘对照实验（全新仓库）：
-  C 盘 `%TEMP%` 存活 3/3，D 盘（同盘不同目录、仓库父目录）**0/3**。
-  路径特异性：`refs/heads` 5/5、`refs/tags` 5/5、`refs/remotes/origin` **0/5**。
-- **已排除**：`core.fscache=false`（同样复现；注意 `-c` 必须写在子命令前）、hooks、`core.hooksPath`、
-  全局 alias、ACL 差异、重解析点、Defender 受控文件夹访问。
-- **嫌疑**：机器同时运行 **Avast**（`aswidsagent.exe`/`aswengsrv.exe`）、
-  **360 安全卫士**（`360tray.exe`）、Windows Defender，均带文件过滤驱动。
-  修复需主人为 `D:\code` 加排除项 —— **未做，不能靠改 git 配置绕**。
-- **影响面**：不影响远端内容正确性（push 确实成功）。因 `branch.main.remote/merge` 已配置，
-  `git pull` / `git push` 照常可用。已在本地用 Python 直写恢复一次跟踪引用，
-  但**下游任何 `git fetch`/`push` 都会再次清掉**。完整判据与复现步骤见技能
-  `git-push-failure-diagnosis` 的 L5 节。
+## 环境坑
+- **D 盘过滤驱动拦 `refs/remotes`**（2026-09-17 定案）：写远端跟踪引用返 0 但文件不存在，还删掉 `refs/remotes/origin` 目录 → 长期 `[gone]`。仅 D 盘、仅 `refs/remotes`，不影响 push 本身。需给 `D:\code` 加排除（未做）。
+- git 推送待登记 `~/.ssh/id_ed25519` 公钥到 GitHub。
+- Tauri 坑：SAC 拦未签名 build script（等几分钟重跑）；`sp.crates.io` 不通→改 `index.crates.io`；NSIS 在 `%LOCALAPPDATA%\tauri\NSIS`。截 Tauri 窗口用 `PrintWindow(hwnd,dc,2)`。
+- **git 用例超时是环境还是代码**：同时量 `git --version` 与 `where.exe git`。健康基线进程创建 ~0.5s 地板价、`git --version` ≈759ms；退化时可达 26.5s ⇒ `git-integration.test.ts` 与 `domain-workspace-git.test.ts` 必然假红。**不要改这些测试的超时预算**；临时放行用 `--testTimeout=<大值>` 或 `EC_GIT_IT_TIMEOUT_MS`。`@ec/git` 侧已核对无冗余子进程，成本就是"真实 git 进程 × 上百次调用"，没有可优化的实现空间。

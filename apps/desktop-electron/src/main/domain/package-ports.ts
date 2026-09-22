@@ -387,8 +387,29 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
     },
 
     listAttachments(): Array<{ hashName: string; sourcePath: string }> {
-      // 附件子系统未装配：如实为空，不编造内容寻址文件
-      return [];
+      /**
+       * 附件是**内容寻址**的：`<projectDir>/attachments/<sha256>.<ext>`。
+       *
+       * 这里如实枚举磁盘上的真实文件——此前恒返回空数组会让附件在导出时
+       * **被静默丢弃**（manifest 里却写着 includes: attachments），
+       * 与 FR-PKG-02/07 的"不能把附件丢掉"要求冲突。
+       * 目录不存在时返回空（该项目确实没有附件，而非"未装配"）。
+       */
+      const out: Array<{ hashName: string; sourcePath: string }> = [];
+      const projectIds = db
+        .prepare(`SELECT id FROM project WHERE deleted_at IS NULL`)
+        .all() as Array<{
+        id: string;
+      }>;
+      for (const { id } of projectIds) {
+        const dir = join(projectDir(id), 'attachments');
+        if (!existsSync(dir)) continue;
+        for (const name of listFiles(dir)) {
+          if (name.includes('/')) continue; // 附件为平坦布局，子目录不视为附件
+          out.push({ hashName: name, sourcePath: join(dir, name) });
+        }
+      }
+      return out;
     },
 
     readEcignore(projectId): string | null {
@@ -564,6 +585,24 @@ export function createImportLocalStatePort(options: PackagePortsOptions): Import
 
 /* --------------------------- 导入：目标写入端口 --------------------------- */
 
+/**
+ * 判定内容寻址附件的归属项目。
+ *
+ * 附件本身不带 projectId（内容寻址天然跨项目去重），因此按"哪个项目的文档
+ * 引用了这个文件名"来定位。命中多个项目时取第一个（去重后内容相同，
+ * 落哪一份都能被校验通过）；无法判定返回 null，由调用方落到附件暂存目录。
+ */
+function resolveAttachmentOwner(db: Database.Database, hashName: string): string | null {
+  const row = db
+    .prepare(
+      `SELECT project_id FROM document
+        WHERE content_ref IS NOT NULL AND content_ref LIKE ?
+        LIMIT 1`,
+    )
+    .get(`%${hashName}`) as { project_id: string } | undefined;
+  return row?.project_id ?? null;
+}
+
 export function createImportTargetPort(options: PackagePortsOptions): ImportTargetPort {
   const { db, projectsDir, userId } = options;
   const projectDir = (projectId: string): string => join(projectsDir, projectId);
@@ -576,6 +615,7 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
       'pipeline',
       'code',
       'meta',
+      'attachments',
     ]) {
       mkdirSync(join(projectDir(projectId), subdir), { recursive: true });
     }
@@ -716,7 +756,28 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
     },
 
     putFile(packagePath: string, content: Buffer): 'created' | 'updated' | 'skipped' {
-      // 只处理文档原文件；附件（内容寻址）本仓库尚未装配
+      // 附件：内容寻址（attachments/<sha256>.<ext>）。落回"引用它的项目"的附件目录。
+      // 附件本身不携带 projectId，故先按包内引用关系定位：文档原文件所在项目。
+      const attachment = /^attachments\/([^/]+)$/.exec(packagePath);
+      if (attachment) {
+        const hashName = attachment[1] ?? '';
+        if (hashName.length === 0) return 'skipped';
+        // 附件归属：由"包内引用它的文档"决定；无法判定时落到附件暂存目录，
+        // 不静默丢弃内容（宁可留一份可再校验的副本）。
+        const ownerProjectId = resolveAttachmentOwner(db, hashName);
+        const targetDir =
+          ownerProjectId === null
+            ? join(projectsDir, '__attachments__')
+            : join(projectDir(ownerProjectId), 'attachments');
+        const target = safeJoin(targetDir, hashName);
+        if (target === null) return 'skipped';
+        const existed = existsSync(target);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, content);
+        return existed ? 'updated' : 'created';
+      }
+
+      // 只处理文档原文件
       const match = /^documents\/([^/]+)\/(.+)$/.exec(packagePath);
       if (!match) return 'skipped';
       const docId = match[1] ?? '';

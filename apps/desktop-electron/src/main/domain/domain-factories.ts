@@ -73,6 +73,19 @@ export interface AiStackHandle {
       signal?: AbortSignal | undefined;
     }): Promise<{ vectors: number[][] } | null>;
   };
+  /**
+   * 预算护栏（可选）。
+   *
+   * usage 域在设置页改预算后必须把新配置推给运行中的网关，
+   * 否则"超限拒绝"要等重启才生效——那是"改了预算却还在烧钱"的典型症状。
+   */
+  budget?: {
+    configure(patch: {
+      dailyUsd?: number | null;
+      monthlyUsd?: number | null;
+      alertRatio?: number;
+    }): void;
+  };
 }
 
 export interface DomainFactories {
@@ -171,14 +184,29 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     aiStack: ctx.aiStack,
     emit: (domain, payload) => ctx.emit(domain, payload),
   });
-  const usage = createUsageDomain({ db: ctx.db, userId: ctx.userId });
+  const usage = createUsageDomain({
+    db: ctx.db,
+    userId: ctx.userId,
+    // 预算变更即时回灌 AI 网关：设置页改完当场生效（见 AiStackHandle.budget 注释）
+    ...(ctx.aiStack?.budget
+      ? { onBudgetChanged: (config) => ctx.aiStack?.budget?.configure(config) }
+      : {}),
+  });
   const pack = createPackageDomain({
     db: ctx.db,
     projectsDir: ctx.projectsDir,
     userId: ctx.userId,
+    dataDir: ctx.dataDir,
+    exportsDir: join(ctx.dataDir, 'exports'),
   });
 
-  disposers.push(pipeline.dispose, preview.dispose, code.dispose);
+  disposers.push(pipeline.dispose, preview.dispose, code.dispose, async () => pack.dispose());
+
+  // 定时备份：启动补偿（漏跑立即补一次）→ 按配置排下一次。
+  // 客户端内调度，不依赖系统任务计划程序。
+  void pack.start().then((result) => {
+    if (result.caughtUp) console.info(`[backup] ${result.message}`);
+  });
 
   return {
     routers: {
@@ -193,7 +221,7 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
       nav,
       designer: designer.router,
       usage,
-      package: pack,
+      package: pack.router,
     },
     syncRouters: {
       memory: memory.syncRouter,

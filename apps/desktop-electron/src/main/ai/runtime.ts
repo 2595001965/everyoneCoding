@@ -16,7 +16,8 @@ import {
 import { SecureStore } from '@ec/core';
 import { Migrator } from '@ec/data';
 import type { SecureNamespace } from '@ec/shell-api';
-import { createAiStack } from '@ec/ai';
+import { createAiStack, DEFAULT_BUDGET, type BudgetConfig } from '@ec/ai';
+import { createSettingStore } from '../domain/setting-store';
 import type { SafeStorageLike } from '../types';
 
 export interface ElectronAiRuntimeOptions {
@@ -57,7 +58,22 @@ export async function createElectronAiRuntime(
 
   const secureApi = createDpapiStore(options.safeStorage, options.secureDir);
   const secure = new SecureStore({ kind: 'electron', secureStore: secureApi } as never);
-  const stack = createAiStack({ db, secureStore: secure, userId });
+
+  /**
+   * 预算必须**从持久化配置装载**，否则生产环境永不阻断。
+   *
+   * 缺口原委：用量面板把预算写在 `setting` 表的 `usage_budget` 键，
+   * 而 AI 栈构造时用的是 `DEFAULT_BUDGET`（全 null = 不限），
+   * 于是"设置里配了预算、实际调用模型时毫无反应"——验收要求的
+   * 「预算超限在真正调用模型前阻断」在生产链路上不成立。
+   *
+   * 两侧共用同一个 `setting` 落点（`createSettingStore`），
+   * 保证「设置页写入 → 网关读取」是同一份数据，不做第二份副本。
+   */
+  const settingsStore = createSettingStore({ db, userId });
+  const persistedBudget = readPersistedBudget(settingsStore);
+
+  const stack = createAiStack({ db, secureStore: secure, userId, budget: persistedBudget });
   const aborters = new Map<string, AbortController>();
   const control = stack.control;
 
@@ -75,7 +91,7 @@ export async function createElectronAiRuntime(
     }
     try {
       const params = asRecord(request.params);
-      const result = await routeInvoke(control, request.method, params);
+      const result = await routeInvoke(control, request.method, params, settingsStore);
       return { requestId: request.requestId, ok: true, result };
     } catch (error) {
       const mapped = aiErrorFromUnknown(error);
@@ -122,6 +138,30 @@ export async function createElectronAiRuntime(
   return {
     invoke,
     stream,
+    /** 供域工厂使用的最小句柄（预算回灌依赖 budget.configure） */
+    handle: {
+      gateway: {
+        chat: (input: {
+          userId: string;
+          purpose: string;
+          messages: ReadonlyArray<{ role: string; content: string }>;
+          projectId?: string | undefined;
+          signal?: AbortSignal | undefined;
+        }) =>
+          stack.gateway.chat(input as Parameters<typeof stack.gateway.chat>[0]) as AsyncIterable<{
+            type: string;
+            text?: string | undefined;
+            [key: string]: unknown;
+          }>,
+      },
+      budget: {
+        configure: (patch: {
+          dailyUsd?: number | null;
+          monthlyUsd?: number | null;
+          alertRatio?: number;
+        }) => stack.budget.configure(patch),
+      },
+    },
     abort(requestId) {
       aborters.get(requestId)?.abort();
     },
@@ -170,6 +210,36 @@ function ensureUser(db: Database.Database, userId: string): void {
   ).run(userId, userId, '本地用户', now, now);
 }
 
+/** 预算持久化键（与 usage 域共用同一口径） */
+const USAGE_BUDGET_SETTING_KEY = 'usage_budget';
+
+/**
+ * 从 `setting` 表装载预算配置。
+ *
+ * 逐字段校验：任何非法值都回落到 `DEFAULT_BUDGET` 的对应项，
+ * 而不是让坏配置把预算静默变成"不限"（那等于悄悄放行超额调用）。
+ *
+ * 导出供集成测试断言「设置页写入的预算确实被 AI 栈读到」——
+ * 这正是此前断掉的那一环。
+ */
+export function readPersistedBudget(
+  store: ReturnType<typeof createSettingStore>,
+): Partial<BudgetConfig> {
+  const stored = store.read<Partial<BudgetConfig>>(USAGE_BUDGET_SETTING_KEY);
+  if (stored === null || typeof stored !== 'object') return {};
+  const num = (value: unknown): number | null =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+  const ratio = stored.alertRatio;
+  return {
+    dailyUsd: num(stored.dailyUsd),
+    monthlyUsd: num(stored.monthlyUsd),
+    alertRatio:
+      typeof ratio === 'number' && Number.isFinite(ratio) && ratio > 0 && ratio <= 1
+        ? ratio
+        : DEFAULT_BUDGET.alertRatio,
+  };
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -180,6 +250,7 @@ async function routeInvoke(
   control: ReturnType<typeof createAiStack>['control'],
   method: string,
   params: Record<string, unknown>,
+  settingsStore: ReturnType<typeof createSettingStore>,
 ): Promise<unknown> {
   switch (method) {
     case 'listProviders':
@@ -232,8 +303,12 @@ async function routeInvoke(
       return control.usageByModel();
     case 'budgetConfig':
       return control.budgetConfig();
-    case 'setBudget':
-      return control.setBudget(params as never);
+    case 'setBudget': {
+      control.setBudget(params as never);
+      // 落库：否则重启后预算回到"不限"，超限阻断随之失效
+      settingsStore.write(USAGE_BUDGET_SETTING_KEY, control.budgetConfig());
+      return undefined;
+    }
     case 'setLimits':
       return control.setLimits(String(params['providerId']), params['limits'] as never);
     case 'setProxy':
@@ -272,11 +347,11 @@ export function createDpapiStore(safeStorage: SafeStorageLike, root: string) {
     async set(namespace: SecureNamespace, key: string, value: string): Promise<void> {
       const file = fileOf(namespace, key);
       await fsp.mkdir(join(root, namespace), { recursive: true });
-      await fsp.writeFile(file, safeStorage.encryptString(value));
+      await fsp.writeFile(file, await safeStorage.encryptString(value));
     },
     async get(namespace: SecureNamespace, key: string): Promise<string | null> {
       try {
-        return safeStorage.decryptString(await fsp.readFile(fileOf(namespace, key)));
+        return await safeStorage.decryptString(await fsp.readFile(fileOf(namespace, key)));
       } catch {
         return null;
       }

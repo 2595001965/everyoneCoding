@@ -39,6 +39,7 @@ import {
   createImportTargetPort,
 } from './package-ports';
 import { createTelemetryFileStore } from './telemetry-store';
+import { createTelemetryRuntime, type TelemetryRuntime } from './telemetry-runtime';
 
 /**
  * 设置域运行时（settings 域，16 个方法全部可用）。
@@ -153,8 +154,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * 归档内容选择。
  *
- * `attachments` 恒为 false：附件子系统尚未装配，`listAttachments()` 如实返回空，
- * 若宣称包含附件会让 manifest 与实际内容不符。
+ * `attachments` 为 true：附件已按内容寻址装配（`<projectDir>/attachments/<sha256>.<ext>`），
+ * `listAttachments()` 会真实枚举磁盘文件，因此 manifest 与包内容一致。
+ * 若某项目确实没有附件，导出自然为空，不会虚报。
  */
 function buildExportSelection(mode: 'full' | 'code-only', projectId: string): ExportSelection {
   const full: ContentSelection = {
@@ -164,7 +166,7 @@ function buildExportSelection(mode: 'full' | 'code-only', projectId: string): Ex
     pipeline: true,
     anchors: true,
     registry: true,
-    attachments: false,
+    attachments: true,
   };
   // 「仅代码（轻量包）」与导入侧 MODE_PARTICIPATING_TYPES['code-only'] 的参与类型对齐
   const codeOnly: ContentSelection = {
@@ -203,6 +205,18 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
     ...readJson<Partial<BackupConfig>>(backupConfigPath, {}),
   };
   const telemetry = createTelemetryFileStore(telemetryBufferPath);
+  /**
+   * 遥测运行时：授权位取自持久化设置（默认 false）。
+   *
+   * 与文件缓冲的关系：`telemetry` 负责"存"，本运行时负责"记"与"清"。
+   * 关键路径埋点统一走 `telemetryRuntime.record()`——它经 `buildEvent` 构造，
+   * 字段白名单断言在构造期就拦截内容字段（提示词 / 代码 / 文档正文 / Key）。
+   */
+  const telemetryRuntime: TelemetryRuntime = createTelemetryRuntime({
+    db,
+    bufferPath: telemetryBufferPath,
+    enabled: settings.getGlobal().privacy.telemetryEnabled === true,
+  });
 
   const persistSettings = (): void =>
     writeJsonAtomic(settingsPath, JSON.parse(settings.toJSON()) as Settings);
@@ -388,6 +402,7 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
         const outputPath = join(outputDir, `${sanitizeFileName(project.name)}-${Date.now()}.ecpkg`);
 
         const source = createExportSourcePort({ db, projectsDir, userId });
+        const startedAt = Date.now();
         const result = await runExport(
           {
             outputPath,
@@ -397,6 +412,16 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
           },
           source,
         );
+        // 关键路径埋点（T10-01）：只上报事件名 + 体积 + 耗时，不含任何内容
+        telemetryRuntime.record('package.export', 'success', {
+          durationMs: Date.now() - startedAt,
+          dims: {
+            projectId: input.projectId,
+            bytes: result.archiveSizeBytes,
+            count: result.counts.codeFiles,
+            version: '1',
+          },
+        });
         return {
           ok: true,
           filePath: result.outputPath,
@@ -459,6 +484,17 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
           },
         );
 
+        // 关键路径埋点（T10-01）：只上报计数与耗时，不含包内容
+        telemetryRuntime.record(
+          'package.import',
+          report.failures.length === 0 ? 'success' : 'failure',
+          {
+            dims: {
+              count: report.counts.added + report.counts.conflicted,
+              bytes: 0,
+            },
+          },
+        );
         return {
           ok: report.failures.length === 0,
           counts,
@@ -474,17 +510,23 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
           privacy: { ...settings.getGlobal().privacy, telemetryEnabled: enabled },
         });
         persistSettings();
+        // 运行时同步授权位：撤销时清空本地缓冲（"关闭"就该不留数据）
+        telemetryRuntime.setEnabled(enabled);
         if (!enabled) telemetry.clear();
         return undefined;
       }
 
-      case 'inspectLocalTelemetry':
+      case 'inspectLocalTelemetry': {
+        const inspection = telemetryRuntime.inspect();
         return {
-          telemetryRecords: telemetry.count(),
+          telemetryRecords: inspection.telemetryRecords,
           cacheBytes: countBytes(currentDirs().cacheDir),
         };
+      }
 
       case 'clearLocalTelemetry': {
+        // 一键清除必须覆盖三层：内存队列 + 文件缓冲 + 数据库记录（FR-SET-06 验收）
+        telemetryRuntime.clearAll();
         telemetry.clear();
         // 缓存可直接清空重建（清完再统计，保证回传值与实际一致）
         const dir = currentDirs().cacheDir;

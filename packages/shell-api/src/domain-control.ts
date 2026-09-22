@@ -282,6 +282,8 @@ export const DOMAIN_RPC_METHODS = {
   package: [
     'pickExportPath',
     'exportPackage',
+    'exportIncremental',
+    'getIncrementalCursor',
     'listExportPresets',
     'saveExportPreset',
     'deleteExportPreset',

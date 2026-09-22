@@ -95,12 +95,39 @@ export interface AiControlHost {
   abort(requestId: string): void;
 }
 
+/**
+ * 域侧可用的 AI 栈最小句柄（主进程内部使用，不经 IPC 暴露）。
+ *
+ * 当前唯一消费者是 usage 域的预算回灌：设置页改预算后必须即时推给
+ * 运行中的 `BudgetGuard`，否则「超限在调用模型前阻断」要等重启才生效。
+ */
+export interface AiStackHandle {
+  gateway: {
+    chat(input: {
+      userId: string;
+      purpose: string;
+      messages: ReadonlyArray<{ role: string; content: string }>;
+      projectId?: string | undefined;
+      signal?: AbortSignal | undefined;
+    }): AsyncIterable<{ type: string; text?: string | undefined; [key: string]: unknown }>;
+  };
+  budget?: {
+    configure(patch: {
+      dailyUsd?: number | null;
+      monthlyUsd?: number | null;
+      alertRatio?: number;
+    }): void;
+  };
+}
+
 /** 主进程实现的入口；不暴露任意反射对象 */
 export interface AiControlServiceHost {
   invoke(request: AiRpcRequest): Promise<AiRpcResponse>;
   stream(request: AiStreamRequest, emit: (event: AiStreamEvent) => void): void;
   abort(requestId: string): void;
   dispose(): Promise<void>;
+  /** 域工厂用的最小句柄（预算回灌 / 后续生成调用共用同一份栈） */
+  handle?: AiStackHandle;
 }
 
 export function createRequestId(prefix = 'ai'): string {

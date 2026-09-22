@@ -366,6 +366,97 @@ T12-01/02 之后，流水线域虽然"通了"，但 S5 仍是**自造执行器 +
 
 ---
 
+### 2.10 T12-05 归档、用量、备份与遥测生产接线（2026-09-22）
+
+T12-01 把 `package` / `usage` 两域挂进了路由表，但**多处仍在生产环境必炸或空转**：预算配置写的是
+不存在的列、遥测一个调用点都没有、自愈直接报 `NOT_SUPPORTED`、附件恒为空数组。本轮把四条链路
+逐一接到真实数据上，并补上此前缺失的验收测试。
+
+#### 2.10.1 改动清单（按职责）
+
+| 层                      | 文件                                           | 改动                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 主进程（新）            | `domain/telemetry-runtime.ts`                  | 新增遥测运行时：授权位取自持久化设置（默认 false），事件统一经 `buildEvent` 构造（内含白名单断言），`clearAll()` 覆盖**内存队列 + 文件缓冲 + 数据库记录**三层                                                                                                                                                                                                       |
+| 主进程                  | `domain/domains/usage-domain.ts`               | **重写预算读写**：改用 `createSettingStore`（真实列 `value_json`，`user_id` NOT NULL），逐字段校验坏配置；新增 `onBudgetChanged` 回灌钩子；`budgetDecision` 与网关共用同一判定口径                                                                                                                                                                                  |
+| 主进程                  | `domain/domains/package-domain.ts`             | **实现 `runHealing` / `adoptAnchorCandidate`**（替换 `NOT_SUPPORTED` stub）：锚点读 `code_anchor`、链接读 `memory_doc_link`、附件按内容寻址清点，报告落盘可导出；新增 `exportIncremental` / `getIncrementalCursor`；备份走 `createSnapshot` + `pruneSnapshots` + `restoreFromSnapshot`（回滚前自动安全快照）；装配 `BackupScheduler` 并暴露 `start()` / `dispose()` |
+| 主进程                  | `domain/domains/package-domain.ts`（配置读写） | 备份配置 / 导出方案 / 增量游标全部改走 `createSettingStore`；新增 `HH:mm` 格式与保留份数校验（坏值会让调度器排不出下一次执行）                                                                                                                                                                                                                                      |
+| 主进程                  | `domain/package-ports.ts`                      | **附件内容寻址落地**：`listAttachments()` 真实枚举 `<projectDir>/attachments/<sha256>.<ext>`；`putFile` 新增附件分支（按引用文档定位归属项目，无法判定时落到暂存目录而非丢弃）；`ensureDirs` 建出附件目录；新增 `resolveAttachmentOwner`                                                                                                                            |
+| 主进程                  | `ai/runtime.ts`                                | 预算**从持久化配置装载**并注入 `createAiStack`；`setBudget` 同步落库；导出 `readPersistedBudget` 供测试断言；暴露 `handle`（含 `budget.configure`）给域工厂                                                                                                                                                                                                         |
+| 主进程                  | `domain/domain-factories.ts`                   | usage 域接上预算回灌（`aiStack.budget.configure`）；package 域改为带生命周期的句柄；`disposers` 收编调度器停止；启动时执行备份补偿 `pack.start()`                                                                                                                                                                                                                   |
+| 主进程                  | `domain/settings.ts`                           | 遥测三方法改走运行时（`inspectLocalTelemetry` / `clearLocalTelemetry` / `setTelemetry`）；`exportProject` / `importPackage` 增加关键路径埋点；默认导出选择纳入附件                                                                                                                                                                                                  |
+| 主进程                  | `main/index.ts`                                | 域工厂接入 `aiRuntime.handle`（此前传 `null`，导致预算护栏接不上网关）                                                                                                                                                                                                                                                                                              |
+| 契约（`@ec/shell-api`） | `src/domain-control.ts`                        | package 域白名单补 `exportIncremental` / `getIncrementalCursor`                                                                                                                                                                                                                                                                                                     |
+| 契约（`@ec/shell-api`） | `src/ai-control.ts`                            | 新增 `AiStackHandle` 并在 `AiControlServiceHost` 上暴露可选 `handle`                                                                                                                                                                                                                                                                                                |
+| 测试（新）              | `__tests__/domain-archive-telemetry.test.ts`   | 19 项验收测试：附件往返、用量真实读取、预算落库与前置阻断、备份配置校验、快照保留数清理、快照回滚、遥测默认关闭 / 白名单 / 三层清除、篡改检出、错误口令拒绝                                                                                                                                                                                                         |
+
+#### 2.10.2 每条验收标准的落地证据
+
+| 验收标准（任务卡原文）                                | 证据                                                                                                                                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PackageApi / UsageApi / BackupSettings 真实注入且可用 | `domain-archive-telemetry.test.ts` 19/19 全绿，全部经**真实域运行时**（`createProductionDomains` + `createDomainRuntime`）调用，断言对象是落盘文件与表内行                                                                           |
+| 导出/导入、冲突预览、五种导入模式、自愈报告可用       | 自愈已从 stub 换为真实实现（`runHealing` 读 `code_anchor` + `memory_doc_link` + 附件目录，报告落盘）；五种模式由 `mode-selector` 与既有 `import-mode-selector.test.ts`（6 项）覆盖                                                   |
+| 增量包可用                                            | `exportIncremental` + `getIncrementalCursor` 已装配；`incremental-volume.test.ts` 实测全量 27722 字节 / 增量 1114 字节（4.0%）                                                                                                       |
+| 附件不静默丢弃                                        | 导出：`counts.attachments ≥ 1` 且包内确实存在 `attachments/` 条目；导入：`putFile` 按内容寻址落回项目附件目录（无归属时落暂存目录，绝不丢内容）                                                                                      |
+| 用量从真实 `usage_record` 读取                        | 插入真实行后 `listRows` 返回 `totalTokens=150` / `cost=0.25`，与源数据逐字段一致                                                                                                                                                     |
+| **预算超限在真正调用模型前阻断**                      | 三重证据：① `budgetDecision` 超限返回 `ok=false`；② 持久化预算被 `readPersistedBudget` 读到（`dailyUsd=0.1`）；③ 用同一配置构造真实 `BudgetGuard`，已花费 0.25 > 0.1 ⇒ `check().ok === false`（`AiGateway.chat` 在发起请求前先调它） |
+| 遥测默认关闭                                          | `createTelemetryRuntime({ enabled: false })` 下 `record()` 后缓冲为 0 且缓冲文件不存在（零 IO，非"发了再丢"）                                                                                                                        |
+| 遥测 payload 断言不含内容字段                         | `assertEventPayloadSafe` 对 `prompt` / `code` / `apiKey` 三种夹带**全部抛错**；合法维度（`providerId` / `purpose`）不抛                                                                                                              |
+| 隐私面板清除内存、文件缓冲和数据库记录                | `clearAll()` 返回 `fileCleared=2`，之后 `buffered()===0` 且 `pending()===0`，缓冲文件内容为 `[]`；同时尝试清理历史遗留遥测表                                                                                                         |
+| 篡改 / 错误口令 / 高版本包不留半导入状态              | 篡改：按 ZIP 局部文件头精确定位压缩数据区并翻转字节 ⇒ `verifyPackage.ok=false` 且 `failureCode` 非空；口令：正确口令通过、错误口令 `failureCode='password'`（认证标签先校验后落盘）                                                  |
+| 定时备份按日/周生成并按保留数清理，可一键恢复         | `createBackupNow` 生成规范命名 `ec-backup-<yyyymmdd-hhmmss>-<ms>-manual.ecpkg`；keepCount=2 时生成 3 份后仅留 2 份；`restoreFromSnapshot` 返回 `safetySnapshot`（含 `pre-restore`）                                                  |
+
+#### 2.10.3 本轮修掉的真实缺陷（5 处）
+
+① **`setting` 表列名不匹配（生产必炸）**：`usage-domain` 与 `package-domain` 此前写
+`SELECT value FROM setting WHERE key = ?` / `INSERT INTO setting (key, value)`，而迁移 `0001`
+定义的真实列是 `value_json` / `value_text`，且 `user_id` 为 NOT NULL。一旦用户点下「预算」或
+「定时备份」，必然 `SqliteError: no such column: value`。**症状隐蔽**：装配期没有真实调用时不暴露。
+现全部改走 `createSettingStore`（同一入口已在 git/preview 域验证过）。
+
+② **预算配置从未进入 AI 网关（"改了预算却还在烧钱"）**：用量面板把预算写进 `setting` 表，
+而 `createAiStack` 构造时用的是 `DEFAULT_BUDGET`（全 `null` = 不限），两侧**各持一份互不相干的状态**。
+后果是「设置里配了预算，实际调用模型时毫无反应」，任务卡要求的"请求前阻断"在生产链路上不成立。
+现由 `readPersistedBudget` 装载注入，并让 `usage.setBudget` 经 `onBudgetChanged` 即时回灌运行中的 `BudgetGuard`。
+
+③ **遥测零生产调用点**：`TelemetryClient` / `Telemetry` / 事件目录在 `@ec/core` 里实现完备，
+但没有任何业务代码调用 `track`。于是"关键路径埋点覆盖率"只在测试里成立，真实运行不产生任何埋点，
+隐私面板也没有对象可清。现新增 `telemetry-runtime.ts` 并在导出/导入等关键路径接入。
+
+④ **自愈引擎整体 `NOT_SUPPORTED`**：`package-kit` 的 `anchor-relocator` / `link-fixer` /
+`attachment-checker` / `healing-report` 四模块与测试都齐备，主进程却直接抛
+`NOT_SUPPORTED`，导入后自愈（FR-PKG-10，P1）实际不可用。现接到 `code_anchor` /
+`memory_doc_link` / 附件目录三处真实数据源，报告落盘可导出。
+
+⑤ **附件恒为空数组**：`listAttachments()` 返回 `[]` 而 `attachments: false` 写死，
+但 `runExport` 的 `includes` 逻辑与 UI 勾选项都宣称支持附件——用户勾了"包含附件"却什么都拿不到，
+属于"静默丢弃"。现按内容寻址真实枚举与落盘，`counts.attachments` 如实计数。
+
+#### 2.10.4 门禁实测（2026-09-22）
+
+| 命令                    | 结果                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`             | ✅ 零 error 零 warning（`--max-warnings 0`）                                                                                          |
+| `pnpm format:check`     | ✅ `All matched files use Prettier code style!`（6 个文件补格式化后）                                                                 |
+| `pnpm -r typecheck`     | ✅ 全仓零错误                                                                                                                         |
+| 新增验收测试            | ✅ `domain-archive-telemetry.test.ts` **19/19**                                                                                       |
+| 受影响主进程回归        | ✅ `domain-settings` 26/26、`domain-runtime` 13/13、`domain-production` 15/15、`domain-content-ports` 17/17、`domain-run-ports` 16/16 |
+| 核心包回归              | ✅ `package-kit` + `core` + `shell-api` + `ai` 共 **61 文件 / 711 项全绿**                                                            |
+| `pnpm test:e2e`         | ✅ **12 文件 / 42 项全绿**（含 E2E-13/14 归档往返与冲突决策）                                                                         |
+| 埋点覆盖率              | ✅ 关键路径事件 **40/40 = 100.0%**（`telemetry-coverage.test.ts`）                                                                    |
+| 增量体积实测            | ✅ 全量 27722 字节（100 文件）/ 增量 1114 字节（2 文件变更）= **4.0%**                                                                |
+| 1 万文件导出 / 流式读写 | ✅ 导出 25.4s ≤60s；流式读写 RSS 增长 81.9MB（阈值 350MB）                                                                            |
+
+> **环境退化项（非代码问题）**：`domain-workspace-git.test.ts` 的克隆用例在默认 15s 预算下超时。
+> 实测 `git --version` 已退化到 **1.7–2.5s**（健康基线 ≈759ms），按既有约定**不改测试预算**；
+> 用 `--testTimeout=120000` 复跑 **9/9 全绿**，确认是环境成因。
+
+> 仍未闭环：`pnpm dev:electron` 的人工 GUI 走查需要真实桌面会话（同上节）。
+> 附件导出已真实落地，但**本仓库当前没有产生附件的业务入口**（设计器素材上传尚未实现），
+> 因此附件的生产路径由集成测试以"手工放入内容寻址文件"的方式验证——端口行为正确，
+> 待素材上传功能落地后即自动进入真实链路。
+
+---
+
 ## 3. 未完成 / 未达标项（如实列出）
 
 | 项                                             | 现状               | 阻塞原因                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 下一步                                                                                                                          |

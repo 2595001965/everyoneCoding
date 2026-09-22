@@ -57,7 +57,11 @@ fn store_file(ns: SecureNamespace) -> PathBuf {
 }
 
 /// DPAPI 加密（当前用户上下文）。
-fn dpapi_encrypt(plain: &[u8]) -> Result<Vec<u8>, CommandError> {
+///
+/// `pub(crate)` 的原因：侧车的宿主能力（`sidecar` 模块）要用**同一份** DPAPI 实现
+/// 给 Node 侧的密钥环提供加解密原语。另起一份实现意味着两边的密文可能互不兼容，
+/// 而那种不兼容只在"换个外壳打开同一个数据目录"时才暴露。
+pub(crate) fn dpapi_encrypt_bytes(plain: &[u8]) -> Result<Vec<u8>, CommandError> {
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{
@@ -94,8 +98,8 @@ fn dpapi_encrypt(plain: &[u8]) -> Result<Vec<u8>, CommandError> {
     Ok(result)
 }
 
-/// DPAPI 解密（当前用户上下文）。
-fn dpapi_decrypt(cipher: &[u8]) -> Result<Vec<u8>, CommandError> {
+/// DPAPI 解密（当前用户上下文）。`pub(crate)` 原因同 `dpapi_encrypt_bytes`。
+pub(crate) fn dpapi_decrypt_bytes(cipher: &[u8]) -> Result<Vec<u8>, CommandError> {
     use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{
         CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
@@ -173,7 +177,7 @@ pub fn secure_store_set(
 ) -> Result<(), CommandError> {
     let _guard = store_lock().lock().unwrap_or_else(|e| e.into_inner());
     let mut map = load_map(namespace);
-    let cipher = dpapi_encrypt(value.as_bytes())?;
+    let cipher = dpapi_encrypt_bytes(value.as_bytes())?;
     map.insert(key, cipher);
     save_map(namespace, &map)
 }
@@ -189,7 +193,7 @@ pub fn secure_store_get(
     let map = load_map(namespace);
     match map.get(&key) {
         Some(cipher) => {
-            let plain = dpapi_decrypt(cipher)?;
+            let plain = dpapi_decrypt_bytes(cipher)?;
             String::from_utf8(plain)
                 .map(Some)
                 .map_err(|e| CommandError::decrypt_failed(e.to_string()))

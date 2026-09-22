@@ -27,6 +27,7 @@ import {
   type DialogApi,
   type DomainControlHost,
   type DomainDescriptor,
+  type DomainEvent,
   type DomainRpcRequest,
   type DomainRpcResponse,
   type FsApi,
@@ -47,6 +48,7 @@ import {
   type SecureNamespace,
   type SecureStoreApi,
   type ShellCapabilities,
+  type ShellCapabilityKey,
   type ShellHost,
   type SpawnOptions,
   type Unsubscribe,
@@ -540,12 +542,116 @@ const netApi: NetApi = {
 };
 
 // ---------------------------------------------------------------------------
+// 侧车事件总线
+// ---------------------------------------------------------------------------
+
+/** 侧车事件信封（Rust `EventEnvelopeWire`）：`op` 决定 `payload` 的形状 */
+interface SidecarEventEnvelope {
+  op: string;
+  payload: unknown;
+}
+
+/** `sidecar_status` 返回值（Rust `SidecarStatusWire`） */
+interface SidecarStatusWire {
+  ready: {
+    available: boolean;
+    reason?: string;
+    domains: DomainDescriptor[];
+    syncDomains: string[];
+    ai: { available: boolean; reason?: string };
+  };
+  location: string;
+  protocol: number;
+}
+
+const SIDECAR_EVENT_DOMAIN = 'domain.event';
+const SIDECAR_EVENT_AI_STREAM = 'ai.stream';
+
+/**
+ * 三种事件（域事件 / AI 流式分片 / 日志）共用**一条**侧车订阅。
+ *
+ * 为什么不各开一条通道：它们在同一次调用里互相纠缠（进度与结果），
+ * 分通道就要处理"哪条通道先建立"的竞态——而竞态的表现是"偶尔丢几帧"，
+ * 属于最难复现的一类故障。渲染层按 `requestId` 分流，与 Electron 形态同构。
+ *
+ * 订阅**惰性建立**且在所有监听器退订后释放：Rust 侧订阅表有上限，
+ * 泄漏的订阅会让后续订阅全部失败（"用久了才出现的怪问题"）。
+ */
+const sidecarListeners = new Set<(op: string, payload: unknown) => void>();
+let sidecarSubId: string | null = null;
+let sidecarSubscribing = false;
+
+function ensureSidecarSubscription(): void {
+  if (sidecarSubId !== null || sidecarSubscribing) return;
+  sidecarSubscribing = true;
+  const channel = new Channel<SidecarEventEnvelope>();
+  channel.onmessage = (message) => {
+    if (message === null || typeof message !== 'object' || typeof message.op !== 'string') return;
+    for (const listener of [...sidecarListeners]) {
+      try {
+        listener(message.op, message.payload);
+      } catch {
+        // 单个订阅者抛错不影响其它订阅者，更不能打断侧车的业务路由
+      }
+    }
+  };
+  void call<string>('sidecar_subscribe', { channel })
+    .then((id) => {
+      sidecarSubId = id;
+      /**
+       * 订阅返回时监听器**可能已经全部退订**（短命组件 / 立即 unmount）。
+       * 这里必须立刻释放：否则这条订阅永远不会被回收，既泄漏一个 Rust 侧
+       * 通道，又持续占着订阅表上限——症状是"用久了之后新订阅全部失败"。
+       */
+      releaseSidecarSubscriptionIfIdle();
+    })
+    .catch(() => {
+      // 订阅失败 → 退化为"无过程反馈"：调用照常成功，只是拿不到中途进度。
+      // 这与"让整次调用失败"相比是更好的降级（渲染层契约本就允许无事件）。
+    })
+    .finally(() => {
+      sidecarSubscribing = false;
+    });
+}
+
+function addSidecarListener(listener: (op: string, payload: unknown) => void): Unsubscribe {
+  ensureSidecarSubscription();
+  sidecarListeners.add(listener);
+  return () => {
+    sidecarListeners.delete(listener);
+    releaseSidecarSubscriptionIfIdle();
+  };
+}
+
+function releaseSidecarSubscriptionIfIdle(): void {
+  if (sidecarListeners.size > 0 || sidecarSubId === null) return;
+  const id = sidecarSubId;
+  sidecarSubId = null;
+  void call<void>('sidecar_unsubscribe', { sub_id: id }).catch(() => {});
+}
+
+/** 域调用失败的兜底响应（形状必须与 `DomainRpcResponse` 一致） */
+function domainFailure(requestId: string, message: string): DomainRpcResponse {
+  return {
+    requestId,
+    ok: false,
+    error: { code: 'NOT_SUPPORTED', message, retryable: false },
+  };
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// ---------------------------------------------------------------------------
 // ShellHost 实现与注册
 // ---------------------------------------------------------------------------
 
 /** 创建 Tauri 外壳实现。
  *
  * 所有能力均通过 `invoke` 调用 Rust 命令，渲染层无需感知具体外壳。
+ * 域端口与 AI 栈由 Rust 侧的**受控侧车**承载（Node 业务运行时），
+ * 因此这里的工作就是协议搬运 + 失败时给出可读原因，绝不伪造成功。
  */
 export function createTauriShell(): ShellHost {
   return {
@@ -561,25 +667,76 @@ export function createTauriShell(): ShellHost {
     clipboard: clipboardApi,
     net: netApi,
     ai: {
-      invoke: (request: AiRpcRequest) => call<AiRpcResponse>('ai_invoke', { request }),
-      stream: (request: AiStreamRequest) => {
-        const channel = new Channel<{ requestId: string; event: AiStreamEvent }>();
+      invoke: async (request: AiRpcRequest): Promise<AiRpcResponse> => {
+        try {
+          return await call<AiRpcResponse>('ai_invoke', { request });
+        } catch (error) {
+          // Rust 侧总会合成 AiRpcResponse；走到这里说明是"命令层"的意外
+          // （例如运行时被卸载）。补一份同形状响应，别让渲染层看到裸异常。
+          return {
+            requestId: request.requestId,
+            ok: false,
+            error: { code: 'UNKNOWN', message: messageOf(error) },
+          };
+        }
+      },
+      stream: (request: AiStreamRequest): AiStreamHandle => {
         const listeners = new Set<(event: AiStreamEvent) => void>();
-        channel.onmessage = (message) => {
-          if (message.requestId === request.requestId) {
-            for (const listener of listeners) listener(message.event);
+        const emit = (event: AiStreamEvent): void => {
+          for (const listener of [...listeners]) {
+            try {
+              listener(event);
+            } catch {
+              // 同上：单个消费者抛错不扩散
+            }
           }
         };
-        void call<void>('ai_stream_start', { request, channel }).catch((error) => {
-          const event: AiStreamEvent = {
-            type: 'error',
-            error: {
-              code: 'NOT_SUPPORTED',
-              message: error instanceof Error ? error.message : String(error),
-            },
-          };
-          for (const listener of listeners) listener(event);
+
+        // **先订阅再发起**：反过来会丢掉最初几帧（首帧往往就是 accepted/进度）
+        let unsubscribe: Unsubscribe = () => {};
+        const stop = (): void => {
+          unsubscribe();
+          unsubscribe = () => {};
+        };
+        unsubscribe = addSidecarListener((op, payload) => {
+          if (op !== SIDECAR_EVENT_AI_STREAM) return;
+          if (payload === null || typeof payload !== 'object') return;
+          const frame = payload as { requestId?: unknown; event?: unknown };
+          if (frame.requestId !== request.requestId) return;
+          const event = frame.event as AiStreamEvent | undefined;
+          if (event === undefined || event === null || typeof event.type !== 'string') return;
+          emit(event);
+          // `done` 是终止帧：此后不会再有本次请求的事件，退订以免泄漏
+          if (event.type === 'done') stop();
         });
+
+        void call<{ accepted?: boolean; error?: { code?: string; message?: string } }>(
+          'ai_stream_start',
+          { request },
+        )
+          .then((result) => {
+            if (result?.accepted !== false) return;
+            // AI 栈不可用：必须显式补 error + done。
+            // 只回 accepted:false 会让界面永远转圈——这是最容易漏的一条。
+            emit({
+              type: 'error',
+              error: {
+                code: result.error?.code ?? 'NOT_SUPPORTED',
+                message: result.error?.message ?? 'AI 流式生成未被接受',
+              },
+            });
+            emit({ type: 'done', finishReason: 'error', partial: true });
+            stop();
+          })
+          .catch((error: unknown) => {
+            emit({
+              type: 'error',
+              error: { code: 'NOT_SUPPORTED', message: messageOf(error) },
+            });
+            emit({ type: 'done', finishReason: 'error', partial: true });
+            stop();
+          });
+
         return {
           requestId: request.requestId,
           on: (listener: (event: AiStreamEvent) => void) => {
@@ -587,37 +744,91 @@ export function createTauriShell(): ShellHost {
             return () => listeners.delete(listener);
           },
           abort: () => {
-            void call<void>('ai_abort', { requestId: request.requestId });
+            void call<void>('ai_abort', { request_id: request.requestId });
           },
         } satisfies AiStreamHandle;
       },
       abort: (requestId: string) => {
-        void call<void>('ai_abort', { requestId });
+        void call<void>('ai_abort', { request_id: requestId });
       },
     } satisfies AiControlHost,
     domain: {
-      // Rust 侧尚未提供域端口命令（工作台 / 文档 / 账号 / 设置四域）。
-      // 与 ai 同一口径：如实返回 NOT_SUPPORTED，让渲染层保留装配引导，
-      // 而不是注入一个"能打开但每个动作都失败"的端口。
-      invoke: (request: DomainRpcRequest) =>
-        Promise.resolve<DomainRpcResponse>({
-          requestId: request.requestId,
-          ok: false,
-          error: { code: 'NOT_SUPPORTED', message: 'Tauri 外壳尚未接入域端口运行时' },
+      /**
+       * 域 RPC 经 `domain_invoke` 交给 Rust，再由 Rust 转给侧车里的真实域运行时。
+       *
+       * 错误语义与 Electron 一致：渲染层**永远**拿到 `DomainRpcResponse`
+       * （`ok:false` + 结构化 `error`），而不是一个裸异常。
+       */
+      invoke: async (request: DomainRpcRequest): Promise<DomainRpcResponse> => {
+        try {
+          return await call<DomainRpcResponse>('domain_invoke', { request });
+        } catch (error) {
+          return domainFailure(request.requestId, messageOf(error));
+        }
+      },
+      /**
+       * 各域装配状态。
+       *
+       * 侧车不可用（没构建产物 / 没 Node / 协议不兼容 / 装配失败）时，
+       * Rust 会返回**全部 15 个域 + 同一原因**；这里再兜一层，保证渲染层
+       * 拿到的一定是一份完整的域清单，从而对每个页面给出如实的装配引导。
+       */
+      describe: async (): Promise<DomainDescriptor[]> => {
+        try {
+          return await call<DomainDescriptor[]>('domain_describe');
+        } catch (error) {
+          const reason = messageOf(error);
+          return DOMAIN_KINDS.map((kind) => ({ kind, available: false, reason }));
+        }
+      },
+      /**
+       * 域事件订阅（**可选能力**，与 Electron 形态同构）。
+       *
+       * 请求内事件（导入进度、阶段推进）与无请求归属的事件（外部改动监视、
+       * 预览后端日志）都会经这条通道到渲染层；渲染层按 `domain + payload.type`
+       * 过滤，并按 requestId 关联到具体那次调用。
+       */
+      onEvent: (listener: (event: DomainEvent) => void): Unsubscribe =>
+        addSidecarListener((op, payload) => {
+          if (op !== SIDECAR_EVENT_DOMAIN) return;
+          if (payload === null || typeof payload !== 'object') return;
+          const event = payload as Partial<DomainEvent>;
+          // 跨进程数据不信任：形状不对就丢弃，而不是把脏值塞进 UI
+          if (typeof event.requestId !== 'string' || typeof event.domain !== 'string') return;
+          if (event.payload === undefined) return;
+          listener(event as DomainEvent);
         }),
-      describe: () =>
-        Promise.resolve<DomainDescriptor[]>(
-          DOMAIN_KINDS.map((kind) => ({
-            kind,
-            available: false,
-            reason: 'Tauri 外壳尚未接入域端口运行时',
-          })),
-        ),
     } satisfies DomainControlHost,
     async openExternal(url: string): Promise<void> {
       await call<void>('open_external', { url });
     },
     async capabilities(): Promise<ShellCapabilities> {
+      /**
+       * `ai` / `domain` 不再写死：它们由侧车的**真实装配结果**决定。
+       *
+       * 写死成 `false` 是"宁可保守"，但代价是 UI 永远显示"能力缺失"；
+       * 写死成 `true` 更糟——用户会去点一个必然失败的按钮。
+       * 所以这里问一次 `sidecar_status`（会触发侧车启动并等待就绪），
+       * 并把**原因**一并带出去（`ShellCapabilities.reasons`）。
+       */
+      const reasons: Partial<Record<ShellCapabilityKey, string>> = {};
+      let ai = false;
+      let domain = false;
+      try {
+        const status = await call<SidecarStatusWire>('sidecar_status');
+        domain = status.ready.available;
+        ai = status.ready.ai.available;
+        if (!domain) {
+          reasons.domain = status.ready.reason ?? '侧车运行时不可用';
+        }
+        if (!ai) {
+          reasons.ai = status.ready.ai.reason ?? 'AI 栈不可用（侧车未就绪）';
+        }
+      } catch (error) {
+        const reason = `侧车运行时不可用：${messageOf(error)}`;
+        reasons.domain = reason;
+        reasons.ai = reason;
+      }
       return {
         fs: true,
         watch: true,
@@ -629,15 +840,27 @@ export function createTauriShell(): ShellHost {
         net: true,
         clipboard: true,
         openExternal: true,
-        // Rust 侧 AI 栈尚未接入（commands/ai.rs 仍返回 NOT_SUPPORTED）。
-        // 这里如实报 false：UI 走"能力缺失"引导，而不是让用户去点一个必然失败的按钮。
-        ai: false,
-        // 同上：域端口通道未接入，如实报 false。
-        domain: false,
+        ai,
+        domain,
+        // 能力为 true 时不带原因：`reasons` 只解释"为什么缺"
+        ...(Object.keys(reasons).length > 0 ? { reasons } : {}),
       };
     },
     async dispose(): Promise<void> {
-      // 终止残留子进程，释放资源。
+      /**
+       * 注意职责边界：这里**只**释放本外壳实例持有的资源。
+       *
+       * 侧车进程属于**应用**而不是某个窗口，它由 Rust 在 `RunEvent::Exit`
+       * 里收尾（先发协议 shutdown 让它杀掉预览后端，再强杀兜底）。
+       * 若在这里关掉侧车，"关一个窗口"就会把整个应用的后端干掉。
+       */
+      sidecarListeners.clear();
+      const subId = sidecarSubId;
+      sidecarSubId = null;
+      if (subId !== null) {
+        await call<void>('sidecar_unsubscribe', { sub_id: subId }).catch(() => {});
+      }
+      // 终止本实例登记的残留子进程（fs watch / 通用 process 端口）
       await processApi.killAll().catch(() => {});
     },
   };

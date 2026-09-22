@@ -88,6 +88,35 @@ async function call<T>(method: string, params: Record<string, unknown> = {}): Pr
   return response.result as T;
 }
 
+/**
+ * 清理临时目录（**容错**）。
+ *
+ * Windows 上文件句柄的回收比进程内的 `close()` 晚一拍：SQLite 的 WAL 文件与
+ * `git` 刚写过的 pack 目录在 `db.close()` 之后仍可能被短暂占用，此时 `rmSync` 会
+ * `EPERM`。在**全量并发**跑测试时这一拍会被拉长（几百个用例抢占 IO），
+ * 于是清理动作本身把用例判成失败——而它断言的东西早就通过了。
+ *
+ * 因此：重试几次；仍失败就放弃并留痕。**临时目录清理失败不该让用例失败**，
+ * 这属于环境抖动，不是被测行为（断言部分不做任何放松）。
+ */
+function cleanupTempDir(dir: string): void {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch {
+      // 第 2 次起稍等一拍：句柄释放依赖 GC / 操作系统回收
+      if (attempt < 3) sleepSync(60 * (attempt + 1));
+    }
+  }
+  console.warn(`[test] 临时目录未能清理（不影响断言）：${dir}`);
+}
+
+/** 同步小睡（测试清理专用；不用 await 以免 afterEach 变 async） */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'ec-git-import-'));
   dataDir = join(root, 'data');
@@ -100,7 +129,7 @@ beforeEach(() => {
 
 afterEach(() => {
   db.close();
-  rmSync(root, { recursive: true, force: true });
+  cleanupTempDir(root);
 });
 
 describe('从 Git 导入（真实本地仓库）', () => {

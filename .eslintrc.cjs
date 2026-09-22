@@ -50,6 +50,16 @@ module.exports = {
         'no-console': 'off',
       },
     },
+    {
+      // 侧车入口的**全部**职责之一就是把 console 从 stdout 赶到 stderr
+      // （stdout 被 NDJSON 协议独占，任何 console 输出都会弄脏协议流）。
+      // 它要逐个给 console.log/debug 重新赋值，因此必须放行 no-console；
+      // 这是"为了关掉 console 而触碰 console"的唯一一处。
+      files: ['apps/desktop-electron/src/sidecar/index.ts'],
+      rules: {
+        'no-console': 'off',
+      },
+    },
   ],
   ignorePatterns: [
     'node_modules',

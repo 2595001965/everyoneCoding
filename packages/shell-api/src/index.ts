@@ -146,6 +146,15 @@ export interface ShellHandshake {
   capabilities: ShellCapabilities;
   /** 缺失的能力列表，UI 据此降级 */
   degraded: string[];
+  /**
+   * 缺失能力的**原因**（外壳如实上报时才有；未上报则缺省）。
+   *
+   * 与 `degraded` 成对使用：前者回答"缺什么"，这里回答"为什么缺"。
+   * 例如 Tauri 形态在机器上没有 Node 运行时时 `domain`/`ai` 均为 false，
+   * 原因会指向「侧车运行时不可用（未找到 Node）」——用户据此知道该装什么，
+   * 而不是以为功能"坏了"。
+   */
+  degradedReasons: Partial<Record<string, string>>;
 }
 
 /**
@@ -171,8 +180,24 @@ export async function negotiate(shell: ShellHost): Promise<ShellHandshake> {
       domain: false,
     };
   }
+  // 只把**布尔**条目纳入降级判定：`reasons` 是对象，混进来会让
+  // 「缺失能力清单」里冒出一个叫 reasons 的假能力项。
   const degraded = Object.entries(capabilities)
-    .filter(([, available]) => !available)
+    .filter(([, available]) => typeof available === 'boolean' && !available)
     .map(([name]) => name);
-  return { apiVersion: SHELL_API_VERSION, kind: shell.kind, capabilities, degraded };
+
+  const reasons = capabilities.reasons ?? {};
+  const degradedReasons: Partial<Record<string, string>> = {};
+  for (const name of degraded) {
+    const reason = (reasons as Record<string, string | undefined>)[name];
+    if (typeof reason === 'string' && reason.length > 0) degradedReasons[name] = reason;
+  }
+
+  return {
+    apiVersion: SHELL_API_VERSION,
+    kind: shell.kind,
+    capabilities,
+    degraded,
+    degradedReasons,
+  };
 }

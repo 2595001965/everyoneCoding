@@ -1,13 +1,54 @@
 //! EveryoneCoding Tauri 2 外壳入口。
 //!
-//! 职责：装配插件、注册全部 Rust 命令、注入共享状态。
+//! 职责：装配插件、注册全部 Rust 命令、注入共享状态、管理侧车生命周期。
 //! 所有命令命名与 `packages/shell-api` 的 `ShellHost` 方法一一对应（蛇形命名）。
+//!
+//! ## 双形态功能等价（D-01）是怎么落地的
+//!
+//! Tauri 外壳是 Rust + 系统 WebView2，**没有 Node 运行时**；而本仓库的业务逻辑
+//! （15 个域 + AI 栈 + `@ec/*` 领域内核）全部是 Node 侧 TS。因此业务运行时经
+//! **受控侧车**承载（见 `sidecar` 模块注释）：
+//!
+//! ```text
+//! 渲染层 ──► Tauri 桥接层 ──► 本文件的命令 ──► SidecarManager ──NDJSON──► Node 侧车
+//! ```
+//!
+//! Rust 只做生命周期、协议搬运与宿主能力（DPAPI / 外链 / 剪贴板）。
+//! 这样"两版功能等价"不是靠两份实现对齐，而是**真的只有一份实现**。
 
 pub mod commands;
 pub mod error;
+pub mod sidecar;
 pub mod state;
 
+use std::sync::Arc;
+
+use tauri::Manager;
+
+use sidecar::protocol::SidecarConfigWire;
+use sidecar::SidecarManager;
 use state::AppState;
+
+/// 组装侧车启动配置。
+///
+/// 目录布局与 Electron 形态**逐字对齐**（`<userData>/data|cache|secure|workspace`）：
+/// 双形态各自的 `userData` 根不同（Tauri 用 `app_data_dir`，Electron 用 `app.getPath`），
+/// 但根之下的结构一致，用户的备份/迁移脚本不必区分形态。
+fn build_sidecar_config(app: &tauri::AppHandle) -> SidecarConfigWire {
+    let base = app.path().app_data_dir().unwrap_or_else(|_| {
+        let fallback = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+        std::path::PathBuf::from(fallback).join("EveryoneCoding")
+    });
+    SidecarConfigWire {
+        data_dir: base.join("data").to_string_lossy().to_string(),
+        cache_dir: base.join("cache").to_string_lossy().to_string(),
+        secure_dir: base.join("secure").to_string_lossy().to_string(),
+        workspace_root: base.join("workspace").to_string_lossy().to_string(),
+        user_id: "local-user".to_string(),
+        // 与 Electron 形态同一口径：账号服务基址缺省为本机自建服务
+        account_base_url: std::env::var("EC_ACCOUNT_BASE_URL").ok(),
+    }
+}
 
 /// 应用入口。被 `main.rs` 与（将来的）移动端包装共同调用。
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -20,6 +61,19 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
+        .setup(|app| {
+            let handle = app.handle().clone();
+            let manager = SidecarManager::new(handle, build_sidecar_config(app.handle()));
+            // 后台预热：侧车装配要跑 SQLite 迁移并初始化 AI 栈，放在窗口出现之后再等
+            // 用户去点第一个按钮，体验是"界面卡了一下"。预热失败不改启动结果 ——
+            // 能力协商会在 `capabilities()` / `domain.describe()` 里如实上报。
+            let warm = manager.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = warm.ensure_ready().await;
+            });
+            app.manage(manager);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // 文件系统
             commands::fs::fs_read_text,
@@ -82,7 +136,13 @@ pub fn run() {
             commands::net::net_set_allowed_hosts,
             commands::net::net_is_host_allowed,
             commands::net::net_fetch,
-            // AI 控制（Rust 栈未接入时显式降级）
+            // 领域端口（经侧车承载真实业务运行时）
+            commands::domain::domain_invoke,
+            commands::domain::domain_describe,
+            commands::domain::sidecar_status,
+            commands::domain::sidecar_subscribe,
+            commands::domain::sidecar_unsubscribe,
+            // AI 控制（同上，走侧车里的真实 AI 栈）
             commands::ai::ai_invoke,
             commands::ai::ai_stream_start,
             commands::ai::ai_abort,
@@ -92,7 +152,21 @@ pub fn run() {
             commands::webview2::webview2_check,
         ]);
 
-    builder
-        .run(tauri::generate_context!())
+    let app = builder
+        .build(tauri::generate_context!())
         .expect("Tauri 应用启动失败");
+
+    app.run(|handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            // 退出前**必须**收尾侧车：它自己 spawn 的预览后端（`npm run dev` 之类）
+            // 会变成孤儿进程，占住端口与工程目录；SQLite 的 WAL 锁也会留在那里，
+            // 用户看到的现象是"下次启动报数据目录被占用"。
+            if let Some(manager) = handle.try_state::<Arc<SidecarManager>>() {
+                let manager = manager.inner().clone();
+                tauri::async_runtime::block_on(async move {
+                    manager.shutdown().await;
+                });
+            }
+        }
+    });
 }

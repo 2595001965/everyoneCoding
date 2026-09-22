@@ -16,10 +16,23 @@ import path from 'node:path';
  *   永远列不出该条目，会变成极难定位的静默失败。
  */
 
+/**
+ * 加密原语的最小形状（Electron `safeStorage` 与此同形）。
+ *
+ * **为什么 `encryptString` / `decryptString` 的返回类型是 `X | Promise<X>`**：
+ * 加密能力在两种形态下**不在同一个进程里**。Electron 的 `safeStorage` 是主进程内的
+ * 同步调用；Tauri 形态的 DPAPI 在 Rust 侧，侧车（sidecar）跨进程取用必然是异步的。
+ * 把原语放宽为「同步或异步皆可」，下游三个存储实现（`createSecureFileStorage`、
+ * ai 的 `createDpapiStore`、auth 的 `createDpapiSecureStore`）只需多一个 `await`，
+ * 就能**同一份代码**跑在两种形态上，而不必为异步再复制一套落盘逻辑。
+ *
+ * `isEncryptionAvailable()` 保持**同步**：装配期必须能立刻回答「要不要装这个域」，
+ * 而两种形态在握手时都已经知道答案（Electron 查 `safeStorage`，侧车查握手结果）。
+ */
 export interface SafeStorageLike {
   isEncryptionAvailable(): boolean;
-  encryptString(plainText: string): Buffer;
-  decryptString(encrypted: Buffer): string;
+  encryptString(plainText: string): Buffer | Promise<Buffer>;
+  decryptString(encrypted: Buffer): string | Promise<string>;
 }
 
 export interface SecureFileStorage {
@@ -119,13 +132,14 @@ export function createSecureFileStorage(
   return {
     async write(namespace, key, value) {
       await fsp.mkdir(dirOf(namespace), { recursive: true });
-      const cipher = safeStorage.encryptString(value);
+      // `await` 兼容同步（Electron safeStorage）与异步（Tauri 侧车跨进程 DPAPI）两种原语
+      const cipher = await safeStorage.encryptString(value);
       await fsp.writeFile(fileOf(namespace, key), cipher);
     },
     async read(namespace, key) {
       try {
         const cipher = await fsp.readFile(fileOf(namespace, key));
-        return safeStorage.decryptString(cipher);
+        return await safeStorage.decryptString(cipher);
       } catch {
         return null;
       }

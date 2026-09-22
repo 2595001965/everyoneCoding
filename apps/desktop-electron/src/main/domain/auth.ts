@@ -41,12 +41,14 @@ import type { DomainRouter } from './runtime';
  *   不在本域伪造成功。
  */
 
-/** Electron `safeStorage` 的最小形状（便于测试注入假实现） */
-export interface SafeStorageLike {
-  isEncryptionAvailable(): boolean;
-  encryptString(plainText: string): Buffer;
-  decryptString(encrypted: Buffer): string;
-}
+/**
+ * Electron `safeStorage` 的最小形状（便于测试注入假实现）。
+ *
+ * 统一走 `main/secure-storage.ts` 的定义，不再本地复制一份——两份声明一旦漂移，
+ * 「同步 / 异步原语」这条差异就会在某一种形态上被静默吞掉。
+ */
+export type { SafeStorageLike } from '../secure-storage';
+import type { SafeStorageLike } from '../secure-storage';
 
 /**
  * DPAPI 加密的键值存储（`SecureStorePort`）。
@@ -66,13 +68,13 @@ function createDpapiSecureStore(safeStorage: SafeStorageLike, root: string): Sec
       }
       const file = fileOf(key);
       mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, safeStorage.encryptString(value));
+      writeFileSync(file, await safeStorage.encryptString(value));
     },
     async get(key: string): Promise<string | null> {
       const file = fileOf(key);
       if (!existsSync(file)) return null;
       try {
-        return safeStorage.decryptString(readFileSync(file));
+        return await safeStorage.decryptString(readFileSync(file));
       } catch {
         // 解不开（换了系统用户/密文损坏）按"没有凭据"处理，而不是让恢复流程炸掉
         return null;

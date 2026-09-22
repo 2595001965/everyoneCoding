@@ -312,6 +312,21 @@ export interface NetApi {
 // 能力探测与总接口
 // ---------------------------------------------------------------------------
 
+/** 能力名集合（`ShellCapabilities` 里除 `reasons` 外的全部键） */
+export type ShellCapabilityKey =
+  | 'fs'
+  | 'watch'
+  | 'process'
+  | 'dialog'
+  | 'window'
+  | 'secureStore'
+  | 'updater'
+  | 'net'
+  | 'clipboard'
+  | 'openExternal'
+  | 'ai'
+  | 'domain';
+
 export interface ShellCapabilities {
   fs: boolean;
   watch: boolean;
@@ -330,6 +345,18 @@ export interface ShellCapabilities {
    * 具体某个域是否装配完成由 `ShellHost.domain.describe()` 回答。
    */
   domain: boolean;
+  /**
+   * 能力缺失的**真实原因**（可选，面向用户，不得含路径与密钥）。
+   *
+   * 存在的意义：布尔 `false` 只说明"不可用"，用户与排查者无从判断是
+   * "还没做"、"这台机器缺外部工具链"还是"用户自己禁用"。外壳如实上报原因后，
+   * UI 可以给出可操作的引导，验收报告也能如实列出**受外部条件限制**的功能，
+   * 而不是让它们看起来像普通缺失。
+   *
+   * 约定：只在对应能力为 `false` 时出现；能力为 `true` 却带原因 = 外壳在说谎，
+   * `negotiate()` 会把它当作能力清单里的普通条目（不参与 `degraded` 计算）。
+   */
+  reasons?: Partial<Record<ShellCapabilityKey, string>>;
 }
 
 /** 外壳宿主：渲染层唯一允许接触的外壳对象 */

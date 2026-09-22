@@ -1,20 +1,8 @@
 import { app, BrowserWindow, ipcMain, safeStorage, clipboard, dialog, shell } from 'electron';
 import path from 'node:path';
-import { createDomainEventSink, type DomainKind } from '@ec/shell-api';
 import { registerAllIpc, type RegisteredIpc } from './ipc';
 import type { IpcDependencies } from './types';
-import { createElectronAiRuntime } from './ai/runtime';
-import { createDomainRuntime } from './domain/runtime';
-import { createSettingsDomain } from './domain/settings';
-import { createWorkspaceDomain } from './domain/workspace';
-import { createDocsDomain } from './domain/docs';
-import { createAuthDomain, type SafeStorageLike } from './domain/auth';
-import { createGitCredentialStore } from './domain/git-credentials';
-import { createControlledProcessHost } from './domain/process-host';
-import { openBusinessDb } from './domain/db';
-import { resolveProjectsDir } from './domain/settings-file';
-import { UNAVAILABLE_DOMAIN_REASONS } from './domain/reasons';
-import { createProductionDomains, type AiStackHandle } from './domain/domain-factories';
+import { createHeadlessRuntime, type HeadlessRuntime } from './runtime/bootstrap';
 
 /**
  * Electron 主进程入口。
@@ -46,15 +34,14 @@ const shouldAutoOpenDevTools = isDev && process.env['EC_ELECTRON_DEVTOOLS'] === 
 
 let mainWindow: BrowserWindow | null = null;
 let registered: RegisteredIpc | null = null;
-let aiRuntime: Awaited<ReturnType<typeof createElectronAiRuntime>> | null = null;
-let domainRuntime: ReturnType<typeof createDomainRuntime> | null = null;
-
 /**
- * 无所属请求的域事件所用信封 id（见 `buildDomainRuntime` 的 emit 绑定）。
- * 渲染层按 `domain + payload.type` 过滤这类事件，不依赖 requestId 匹配；
- * 但 preload 会丢弃缺 requestId 的载荷，故必须给一个非空哨兵。
+ * 业务运行时（域 + AI 栈）。
+ *
+ * **不再自己拼装**：装配逻辑统一在 `runtime/bootstrap.ts` 的 `createHeadlessRuntime()`，
+ * 与 Tauri 形态的侧车**共用同一份**。两处各写一份的后果不是"多写几行"，
+ * 而是两形态的域装配会各自漂移（一侧加了域、另一侧忘了），而这正是 D-01「功能等价」被侵蚀的方式。
  */
-const WATCHER_EVENT_REQUEST_ID = 'domain-watcher-event';
+let runtime: HeadlessRuntime | null = null;
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -118,171 +105,63 @@ function buildDependencies(): IpcDependencies {
     },
     dataDir,
     secureDir,
-    ...(aiRuntime ? { aiHost: aiRuntime } : {}),
-    ...(domainRuntime ? { domainHost: domainRuntime } : {}),
+    ...(runtime?.ai ? { aiHost: runtime.ai } : {}),
+    ...(runtime ? { domainHost: runtime.domain } : {}),
     openExternal: (url) => shell.openExternal(url),
   };
 }
 
 /**
- * 装配域运行时。
+ * 装配业务运行时（15 个域 + AI 栈）。
  *
- * 与 AI 栈**刻意分离**：AI 栈依赖 `safeStorage`（DPAPI），在无加密可用性的环境下会整体装配失败；
- * 而设置/工作台/文档这些域不该被它连坐，故各自独立装配、各自在 `describe()` 里如实上报。
+ * **本函数只做"外壳侧注入"，装配逻辑全在 `runtime/bootstrap.ts`** —— 那份逻辑
+ * 与 Tauri 形态的侧车**共用同一份代码**。这里是 Electron 独有的部分：
+ * 数据目录取自 `app.getPath('userData')`、密钥原语用 `safeStorage`（DPAPI）、
+ * 外链与剪贴板接 Electron 的系统实现。
  *
- * 域内共用**一个**业务库连接（workspace / docs 都要读同一份 SQLite），随域运行时一起释放。
+ * 为什么必须共用：两处各写一份装配不是"多写几行"，而是两形态的域装配会各自漂移
+ * （一侧加了域、另一侧忘了），而这正是 D-01「功能等价」被侵蚀的方式。
+ * 装配内部的两条纪律（AI 栈失败不连坐域运行时、事件 sink 先于域工厂创建）
+ * 也只在 bootstrap 里维护一次。
  */
-function buildDomainRuntime(
-  dataDir: string,
-  cacheDir: string,
-  aiStackHandle: AiStackHandle | null,
-  secureDir: string,
-  safeStorageLike: SafeStorageLike | null,
-): ReturnType<typeof createDomainRuntime> {
-  const defaultWorkspaceRoot = path.join(app.getPath('userData'), 'workspace');
-  const projectsDir = resolveProjectsDir(dataDir, defaultWorkspaceRoot);
-  const db = openBusinessDb({ dataDir });
-
-  const settings = createSettingsDomain({
-    dataDir,
-    cacheDir,
-    defaultWorkspaceRoot,
-    projectsDir,
-    db,
-    onNotice: (message) => console.warn(`[domain] ${message}`),
-  });
-
-  const workspace = createWorkspaceDomain({ db, dataDir, projectsDir });
-  const docs = createDocsDomain({ db });
-  // auth 域依赖系统加密能力（DPAPI）保存凭据：不可用时**不装配**并如实上报原因，
-  // 而不是装配一个"所有动作都报错"的端口。可用时基址取环境变量，缺省为本机自建账号服务。
-  let auth: ReturnType<typeof createAuthDomain> | null = null;
-  const encryptionAvailable =
-    safeStorage !== null &&
-    typeof safeStorage.isEncryptionAvailable === 'function' &&
-    safeStorage.isEncryptionAvailable();
-  if (encryptionAvailable) {
-    auth = createAuthDomain({
-      baseUrl: process.env['EC_ACCOUNT_BASE_URL'] ?? 'http://127.0.0.1:3000',
-      safeStorage: safeStorage as SafeStorageLike,
-      secureDir: path.join(app.getPath('userData'), 'secure'),
+async function buildRuntime(): Promise<HeadlessRuntime> {
+  const userData = app.getPath('userData');
+  return createHeadlessRuntime({
+    dataDir: path.join(userData, 'data'),
+    cacheDir: path.join(userData, 'cache'),
+    defaultWorkspaceRoot: path.join(userData, 'workspace'),
+    secureDir: path.join(userData, 'secure'),
+    safeStorage: safeStorage ?? null,
+    // AI 栈的 SQLite 迁移目录：开发期在仓库里，打包后由 prepare-production.mjs
+    // 复制到 app.asar/dist/migrations。给错路径也不会静默失效——
+    // 取不到时 `resolveMigrations` 会逐级上溯探测，仍找不到才报错。
+    migrationsDir: isDev
+      ? // dist/main/index.cjs → 上溯 4 层到仓库根。
+        path.join(__dirname, '..', '..', '..', '..', 'packages', 'data', 'migrations')
+      : path.join(__dirname, '..', 'migrations'),
+    userId: 'local-user',
+    ports: {
       openExternal: (url) => shell.openExternal(url),
       writeClipboard: (text) => clipboard.writeText(text),
-    });
-  }
-
-  const unavailableReasons = { ...UNAVAILABLE_DOMAIN_REASONS };
-  if (!auth) {
-    unavailableReasons.auth =
-      '系统加密能力不可用（safeStorage），无法安全保存登录凭据，账号域未装配';
-  }
-
-  // 域事件 sink 必须先于域工厂创建：code 域的外部改动监视器由 fs.watch 触发，
-  // 不属于任何一次 RPC 请求，需要一条独立的事件投递路径（见下方 emit 绑定）。
-  const events = createDomainEventSink();
-
-  /**
-   * 受控进程端口（T12-04）：预览后端的唯一启动通道。
-   *
-   * `allowedRoot = projectsDir` 是硬约束——渲染层递上来的 cwd 必须落在工程根内，
-   * 否则域内直接拒绝 spawn（避免"预览"变成"在任意目录跑任意命令"）。
-   */
-  const processHost = createControlledProcessHost({ allowedRoot: projectsDir });
-  /**
-   * Git 凭据（DPAPI）。safeStorage 不可用时为 null，git 域的凭据方法如实报 NOT_SUPPORTED，
-   * 而不是降级成明文文件。
-   */
-  const credentials =
-    safeStorageLike === null
-      ? null
-      : createGitCredentialStore({ secureDir, safeStorage: safeStorageLike });
-
-  // T12-01 生产端口总装：十一个生产能力域（memory/pipeline/git/preview/rename/
-  // ai-context/code/nav/designer/usage/package）一次性装配。AI 栈未就绪时
-  // aiStack 传 null，域内按此如实降级（生成类方法报 NOT_SUPPORTED + 引导）。
-  const production = createProductionDomains({
-    db,
-    projectsDir,
-    dataDir,
-    userId: 'local-user',
-    aiStack: aiStackHandle,
-    process: processHost,
-    credentials,
-    /**
-     * 非请求来源的事件发射口（当前消费者：code 域的外部改动监视器、
-     * preview 域的后端进程日志、rename 域的迁移流式日志）。
-     *
-     * 请求内产生的进度事件走 `ctx.emit`（runtime 补齐 requestId/domain）；
-     * 这些事件没有所属请求，用固定哨兵 id 作为信封关联字段，并走 `events.broadcast`
-     * ——它是**常驻下发**，不依赖"某个 requestId 正在飞"，因此后端进程日志、
-     * 外部改动监视、迁移流式日志都真的能到达渲染层。
-     * 渲染层按 `domain + payload.type` 过滤，不依赖 requestId 匹配。
-     * 哨兵仍必须是**非空字符串**：preload 会丢弃缺 requestId 的事件。
-     */
-    emit: (domain: DomainKind, payload: unknown) => {
-      events.broadcast({ requestId: WATCHER_EVENT_REQUEST_ID, domain, payload });
+      onNotice: (message) => console.warn(`[domain] ${message}`),
     },
-  });
-
-  return createDomainRuntime({
-    routers: {
-      settings: settings.router,
-      workspace: workspace.router,
-      docs: docs.router,
-      ...(auth ? { auth: auth.router } : {}),
-      ...production.routers,
-    },
-    // 同步域口：只承载 MemoryApi / PipelineApi 的同步签名方法（见 shell-api 的 DOMAIN_SYNC_METHODS）。
-    // 未装配同步路由的域在同步通道上如实返回 NOT_SUPPORTED，渲染层据此不注入对应端口。
-    syncRouters: production.syncRouters,
-    unavailableReasons: unavailableReasons,
-    // 事件 sink 与域工厂共用同一实例：否则监视器类事件会发到另一个 sink 而无人接收
-    events,
-    disposers: [
-      () => settings.dispose(),
-      async () => {
-        db.close();
-      },
-      ...production.disposers,
-      // 预览后端等外部进程必须在退出前杀干净：否则下次启动会撞端口、留下孤儿进程
-      () => processHost.dispose(),
-    ],
   });
 }
 
 void app.whenReady().then(async () => {
-  const deps = buildDependencies();
   try {
-    aiRuntime = await createElectronAiRuntime({
-      dataDir: deps.dataDir,
-      secureDir: deps.secureDir,
-      migrationsDir: isDev
-        ? // dist/main/index.cjs → 上溯 4 层到仓库根。
-          path.join(__dirname, '..', '..', '..', '..', 'packages', 'data', 'migrations')
-        : // 打包时由 prepare-production.mjs 复制到 app.asar/dist/migrations。
-          path.join(__dirname, '..', 'migrations'),
-      safeStorage: deps.safeStorage,
-    });
-  } catch (error) {
-    console.warn(
-      `[AI] 主进程 AI 栈未装配：${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
-  const userData = app.getPath('userData');
-  try {
-    // AI 栈桥接属 T12-08：域内生成调用将在该任务接入真实 gateway（共用绑定/预算），
-    // 当前传 null，生成类方法如实报 NOT_SUPPORTED + 引导。
-    domainRuntime = buildDomainRuntime(
-      path.join(userData, 'data'),
-      path.join(userData, 'cache'),
-      null,
-      deps.secureDir,
-      deps.safeStorage,
-    );
-    const descriptors = await domainRuntime.describe();
+    runtime = await buildRuntime();
+    const descriptors = await runtime.descriptors();
     const installed = descriptors.filter((item) => item.available).map((item) => item.kind);
     console.info(`[domain] 已装配域=[${installed.join(', ') || '无'}]`);
+    /**
+     * AI 栈装配失败**不抛错**：`createHeadlessRuntime` 会把它记成 `aiError` 并继续装域。
+     * 这是刻意的——AI 依赖 DPAPI，在无桌面会话/无加密可用性的环境里会整体失败，
+     * 而设置 / 工作台 / 文档 / 记忆这些域不该被它连坐。这里只把原因留痕。
+     */
+    if (runtime.ai === null) {
+      console.warn(`[AI] 主进程 AI 栈未装配：${runtime.aiError ?? '未知原因'}`);
+    }
   } catch (error) {
     console.warn(
       `[domain] 域运行时未装配：${error instanceof Error ? error.message : String(error)}`,
@@ -305,10 +184,15 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   registered?.dispose();
   registered = null;
-  void aiRuntime?.dispose();
-  aiRuntime = null;
-  void domainRuntime?.dispose();
-  domainRuntime = null;
+  /**
+   * 一次 `dispose()` 收掉全部：域路由、事件 sink、AI 栈、预览后端子进程、
+   * SQLite 连接（顺序见 `runtime/bootstrap.ts` 的 `disposers`）。
+   *
+   * 不要在这里再单独 dispose AI 栈：它已经是域运行时 disposers 里的一项，
+   * 重复释放会让 AI 栈的 `db.close()` 跑两遍（第二次抛错被吞掉，但掩盖真实失败）。
+   */
+  void runtime?.dispose();
+  runtime = null;
 });
 
 // 外链一律走系统浏览器，禁止在应用内打开任意 web 内容

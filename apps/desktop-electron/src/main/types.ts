@@ -65,11 +65,14 @@ export interface ElectronClipboardLike {
   clear(): void;
 }
 
-export interface SafeStorageLike {
-  isEncryptionAvailable(): boolean;
-  encryptString(plainText: string): Buffer;
-  decryptString(encrypted: Buffer): string;
-}
+/**
+ * 加密原语的形状（Electron `safeStorage` 与此同形）。
+ *
+ * 定义集中在 `main/secure-storage.ts` —— 那种「同步 / 异步原语皆可」的放宽
+ * 是双形态共用的基础假设，本地再复制一份声明必然漂移，故此处只做转发。
+ */
+export type { SafeStorageLike } from './secure-storage';
+import type { SafeStorageLike } from './secure-storage';
 
 export interface UpdaterLike {
   check(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;

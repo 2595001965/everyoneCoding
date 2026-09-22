@@ -7,6 +7,7 @@ pub mod ai;
 pub mod app_info;
 pub mod clipboard;
 pub mod dialog;
+pub mod domain;
 pub mod external;
 pub mod fs;
 pub mod net;

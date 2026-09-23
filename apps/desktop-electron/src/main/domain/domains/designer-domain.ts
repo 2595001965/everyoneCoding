@@ -34,6 +34,7 @@ import { documentFromText, type NoteType, type UpdateNoteInput } from '@ec/desig
 import { ShellError } from '@ec/shell-api';
 
 import type { DomainRouter } from '../runtime';
+import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
 import type { AiStackHandle } from '../domain-factories';
 import { createDesignerNoteStore, type DesignerNoteStore } from '../designer-notes';
 import { upsertRegistryEntry } from './rename-domain';
@@ -575,12 +576,14 @@ export function createDesignerDomain(options: DesignerDomainOptions): {
             },
           ],
         })) {
-          if (chunk.type === 'chunk' && typeof chunk['text'] === 'string') text += chunk['text'];
-          if (typeof chunk['model'] === 'string' && chunk['model'].length > 0) {
-            model = chunk['model'];
+          const delta = textOfStreamChunk(chunk);
+          text += delta.text;
+          if (delta.model !== null) {
+            model = delta.model;
           }
-          if (chunk.type === 'error') {
-            throw new ShellError('UNKNOWN', `页面生成失败：${String(chunk['error'] ?? '')}`);
+          const streamError = errorOfStreamChunk(chunk);
+          if (streamError !== null) {
+            throw new ShellError('UNKNOWN', `页面生成失败：${streamError}`);
           }
         }
         let candidate: unknown;

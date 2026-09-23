@@ -96,6 +96,19 @@ export interface AuthDomainOptions {
   writeClipboard: (text: string) => void;
   /** 测试注入：替换默认的 Node fetch 传输（默认按 baseUrl 直连） */
   transport?: TransportPort | undefined;
+  /**
+   * 注册自定义协议回调处理器（Electron 侧接 `everyonecoding://oauth` 单实例转发）。
+   * 返回 false = 该外壳不支持协议注册（辅通道如实不可用）。
+   */
+  registerProtocolHandler?: ((handler: (url: string) => void) => boolean) | undefined;
+  /**
+   * 强制 OAuth 通道。缺省（`undefined`）= 按可用性自动选择：先试回环，失败才回退协议。
+   *
+   * `'protocol'` 是一个**真实运维需要**而非测试专用的开关：部分企业终端管控
+   * 直接禁止进程 `listen` 本机端口，回环每次都会失败。强制协议通道可以跳过
+   * 每次都失败的尝试，让授权直接走 `everyonecoding://oauth`。
+   */
+  forceOAuthChannel?: 'loopback' | 'protocol' | undefined;
 }
 
 export function createAuthDomain(options: AuthDomainOptions): { router: DomainRouter } {
@@ -133,8 +146,19 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
   const system: SystemPort = {
     openExternal: (url) => options.openExternal(url),
 
-    /** OAuth 主通道：本机回环监听，随机端口，回调即 `http://127.0.0.1:<port>/...` */
+    /**
+     * OAuth 主通道：本机回环监听，随机端口，回调即 `http://127.0.0.1:<port>/...`。
+     * 浏览器命中监听后，回调 URL **先交给 AuthClient**（ingestCallback → completeOAuth），
+     * 不再丢弃——丢弃会让"回环回调"通道名存实亡（只能靠渲染层手动贴 URL）。
+     */
     startLoopback(handler) {
+      // 强制协议通道时直接拒绝：AuthClient 会据此回退到 `registerProtocol`。
+      // 拒绝用 ShellError 而非普通 Error —— 与"端口被占 / 被策略阻断"走同一条回退路径。
+      if (options.forceOAuthChannel === 'protocol') {
+        return Promise.reject(
+          new ShellError('IO_ERROR', '已按配置强制使用 everyonecoding:// 协议通道'),
+        );
+      }
       return new Promise((resolve, reject) => {
         const server: Server = createServer((request, response) => {
           const host = request.headers.host ?? '';
@@ -164,8 +188,15 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
       });
     },
 
-    /** 辅通道未接线：如实返回 false，让客户端只用主通道 */
-    registerProtocol: async () => false,
+    /**
+     * 辅通道：`everyonecoding://oauth` 自定义协议。
+     * 协议处理器的注册由外壳完成（Electron `setAsDefaultProtocolClient` +
+     * 单实例锁 second-instance 转发），这里只挂"收到 URL 后交给谁"的回调。
+     */
+    registerProtocol: async (handler) => {
+      if (options.registerProtocolHandler === undefined) return false;
+      return options.registerProtocolHandler(handler);
+    },
 
     writeClipboard: async (text) => options.writeClipboard(text),
   };
@@ -255,6 +286,52 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
           }
         }
 
+        /**
+         * 等待 OAuth 回调到达（回环命中 / 自定义协议拉起都会推到这里）。
+         * 到达后由本域代为 completeOAuth（state 一次性消费），返回会话。
+         * 渲染层 beginOAuth 之后轮询/订阅本方法即可，无需自己拿回调 URL。
+         */
+        case 'pollOAuthCallback': {
+          const provider = params['provider'] as OAuthProvider;
+          const handshake = pendingHandshakes.get(provider);
+          if (!handshake) {
+            throw new ShellError(
+              'INVALID_ARGUMENT',
+              `没有待完成的 ${provider} 授权：请先调用 beginOAuth 发起授权。`,
+            );
+          }
+          const timeoutMs = Number(params['timeoutMs'] ?? 1500);
+          const callbackUrl = await client.waitForCallback(handshake.state, timeoutMs);
+          try {
+            const session = await client.completeOAuth(handshake, callbackUrl, {
+              rememberMe: params['rememberMe'] === true,
+            });
+            return { status: 'completed', session: keepSession(session) };
+          } finally {
+            pendingHandshakes.delete(provider);
+          }
+        }
+
+        /** 渲染层主动上送一条回调 URL（如从浏览器复制 / 外部捕获），走同一条校验路径 */
+        case 'submitOAuthCallback': {
+          const provider = params['provider'] as OAuthProvider;
+          const handshake = pendingHandshakes.get(provider);
+          if (!handshake) {
+            throw new ShellError(
+              'INVALID_ARGUMENT',
+              `没有待完成的 ${provider} 授权：请先调用 beginOAuth 发起授权。`,
+            );
+          }
+          try {
+            const session = await client.completeOAuth(handshake, String(params['callbackUrl']), {
+              rememberMe: params['rememberMe'] === true,
+            });
+            return keepSession(session);
+          } finally {
+            pendingHandshakes.delete(provider);
+          }
+        }
+
         case 'pollWechatScan': {
           const result = await client.waitWechatScan(String(params['state']), {
             // 单次轮询一次：由渲染层控制节奏（端口契约就是"轮询状态"）
@@ -268,7 +345,7 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
           return await client.listBindings(requireToken());
 
         case 'bind':
-          return await client.bind(params['provider'] as AuthProvider, requireToken());
+          return await client.bind(params['provider'] as OAuthProvider, requireToken());
 
         case 'unbind':
           return await client.unbind(
@@ -279,6 +356,19 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
 
         case 'requestEmailVerification':
           await client.requestEmailVerification(String(params['email']));
+          return undefined;
+
+        /** 邮件链接里的 token 确认（注册 → 验证 → 登录闭环的"验证"一步） */
+        case 'confirmEmailVerification':
+          await client.confirmEmailVerification(String(params['token']));
+          return undefined;
+
+        /** 查询验证状态（验证链接在本机之外的浏览器里点开，故只能轮询） */
+        case 'emailVerified':
+          return await client.emailVerified(String(params['email']));
+
+        case 'requestPasswordReset':
+          await client.requestPasswordReset(String(params['email']));
           return undefined;
 
         case 'resetPassword':
@@ -319,6 +409,7 @@ function mapAuthError(error: unknown): unknown {
       403: 'PERMISSION_DENIED',
       404: 'NOT_FOUND',
       409: 'ALREADY_EXISTS',
+      408: 'TIMEOUT',
       429: 'TIMEOUT',
     };
     const mapped = map[status];

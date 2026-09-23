@@ -13,5 +13,6 @@ export * from './parsers/txt';
 export * from './parsers/docx';
 export * from './parsers/pdf';
 export * from './parsers/image-ocr';
+export * from './parsers/windows-ocr';
 export * from './parsers/node-registry';
 export * from './parsers/browser-registry';

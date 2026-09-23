@@ -32,6 +32,7 @@ import {
 import { ShellError } from '@ec/shell-api';
 
 import type { DomainRouter } from '../runtime';
+import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
 import type { AiStackHandle } from '../domain-factories';
 
 /**
@@ -475,9 +476,10 @@ export function createCodeDomain(options: CodeDomainOptions): {
             },
           ],
         })) {
-          if (chunk.type === 'chunk' && typeof chunk.text === 'string') raw += chunk.text;
-          if (chunk.type === 'error') {
-            throw new ShellError('UNKNOWN', `重改生成失败：${String(chunk['error'] ?? '')}`);
+          raw += textOfStreamChunk(chunk).text;
+          const streamError = errorOfStreamChunk(chunk);
+          if (streamError !== null) {
+            throw new ShellError('UNKNOWN', `重改生成失败：${streamError}`);
           }
         }
 

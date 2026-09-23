@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DomainControlServiceHost } from '@ec/shell-api';
 
 import { openBusinessDb } from '../domain/db';
+import type { AiStackHandle } from '../domain/domain-factories';
 import { createDocsDomain } from '../domain/docs';
 import { createDomainRuntime } from '../domain/runtime';
 
@@ -110,13 +111,26 @@ describe('导入与解析', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('supportedFormats 走 Node 侧注册表：docx/pdf 可用，image 因缺 OCR 不支持', async () => {
+  it('supportedFormats 走 Node 侧注册表：docx/pdf/image 全可用（OCR 已接线）', async () => {
     const formats = await call<string[]>('supportedFormats');
     expect(formats).toContain('markdown');
     expect(formats).toContain('txt');
     expect(formats).toContain('docx');
     expect(formats).toContain('pdf');
-    expect(formats).not.toContain('image');
+    expect(formats).toContain('image');
+  });
+
+  it('ocrStatus 如实上报可用性与语言清单', async () => {
+    const status = await call<{
+      available: boolean;
+      reason: string | null;
+      languages: string[];
+      detail: string;
+    }>('ocrStatus');
+    expect(typeof status.available).toBe('boolean');
+    expect(Array.isArray(status.languages)).toBe(true);
+    // 引导文案必须可读（非空 detail）
+    expect(status.detail.length).toBeGreaterThan(0);
   });
 
   it('未知格式导入如实报 NOT_SUPPORTED', async () => {
@@ -262,7 +276,7 @@ describe('记忆关联', () => {
 });
 
 describe('一键转记忆', () => {
-  it('previewConvertToMemory 因未注入 AI 摘要端口而如实报错，并给出可读引导', async () => {
+  it('AI 未装配时 previewConvertToMemory 如实报错，并给出可读引导', async () => {
     const doc = await importDoc();
     await expect(
       call('previewConvertToMemory', { input: { docId: doc.id, scope: 'project' } }),
@@ -306,5 +320,205 @@ describe('一键转记忆', () => {
         createdAt: expect.any(Number),
       },
     ]);
+  });
+});
+
+describe('一键转记忆（注入 AI 栈后走真实网关流）', () => {
+  /**
+   * 假网关流块 —— **必须与真实 `StreamChunk` 判别值一致**：文本块是 `'delta'`
+   * （见 `packages/ai/src/core/stream.ts`）。
+   * 以前夹具写成 `'chunk'`，于是夹具与实现"错得一样"，测试全绿而线上恒为空串。
+   */
+  type FakeStreamChunk =
+    | { type: 'delta'; text: string; model?: string }
+    | { type: 'done'; finishReason: string; partial?: boolean }
+    | { type: 'error'; error: string };
+
+  /** 可编程 AI 网关假实现（与 AiStackHandle.gateway 形状一致） */
+  function makeAiStack(
+    behavior: () => AsyncIterable<FakeStreamChunk> | (() => never),
+  ): AiStackHandle {
+    return {
+      gateway: { chat: behavior as never },
+    };
+  }
+
+  function chunkIter(chunks: FakeStreamChunk[]): AsyncIterable<FakeStreamChunk> {
+    return (async function* () {
+      for (const chunk of chunks) yield chunk;
+    })();
+  }
+
+  beforeEach(() => {
+    db.prepare(
+      `INSERT OR IGNORE INTO user (id, login, display_name, role, created_at, updated_at) VALUES ('local-user', 'local-user', '本地用户', 'owner', 0, 0)`,
+    ).run();
+  });
+
+  it('AI 正常输出时：预览产出「标题+摘要」草稿并保留段落锚点；提交落库带原文链接', async () => {
+    const aiStack = makeAiStack(() =>
+      chunkIter([
+        { type: 'delta', text: '标题：登录需求要点\n\n' },
+        { type: 'delta', text: '- 支持邮箱登录\n- 邮箱不区分大小写' },
+        { type: 'done', finishReason: 'stop' },
+      ]),
+    );
+    const domain = createDocsDomain({ db, aiStack });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+
+    const doc = await importDoc();
+    const draft = await call<{
+      title: string;
+      content: string;
+      sourceRef: { docId: string; anchor: string | null };
+    }>('previewConvertToMemory', { input: { docId: doc.id, scope: 'project' } });
+    expect(draft.title).toBe('登录需求要点');
+    expect(draft.content).toContain('支持邮箱登录');
+    expect(draft.sourceRef.docId).toBe(doc.id);
+
+    // 带锚点：草稿引用选中段落的锚点
+    const draftSection = await call<{ sourceRef: { anchor: string | null } }>(
+      'previewConvertToMemory',
+      {
+        input: { docId: doc.id, scope: 'project', anchor: doc.sections[1]?.anchor },
+      },
+    );
+    expect(draftSection.sourceRef.anchor).toBe(doc.sections[1]?.anchor ?? null);
+
+    const node = await call<{ id: string }>('commitConvertToMemory', {
+      input: { projectId, draft },
+    });
+    const row = db.prepare(`SELECT content FROM memory_item WHERE id = ?`).get(node.id) as {
+      content: string;
+    };
+    expect(row.content).toContain(`docId=${doc.id}`);
+  });
+
+  it('AI 流式报错时：结构化失败提示（UNKNOWN），绝不伪造摘要', async () => {
+    const aiStack = makeAiStack(() =>
+      chunkIter([{ type: 'error', error: '上游模型 503：配额不足' }]),
+    );
+    const domain = createDocsDomain({ db, aiStack });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+
+    const doc = await importDoc();
+    await expect(
+      call('previewConvertToMemory', { input: { docId: doc.id, scope: 'longterm' } }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('AI 摘要失败'),
+    });
+    // 失败后库里没有半截记忆节点
+    const count = db.prepare(`SELECT COUNT(*) AS n FROM memory_item`).get() as { n: number };
+    expect(count.n).toBe(0);
+  });
+
+  it('AI 空输出时：如实报"输出为空"引导检查配置', async () => {
+    const aiStack = makeAiStack(() => chunkIter([{ type: 'done', finishReason: 'stop' }]));
+    const domain = createDocsDomain({ db, aiStack });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+
+    const doc = await importDoc();
+    await expect(
+      call('previewConvertToMemory', { input: { docId: doc.id, scope: 'project' } }),
+    ).rejects.toThrowError(/AI 摘要输出为空/);
+  });
+});
+
+describe('图片 OCR（注入假端口走完整导入→检索→转记忆链）', () => {
+  beforeEach(() => {
+    db.prepare(
+      `INSERT OR IGNORE INTO user (id, login, display_name, role, created_at, updated_at) VALUES ('local-user', 'local-user', '本地用户', 'owner', 0, 0)`,
+    ).run();
+  });
+
+  function makeFakeOcr(sections: Array<{ heading: string; text: string }> | 'fail') {
+    return sections === 'fail'
+      ? {
+          availability: async () => ({
+            available: false,
+            reason: '语言包缺失',
+            languages: [],
+            detail: 'x',
+          }),
+          recognize: async () => {
+            throw new Error('语言包缺失');
+          },
+        }
+      : {
+          availability: async () => ({
+            available: true,
+            reason: null,
+            languages: ['zh-CN'],
+            detail: 'fake',
+          }),
+          recognize: async () => ({
+            title: '截图',
+            sections: sections.map((s, index) => ({
+              index,
+              level: 0,
+              heading: s.heading,
+              anchor: `sec-${index}`,
+              text: s.text,
+            })),
+          }),
+        };
+  }
+
+  it('图片导入成功：OCR 文本入库可检索，且能转记忆', async () => {
+    const domain = createDocsDomain({
+      db,
+      aiStack: null,
+      ocr: makeFakeOcr([{ heading: '', text: '登录页截图文字：支持手机号登录' }]),
+    });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+    expect(await call<string[]>('supportedFormats')).toContain('image');
+
+    const doc = await call<DocShape & { contentText: string }>('importDocument', {
+      input: {
+        projectId,
+        format: 'image',
+        raw: new Uint8Array([137, 80, 78, 71]),
+        title: '登录截图',
+        fileName: 'shot.png',
+      },
+    });
+    expect(doc.format).toBe('image');
+    expect(doc.contentText).toContain('手机号登录');
+
+    // OCR 文本可检索（content_text 落库）
+    const row = db.prepare(`SELECT content_text FROM document WHERE id = ?`).get(doc.id) as {
+      content_text: string;
+    };
+    expect(row.content_text).toContain('手机号登录');
+
+    // 转 memory：commit 不依赖 AI
+    const node = await call<{ id: string }>('commitConvertToMemory', {
+      input: {
+        projectId,
+        draft: {
+          docId: doc.id,
+          scope: 'feature',
+          title: '登录截图要点',
+          content: '截图显示支持手机号登录。',
+          sourceRef: { docId: doc.id, anchor: 'sec-0' },
+        },
+      },
+    });
+    expect(node.id).toBeTruthy();
+  });
+
+  it('OCR 失败时：NOT_SUPPORTED + 安装/语言引导，不落空文档', async () => {
+    const domain = createDocsDomain({ db, aiStack: null, ocr: makeFakeOcr('fail') });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+    const status = await call<{ available: boolean; reason: string | null }>('ocrStatus');
+    expect(status.available).toBe(false);
+    expect(status.reason).toContain('语言包');
+
+    await expect(
+      call('importDocument', {
+        input: { projectId, format: 'image', raw: new Uint8Array([1]), title: 'x' },
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_SUPPORTED' });
+    expect((db.prepare(`SELECT COUNT(*) AS n FROM document`).get() as { n: number }).n).toBe(0);
   });
 });

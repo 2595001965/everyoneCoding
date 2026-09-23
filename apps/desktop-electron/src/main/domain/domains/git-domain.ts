@@ -24,6 +24,7 @@ import {
 import { ShellError } from '@ec/shell-api';
 
 import type { CodeWritePort } from './code-domain';
+import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
 import type { AiStackHandle } from '../domain-factories';
 import { createProjectPaths, type ProjectPaths } from '../paths';
 import type { DomainRouter } from '../runtime';
@@ -223,9 +224,10 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
         { role: 'user', content: `以下是本次变更的 diff：\n\n${truncated}` },
       ],
     })) {
-      if (chunk.type === 'chunk' && typeof chunk.text === 'string') raw += chunk.text;
-      if (chunk.type === 'error') {
-        throw new ShellError('UNKNOWN', `生成提交信息失败：${String(chunk['error'] ?? '')}`);
+      raw += textOfStreamChunk(chunk).text;
+      const commitStreamError = errorOfStreamChunk(chunk);
+      if (commitStreamError !== null) {
+        throw new ShellError('UNKNOWN', `生成提交信息失败：${commitStreamError}`);
       }
     }
 
@@ -323,9 +325,10 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
           { role: 'user', content: request.context },
         ],
       })) {
-        if (chunk.type === 'chunk' && typeof chunk.text === 'string') merged += chunk.text;
-        if (chunk.type === 'error') {
-          throw new ShellError('UNKNOWN', `AI 合并失败：${String(chunk['error'] ?? '')}`);
+        merged += textOfStreamChunk(chunk).text;
+        const mergeStreamError = errorOfStreamChunk(chunk);
+        if (mergeStreamError !== null) {
+          throw new ShellError('UNKNOWN', `AI 合并失败：${mergeStreamError}`);
         }
       }
       const trimmed = merged.trim();

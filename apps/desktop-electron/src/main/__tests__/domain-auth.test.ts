@@ -9,6 +9,7 @@ import type { DomainControlServiceHost } from '@ec/shell-api';
 
 import { createDomainRuntime } from '../domain/runtime';
 import { createAuthDomain, type SafeStorageLike } from '../domain/auth';
+import { createProtocolBridge } from '../protocol';
 
 /**
  * auth 域运行时测试。
@@ -98,6 +99,8 @@ function makeTokens(): Record<string, unknown> {
 function build(overrides: {
   fakeSafe?: SafeStorageLike;
   fake?: ReturnType<typeof makeFakeTransport>;
+  registerProtocolHandler?: ((handler: (url: string) => void) => boolean) | undefined;
+  forceOAuthChannel?: 'loopback' | 'protocol' | undefined;
 }): void {
   const domain = createAuthDomain({
     baseUrl: 'https://account.test',
@@ -106,6 +109,12 @@ function build(overrides: {
     openExternal: async () => undefined,
     writeClipboard: () => undefined,
     ...(overrides.fake ? { transport: overrides.fake.transport } : {}),
+    ...(overrides.registerProtocolHandler !== undefined
+      ? { registerProtocolHandler: overrides.registerProtocolHandler }
+      : {}),
+    ...(overrides.forceOAuthChannel !== undefined
+      ? { forceOAuthChannel: overrides.forceOAuthChannel }
+      : {}),
   });
   runtime = createDomainRuntime({ routers: { auth: domain.router } });
 }
@@ -258,17 +267,22 @@ describe('绑定管理（令牌来自已恢复会话）', () => {
       // ⚠️ 顺序 matters：DELETE 的 URL 也包含 "/api/auth/bindings"，
       // 必须把更具体的路由放在前面，否则会被通用清单路由抢先匹配
       {
-        match: '/api/auth/bindings?provider=',
+        // 新契约：解绑按 bindingId 删除（不再按 provider）
+        match: '/api/auth/bindings?bindingId=',
         respond: (request) => {
           expect(request.method).toBe('DELETE');
+          expect(request.url).toContain('bindingId=b-gh');
           expect((request.headers?.Authorization ?? '').startsWith('Bearer ')).toBe(true);
           return { status: 200, json: { bindings: [] } };
         },
       },
-      // bind/unbind 都会先 GET 一次绑定清单做前置守卫
+      // bind/unbind 都会先 GET 一次绑定清单做前置守卫（需带 id 才能定位删除目标）
       {
         match: '/api/auth/bindings',
-        respond: () => ({ status: 200, json: { bindings: [{ provider: 'github' }] } }),
+        respond: () => ({
+          status: 200,
+          json: { bindings: [{ id: 'b-gh', provider: 'github', externalId: 'gh-1', boundAt: 1 }] },
+        }),
       },
     ]);
     build({ fake });
@@ -281,7 +295,10 @@ describe('绑定管理（令牌来自已恢复会话）', () => {
       LOGIN_OK,
       {
         match: '/api/auth/bindings',
-        respond: () => ({ status: 200, json: { bindings: [{ provider: 'github' }] } }),
+        respond: () => ({
+          status: 200,
+          json: { bindings: [{ id: 'b-gh', provider: 'github', externalId: 'gh-1', boundAt: 1 }] },
+        }),
       },
     ]);
     build({ fake });
@@ -393,9 +410,16 @@ describe('OAuth 握手的状态由外壳持有', () => {
       writeClipboard: () => undefined,
       transport: makeFakeTransport([
         {
-          // AuthClient 实际请求的端点（带 state / code_challenge / redirect_uri 查询参数）
+          // AuthClient 实际请求的端点（带 code_challenge / redirect_uri 查询参数）。
+          // 新契约：**state 由服务端签发**，authorize 端点回 { authorizeUrl, state }。
           match: '/api/auth/oauth/google/authorize',
-          respond: () => ({ status: 200, json: { clientId: 'cid-1' } }),
+          respond: () => ({
+            status: 200,
+            json: {
+              authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=cid-1',
+              state: 'srv-state-1',
+            },
+          }),
         },
       ]).transport,
     });
@@ -424,5 +448,146 @@ describe('OAuth 握手的状态由外壳持有', () => {
         rememberMe: false,
       }),
     ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+  });
+});
+
+/**
+ * OAuth 双通道端到端（FR-ACC-03 / D-01）。
+ *
+ * 这两个用例**不复用 `beginOAuth` 的假回环**：回环跑的是域内真实 `http.createServer`
+ * 并真的发一次 HTTP 请求进去；协议跑的是真实 `createProtocolBridge` 投递。
+ * 只断言"调用了 startLoopback / registerProtocol"是测不出回调被丢弃的 ——
+ * 而"回调被丢弃"正是这条链路最容易出的故障。
+ */
+describe('OAuth 双通道：回环与 everyonecoding:// 协议各跑一整遍', () => {
+  const STATE = 'srv-state-1';
+
+  function oauthRoutes(redirectUriAssertion: (redirectUri: string) => void, code: string) {
+    return [
+      {
+        match: '/api/auth/oauth/google/authorize',
+        respond: () => ({
+          status: 200,
+          json: {
+            authorizeUrl: `https://accounts.google.com/o/oauth2/v2/auth?state=${STATE}`,
+            state: STATE,
+          },
+        }),
+      },
+      {
+        match: '/api/auth/oauth/google/callback',
+        respond: (request: RecordedRequest) => {
+          const body = request.body as {
+            code: string;
+            codeVerifier: string;
+            redirectUri: string;
+            state: string;
+          };
+          expect(request.method).toBe('POST');
+          expect(body.code).toBe(code);
+          // PKCE verifier 必须真的带上（S256 换令牌的前提）
+          expect(body.codeVerifier.length).toBeGreaterThan(20);
+          expect(body.state).toBe(STATE);
+          redirectUriAssertion(body.redirectUri);
+          return { status: 200, json: { identity: makeIdentity(), tokens: makeTokens() } };
+        },
+      },
+    ] satisfies FakeRoute[];
+  }
+
+  function redirectUriOf(fake: ReturnType<typeof makeFakeTransport>): string {
+    const authorize = fake.requests.find((request) => request.url.includes('/authorize'));
+    expect(authorize).toBeDefined();
+    return new URL(String(authorize?.url)).searchParams.get('redirect_uri') ?? '';
+  }
+
+  it('回环通道：浏览器真的命中本地监听 → pollOAuthCallback 自动完成登录', async () => {
+    const fake = makeFakeTransport(
+      oauthRoutes((redirectUri) => expect(redirectUri).toContain('http://127.0.0.1:'), 'code-loop'),
+    );
+    build({ fake });
+
+    const handshake = await call<{ authorizeUrl: string; state: string }>('beginOAuth', {
+      provider: 'google',
+    });
+    expect(handshake.state).toBe(STATE);
+    expect(handshake.authorizeUrl).toContain('accounts.google.com');
+
+    const redirectUri = redirectUriOf(fake);
+    expect(redirectUri).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/oauth\/callback$/);
+
+    // 真发一次 HTTP —— 域内起的是真实回环服务器，不是假实现
+    const response = await fetch(`${redirectUri}?code=code-loop&state=${STATE}`);
+    expect(response.status).toBe(200);
+
+    const result = await call<{ status: string; session: { tokens: { accessToken: string } } }>(
+      'pollOAuthCallback',
+      { provider: 'google', timeoutMs: 3000 },
+    );
+    expect(result.status).toBe('completed');
+    expect(result.session.tokens.accessToken).toBe('at-1');
+
+    // 握手一次性消费：再来一次必须如实报"没有进行中的授权"
+    await expect(call('pollOAuthCallback', { provider: 'google' })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT',
+    });
+  });
+
+  it('协议通道：强制 everyonecoding:// → 桥投递回调 → pollOAuthCallback 自动完成登录', async () => {
+    const bridge = createProtocolBridge();
+    const fake = makeFakeTransport(
+      oauthRoutes(
+        (redirectUri) => expect(redirectUri).toBe('everyonecoding://oauth'),
+        'code-proto',
+      ),
+    );
+    build({
+      fake,
+      forceOAuthChannel: 'protocol',
+      registerProtocolHandler: (handler) => bridge.register(handler),
+    });
+
+    const handshake = await call<{ authorizeUrl: string; state: string }>('beginOAuth', {
+      provider: 'google',
+    });
+    expect(handshake.state).toBe(STATE);
+    // 回环被强制关闭 ⇒ redirect_uri 必须是协议 URL，否则浏览器会把回调打到无人监听的端口
+    expect(redirectUriOf(fake)).toBe('everyonecoding://oauth');
+
+    // 外壳收到 second-instance / open-url 后投递（这正是 installOAuthProtocol 做的事）
+    bridge.deliver(`everyonecoding://oauth?code=code-proto&state=${STATE}`);
+
+    const result = await call<{ status: string; session: { tokens: { accessToken: string } } }>(
+      'pollOAuthCallback',
+      { provider: 'google', timeoutMs: 2000 },
+    );
+    expect(result.status).toBe('completed');
+    expect(result.session.tokens.accessToken).toBe('at-1');
+  });
+
+  it('协议通道：state 不匹配的回调被丢弃，不会拿错误 state 去换令牌', async () => {
+    const bridge = createProtocolBridge();
+    const fake = makeFakeTransport(
+      oauthRoutes(
+        (redirectUri) => expect(redirectUri).toBe('everyonecoding://oauth'),
+        'code-never',
+      ),
+    );
+    build({
+      fake,
+      forceOAuthChannel: 'protocol',
+      registerProtocolHandler: (handler) => bridge.register(handler),
+    });
+
+    await call('beginOAuth', { provider: 'google' });
+
+    // 别的一次授权（或伪造）的回调：state 对不上
+    bridge.deliver('everyonecoding://oauth?code=attacker&state=another-state');
+
+    await expect(
+      call('pollOAuthCallback', { provider: 'google', timeoutMs: 300 }),
+    ).rejects.toMatchObject({ code: 'TIMEOUT' });
+    // 没有发出任何换令牌请求
+    expect(fake.requests.some((request) => request.url.includes('/callback'))).toBe(false);
   });
 });

@@ -65,6 +65,7 @@ import {
 import { GitClient } from '@ec/git';
 import { ShellError } from '@ec/shell-api';
 
+import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
 import type { AiStackHandle } from '../domain-factories';
 import { createProjectPaths, PROJECT_SUBDIRS, type ProjectPaths } from '../paths';
 import type { DomainRouter } from '../runtime';
@@ -794,8 +795,9 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
             projectId,
             messages: [{ role: 'user', content: prompt }],
           })) {
-            if (chunk.type === 'chunk' && typeof chunk.text === 'string') text += chunk.text;
-            if (chunk.type === 'error') throw new Error(String(chunk['error'] ?? '模型调用失败'));
+            text += textOfStreamChunk(chunk).text;
+            const streamError = errorOfStreamChunk(chunk);
+            if (streamError !== null) throw new Error(streamError);
           }
           return text;
         },

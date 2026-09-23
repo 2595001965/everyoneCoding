@@ -6,17 +6,22 @@ import {
   DocDomainError,
   DocService,
   createDefaultParserRegistry,
+  createWindowsOcrPort,
   type DocFormat,
   type DocKind,
   type DocLinkType,
   type DocMemoryScope,
   type DocSourceRef,
   type ImportDocumentInput,
+  type MemoryExtractionPort,
+  type OcrPort,
   type UpdateDocumentInput,
 } from '@ec/core';
 import { ShellError, type ShellErrorCode } from '@ec/shell-api';
 
 import { LOCAL_USER_ID } from './db';
+import { errorOfStreamChunk, textOfStreamChunk } from './ai-stream-text';
+import type { AiStackHandle } from './domain-factories';
 import type { DomainRouter } from './runtime';
 import {
   countLinksForMemories,
@@ -25,35 +30,144 @@ import {
 } from './sqlite-doc-store';
 
 /**
- * docs 域运行时（文档中心，20 个方法）。
+ * docs 域运行时（文档中心，21 个方法）。
  *
  * 组成全部复用 `@ec/core` 的文档域：
  * - `DocService` 负责解析、版本、更新提示、关联与转记忆的业务逻辑；
  * - `DocStore` / `DocMemoryPort` 由本目录的 SQLite 适配器提供（见 `sqlite-doc-store.ts`）；
- * - 解析器注册表用 `createDefaultParserRegistry()`——即 Node 全集
- *   （markdown / txt / docx / pdf 可用；image 需 OCR 端口，缺省时如实报不支持）。
+ * - 解析器注册表用 `createDefaultParserRegistry({ ocr })`：
+ *   markdown / txt / docx / pdf 全可用；**image 走 Windows.Media.Ocr**
+ *   （系统内置引擎，语言包缺失时给安装引导，绝不伪造文本）。
  *
- * **AI 摘要端口（`MemoryExtractionPort`）未注入**：
- * `previewConvertToMemory`（一键转记忆）需要 AI 生成摘要，`DocService` 会抛出
- * `extraction_unavailable`，其自带的中文引导语（"请在设置中配置 AI 中转…"）会原样回传。
- * `commitConvertToMemory`（提交已编辑的草稿）不依赖 AI，可用。
+ * **AI 摘要端口（`MemoryExtractionPort`）真实接线**：
+ * `previewConvertToMemory`（一键转记忆）经 AI 网关 `purpose: 'memory-extract'`
+ * 生成结构化摘要，保留来源文档与段落锚点；AI 栈未装配时如实报
+ * `extraction_unavailable`（带配置引导），**不内置模板顶替、不伪造摘要**。
  */
 
 export interface DocsDomainOptions {
   db: Database.Database;
   userId?: string;
+  /** AI 栈句柄（null = 未装配：转记忆如实报错并给配置引导） */
+  aiStack?: AiStackHandle | null;
+  /** OCR 端口（缺省用 Windows OCR；测试可注入假实现） */
+  ocr?: OcrPort | null;
+  /** 提取摘要时的模型用途绑定（默认 memory-extract） */
+  extractionPurpose?: string | undefined;
+}
+
+/**
+ * AI 摘要端口（经 AI 网关 memory-extract 用途）。
+ *
+ * 提示词要求模型输出「标题行 + 空行 + 摘要正文」；解析失败/空输出抛错，
+ * 让 DocService 的 `extraction` 错误路径如实上报——**绝不拿模板文本顶替**。
+ */
+export function createGatewayExtractionPort(
+  aiStack: AiStackHandle,
+  userId: string,
+  purpose = 'memory-extract',
+): MemoryExtractionPort {
+  return {
+    async summarize(input: {
+      title: string;
+      text: string;
+      scope: string;
+      sourceRef?: { docId: string; anchor?: string | null; page?: number | null } | null;
+    }) {
+      const scopeLabel =
+        input.scope === 'longterm'
+          ? '长期记忆'
+          : input.scope === 'project'
+            ? '项目记忆'
+            : input.scope === 'feature'
+              ? '功能记忆'
+              : input.scope === 'page'
+                ? '页面记忆'
+                : '问题记忆';
+      let text = '';
+      let model = '';
+      for await (const chunk of aiStack.gateway.chat({
+        userId,
+        purpose,
+        messages: [
+          {
+            role: 'system',
+            content:
+              `你是文档摘要助手。把给定文档/片段整理成一条${scopeLabel}。` +
+              '输出格式：第一行是「标题：」开头的记忆标题；空一行；然后是结构化摘要正文' +
+              '（要点用短横线列出，保留关键数字与结论）。不要输出其它解释。',
+          },
+          {
+            role: 'user',
+            content: `文档标题：${input.title}\n${input.sourceRef?.anchor ? `段落锚点：${input.sourceRef.anchor}\n` : ''}正文：\n${input.text}`,
+          },
+        ],
+      })) {
+        // 文本块判别值是 `delta`（见 ai-stream-text.ts 的说明：这里曾错写成 'chunk'，
+        // 结果 AI 摘要恒为空串，报"输出为空"把排查方向带偏到模型配置上）
+        const delta = textOfStreamChunk(chunk);
+        text += delta.text;
+        if (delta.model !== null) model = delta.model;
+        const streamError = errorOfStreamChunk(chunk);
+        if (streamError !== null) {
+          throw new Error(`AI 摘要失败：${streamError}`);
+        }
+      }
+      const parsed = parseSummaryOutput(text, input.title);
+      if (parsed === null) {
+        throw new Error(
+          `AI 摘要输出为空${model ? `（模型：${model}）` : ''}：请检查设置页的模型服务与 API Key 配置后重试。`,
+        );
+      }
+      return parsed;
+    },
+  };
+}
+
+/** 解析「标题：xxx\n\n正文」输出；不合规矩返回 null（由调用方如实报错） */
+function parseSummaryOutput(
+  raw: string,
+  fallbackTitle: string,
+): { title: string; content: string } | null {
+  const text = raw.trim();
+  if (text.length === 0) return null;
+  const match = text.match(/^标题[:：]\s*(.+)\s*$/m);
+  if (match) {
+    const title = match[1]!.trim();
+    const content = text
+      .slice(text.indexOf(match[0]) + match[0].length)
+      .replace(/^\s+/, '')
+      .trim();
+    return {
+      title: title.length > 0 ? title : fallbackTitle,
+      content: content.length > 0 ? content : text,
+    };
+  }
+  // 模型没按格式给标题：整段作为正文，标题用文档标题
+  return { title: fallbackTitle, content: text };
 }
 
 export function createDocsDomain(options: DocsDomainOptions): { router: DomainRouter } {
   const { db } = options;
   const userId = options.userId ?? LOCAL_USER_ID;
+  const aiStack = options.aiStack ?? null;
 
-  const parsers = createDefaultParserRegistry();
+  const ocr = options.ocr !== undefined ? options.ocr : createWindowsOcrPort();
+  const parsers = createDefaultParserRegistry({ ocr });
   const service = new DocService({
     store: createSqliteDocStore(db),
     parsers,
     memory: createSqliteDocMemoryPort({ db, userId, newId: newUlid, clock: Date.now }),
-    // extraction 刻意不注入：见文件头说明
+    // AI 摘要端口：AI 栈装配才注入；未装配时 DocService 报 extraction_unavailable（带引导）
+    ...(aiStack !== null
+      ? {
+          extraction: createGatewayExtractionPort(
+            aiStack,
+            userId,
+            options.extractionPurpose ?? 'memory-extract',
+          ),
+        }
+      : {}),
     newId: newUlid,
   });
 
@@ -93,6 +207,7 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
             filePath: string;
             title?: string | undefined;
             kind?: DocKind | undefined;
+            ocrLanguage?: string | undefined;
           };
           let raw: string | Uint8Array;
           try {
@@ -196,6 +311,20 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
 
         case 'supportedFormats':
           return parsers.supported();
+
+        case 'ocrStatus': {
+          const availability = await (
+            ocr as OcrPort & { availability?: () => Promise<unknown> }
+          ).availability?.();
+          return (
+            availability ?? {
+              available: false,
+              reason: '当前 OCR 端口不支持可用性探测',
+              languages: [],
+              detail: 'OCR 能力由外壳注入',
+            }
+          );
+        }
 
         default:
           throw new ShellError('INVALID_ARGUMENT', `docs 域不支持的方法：${method}`);

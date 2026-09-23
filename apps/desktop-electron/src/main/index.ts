@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, safeStorage, clipboard, dialog, shell } from 'electron';
 import path from 'node:path';
 import { registerAllIpc, type RegisteredIpc } from './ipc';
+import { installOAuthProtocol, type ProtocolAppLike, type ProtocolBridge } from './protocol';
 import type { IpcDependencies } from './types';
 import { createHeadlessRuntime, type HeadlessRuntime } from './runtime/bootstrap';
 
@@ -32,8 +33,49 @@ if (userDataOverride) app.setPath('userData', path.resolve(userDataOverride));
  */
 const shouldAutoOpenDevTools = isDev && process.env['EC_ELECTRON_DEVTOOLS'] === '1';
 
+/**
+ * 强制 OAuth 通道（`EC_OAUTH_CHANNEL=protocol|loopback`）。
+ *
+ * 真实运维场景而非测试开关：部分企业终端管控直接禁止进程 `listen` 本机端口，
+ * 回环通道每次 `beginOAuth` 都会失败。强制协议通道可跳过无效尝试，
+ * 直接走 `everyonecoding://oauth`（此时 `everyonecoding://` 必须已注册成功）。
+ */
+const oauthChannelEnv = process.env['EC_OAUTH_CHANNEL'];
+const oauthChannel: 'loopback' | 'protocol' | null =
+  oauthChannelEnv === 'loopback' || oauthChannelEnv === 'protocol' ? oauthChannelEnv : null;
+
 let mainWindow: BrowserWindow | null = null;
 let registered: RegisteredIpc | null = null;
+
+/**
+ * 单实例锁。
+ *
+ * `everyonecoding://oauth` 协议拉起的是**第二个进程**：它拿不到锁就必须退出，
+ * 把 URL 交给已在运行的实例（OS 会触发那个实例的 `second-instance`）。
+ * 两个实例并存会让内存态会话各持一半 —— 用户在第二个实例完成授权，
+ * 第一个实例的界面不会有任何反应，表现为"点了授权没反应"且无从排查。
+ */
+const singleInstanceLock = app.requestSingleInstanceLock();
+if (!singleInstanceLock) app.quit();
+
+/**
+ * OAuth 自定义协议桥（回环被企业策略阻断时的辅通道）。
+ * 未拿到单实例锁时恒为 `null` —— 本进程马上退出，不需要协议处理器。
+ */
+const oauthBridge: ProtocolBridge | null = singleInstanceLock
+  ? installOAuthProtocol({
+      app: app as unknown as ProtocolAppLike,
+      isPackaged: app.isPackaged,
+      execPath: process.execPath,
+      entryScript: process.argv[1],
+      focusWindow: () => {
+        if (mainWindow === null) return;
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      },
+      logger: console,
+    })
+  : null;
 /**
  * 业务运行时（域 + AI 栈）。
  *
@@ -140,6 +182,16 @@ async function buildRuntime(): Promise<HeadlessRuntime> {
         path.join(__dirname, '..', '..', '..', '..', 'packages', 'data', 'migrations')
       : path.join(__dirname, '..', 'migrations'),
     userId: 'local-user',
+    // OAuth 辅通道：协议回调由 `installOAuthProtocol()` 的桥投递进 auth 域。
+    // 未拿到单实例锁时为 undefined ⇒ 域内 `registerProtocol` 如实返回 false。
+    ...(oauthBridge !== null
+      ? {
+          registerProtocolHandler: (handler: (url: string) => void) =>
+            oauthBridge.register(handler),
+        }
+      : {}),
+    // 通道策略可由运维强制（企业策略禁回环时设 EC_OAUTH_CHANNEL=protocol）
+    ...(oauthChannel !== null ? { oauthChannel } : {}),
     ports: {
       openExternal: (url) => shell.openExternal(url),
       writeClipboard: (text) => clipboard.writeText(text),
@@ -149,6 +201,12 @@ async function buildRuntime(): Promise<HeadlessRuntime> {
 }
 
 void app.whenReady().then(async () => {
+  /**
+   * 未拿到单实例锁：本进程已经 `quit()`，**不得再装配运行时或建窗**。
+   * 装配被放弃是刻意的 —— 一个"能建窗但拿不到协议回调"的实例比没有实例更糟：
+   * 用户会在它上面操作，而授权回调永远送回第一个实例。
+   */
+  if (!singleInstanceLock) return;
   try {
     runtime = await buildRuntime();
     const descriptors = await runtime.descriptors();

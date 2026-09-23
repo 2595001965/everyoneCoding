@@ -86,7 +86,7 @@ function fakeAiStack(text: string): AiStackHandle {
   return {
     gateway: {
       async *chat() {
-        yield { type: 'chunk', text };
+        yield { type: 'delta', text };
         yield { type: 'done', model: 'fake-model' };
       },
     },

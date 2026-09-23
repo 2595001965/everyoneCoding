@@ -86,6 +86,14 @@ export interface HeadlessRuntimeOptions {
   userId?: string;
   /** 账号服务基址（缺省取 `EC_ACCOUNT_BASE_URL`，再缺省为本机自建服务） */
   accountBaseUrl?: string;
+  /**
+   * OAuth 自定义协议回调的注册口（Electron 注入 `installOAuthProtocol()` 的桥）。
+   * 侧车形态暂不提供 ⇒ auth 域的 `registerProtocol` 如实返回 false，
+   * 授权只在回环通道可用时成立（如实降级，不伪造成功）。
+   */
+  registerProtocolHandler?: ((handler: (url: string) => void) => boolean) | undefined;
+  /** 强制 OAuth 通道（缺省自动：先回环、失败回退协议） */
+  oauthChannel?: 'loopback' | 'protocol' | undefined;
   ports: HeadlessRuntimePorts;
 }
 
@@ -128,7 +136,6 @@ export async function createHeadlessRuntime(
     });
 
     const workspace = createWorkspaceDomain({ db, dataDir, projectsDir });
-    const docs = createDocsDomain({ db });
 
     // auth 域依赖系统加密能力（DPAPI）保存凭据：不可用时**不装配**并如实上报原因，
     // 而不是装配一个"所有动作都报错"的端口。
@@ -141,6 +148,10 @@ export async function createHeadlessRuntime(
         secureDir,
         openExternal: (url) => ports.openExternal(url),
         writeClipboard: (text) => ports.writeClipboard(text),
+        ...(options.registerProtocolHandler !== undefined
+          ? { registerProtocolHandler: options.registerProtocolHandler }
+          : {}),
+        ...(options.oauthChannel !== undefined ? { forceOAuthChannel: options.oauthChannel } : {}),
       });
     }
 
@@ -188,6 +199,11 @@ export async function createHeadlessRuntime(
     }
 
     const aiStackHandle: AiStackHandle | null = ai?.handle ?? null;
+
+    // docs 域在 AI 栈装配后创建：转记忆（previewConvertToMemory）经 aiStack 走
+    // memory-extract 用途生成真实摘要；AI 未装配时如实报 extraction_unavailable。
+    // OCR 用系统内置 Windows.Media.Ocr（无需安装；语言包缺失时给安装引导）。
+    const docs = createDocsDomain({ db, aiStack: aiStackHandle });
 
     const production = createProductionDomains({
       db,

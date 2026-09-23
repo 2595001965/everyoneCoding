@@ -47,7 +47,9 @@ export function parseImageOcr(
 
 /**
  * 供解析器注册表使用的图片解析器：未注入 OCR 端口时抛出明确的"暂不支持"错误，
- * 由 doc-service 转化为用户可见的引导，而不是把空文档塞进库里。
+ * 引擎识别失败（语言包缺失 / 子进程崩溃等）也**统一包成结构化**
+ * `DocDomainError('ocr_unsupported')`（带可读原因），由 doc-service 转化为用户可见的引导，
+ * 而不是把空文档塞进库里或让原始错误穿透到 UI。
  */
 export function makeImageParser(port?: OcrPort | null): {
   format: 'image';
@@ -59,7 +61,14 @@ export function makeImageParser(port?: OcrPort | null): {
   return {
     format: 'image',
     async parse(input): Promise<ParsedDocument> {
-      const result = await parseImageOcr(input, port);
+      let result: OcrResult;
+      try {
+        result = await parseImageOcr(input, port);
+      } catch (error) {
+        // 引擎侧失败 → 结构化"暂不支持/不可用"，保留可读原因（含安装引导）
+        const message = error instanceof Error ? error.message : String(error);
+        throw new DocDomainError('ocr_unsupported', `图片识别失败：${message}`);
+      }
       if (!result.supported) {
         throw new DocDomainError('ocr_unsupported', result.reason);
       }

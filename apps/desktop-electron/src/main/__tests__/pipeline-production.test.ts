@@ -126,7 +126,7 @@ function createFakeAi(options: { s5FailAt?: number } = {}): FakeAi {
               return;
             }
             yield {
-              type: 'chunk',
+              type: 'delta',
               text: JSON.stringify({
                 files: [
                   {
@@ -141,15 +141,15 @@ function createFakeAi(options: { s5FailAt?: number } = {}): FakeAi {
           }
           if (isS3) {
             counts.s3 += 1;
-            yield { type: 'chunk', text: TECH_DOC };
+            yield { type: 'delta', text: TECH_DOC };
             return;
           }
           if (isS1) {
             counts.s1 += 1;
-            yield { type: 'chunk', text: REQUIREMENT_DOC };
+            yield { type: 'delta', text: REQUIREMENT_DOC };
             return;
           }
-          yield { type: 'chunk', text: '# 兜底输出' };
+          yield { type: 'delta', text: '# 兜底输出' };
         })();
       },
     },

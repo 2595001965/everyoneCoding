@@ -35,6 +35,7 @@ import {
 import { ShellError } from '@ec/shell-api';
 import type { DependencyContract } from '@ec/ai';
 import type { DomainRouter, DomainRouterContext, SyncDomainRouter } from '../runtime';
+import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
 import type { AiStackHandle } from '../domain-factories';
 
 /**
@@ -306,9 +307,10 @@ export function createPipelineDomain(options: PipelineDomainOptions): {
           { role: 'user', content: prompt.user },
         ],
       })) {
-        if (chunk.type === 'chunk' && typeof chunk['text'] === 'string') text += chunk['text'];
-        if (chunk.type === 'error') {
-          throw new ShellError('UNKNOWN', `模型生成失败：${String(chunk['error'] ?? '未知错误')}`);
+        text += textOfStreamChunk(chunk).text;
+        const streamError = errorOfStreamChunk(chunk);
+        if (streamError !== null) {
+          throw new ShellError('UNKNOWN', `模型生成失败：${streamError}`);
         }
       }
       if (text.trim().length === 0) {

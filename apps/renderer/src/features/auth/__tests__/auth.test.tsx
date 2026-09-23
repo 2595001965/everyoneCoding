@@ -97,6 +97,51 @@ describe('邮箱登录与第三方入口（FR-ACC-02/03/04）', () => {
   });
 });
 
+/**
+ * 第三方登录必须是**闭环**：只 `beginOAuth` 打开浏览器不算登录成功。
+ * 之前的断点正是这里——浏览器里授权成功了，应用侧永远不知道自己已登录。
+ */
+describe('第三方登录闭环（FR-ACC-02/03）', () => {
+  it('Google/GitHub 登录：发起后等待回调，浏览器命中回环即完成登录', async () => {
+    const { onAuthenticated } = renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub 登录' }));
+
+    // 等待期间给出可读提示（用户知道要去浏览器），并且不会重复发起
+    expect(await screen.findByText(/请在浏览器中完成/)).toBeTruthy();
+    expect(env.system.opened).toHaveLength(1);
+
+    // 模拟"用户在浏览器里完成授权后命中本地回环"
+    await waitFor(() => expect(env.system.handler).not.toBeNull());
+    env.system.handler!('http://127.0.0.1:49152/oauth/callback?code=gh-code&state=srv-state-test');
+
+    await waitFor(() => expect(onAuthenticated).toHaveBeenCalled());
+    const session = onAuthenticated.mock.calls[0]![0] as { identity: { accountId: string } };
+    expect(session.identity.accountId).toBe('acc-1');
+    // 完成后等待提示消失
+    await waitFor(() => expect(screen.queryByText(/请在浏览器中完成/)).toBeNull());
+  });
+
+  it('等待期间可取消：取消后不再显示等待态，也不再重复轮询', async () => {
+    renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: 'Google 登录' }));
+    expect(await screen.findByText(/请在浏览器中完成/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '取消等待' }));
+    await waitFor(() => expect(screen.queryByText(/请在浏览器中完成/)).toBeNull());
+  });
+
+  it('微信扫码确认后直接完成登录（回调 URL 由状态轮询带回，无需回环/协议）', async () => {
+    const { onAuthenticated } = renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: '微信扫码' }));
+    expect(await screen.findByLabelText('微信扫码登录')).toBeTruthy();
+
+    await waitFor(() => expect(onAuthenticated).toHaveBeenCalled(), { timeout: 8000 });
+    expect(env.transport.calls.some((call) => call.url.includes('/oauth/wechat/callback'))).toBe(
+      true,
+    );
+  });
+});
+
 describe('离线本地模式（FR-ACC-05）', () => {
   it('云端不可达时展示横幅且登录入口置灰，本地可继续使用', async () => {
     env.transport.failNetwork = true;

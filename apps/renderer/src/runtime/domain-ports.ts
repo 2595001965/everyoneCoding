@@ -208,6 +208,11 @@ export function createAuthApi(call: DomainCaller): AuthApi {
     logout: () => c('logout'),
     restore: () => c('restore'),
     beginOAuth: (provider) => c('beginOAuth', { provider }),
+    pollOAuthCallback: (provider, timeoutMs) =>
+      c('pollOAuthCallback', {
+        provider,
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      }),
     completeOAuth: (provider, callbackUrl, rememberMe) =>
       c('completeOAuth', { provider, callbackUrl, rememberMe }),
     pollWechatScan: (state) => c('pollWechatScan', { state }),

@@ -29,9 +29,23 @@ export interface AuthApi {
   /** 启动恢复本地会话（离线时保留本地身份） */
   restore(): Promise<AuthSession | null>;
 
-  /** 发起第三方授权（PKCE，返回授权链接与 state） */
+  /** 发起第三方授权（PKCE，返回授权链接与 state；state 由服务端签发） */
   beginOAuth(provider: OAuthProvider): Promise<{ authorizeUrl: string; state: string }>;
-  /** 完成第三方授权（回调 URL 由外壳捕获） */
+  /**
+   * 等待授权回调并完成登录（回环命中 / `everyonecoding://oauth` 被拉起都会推到这里）。
+   *
+   * 这是**浏览器授权类登录的收口方法**：渲染层拿不到回调 URL（那是外壳的事），
+   * 只能等域把回调消费掉之后把会话交回来。单次调用只等 `timeoutMs`，
+   * 超时抛 `ShellError`(`TIMEOUT`)——调用方据此继续等或提示重试。
+   */
+  pollOAuthCallback(
+    provider: OAuthProvider,
+    timeoutMs?: number,
+  ): Promise<{ status: 'completed'; session: AuthSession }>;
+  /**
+   * 完成第三方授权（回调 URL 已知时使用）。
+   * 微信扫码是这条路径的唯一用户：状态轮询顺带把回调 URL 带回来，无需回环或协议通道。
+   */
   completeOAuth(
     provider: OAuthProvider,
     callbackUrl: string,
@@ -44,7 +58,14 @@ export interface AuthApi {
   }>;
 
   listBindings(): Promise<Binding[]>;
-  bind(provider: AuthProvider): Promise<Binding[]>;
+  /**
+   * 绑定第三方身份（走完整 OAuth 流程）。
+   *
+   * 入参刻意收窄为 `OAuthProvider`：`email` 不在此列——邮箱方式是**注册时**建立的，
+   * 不存在"给已有账号绑一个邮箱登录"的路径。收窄前端口写的是 `AuthProvider`，
+   * 于是实现侧只能靠断言绕过，类型系统反而拦不住真正的错用。
+   */
+  bind(provider: OAuthProvider): Promise<Binding[]>;
   /** 解绑（仅剩单一方式且无密码时由实现拒绝） */
   unbind(provider: AuthProvider, hasPassword: boolean): Promise<Binding[]>;
 

@@ -12,8 +12,8 @@ import { WECHAT_QR_TTL_MS } from '@ec/account';
 import { useAuth } from './auth-api';
 
 export interface WechatQRProps {
-  /** 扫码确认后回调（由外层完成换令牌） */
-  onConfirmed: (state: string) => void;
+  /** 扫码确认后回调，入参是服务端给出的回调 URL（含 code/state），由外层换令牌 */
+  onConfirmed: (callbackUrl: string) => void;
 }
 
 /** 二维码视觉块（真实实现由外壳注入二维码图片/Canvas；此处给出可识别的占位与链接） */
@@ -21,9 +21,9 @@ export function WechatQR({ onConfirmed }: WechatQRProps): JSX.Element {
   const api = useAuth();
   const [authorizeUrl, setAuthorizeUrl] = useState('');
   const [state, setState] = useState('');
-  const [phase, setPhase] = useState<'loading' | 'pending' | 'scanned' | 'expired' | 'error'>(
-    'loading',
-  );
+  const [phase, setPhase] = useState<
+    'loading' | 'pending' | 'scanned' | 'confirmed' | 'expired' | 'error'
+  >('loading');
   const [error, setError] = useState<string | null>(null);
   const [remainMs, setRemainMs] = useState(WECHAT_QR_TTL_MS);
   const confirmedRef = useRef(onConfirmed);
@@ -72,8 +72,16 @@ export function WechatQR({ onConfirmed }: WechatQRProps): JSX.Element {
       if (cancelled) return;
       if (result.state === 'scanned') setPhase('scanned');
       if (result.state === 'confirmed') {
-        setPhase('pending');
-        confirmedRef.current(state);
+        // 终态：**必须离开轮询集合**。留在 pending 会让每次轮询都再换一次令牌，
+        // 服务端那边的 state 是一次性的，第二次必然失败并盖掉成功结果。
+        setPhase('confirmed');
+        // 微信这条路径不回环也不走协议：回调 URL 由状态轮询直接带回，
+        // 即扫码确认后我们已经拿到换令牌所需的一切
+        if (typeof result.callbackUrl === 'string' && result.callbackUrl.length > 0) {
+          confirmedRef.current(result.callbackUrl);
+        } else {
+          setError('微信已确认，但未返回回调地址：请重试扫码。');
+        }
       }
       if (result.state === 'expired' || result.state === 'cancelled') setPhase('expired');
     };
@@ -93,6 +101,7 @@ export function WechatQR({ onConfirmed }: WechatQRProps): JSX.Element {
         {phase === 'loading' ? <span>正在获取二维码…</span> : null}
         {phase === 'expired' ? <span>二维码已过期</span> : null}
         {phase === 'scanned' ? <span>已扫描，请在手机上确认</span> : null}
+        {phase === 'confirmed' ? <span>已确认，正在登录…</span> : null}
         {phase === 'pending' ? <span>请用微信扫描二维码</span> : null}
       </div>
 

@@ -256,6 +256,14 @@ export function createFakeAuthApi(): FakeAuthEnvironment {
   const confirmedStates: string[] = [];
   void confirmedStates;
 
+  /**
+   * 进行中的 OAuth 握手（按 state 暂存）。
+   *
+   * 忠实模拟外壳行为：`beginOAuth` 起回环监听 → 回调到达后由 `pollOAuthCallback`
+   * 一次性消费 state 并换令牌。测试通过 `env.system.handler(...)` 模拟"浏览器命中回环"。
+   */
+  const handshakes = new Map<string, Awaited<ReturnType<AuthClient['beginOAuth']>>>();
+
   const api: AuthApi = {
     register: (input) => client.register(input),
     login: (input) => client.login(input),
@@ -263,18 +271,28 @@ export function createFakeAuthApi(): FakeAuthEnvironment {
     restore: () => client.restore(),
     beginOAuth: async (provider) => {
       const handshake = await client.beginOAuth(provider);
+      handshakes.set(handshake.state, handshake);
       return { authorizeUrl: handshake.authorizeUrl, state: handshake.state };
     },
+    pollOAuthCallback: async (provider, timeoutMs = 2000) => {
+      const handshake = [...handshakes.values()].find((item) => item.provider === provider);
+      if (!handshake) throw new Error(`没有待完成的 ${provider} 授权：请先调用 beginOAuth`);
+      // 与真实域一致：窗口内没等到回调就抛 TIMEOUT（渲染层据此继续等而不是报错）
+      const callbackUrl = await client.waitForCallback(handshake.state, timeoutMs);
+      handshakes.delete(handshake.state);
+      const session = await client.completeOAuth(handshake, callbackUrl, { rememberMe: false });
+      return { status: 'completed' as const, session };
+    },
     completeOAuth: async (provider, callbackUrl, rememberMe) => {
-      // 组件测试不重放完整回调；此处用 state 从授权链接回推（真实装配由外壳捕获回调）
-      const authorizeUrl = system.opened[system.opened.length - 1] ?? '';
-      const state = new URL(authorizeUrl).searchParams.get('state') ?? '';
-      const handshake = {
+      const existing = [...handshakes.values()].find((item) => item.provider === provider);
+      if (existing) handshakes.delete(existing.state);
+      // 微信路径没有经过 beginOAuth 暂存，握手由回调 URL 里的 state 复原
+      const handshake = existing ?? {
         provider,
-        state,
+        state: new URL(callbackUrl).searchParams.get('state') ?? 'srv-state-test',
         codeVerifier: 'verifier',
         redirectUri: 'http://127.0.0.1:49152/oauth/callback',
-        authorizeUrl,
+        authorizeUrl: system.opened[system.opened.length - 1] ?? '',
         channel: 'loopback' as const,
         stop: () => undefined,
       };

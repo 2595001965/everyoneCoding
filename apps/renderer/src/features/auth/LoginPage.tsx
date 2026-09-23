@@ -12,12 +12,23 @@ import {
   type AuthSession,
   type OAuthProvider,
 } from '@ec/account';
+import { ShellError } from '@ec/shell-api';
 
 import { OfflineBanner } from './OfflineBanner';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { RegisterForm } from './RegisterForm';
 import { WechatQR } from './WechatQR';
 import { useAuth } from './auth-api';
+
+/**
+ * 第三方授权的等待预算与轮询窗口。
+ *
+ * 单次窗口刻意取短值（1.5s）：域内 `pollOAuthCallback` 会阻塞到**回调到达或窗口耗尽**，
+ * 窗口太长会让"用户还在浏览器里操作"这段期间界面毫无反馈、也无法取消；
+ * 由渲染层按窗口滚动重试，整体预算 5 分钟与服务端 state 有效期（10 分钟）同量级。
+ */
+const OAUTH_WAIT_TIMEOUT_MS = 5 * 60 * 1000;
+const OAUTH_POLL_INTERVAL_MS = 1500;
 
 export interface LoginPageProps {
   onAuthenticated: (session: AuthSession) => void;
@@ -33,6 +44,8 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState<boolean>(() => api.isOffline());
   const [qrOpen, setQrOpen] = useState(false);
+  /** 正在等待回调的第三方 provider（null = 没有进行中的授权） */
+  const [oauthPending, setOauthPending] = useState<OAuthProvider | null>(null);
   /** 重置成功后的提示：必须回登录页用新密码登录（服务端已撤销旧刷新令牌） */
   const [resetNotice, setResetNotice] = useState<string | null>(null);
 
@@ -57,17 +70,75 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
     }
   }, [api, email, onAuthenticated, password, rememberMe]);
 
-  /** 第三方登录：发起授权 → 拿授权链接（外壳负责回调捕获与 completeOAuth） */
+  /**
+   * 发起第三方登录：打开授权页后**必须等回调**才算完成登录。
+   *
+   * 只 `beginOAuth` 就返回是这条链路此前的断点 —— 浏览器里授权成功了，应用侧却永远
+   * 不知道自己已经登录。这里把「发起 → 等回调 → 得会话」串起来；
+   * 等待期间允许取消（用户改主意时不该被一个不可关闭的等待卡住）。
+   */
   const startOAuth = useCallback(
     async (provider: OAuthProvider) => {
       setError(null);
       try {
         await api.beginOAuth(provider);
+        setOauthPending(provider);
       } catch (cause: unknown) {
         setError(cause instanceof Error ? cause.message : String(cause));
       }
     },
     [api],
+  );
+
+  useEffect(() => {
+    if (oauthPending === null) return undefined;
+    let cancelled = false;
+    const deadline = Date.now() + OAUTH_WAIT_TIMEOUT_MS;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const settle = (cause: unknown): void => {
+      setOauthPending(null);
+      if (!(cause instanceof OfflineError)) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    };
+
+    const poll = async (): Promise<void> => {
+      try {
+        const result = await api.pollOAuthCallback(oauthPending, OAUTH_POLL_INTERVAL_MS);
+        if (cancelled) return;
+        setOauthPending(null);
+        onAuthenticated(result.session);
+      } catch (cause: unknown) {
+        if (cancelled) return;
+        // 单次窗口内没等到回调是**常态**（用户还在浏览器里操作）：继续等，
+        // 只有整体预算耗尽才当失败。别把"还没点完"报成错误。
+        if (cause instanceof ShellError && cause.code === 'TIMEOUT' && Date.now() < deadline) {
+          timer = setTimeout(() => void poll(), OAUTH_POLL_INTERVAL_MS);
+          return;
+        }
+        settle(cause);
+      }
+    };
+
+    timer = setTimeout(() => void poll(), 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [api, oauthPending, onAuthenticated]);
+
+  /** 微信扫码：状态轮询已带回回调 URL，无需回环/协议通道，直接换令牌 */
+  const completeWechat = useCallback(
+    async (callbackUrl: string) => {
+      setError(null);
+      try {
+        onAuthenticated(await api.completeOAuth('wechat', callbackUrl, rememberMe));
+      } catch (cause: unknown) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
+    [api, onAuthenticated, rememberMe],
   );
 
   return (
@@ -149,27 +220,37 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
                 <div className="ec-auth__providers">
                   <Button
                     variant="secondary"
-                    disabled={offline}
+                    disabled={offline || oauthPending !== null}
                     onClick={() => setQrOpen((prev) => !prev)}
                   >
                     {AUTH_PROVIDER_LABELS.wechat}扫码
                   </Button>
                   <Button
                     variant="secondary"
-                    disabled={offline}
+                    disabled={offline || oauthPending !== null}
                     onClick={() => void startOAuth('google')}
                   >
                     {AUTH_PROVIDER_LABELS.google} 登录
                   </Button>
                   <Button
                     variant="secondary"
-                    disabled={offline}
+                    disabled={offline || oauthPending !== null}
                     onClick={() => void startOAuth('github')}
                   >
                     {AUTH_PROVIDER_LABELS.github} 登录
                   </Button>
                 </div>
-                {qrOpen ? <WechatQR onConfirmed={() => undefined} /> : null}
+                {oauthPending !== null ? (
+                  <div className="ec-auth__providers">
+                    <p className="ec-auth__notice" role="status">
+                      {`已打开浏览器，请在浏览器中完成 ${AUTH_PROVIDER_LABELS[oauthPending]} 授权…`}
+                    </p>
+                    <Button variant="ghost" size="sm" onClick={() => setOauthPending(null)}>
+                      取消等待
+                    </Button>
+                  </div>
+                ) : null}
+                {qrOpen ? <WechatQR onConfirmed={(url) => void completeWechat(url)} /> : null}
               </form>
             ) : active === 'register' ? (
               <RegisterForm

@@ -14,6 +14,7 @@ import {
   type AccountIdentity,
   type AuthProvider,
   type Binding,
+  type OAuthProvider,
 } from '@ec/account';
 
 import { useAuth } from './auth-api';
@@ -48,7 +49,11 @@ export function BindingPanel({ identity }: BindingPanelProps): JSX.Element {
       ? identity.hasPassword
       : bindings.some((binding) => binding.provider === provider);
 
-  const handleBind = async (provider: AuthProvider): Promise<void> => {
+  /**
+   * 绑定：入参是 `OAuthProvider`（不含 `email`）——邮箱登录方式是注册时建立的，
+   * 不存在"给已有账号再绑一个邮箱"的路径。
+   */
+  const handleBind = async (provider: OAuthProvider): Promise<void> => {
     const guard = canBind(bindings, provider);
     if (!guard.allowed) {
       setNotice(guard.reason);

@@ -84,6 +84,27 @@ pnpm typecheck
 `ACCOUNT_JWT_SECRET`、`ACCOUNT_ACCESS_TTL`、`ACCOUNT_REFRESH_TTL`、
 `ACCOUNT_LOGIN_LIMIT`、`ACCOUNT_REGISTER_LIMIT`、`ACCOUNT_OAUTH_*_ID/SECRET/REDIRECT` 等。
 
+### 邮件与邮箱验证（FR-ACC-08）
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `ACCOUNT_PUBLIC_BASE_URL` | `http://localhost:<PORT>` | 服务对外基础地址。**公网/反代部署必须设置**，否则邮件里会出现 `localhost` |
+| `ACCOUNT_EMAIL_VERIFY_BASE_URL` | 取 `ACCOUNT_PUBLIC_BASE_URL` | 验证链接前缀，最终链接为 `<该值>/verify-email?token=…` |
+| `ACCOUNT_EMAIL_VERIFY_TTL` | `86400`（24h） | 验证链接有效期（秒） |
+| `ACCOUNT_PASSWORD_RESET_TTL` | `600`（10min） | 重置验证码有效期（秒） |
+| `ACCOUNT_EMAIL_RESEND_COOLDOWN_MS` | `60000` | 同一用户同类邮件最小发送间隔（限流） |
+| `ACCOUNT_MAIL_WEBHOOK_URL` | 空 | 邮件投递 webhook；**为空则落 outbox 表**（开发可查） |
+
+验证链接由本服务自托管（`GET /verify-email`），**不依赖桌面端是否运行**：用户常在邮件客户端里
+点开链接，此时应用可能根本没启动。链接令牌单次有效、过期拒绝。
+
+开发期取验证令牌 / 重置码：
+
+```bash
+curl http://localhost:3000/api/dev/email-outbox            # 最近 20 封（正文含链接或 6 位验证码）
+curl 'http://localhost:3000/api/dev/email-outbox?limit=50'
+```
+
 > 生产部署请使用 Docker（`docker compose up --build`），并将 `ACCOUNT_JWT_SECRET` 设置为强随机值。
 
 ---

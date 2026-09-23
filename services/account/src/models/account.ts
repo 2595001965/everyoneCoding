@@ -39,6 +39,18 @@ export interface IdempotencyRow {
   created_at: number;
 }
 
+/** 邮箱验证 / 重置密码令牌行（0002 迁移） */
+export interface EmailTokenRow {
+  id: string;
+  user_id: string;
+  kind: string;
+  token_hash: string;
+  code: string;
+  expires_at: number;
+  used_at: number | null;
+  created_at: number;
+}
+
 export interface RegisterResult {
   userId: string;
   email: string;
@@ -238,6 +250,11 @@ export class AccountDb {
     this.db.prepare('UPDATE account_refresh_token SET revoked = 1 WHERE jti = ?').run(jti);
   }
 
+  /** 撤销某用户全部刷新令牌（重置密码后强制重新登录） */
+  revokeAllRefreshTokens(userId: string): void {
+    this.db.prepare('UPDATE account_refresh_token SET revoked = 1 WHERE user_id = ?').run(userId);
+  }
+
   getIdempotency(key: string): IdempotencyRow | null {
     return (
       (this.db.prepare('SELECT * FROM account_idempotency WHERE key = ?').get(key) as
@@ -269,5 +286,110 @@ export class AccountDb {
       )
       .run(id, userId, payloadJson, Date.now());
     return id;
+  }
+
+  /* --------------------- 邮箱验证与重置密码（FR-ACC-08） --------------------- */
+
+  setEmailVerified(userId: string, verified: boolean): void {
+    this.db
+      .prepare('UPDATE account_user SET email_verified = ?, updated_at = ? WHERE id = ?')
+      .run(verified ? 1 : 0, Date.now(), userId);
+  }
+
+  isEmailVerified(userId: string): boolean {
+    const row = this.db
+      .prepare('SELECT email_verified FROM account_user WHERE id = ?')
+      .get(userId) as { email_verified: number } | undefined;
+    return (row?.email_verified ?? 0) === 1;
+  }
+
+  hasPassword(userId: string): boolean {
+    const user = this.getUserById(userId);
+    return Boolean(user?.password_hash);
+  }
+
+  setPassword(userId: string, passwordHash: string): void {
+    this.db
+      .prepare('UPDATE account_user SET password_hash = ?, updated_at = ? WHERE id = ?')
+      .run(passwordHash, Date.now(), userId);
+  }
+
+  createEmailToken(input: {
+    userId: string;
+    kind: 'verify' | 'reset';
+    tokenHash: string;
+    code: string;
+    expiresAt: number;
+  }): string {
+    const id = randomUUID();
+    // 单次有效 + 新令牌使旧令牌失效：同 (user, kind) 旧未消费令牌直接作废
+    const tx = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `UPDATE account_email_token SET used_at = ? WHERE user_id = ? AND kind = ? AND used_at IS NULL`,
+        )
+        .run(Date.now(), input.userId, input.kind);
+      this.db
+        .prepare(
+          `INSERT INTO account_email_token (id, user_id, kind, token_hash, code, expires_at, used_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+        )
+        .run(
+          id,
+          input.userId,
+          input.kind,
+          input.tokenHash,
+          input.code,
+          input.expiresAt,
+          Date.now(),
+        );
+    });
+    tx();
+    return id;
+  }
+
+  /**
+   * 消费邮箱令牌：按 kind + 哈希查找，未过期且未使用才有效。
+   * 有效即置 used_at（**单次有效**：无论后续密码校验成败，令牌都已消费）。
+   */
+  consumeEmailToken(kind: 'verify' | 'reset', tokenHash: string): EmailTokenRow | null {
+    const row = this.db
+      .prepare(
+        `SELECT * FROM account_email_token WHERE kind = ? AND token_hash = ? AND used_at IS NULL`,
+      )
+      .get(kind, tokenHash) as EmailTokenRow | undefined;
+    if (!row) return null;
+    if (row.expires_at < Date.now()) return null;
+    this.db
+      .prepare('UPDATE account_email_token SET used_at = ? WHERE id = ?')
+      .run(Date.now(), row.id);
+    return row;
+  }
+
+  /** 按验证码消费（重置密码流程）：取该用户同 kind 最新未用且未过期的令牌比对 */
+  consumeEmailTokenByCode(userId: string, kind: 'reset', code: string): EmailTokenRow | null {
+    const row = this.db
+      .prepare(
+        `SELECT * FROM account_email_token
+         WHERE user_id = ? AND kind = ? AND used_at IS NULL AND expires_at >= ?
+         ORDER BY created_at DESC LIMIT 1`,
+      )
+      .get(userId, kind, Date.now()) as EmailTokenRow | undefined;
+    if (!row || row.code !== code) return null;
+    this.db
+      .prepare('UPDATE account_email_token SET used_at = ? WHERE id = ?')
+      .run(Date.now(), row.id);
+    return row;
+  }
+
+  /** 最近一次发送冷却判定（限流辅助）：kind 令牌在窗口内已发过则返回 true */
+  hasRecentEmailToken(userId: string, kind: 'verify' | 'reset', windowMs: number): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT created_at FROM account_email_token WHERE user_id = ? AND kind = ?
+         ORDER BY created_at DESC LIMIT 1`,
+      )
+      .get(userId, kind) as { created_at: number } | undefined;
+    return row !== undefined && Date.now() - row.created_at < windowMs;
   }
 }

@@ -95,8 +95,13 @@ describe('注册 / 登录 / 刷新', () => {
     const regBody = reg.json();
     expect(regBody.workspaceId).toBeTruthy();
     expect(regBody.planId).toBe('free');
-    expect(regBody.accessToken).toBeTruthy();
-    expect(regBody.refreshToken).toBeTruthy();
+    // 新契约：{ identity, tokens }（契约测试在 contract.test.ts 钉住完整形状）
+    expect(regBody.identity.accountId).toBeTruthy();
+    expect(regBody.identity.hasPassword).toBe(true);
+    expect(regBody.identity.emailVerified).toBe(false);
+    expect(regBody.tokens.accessToken).toBeTruthy();
+    expect(regBody.tokens.refreshToken).toBeTruthy();
+    expect(typeof regBody.tokens.expiresAt).toBe('number');
 
     const login = await app.inject({
       method: 'POST',
@@ -105,8 +110,8 @@ describe('注册 / 登录 / 刷新', () => {
     });
     expect(login.statusCode).toBe(200);
     const loginBody = login.json();
-    expect(loginBody.accessToken).toBeTruthy();
-    const oldRefresh = loginBody.refreshToken as string;
+    expect(loginBody.tokens.accessToken).toBeTruthy();
+    const oldRefresh = loginBody.tokens.refreshToken as string;
 
     const refresh = await app.inject({
       method: 'POST',
@@ -188,7 +193,9 @@ describe('OAuth（三 provider + 自动建号）', () => {
       expect(cb1.statusCode).toBe(200);
       const cb1Body = cb1.json();
       expect(cb1Body.isNew).toBe(true);
-      const userId = cb1Body.userId as string;
+      expect(cb1Body.identity.accountId).toBeTruthy();
+      expect(cb1Body.tokens.accessToken).toBeTruthy();
+      const userId = cb1Body.identity.accountId as string;
 
       // 再次授权（同 provider 同身份）
       const verifier2 = newVerifier();
@@ -212,7 +219,7 @@ describe('OAuth（三 provider + 自动建号）', () => {
       expect(cb2.statusCode).toBe(200);
       const cb2Body = cb2.json();
       expect(cb2Body.isNew).toBe(false);
-      expect(cb2Body.userId).toBe(userId);
+      expect(cb2Body.identity.accountId).toBe(userId);
     }
   });
 
@@ -251,7 +258,7 @@ describe('绑定管理', () => {
       url: '/api/auth/login',
       payload: { email, password },
     });
-    return login.json().accessToken as string;
+    return login.json().tokens.accessToken as string;
   }
 
   it('列出 / 新增 / 解绑；解绑最后一个登录方式（无密码）应被拒绝', async () => {
@@ -266,14 +273,16 @@ describe('绑定管理', () => {
       })}`,
     });
     const state = auth.json().state as string;
+    // 新契约：POST bindings 用 codeVerifier（camelCase），返回 { bindings }
     const add = await app.inject({
       method: 'POST',
       url: '/api/auth/bindings',
       headers: { authorization: `Bearer ${token}` },
-      payload: { provider: 'github', code: 'c', state, code_verifier: verifier },
+      payload: { provider: 'github', code: 'c', state, codeVerifier: verifier },
     });
     expect(add.statusCode).toBe(200);
-    const bindingId = add.json().id as string;
+    const addBody = add.json();
+    const bindingId = addBody.bindings[0]?.id as string;
 
     const list = await app.inject({
       method: 'GET',
@@ -281,7 +290,7 @@ describe('绑定管理', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(list.statusCode).toBe(200);
-    expect((list.json().items as unknown[]).length).toBe(1);
+    expect((list.json().bindings as unknown[]).length).toBe(1);
 
     const del = await app.inject({
       method: 'DELETE',
@@ -289,7 +298,7 @@ describe('绑定管理', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(del.statusCode).toBe(200);
-    expect(del.json().ok).toBe(true);
+    expect((del.json().bindings as unknown[]).length).toBe(0);
 
     // 2) OAuth 建号（无密码、单一绑定）解绑应被拒
     const verifier2 = newVerifier();
@@ -309,13 +318,13 @@ describe('绑定管理', () => {
         code_verifier: verifier2,
       })}`,
     });
-    const oauthToken = cb.json().accessToken as string;
+    const oauthToken = cb.json().tokens.accessToken as string;
     const oauthList = await app.inject({
       method: 'GET',
       url: '/api/auth/bindings',
       headers: { authorization: `Bearer ${oauthToken}` },
     });
-    const oauthBindingId = (oauthList.json().items as { id: string }[])[0]?.id as string;
+    const oauthBindingId = (oauthList.json().bindings as { id: string }[])[0]?.id as string;
     const delLast = await app.inject({
       method: 'DELETE',
       url: `/api/auth/bindings?bindingId=${oauthBindingId}`,
@@ -344,7 +353,7 @@ describe('幂等键', () => {
       payload: { email: 'idem@example.com', password: 'Abcd1234' },
     });
     expect(second.statusCode).toBe(201);
-    expect(second.json().userId).toBe(firstBody.userId);
+    expect(second.json().identity.accountId).toBe(firstBody.identity.accountId);
     expect(second.headers['idempotency-key-replay']).toBe('true');
 
     // 不同 key 重复邮箱 -> 仅一个账号，第二次被拒

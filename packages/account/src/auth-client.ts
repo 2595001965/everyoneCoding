@@ -23,16 +23,15 @@ import {
 } from './auth-types';
 import { canBind, canUnbind } from './binding';
 import { OfflineController, isNetworkError } from './offline';
-import { buildGoogleAuthorizeUrl, GOOGLE_PROVIDER, parseGoogleCallback } from './oauth/google';
-import { buildGithubAuthorizeUrl, GITHUB_PROVIDER, parseGithubCallback } from './oauth/github';
+import { GOOGLE_PROVIDER, parseGoogleCallback } from './oauth/google';
+import { GITHUB_PROVIDER, parseGithubCallback } from './oauth/github';
 import {
-  buildWechatQrUrl,
   parseWechatCallback,
   pollWechatQr,
   WECHAT_PROVIDER,
   type WechatPollResult,
 } from './oauth/wechat';
-import { checkPassword, createPkcePair, createState } from './security';
+import { checkPassword, createPkcePair } from './security';
 import { SessionManager } from './session';
 
 export interface AuthClientDeps {
@@ -79,6 +78,8 @@ export class AuthClient {
   private readonly system: SystemPort;
   private readonly baseUrl: string;
   private readonly offline: OfflineController;
+  /** 摄入的回调 URL（按 state 索引；oauthSignIn / 外壳轮询消费） */
+  private readonly pendingCallbacks = new Map<string, string>();
 
   constructor(deps: AuthClientDeps) {
     this.transport = deps.transport;
@@ -200,21 +201,31 @@ export class AuthClient {
 
   /* ----------------------------- OAuth（PKCE + 双通道） ----------------------------- */
 
-  /** 发起 OAuth：回环监听为主、自定义协议为辅 */
+  /**
+   * 发起 OAuth：回环监听为主、自定义协议为辅。
+   *
+   * 契约：authorize 端点返回 { authorizeUrl, state } —— **state 由服务端签发**
+   * （服务端在 authorize 时暂存 PKCE challenge，回调时校验），客户端不再自造 state，
+   * 只生成 code_verifier 并把 challenge 递给服务端。
+   */
   async beginOAuth(provider: OAuthProvider): Promise<OAuthHandshake> {
-    const state = createState();
     const pkce = await createPkcePair();
 
     let redirectUri = '';
     let channel: OAuthHandshake['channel'] = 'loopback';
     let stop = (): void => undefined;
+    let loopbackHandler: ((callbackUrl: string) => void) | null = null;
 
     try {
-      const loopback = await this.system.startLoopback(() => undefined);
+      const loopback = await this.system.startLoopback((callbackUrl) => {
+        loopbackHandler?.(callbackUrl);
+      });
       redirectUri = loopback.redirectUri;
       stop = loopback.stop;
     } catch {
-      const protocolOk = await this.system.registerProtocol(() => undefined);
+      const protocolOk = await this.system.registerProtocol((callbackUrl) => {
+        loopbackHandler?.(callbackUrl);
+      });
       if (!protocolOk) {
         throw new AuthError(
           'oauth_channel_unavailable',
@@ -225,43 +236,63 @@ export class AuthClient {
       channel = 'protocol';
     }
 
-    const meta = await this.request<{ clientId: string }>({
+    // 服务端签发 state 并暂存 challenge；返回真正的第三方授权 URL
+    const meta = await this.request<{ authorizeUrl: string; state: string }>({
       method: 'GET',
-      path: `/api/auth/oauth/${provider}/authorize?state=${encodeURIComponent(state)}&code_challenge=${encodeURIComponent(pkce.challenge)}&redirect_uri=${encodeURIComponent(redirectUri)}`,
+      path: `/api/auth/oauth/${provider}/authorize?code_challenge=${encodeURIComponent(pkce.challenge)}&redirect_uri=${encodeURIComponent(redirectUri)}`,
     });
 
-    const authorizeUrl = this.buildAuthorizeUrl(provider, {
-      clientId: meta.clientId,
-      redirectUri,
-      codeChallenge: pkce.challenge,
-      state,
-    });
-    await this.system.openExternal(authorizeUrl);
-    return {
+    const handshake: OAuthHandshake = {
       provider,
-      state,
+      state: meta.state,
       codeVerifier: pkce.verifier,
       redirectUri,
-      authorizeUrl,
+      authorizeUrl: meta.authorizeUrl,
       channel,
       stop,
     };
+    // 回环/协议回调统一进入 ingestCallback：外壳无需区分通道
+    loopbackHandler = (callbackUrl) => this.ingestCallback(callbackUrl);
+    await this.system.openExternal(meta.authorizeUrl);
+    return handshake;
   }
 
-  private buildAuthorizeUrl(
-    provider: OAuthProvider,
-    input: { clientId: string; redirectUri: string; codeChallenge: string; state: string },
-  ): string {
-    if (provider === GOOGLE_PROVIDER) return buildGoogleAuthorizeUrl(input);
-    if (provider === GITHUB_PROVIDER) return buildGithubAuthorizeUrl(input);
-    return buildWechatQrUrl({
-      appId: input.clientId,
-      redirectUri: input.redirectUri,
-      state: input.state,
-    });
+  /**
+   * 摄入一条 OAuth 回调 URL（回环命中 / 自定义协议拉起都会到这里）。
+   * 只保留**与进行中 state 匹配**的回调；多余或过期回调被静默丢弃。
+   */
+  ingestCallback(callbackUrl: string): void {
+    let state = '';
+    try {
+      state = new URL(callbackUrl).searchParams.get('state') ?? '';
+    } catch {
+      return;
+    }
+    if (state.length > 0) this.pendingCallbacks.set(state, callbackUrl);
   }
 
-  /** 完成 OAuth：解析回调 → 服务端换令牌 → 保存会话（首次授权自动建号） */
+  /**
+   * 等待回调到达（回环 handler / 协议 handler 已由 beginOAuth 接到 ingestCallback）。
+   * 公开口：外壳/域层可代为等待并消费回调（一次性：取走即删除）。
+   */
+  async waitForCallback(state: string, timeoutMs: number): Promise<string> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const hit = this.pendingCallbacks.get(state);
+      if (hit !== undefined) {
+        this.pendingCallbacks.delete(state);
+        return hit;
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+    }
+    throw new AuthError(
+      'oauth_callback_timeout',
+      '等待授权回调超时：请重试并在浏览器中完成授权。',
+      408,
+    );
+  }
+
+  /** 完成 OAuth：解析回调 → 校验 state → 服务端换令牌 → 保存会话（首次授权自动建号） */
   async completeOAuth(
     handshake: OAuthHandshake,
     callbackUrl: string,
@@ -289,6 +320,31 @@ export class AuthClient {
     } finally {
       handshake.stop();
     }
+  }
+
+  /**
+   * 便捷口：发起授权后阻塞等待回调并完成登录。
+   * 回环与协议回调都已接入 ingestCallback，这里只是串起"等待 → complete"。
+   */
+  async oauthSignIn(
+    provider: OAuthProvider,
+    options: {
+      timeoutMs?: number;
+      clock?: () => number;
+      sleep?: (ms: number) => Promise<void>;
+      rememberMe?: boolean;
+      rememberDays?: number;
+    } = {},
+  ): Promise<AuthSession> {
+    const handshake = await this.beginOAuth(provider);
+    const callbackUrl = await this.waitForCallback(
+      handshake.state,
+      options.timeoutMs ?? 5 * 60 * 1000,
+    );
+    return this.completeOAuth(handshake, callbackUrl, {
+      rememberMe: options.rememberMe ?? false,
+      ...(options.rememberDays !== undefined ? { rememberDays: options.rememberDays } : {}),
+    });
   }
 
   /** 微信扫码轮询（5 分钟超时自动过期，由 UI 重新取码） */
@@ -322,29 +378,80 @@ export class AuthClient {
     return payload.bindings;
   }
 
-  async bind(provider: AuthProvider, token: string): Promise<Binding[]> {
+  /**
+   * 绑定第三方身份：走完整 OAuth 流程（服务端需要真实换身份）。
+   * 返回绑定后的完整清单。
+   */
+  async bind(provider: OAuthProvider, token: string): Promise<Binding[]> {
     const current = await this.listBindings(token);
     const guard = canBind(current, provider);
     if (!guard.allowed) throw new AuthError('already_bound', guard.reason ?? '已绑定', 409);
-    const payload = await this.request<{ bindings: Binding[] }>({
-      method: 'POST',
-      path: '/api/auth/bindings',
+
+    // 复用登录侧的 PKCE + 双通道握手，但不自动打开浏览器会话存令牌：
+    // 拿到回调后转发到 bindings 端点。
+    const pkce = await createPkcePair();
+    let redirectUri = '';
+    let stop = (): void => undefined;
+    let loopbackHandler: ((callbackUrl: string) => void) | null = null;
+    try {
+      const loopback = await this.system.startLoopback((callbackUrl) => {
+        loopbackHandler?.(callbackUrl);
+      });
+      redirectUri = loopback.redirectUri;
+      stop = loopback.stop;
+    } catch {
+      const protocolOk = await this.system.registerProtocol((callbackUrl) => {
+        loopbackHandler?.(callbackUrl);
+      });
+      if (!protocolOk) {
+        throw new AuthError(
+          'oauth_channel_unavailable',
+          '本地回环监听与自定义协议均不可用，无法完成第三方绑定。',
+        );
+      }
+      redirectUri = 'everyonecoding://oauth';
+    }
+
+    const meta = await this.request<{ authorizeUrl: string; state: string }>({
+      method: 'GET',
+      path: `/api/auth/oauth/${provider}/authorize?code_challenge=${encodeURIComponent(pkce.challenge)}&redirect_uri=${encodeURIComponent(redirectUri)}`,
       headers: { Authorization: `Bearer ${token}` },
-      body: { provider },
     });
-    return payload.bindings;
+    loopbackHandler = (callbackUrl) => this.ingestCallback(callbackUrl);
+    await this.system.openExternal(meta.authorizeUrl);
+
+    try {
+      const callbackUrl = await this.waitForCallback(meta.state, 5 * 60 * 1000);
+      const { code } =
+        provider === GOOGLE_PROVIDER
+          ? parseGoogleCallback(callbackUrl, meta.state)
+          : provider === GITHUB_PROVIDER
+            ? parseGithubCallback(callbackUrl, meta.state)
+            : parseWechatCallback(callbackUrl, meta.state);
+      const payload = await this.request<{ bindings: Binding[] }>({
+        method: 'POST',
+        path: '/api/auth/bindings',
+        headers: { Authorization: `Bearer ${token}` },
+        body: { provider, code, state: meta.state, codeVerifier: pkce.verifier },
+      });
+      return payload.bindings;
+    } finally {
+      stop();
+    }
   }
 
-  /** 解绑：仅剩单一登录方式且未设密码时拒绝（FR-ACC-06） */
+  /** 解绑：仅剩单一登录方式且未设密码时拒绝（FR-ACC-06）；按 bindingId 删除 */
   async unbind(provider: AuthProvider, token: string, hasPassword: boolean): Promise<Binding[]> {
     const current = await this.listBindings(token);
     const guard = canUnbind({ bindings: current, target: provider, hasPassword });
     if (!guard.allowed) {
       throw new AuthError('must_set_password', guard.reason ?? '无法解绑', 400);
     }
+    const target = current.find((binding) => binding.provider === provider);
+    if (!target) throw new AuthError('binding_missing', '该登录方式尚未绑定', 404);
     const payload = await this.request<{ bindings: Binding[] }>({
       method: 'DELETE',
-      path: `/api/auth/bindings?provider=${encodeURIComponent(provider)}`,
+      path: `/api/auth/bindings?bindingId=${encodeURIComponent(target.id)}`,
       headers: { Authorization: `Bearer ${token}` },
     });
     return payload.bindings;
@@ -352,11 +459,38 @@ export class AuthClient {
 
   /* ----------------------------- 邮箱验证与找回密码 ----------------------------- */
 
-  /** 发送验证邮件（服务端可配置为不强制验证即可使用） */
+  /** 发送验证邮件（服务端可配置为不强制验证即可使用；冷却窗口限流） */
   async requestEmailVerification(email: string): Promise<void> {
     await this.request<{ ok: boolean }>({
       method: 'POST',
       path: '/api/auth/email/verify',
+      body: { email },
+    });
+  }
+
+  /** 确认邮箱验证（邮件链接里的 token） */
+  async confirmEmailVerification(token: string): Promise<void> {
+    await this.request<{ ok: boolean }>({
+      method: 'POST',
+      path: '/api/auth/email/verify/confirm',
+      body: { token },
+    });
+  }
+
+  /** 查询邮箱验证状态（注册后轮询） */
+  async emailVerified(email: string): Promise<boolean> {
+    const payload = await this.request<{ emailVerified: boolean }>({
+      method: 'GET',
+      path: `/api/auth/email/status?email=${encodeURIComponent(email)}`,
+    });
+    return payload.emailVerified;
+  }
+
+  /** 请求重置密码验证码（6 位邮件码，冷却窗口限流） */
+  async requestPasswordReset(email: string): Promise<void> {
+    await this.request<{ ok: boolean }>({
+      method: 'POST',
+      path: '/api/auth/password/reset/request',
       body: { email },
     });
   }

@@ -12,7 +12,7 @@ import {
 } from '../auth-types';
 import { canBind, canUnbind } from '../binding';
 import { OfflineController } from '../offline';
-import { createPkcePair, checkPassword, createState } from '../security';
+import { createPkcePair, checkPassword } from '../security';
 import { pollWechatQr } from '../oauth/wechat';
 
 /* ------------------------------ 测试替身 ------------------------------ */
@@ -292,21 +292,25 @@ describe('会话与令牌刷新（FR-ACC-07）', () => {
 /* ------------------------------ OAuth ------------------------------ */
 
 describe('OAuth（PKCE + 双通道）', () => {
-  it('beginOAuth(Google)：URL 含 code_challenge/state/redirect_uri，主通道为回环', async () => {
+  it('beginOAuth(Google)：授权 URL 由服务端下发，主通道为回环', async () => {
     const { client, transport, system } = createClient();
     transport.handler = (input) =>
       input.url.includes('/authorize')
-        ? { status: 200, json: { clientId: 'google-client-id' } }
+        ? {
+            status: 200,
+            json: {
+              authorizeUrl: `https://accounts.google.com/o/oauth2/v2/auth?client_id=cid&state=srv-state-1&code_challenge=xyz&code_challenge_method=S256&redirect_uri=${encodeURIComponent('http://127.0.0.1:49152/oauth/callback')}&response_type=code&scope=openid%20email%20profile`,
+              state: 'srv-state-1',
+            },
+          }
         : { status: 200, json: { identity: IDENTITY, tokens: tokens() } };
 
     const handshake = await client.beginOAuth('google');
     expect(handshake.channel).toBe('loopback');
+    expect(handshake.state).toBe('srv-state-1');
     const url = new URL(handshake.authorizeUrl);
     expect(url.host).toBe('accounts.google.com');
-    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
-    expect(url.searchParams.get('code_challenge')).toBeTruthy();
-    expect(url.searchParams.get('state')).toBe(handshake.state);
-    expect(url.searchParams.get('redirect_uri')).toBe(handshake.redirectUri);
+    expect(url.searchParams.get('state')).toBe('srv-state-1');
     expect(system.opened).toHaveLength(1);
   });
 
@@ -314,7 +318,13 @@ describe('OAuth（PKCE + 双通道）', () => {
     const { client, transport } = createClient();
     transport.handler = (input) =>
       input.url.includes('/authorize')
-        ? { status: 200, json: { clientId: 'cid' } }
+        ? {
+            status: 200,
+            json: {
+              authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=x',
+              state: 'srv-state-1',
+            },
+          }
         : { status: 200, json: { identity: IDENTITY, tokens: tokens() } };
     const handshake = await client.beginOAuth('google');
     await expect(
@@ -322,11 +332,17 @@ describe('OAuth（PKCE + 双通道）', () => {
     ).rejects.toThrowError(/state 校验失败/);
   });
 
-  it('completeOAuth：正确回调后换取令牌并关闭回环监听', async () => {
+  it('completeOAuth：正确回调后 POST 服务端换令牌（camelCase codeVerifier）并关闭回环监听', async () => {
     const { client, transport, system } = createClient();
     transport.handler = (input) =>
       input.url.includes('/authorize')
-        ? { status: 200, json: { clientId: 'cid' } }
+        ? {
+            status: 200,
+            json: {
+              authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=srv-state-1',
+              state: 'srv-state-1',
+            },
+          }
         : { status: 200, json: { identity: IDENTITY, tokens: tokens() } };
     const handshake = await client.beginOAuth('google');
     const session = await client.completeOAuth(
@@ -335,17 +351,22 @@ describe('OAuth（PKCE + 双通道）', () => {
     );
     expect(session.identity.accountId).toBe('acc-1');
     expect(system.stopped).toBe(1);
-    // code_verifier 提交给服务端（PKCE 完整链条）
+    // POST + code_verifier 提交给服务端（PKCE 完整链条；GET 浏览器直连是兼容路径）
     const callbackCall = transport.calls.find((call) => call.url.includes('/callback'));
+    expect(callbackCall!.method).toBe('POST');
     expect((callbackCall!.body as { codeVerifier: string }).codeVerifier).toBe(
       handshake.codeVerifier,
     );
+    expect((callbackCall!.body as { state: string }).state).toBe('srv-state-1');
   });
 
   it('回环不可用时回退自定义协议 everyonecoding://oauth', async () => {
     const { client, transport, system } = createClient();
     system.loopbackAvailable = false;
-    transport.handler = () => ({ status: 200, json: { clientId: 'cid' } });
+    transport.handler = () => ({
+      status: 200,
+      json: { authorizeUrl: 'https://github.com/login/oauth/authorize?state=s1', state: 's1' },
+    });
     const handshake = await client.beginOAuth('github');
     expect(handshake.channel).toBe('protocol');
     expect(handshake.redirectUri).toBe('everyonecoding://oauth');
@@ -358,20 +379,59 @@ describe('OAuth（PKCE + 双通道）', () => {
     await expect(client.beginOAuth('google')).rejects.toThrowError(/无法完成第三方登录/);
   });
 
-  it('GitHub 授权 scope 为 read:user user:email', async () => {
-    const { client, transport } = createClient();
-    transport.handler = () => ({ status: 200, json: { clientId: 'cid' } });
-    const handshake = await client.beginOAuth('github');
-    const url = new URL(handshake.authorizeUrl);
-    expect(url.searchParams.get('scope')).toBe('read:user user:email');
+  it('ingestCallback + oauthSignIn：回环回调经统一入口完成登录', async () => {
+    const { client, transport, system } = createClient();
+    let state = '';
+    transport.handler = (input) => {
+      if (input.url.includes('/authorize')) {
+        state = 'srv-state-signin';
+        return {
+          status: 200,
+          json: {
+            authorizeUrl: `https://accounts.google.com/o/oauth2/v2/auth?state=${state}`,
+            state,
+          },
+        };
+      }
+      return { status: 200, json: { identity: IDENTITY, tokens: tokens() } };
+    };
+
+    // oauthSignIn 在后台等待；模拟回环 handler 摄入回调。
+    // sleep 必须让出宏任务队列（真实 setTimeout），否则回调注入永远排不上。
+    const pending = client.oauthSignIn('google', {
+      timeoutMs: 5000,
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(system.handler).not.toBeNull();
+    system.handler!(`http://127.0.0.1:49152/oauth/callback?code=c9&state=${state}`);
+    const session = await pending;
+    expect(session.identity.accountId).toBe('acc-1');
   });
 
-  it('微信扫码：URL 以 #wechat_redirect 结尾，轮询超时视为过期', async () => {
+  it('ingestCallback：state 不匹配的回调被静默丢弃', async () => {
     const { client, transport } = createClient();
-    transport.handler = () => ({ status: 200, json: { clientId: 'wx-appid' } });
-    const handshake = await client.beginOAuth('wechat');
-    expect(handshake.authorizeUrl.endsWith('#wechat_redirect')).toBe(true);
+    transport.handler = () => ({
+      status: 200,
+      json: { authorizeUrl: 'https://accounts.google.com/?state=s-a', state: 's-a' },
+    });
+    await client.beginOAuth('google');
+    // 错误 state 的回调不应被记录（内部状态不可直接断言，通过 oauthSignIn 超时验证）
+    client.ingestCallback('http://127.0.0.1:49152/oauth/callback?code=c&state=other');
+    let now = 0;
+    await expect(
+      client.oauthSignIn('google', {
+        timeoutMs: 50,
+        clock: () => now,
+        sleep: (ms) => {
+          now += ms;
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toThrowError(/超时/);
+  });
 
+  it('微信扫码：轮询超时视为过期；PKCE 形状正确', async () => {
     let now = 0;
     const result = await pollWechatQr(() => Promise.resolve({ state: 'pending' as const }), {
       intervalMs: 10,
@@ -383,16 +443,12 @@ describe('OAuth（PKCE + 双通道）', () => {
       },
     });
     expect(result.state).toBe('expired');
-  });
 
-  it('PKCE：challenge = BASE64URL(SHA256(verifier))', async () => {
     const pair = await createPkcePair('fixed-verifier-value');
     expect(pair.method).toBe('S256');
     expect(pair.verifier).toBe('fixed-verifier-value');
-    // 与手工 S256 结果一致（无 = 填充、+ / 换 - _）
     expect(pair.challenge).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(pair.challenge).not.toContain('=');
-    expect(createState()).toHaveLength(43);
   });
 });
 
@@ -400,7 +456,7 @@ describe('OAuth（PKCE + 双通道）', () => {
 
 describe('绑定与解绑（FR-ACC-06）', () => {
   it('解绑唯一登录方式且未设密码时必须先设置密码', () => {
-    const bindings = [{ provider: 'github' as const, externalId: 'octocat', boundAt: 1 }];
+    const bindings = [{ id: 'b1', provider: 'github' as const, externalId: 'octocat', boundAt: 1 }];
     const denied = canUnbind({ bindings, target: 'github', hasPassword: false });
     expect(denied.allowed).toBe(false);
     expect(denied.requiresPassword).toBe(true);
@@ -412,15 +468,15 @@ describe('绑定与解绑（FR-ACC-06）', () => {
 
   it('多绑定方式时可自由解绑；未绑定的方式无需解绑', () => {
     const bindings = [
-      { provider: 'github' as const, externalId: 'octocat', boundAt: 1 },
-      { provider: 'google' as const, externalId: 'g-1', boundAt: 2 },
+      { id: 'b1', provider: 'github' as const, externalId: 'octocat', boundAt: 1 },
+      { id: 'b2', provider: 'google' as const, externalId: 'g-1', boundAt: 2 },
     ];
     expect(canUnbind({ bindings, target: 'github', hasPassword: false }).allowed).toBe(true);
     expect(canUnbind({ bindings, target: 'wechat', hasPassword: false }).allowed).toBe(false);
   });
 
   it('重复绑定被拒绝', () => {
-    const bindings = [{ provider: 'google' as const, externalId: 'g-1', boundAt: 1 }];
+    const bindings = [{ id: 'b1', provider: 'google' as const, externalId: 'g-1', boundAt: 1 }];
     expect(canBind(bindings, 'google').allowed).toBe(false);
     expect(canBind(bindings, 'wechat').allowed).toBe(true);
   });
@@ -431,7 +487,9 @@ describe('绑定与解绑（FR-ACC-06）', () => {
       if (input.url.endsWith('/api/auth/bindings') && input.method === 'GET') {
         return {
           status: 200,
-          json: { bindings: [{ provider: 'github', externalId: 'octocat', boundAt: 1 }] },
+          json: {
+            bindings: [{ id: 'b-github-1', provider: 'github', externalId: 'octocat', boundAt: 1 }],
+          },
         };
       }
       return { status: 200, json: { bindings: [] } };
@@ -441,7 +499,9 @@ describe('绑定与解绑（FR-ACC-06）', () => {
 
     const after = await client.unbind('github', 'token', true);
     expect(after).toEqual([]);
-    expect(transport.calls.filter((call) => call.method === 'DELETE')).toHaveLength(1);
+    // DELETE 按 bindingId（新契约），不再按 provider
+    const deleteCall = transport.calls.find((call) => call.method === 'DELETE');
+    expect(deleteCall?.url).toContain('bindingId=b-github-1');
   });
 
   it('带令牌请求绑定列表', async () => {

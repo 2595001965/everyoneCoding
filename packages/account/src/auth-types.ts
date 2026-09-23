@@ -34,8 +34,10 @@ export interface AccountIdentity {
   hasPassword: boolean;
 }
 
-/** 绑定项（FR-ACC-06） */
+/** 绑定项（FR-ACC-06；与服务端 Binding schema 对齐） */
 export interface Binding {
+  /** 绑定行 id（解绑参数 bindingId） */
+  id: string;
   provider: AuthProvider;
   /** 第三方侧标识（如 GitHub login、微信 openid 脱敏串） */
   externalId: string;
@@ -87,6 +89,7 @@ export interface SystemPort {
   openExternal(url: string): Promise<void>;
   /**
    * 启动本地回环监听，返回回调 URL 与停止函数（主通道）。
+   * `handler` 收到**真实回调 URL**（浏览器命中监听端口时由外壳转发）。
    * 失败时抛错，调用方回退到自定义协议（辅通道）。
    */
   startLoopback(

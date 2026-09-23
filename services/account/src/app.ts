@@ -13,6 +13,7 @@ import { registerErrorHandlers } from './middleware/error.ts';
 import { registerRateLimit } from './middleware/rate-limit.ts';
 import { registerIdempotency } from './middleware/idempotency.ts';
 import { authRoutes } from './routes/auth.ts';
+import { verifyPageRoutes } from './routes/verify-page.ts';
 import { usageRoutes } from './routes/usage.ts';
 import { releaseRoutes } from './routes/release.ts';
 
@@ -30,6 +31,8 @@ export async function buildApp(config: AppConfig, db?: Database): Promise<Fastif
   registerIdempotency(app);
 
   await app.register(authRoutes);
+  // 邮件验证链接的落地页（不依赖桌面端是否运行，见 verify-page.ts 头部说明）
+  await app.register(verifyPageRoutes);
   await app.register(usageRoutes);
   await app.register(releaseRoutes);
 

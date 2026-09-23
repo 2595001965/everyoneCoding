@@ -24,6 +24,21 @@ export interface AppConfig {
   oauthStateTtlSec: number;
   /** 幂等键记录保留时长（秒） */
   idempotencyTtlSec: number;
+  /** 邮箱验证链接有效期（秒），默认 24h */
+  emailVerifyTtlSec: number;
+  /** 重置密码验证码有效期（秒），默认 10 分钟 */
+  passwordResetTtlSec: number;
+  /** 同一用户同类邮件最小发送间隔（毫秒），默认 60s */
+  emailResendCooldownMs: number;
+  /** 邮件投递 webhook（可选；空则落 outbox 表） */
+  mailWebhookUrl: string | undefined;
+  /**
+   * 服务对外基础地址（邮件里的链接指向本服务时使用）。
+   * 反代/公网部署必须显式设置，否则邮件里会出现 `localhost`。
+   */
+  publicBaseUrl: string;
+  /** 邮箱验证链接基础地址（邮件正文拼接用；默认指向本服务的 `/verify-email` 落地页） */
+  emailVerifyBaseUrl: string;
   oauth: {
     google: OAuthProviderConfig;
     github: OAuthProviderConfig;
@@ -42,9 +57,17 @@ function num(env: string | undefined, fallback: number): number {
 }
 
 export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
+  const port = num(process.env.ACCOUNT_PORT, 3000);
+  /**
+   * 验证链接的默认落地页是**本服务自己的** `/verify-email`（见 `routes/auth.ts`），
+   * 不再指向渲染层 dev server：
+   * - 用户是在**邮件客户端/浏览器**里点链接的，此时桌面应用很可能根本没开；
+   * - 渲染层用 HashRouter，`http://host/verify-email` 这种裸路径根本路由不到。
+   */
+  const publicBaseUrl = str(process.env.ACCOUNT_PUBLIC_BASE_URL, `http://localhost:${port}`);
   const base: AppConfig = {
     host: str(process.env.ACCOUNT_HOST, '0.0.0.0'),
-    port: num(process.env.ACCOUNT_PORT, 3000),
+    port,
     dbPath: str(process.env.ACCOUNT_DB_PATH, 'data/account.db'),
     jwtSecret: str(process.env.ACCOUNT_JWT_SECRET, 'dev-only-insecure-secret-change-me'),
     accessTokenTtlSec: num(process.env.ACCOUNT_ACCESS_TTL, 15 * 60),
@@ -53,6 +76,12 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     registerRateLimitPerMin: num(process.env.ACCOUNT_REGISTER_LIMIT, 20),
     oauthStateTtlSec: num(process.env.ACCOUNT_OAUTH_STATE_TTL, 10 * 60),
     idempotencyTtlSec: num(process.env.ACCOUNT_IDEMPOTENCY_TTL, 24 * 60 * 60),
+    emailVerifyTtlSec: num(process.env.ACCOUNT_EMAIL_VERIFY_TTL, 24 * 60 * 60),
+    passwordResetTtlSec: num(process.env.ACCOUNT_PASSWORD_RESET_TTL, 10 * 60),
+    emailResendCooldownMs: num(process.env.ACCOUNT_EMAIL_RESEND_COOLDOWN_MS, 60 * 1000),
+    mailWebhookUrl: str(process.env.ACCOUNT_MAIL_WEBHOOK_URL, '') || undefined,
+    publicBaseUrl,
+    emailVerifyBaseUrl: str(process.env.ACCOUNT_EMAIL_VERIFY_BASE_URL, publicBaseUrl),
     oauth: {
       google: {
         clientId: str(process.env.ACCOUNT_OAUTH_GOOGLE_ID, ''),

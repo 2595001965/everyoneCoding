@@ -185,16 +185,41 @@
 
 ### M-01 邮箱链接验证（E2E-01 补）
 
-- **前置**：可发信的 SMTP 账号与已部署的 `services/account`。
-- **步骤**：注册新邮箱 → 收信 → 点击验证链接 → 回客户端。
-- **判定**：链接 24h 内有效；验证后账号标记为已验证；过期链接给出可读提示并支持重发。
-- **现状**：PRD §8 的最小服务端只有八个接口（注册 / 登录 / OAuth authorize / OAuth callback / refresh / 绑定查增删），不含邮件投递与验签 —— 该步骤是**待实现项**，不是漏测项。
+- **前置**：已部署的 `services/account`（`ACCOUNT_PUBLIC_BASE_URL` 指向可被浏览器访问的地址），
+  `ACCOUNT_MAIL_WEBHOOK_URL` 指向真实投递服务（留空则落 outbox，仅适合开发）。
+- **步骤**：注册新邮箱 → 收信 → **在系统浏览器里**点开验证链接 → 回到客户端账号页点「刷新验证状态」。
+- **判定**：
+  1. 链接形如 `<ACCOUNT_PUBLIC_BASE_URL>/verify-email?token=…&email=…`，浏览器打开后页面自行调
+     `POST /api/auth/email/verify/confirm` 并就地显示「邮箱验证完成」；
+  2. 同一链接**第二次点开必须失败**（令牌单次有效），提示"无效、已过期或已被使用"；
+  3. 把 `account_email_token.expires_at` 改到过去再点开，也必须失败且提示可读；
+  4. 回到客户端点「刷新验证状态」→ 标签由「未验证」翻转为「已验证」；
+  5. 60s 冷却窗口内点「重新发送验证邮件」被服务端 429 拒绝，界面按钮此前已倒计时置灰。
+- **现状**：**已实现**（2026-09-23）。服务端新增 `migrations/0002_email_verification.sql`、
+  `/api/auth/email/{verify,verify/confirm,status}`、`/api/dev/email-outbox` 与自托管的
+  `GET /verify-email` 落地页；客户端新增 `confirmEmailVerification` / `emailVerified` 与
+  账号页「邮箱验证」面板（`EmailVerificationPanel.tsx`）。落地页由**服务自托管**而非渲染层页面：
+  用户点链接时桌面端常常没运行，且渲染层是 HashRouter，裸路径 `/verify-email` 路由不到。
 
 ### M-02 真实 GitHub / Google / 微信授权（E2E-02 补）
 
-- **前置**：在对应平台注册 OAuth 应用并填入 `services/account` 的 `OAUTH_*` 配置；本地回环或 `everyonecoding://` 协议已注册。
-- **步骤**：客户端点「GitHub 登录」→ 浏览器授权 → 回调回客户端。
-- **判定**：回调后自动建号并进入工作台；重复登录命中同一账号；解绑最后一个登录方式且未设密码时被前置拒绝。
+- **前置**：在对应平台注册 OAuth 应用并填入 `services/account` 的 `OAUTH_*` 配置。
+  两条回调通道的接线方式（2026-09-23 均已落地，此处列出便于实机核对）：
+  - **主通道 · 本机回环**：`http://127.0.0.1:<随机端口>/oauth/callback`，由主进程
+    `http.createServer` 真实监听，浏览器命中后回调 URL 直达 `AuthClient.ingestCallback`。
+  - **辅通道 · 自定义协议**：`everyonecoding://oauth`。需 OS 已注册该 scheme
+    （与"单实例锁 + second-instance 转发"配套，见 `apps/desktop-electron/src/main/protocol.ts`）。
+    运维可用 `EC_OAUTH_CHANNEL=protocol` 强制走辅通道（企业策略禁回环时）。
+- **步骤**：客户端点「GitHub 登录」→ 系统浏览器完成授权 → 其中**回环与协议各走一遍**
+  （第二次可把回环端口占用或设 `EC_OAUTH_CHANNEL=protocol`）→ 回调回客户端。
+- **判定**：
+  1. 两条通道都能完成登录，且 `state` 与 PKCE `code_verifier` 都被服务端校验通过；
+  2. **state 单次消费**：重放同一条回调 URL 必须失败；
+  3. state 不匹配的回调被静默丢弃（不发出换令牌请求，等待方超时并给出可读提示）；
+  4. 回调后自动建号并进入工作台；重复登录命中同一账号；
+  5. 解绑最后一个登录方式且未设密码时被前置拒绝。
+- **现状**：客户端与外壳侧**已实现**（两条通道各有一条域级端到端测试）；仍缺真实第三方应用凭据
+  才能做真机授权，故本条保留为手工项。
 
 ### M-03 「所有代码必须有单元测试」生成实测（E2E-12 补）
 
@@ -245,8 +270,8 @@
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | settings  | **已装配（16/16 方法）**。已实现：`getAll`/`update`（settings.json 落盘 + zod 校验）、`getDataDirs`、`migrateDataDirs`/`rollbackMigration`（复制 + 条目数校验 + 旧目录改名备份；SQLite 用 `VACUUM INTO` 在线快照）、`setTelemetry`/`inspectLocalTelemetry`/`clearLocalTelemetry`（文件缓冲 + 缓存字节数）、`listCommands`（**新建 `@ec/core` 的 `command-catalog.ts` 作为命令 id/标题/默认键位的单一事实源**，并由渲染层漂移守卫测试钉住导航与 i18n）、`saveKeymap`/`exportKeymap`/`importKeymap`、`getBackupConfig`/`saveBackupConfig`；**归档 `exportProject`/`importPackage` 已接 `@ec/package-kit`**（`runExport`/`runImport` + 本目录实现的 `ExportSourcePort`/`ImportLocalStatePort`/`ImportTargetPort`），并有**导出→导入空库**的往返验证。<br>**合同层的一处补强**：加密归档需要口令，而原端口入参没有口令位——现已给 `exportProject`/`importPackage` 加可选 `password`，并在「导出与备份」面板补两个口令输入框（勾选加密时才显示、未填口令禁用导出）；缺口令时**拒绝导出**而不是静默产出未加密文件                                                                                                                                                                                                                                                                                                                                                                                                             |
 | workspace | **已装配（19/19 方法）**。已实现：`listProjects`（视图/搜索/排序/置顶/最近 N）、`getProject`、`createProject`（落库 + 建出 `projects/<id>/{design,docs,pipeline,code,meta}`）、`updateProject`、`markOpened`、`archiveProject`/`unarchiveProject`、`moveToRecycleBin`/`restoreFromRecycleBin`/`purgeProject`（软删除 30 天；彻底删除级联清行 + 删工程目录）、`cleanupExpiredRecycleBin`、`duplicateProject`（按选项机械搬运设计/记忆/文档/代码并回传计数）、`createFromTemplate`（**经 `@ec/designer/dsl` 子入口产出初始 DSL 并落盘**，页面行 `dsl_ref` 指向 `<pageId>.dsl.json`，模板记忆草稿与页面备注一并落 `memory_item`）、**`importFromGit`**（走系统 git CLI 克隆 + 扫描清单推断目标端与技术栈 + 写项目记忆；`GitImportPort` 实现在 `domain/git-import-port.ts`；克隆/扫描/落库三阶段进度经**域事件通道**回渲染层）、`createFromDigest`（功能 + 页面 + 项目记忆落库，`sourceKind='doc_import'`）、`getProjectStage`、`getThumbnailUrl`（如实 null）、`getDashboardMetrics`（记忆按 scope / 页面按 DSL 平台 / 功能完成度 / 用量按模型 / git 暂空）、`getMetricDetail`。<br>**新增约定：代码根登记**（`domain/code-root.ts`）。「克隆目录」的界面语义是**用户指定仓库落点**，因此仓库可能落在工程目录之外；`<projectDir>/meta/code-root.txt` 登记实际代码根，导出与复制按它取文件（未登记则退回 `<projectDir>/code`）。不用目录联接是因为 `rmSync(projectDir, {recursive:true})` 会穿过 junction 删掉用户仓库本身 |
-| docs      | **已装配（20/20 方法）**。`DocService`（`@ec/core` 文档域）+ 本目录的 SQLite 适配器 `DocStore` / `DocMemoryPort` + Node 全集解析器注册表。导入（含 `importFromFile` 读真实文件）、编辑与版本快照、更新提示与忽略、软删/恢复/彻底删除（级联清关联与版本）、记忆关联双向查询与批量计数、`commitConvertToMemory`（不依赖 AI）均可用。**`previewConvertToMemory` 如实报 `NOT_SUPPORTED`**：一键转记忆需要 AI 摘要端口（`MemoryExtractionPort`），AI 栈未注入时 `DocService` 自带的中文引导语原样回传。另：`DocMemoryPort` 落 `memory_item` 时**不生成 embedding**（关键词检索正常、向量检索跳过），待记忆域装配后改为委托其服务并补算向量                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| auth      | **已装配（14/14 方法）**。`@ec/account` 的 `AuthClient` + 本目录装配：`TransportPort`（Node fetch）、`SecureStorePort`（safeStorage/DPAPI 加密落盘，键即文件）、`SystemPort`（回环监听为 OAuth 主通道；`registerProtocol` 如实返回 false，自定义协议辅通道未接线）、`OfflineController`（`isOffline`/`tryRecover`）。会话令牌经 DPAPI 加密落盘（恢复 / 登出 / 令牌提取均真实）；**两个外壳持有的状态**：待完成的 OAuth 握手（按 provider 暂存，一次性消费）与当前会话令牌（`listBindings`/`bind`/`unbind` 契约不带 token）。服务不可达 → 离线模式（本地功能可用，登录置灰），5xx 不算离线；装配前置：safeStorage 不可用时**不装配**并动态给出原因。<br>**如实边界**：邮箱验证 / 重置密码依赖服务端投递邮件，PRD §8 最小服务端不含该能力——客户端侧是真实实现，调用会得到服务端的真实响应（含"未实现"的业务错误），不在域内伪造成功；OAuth 需要真实第三方应用凭据才能走通授权                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| docs      | **已装配（20/20 方法）**。`DocService`（`@ec/core` 文档域）+ 本目录的 SQLite 适配器 `DocStore` / `DocMemoryPort` + Node 全集解析器注册表。导入（含 `importFromFile` 读真实文件）、编辑与版本快照、更新提示与忽略、软删/恢复/彻底删除（级联清关联与版本）、记忆关联双向查询与批量计数、`commitConvertToMemory`（不依赖 AI）均可用。**一键转记忆已接真实 AI 摘要端口**（2026-09-23）：`createGatewayExtractionPort` 以 `purpose=memory-extract` 调网关，保留源文档与段落锚点，失败给结构化提示、绝不伪造摘要；AI 栈未注入时仍如实报 `NOT_SUPPORTED` 并回传中文引导语。图片 OCR 走 Windows 内置引擎（`Windows.Media.Ocr`，经 PowerShell WinRT 子进程），`ocrStatus` 如实上报可用性与语言清单，缺语言包时给出安装指引。另：`DocMemoryPort` 落 `memory_item` 时**不生成 embedding**（关键词检索正常、向量检索跳过），待记忆域装配后改为委托其服务并补算向量                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| auth      | **已装配（14/14 方法）**。`@ec/account` 的 `AuthClient` + 本目录装配：`TransportPort`（Node fetch）、`SecureStorePort`（safeStorage/DPAPI 加密落盘，键即文件）、`SystemPort`（回环监听为 OAuth 主通道；协议辅通道见下）、`OfflineController`（`isOffline`/`tryRecover`）。会话令牌经 DPAPI 加密落盘（恢复 / 登出 / 令牌提取均真实）；**两个外壳持有的状态**：待完成的 OAuth 握手（按 provider 暂存，一次性消费）与当前会话令牌（`listBindings`/`bind`/`unbind` 契约不带 token）。服务不可达 → 离线模式（本地功能可用，登录置灰），5xx 不算离线；装配前置：safeStorage 不可用时**不装配**并动态给出原因。<br>**2026-09-23 补**：① `registerProtocol` 已接线——`everyonecoding://oauth` 由 `main/protocol.ts` 的协议桥承载（`setAsDefaultProtocolClient` + 单实例锁 + `second-instance`/`open-url` 转发），回环不可用时自动回退，`EC_OAUTH_CHANNEL=protocol` 可强制；② 新增 `pollOAuthCallback` / `submitOAuthCallback` 两个方法，渲染层不必自己拿回调 URL；③ 邮箱验证与找回密码的服务端能力已补齐（见 M-01）。<br>**如实边界**：真机 OAuth 仍需真实第三方应用凭据（见 M-02）。 |
 
 **渲染层已闭环**：`installDomainPorts()` 按 `describe()` 结果注入，`settings` 可用即自动点亮设置页的
 通用 / 数据与位置 / 隐私 / 快捷键 / 导出与备份 五个类目，无需再改一行渲染层代码。

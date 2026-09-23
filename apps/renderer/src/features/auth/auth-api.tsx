@@ -49,6 +49,12 @@ export interface AuthApi {
   unbind(provider: AuthProvider, hasPassword: boolean): Promise<Binding[]>;
 
   requestEmailVerification(email: string): Promise<void>;
+  /** 邮件链接里的 token 确认（本机之外点开链接时由壳外触发，供深链复用） */
+  confirmEmailVerification(token: string): Promise<void>;
+  /** 查询邮箱验证状态（验证链接在系统浏览器点开，应用侧只能轮询） */
+  emailVerified(email: string): Promise<boolean>;
+  /** 请求找回密码验证码（6 位邮件码，冷却窗口限流） */
+  requestPasswordReset(email: string): Promise<void>;
   resetPassword(input: { email: string; code: string; newPassword: string }): Promise<void>;
 
   /** 离线状态（云端不可达：本地功能可用，登录入口置灰） */

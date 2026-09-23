@@ -8,6 +8,7 @@ import type { AuthSession } from '@ec/account';
 
 import { AuthApiProvider, AuthUnavailable, useAuthOptional, type AuthApi } from './auth-api';
 import { BindingPanel } from './BindingPanel';
+import { EmailVerificationPanel } from './EmailVerificationPanel';
 import { LoginPage } from './LoginPage';
 import { OfflineBanner } from './OfflineBanner';
 
@@ -59,6 +60,7 @@ function AuthWorkspace(): JSX.Element {
           退出登录
         </Button>
       </header>
+      <EmailVerificationPanel identity={session.identity} />
       <BindingPanel identity={session.identity} />
     </div>
   );
@@ -75,6 +77,8 @@ export function AuthPage({ api }: AuthPageProps): JSX.Element {
 
 export { LoginPage } from './LoginPage';
 export { RegisterForm } from './RegisterForm';
+export { ForgotPasswordForm } from './ForgotPasswordForm';
+export { EmailVerificationPanel } from './EmailVerificationPanel';
 export { WechatQR } from './WechatQR';
 export { BindingPanel } from './BindingPanel';
 export { OfflineBanner } from './OfflineBanner';

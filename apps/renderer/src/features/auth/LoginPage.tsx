@@ -14,6 +14,7 @@ import {
 } from '@ec/account';
 
 import { OfflineBanner } from './OfflineBanner';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { RegisterForm } from './RegisterForm';
 import { WechatQR } from './WechatQR';
 import { useAuth } from './auth-api';
@@ -32,6 +33,8 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState<boolean>(() => api.isOffline());
   const [qrOpen, setQrOpen] = useState(false);
+  /** 重置成功后的提示：必须回登录页用新密码登录（服务端已撤销旧刷新令牌） */
+  const [resetNotice, setResetNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setOffline(api.isOffline());
@@ -75,6 +78,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
           items={[
             { key: 'login', label: '登录' },
             { key: 'register', label: '注册' },
+            { key: 'forgot', label: '找回密码' },
           ]}
           value={tab}
           onChange={setTab}
@@ -117,6 +121,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
                   label="记住我（最多 30 天）"
                   disabled={offline}
                 />
+                {resetNotice ? <p className="ec-auth__notice">{resetNotice}</p> : null}
                 {error ? <p className="ec-auth__error">{error}</p> : null}
                 <Button
                   type="submit"
@@ -127,6 +132,18 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
                 >
                   登录
                 </Button>
+                <button
+                  type="button"
+                  className="ec-auth__switch"
+                  disabled={offline}
+                  onClick={() => {
+                    setError(null);
+                    setResetNotice(null);
+                    setTab('forgot');
+                  }}
+                >
+                  忘记密码？
+                </button>
 
                 <div className="ec-auth__divider">其它登录方式</div>
                 <div className="ec-auth__providers">
@@ -154,9 +171,21 @@ export function LoginPage({ onAuthenticated }: LoginPageProps): JSX.Element {
                 </div>
                 {qrOpen ? <WechatQR onConfirmed={() => undefined} /> : null}
               </form>
-            ) : (
+            ) : active === 'register' ? (
               <RegisterForm
                 onRegistered={onAuthenticated}
+                onSwitchToLogin={() => setTab('login')}
+              />
+            ) : (
+              <ForgotPasswordForm
+                onReset={(resetEmail) => {
+                  // 回填邮箱省一次输入；旧会话已在服务端失效，必须重新登录
+                  setEmail(resetEmail);
+                  setPassword('');
+                  setError(null);
+                  setResetNotice('密码已重置，请使用新密码登录。');
+                  setTab('login');
+                }}
                 onSwitchToLogin={() => setTab('login')}
               />
             )

@@ -215,6 +215,9 @@ export function createAuthApi(call: DomainCaller): AuthApi {
     bind: (provider) => c('bind', { provider }),
     unbind: (provider, hasPassword) => c('unbind', { provider, hasPassword }),
     requestEmailVerification: (email) => c('requestEmailVerification', { email }),
+    confirmEmailVerification: (token) => c('confirmEmailVerification', { token }),
+    emailVerified: (email) => c('emailVerified', { email }),
+    requestPasswordReset: (email) => c('requestPasswordReset', { email }),
     resetPassword: (input) => c('resetPassword', { input }),
     isOffline: () => offline.get(),
     onOfflineChange: (listener) => {

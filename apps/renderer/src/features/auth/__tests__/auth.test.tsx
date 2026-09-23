@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { AuthPage } from '../index';
 import { AuthApiProvider } from '../auth-api';
 import { BindingPanel } from '../BindingPanel';
+import { EmailVerificationPanel } from '../EmailVerificationPanel';
 import { LoginPage } from '../LoginPage';
 import { createFakeAuthApi, type FakeAuthEnvironment } from './fake-auth';
 
@@ -138,7 +139,9 @@ describe('绑定与解绑（FR-ACC-06）', () => {
 
   it('仅剩单一第三方方式且未设密码时解绑被拒并提示先设置密码（不发请求）', async () => {
     await signIn();
-    env.transport.bindings = [{ provider: 'github', externalId: 'octocat', boundAt: 1 }];
+    env.transport.bindings = [
+      { id: 'b-gh', provider: 'github', externalId: 'octocat', boundAt: 1 },
+    ];
     render(
       <AuthApiProvider api={env.api}>
         <BindingPanel identity={identity} />
@@ -152,7 +155,9 @@ describe('绑定与解绑（FR-ACC-06）', () => {
 
   it('已设置密码时可解绑成功', async () => {
     await signIn();
-    env.transport.bindings = [{ provider: 'github', externalId: 'octocat', boundAt: 1 }];
+    env.transport.bindings = [
+      { id: 'b-gh', provider: 'github', externalId: 'octocat', boundAt: 1 },
+    ];
     render(
       <AuthApiProvider api={env.api}>
         <BindingPanel identity={{ ...identity, hasPassword: true }} />
@@ -175,6 +180,12 @@ describe('绑定与解绑（FR-ACC-06）', () => {
     await screen.findByText('GitHub');
     expect(screen.getAllByText('未绑定').length).toBe(3);
     fireEvent.click(screen.getAllByRole('button', { name: '绑定' })[0]!);
+
+    // 绑定走真实 OAuth：点下按钮后 AuthClient 会打开浏览器并**阻塞等待回环回调**。
+    // 测试模拟"浏览器完成授权后命中 127.0.0.1 回环"，这才算走完绑定全程。
+    await waitFor(() => expect(env.system.handler).not.toBeNull());
+    env.system.handler!('http://127.0.0.1:49152/oauth/callback?code=gh-code&state=srv-state-test');
+
     await waitFor(() =>
       expect(
         env.transport.calls.some(
@@ -204,5 +215,173 @@ describe('账号中心页面', () => {
   it('未注入端口时展示装配引导而不是崩溃', () => {
     render(<AuthPage api={null} />);
     expect(screen.getByText(/账号服务尚未连接/)).toBeTruthy();
+  });
+});
+
+/**
+ * 找回密码（FR-ACC-08）。
+ *
+ * 关键断言是"**真的发了服务端请求**"：只看界面从 step1 跳到 step2 是测不出
+ * 请求被漏发/发错端点的（那正是"点了发送但收不到邮件"的典型故障形态）。
+ */
+describe('找回密码（FR-ACC-08）', () => {
+  it('登录页可进入找回密码：邮箱非法时发送按钮禁用', () => {
+    renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: '忘记密码？' }));
+    expect(screen.getByRole('form', { name: '找回密码' })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('找回密码邮箱'), { target: { value: 'not-an-email' } });
+    expect(screen.getByRole('button', { name: '发送验证码' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('找回密码邮箱'), {
+      target: { value: 'dev@example.com' },
+    });
+    expect(screen.getByRole('button', { name: '发送验证码' })).not.toBeDisabled();
+  });
+
+  it('请求验证码：真的打到 /password/reset/request，进入第二步并启动冷却倒计时', async () => {
+    renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: '忘记密码？' }));
+    fireEvent.change(screen.getByLabelText('找回密码邮箱'), {
+      target: { value: 'dev@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送验证码' }));
+
+    await waitFor(() => expect(screen.getByRole('form', { name: '重置密码' })).toBeTruthy());
+    expect(env.transport.resetRequests).toEqual(['dev@example.com']);
+    // 不泄露注册状态：未注册邮箱同样提示"若已注册则已发送"
+    expect(screen.getByText(/若该邮箱已注册/)).toBeTruthy();
+    // 冷却中：重发按钮置灰，避免用户只能靠 429 才发现"还要等"
+    expect(screen.getByRole('button', { name: /重新发送（\d+s）/ })).toBeDisabled();
+  });
+
+  it('重置密码：验证码 + 新密码提交到 /password/reset，并回调 onReset（回登录页）', async () => {
+    render(
+      <AuthApiProvider api={env.api}>
+        <LoginPage onAuthenticated={vi.fn()} />
+      </AuthApiProvider>,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: '找回密码' }));
+    fireEvent.change(screen.getByLabelText('找回密码邮箱'), {
+      target: { value: 'dev@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送验证码' }));
+    await waitFor(() => expect(screen.getByRole('form', { name: '重置密码' })).toBeTruthy());
+
+    // 新密码强度不足时不可提交
+    fireEvent.change(screen.getByLabelText('重置验证码'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('新密码'), { target: { value: '123' } });
+    expect(screen.getByRole('button', { name: '重置密码' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('新密码'), { target: { value: 'Abcd1234!xyz' } });
+    fireEvent.change(screen.getByLabelText('确认新密码'), { target: { value: 'Abcd1234!xyz' } });
+    const submit = screen.getByRole('button', { name: '重置密码' });
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(
+        env.transport.calls.some(
+          (call) => call.method === 'POST' && call.url.endsWith('/api/auth/password/reset'),
+        ),
+      ).toBe(true),
+    );
+    // 回登录页并给出"请用新密码登录"的提示
+    await waitFor(() => expect(screen.getByRole('form', { name: '登录' })).toBeTruthy());
+    expect(screen.getByText(/密码已重置/)).toBeTruthy();
+    // 登录邮箱被回填，用户只需输入新密码（少一步手输）
+    expect((screen.getByLabelText('登录邮箱') as HTMLInputElement).value).toBe('dev@example.com');
+  });
+
+  it('服务端拒绝（验证码过期/已用）时原样透传文案，不假装成功', async () => {
+    env.transport.failNetwork = false;
+    const originalRequest = env.transport.request.bind(env.transport);
+    env.transport.request = async (input) => {
+      if (input.url.endsWith('/api/auth/password/reset')) {
+        return {
+          status: 400,
+          json: { error: 'bad_request', message: '验证码无效、已过期或已被使用，请重新获取重置码' },
+        };
+      }
+      return originalRequest(input);
+    };
+
+    renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: '忘记密码？' }));
+    fireEvent.change(screen.getByLabelText('找回密码邮箱'), {
+      target: { value: 'dev@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送验证码' }));
+    await waitFor(() => expect(screen.getByRole('form', { name: '重置密码' })).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('重置验证码'), { target: { value: '000000' } });
+    fireEvent.change(screen.getByLabelText('新密码'), { target: { value: 'Abcd1234!xyz' } });
+    fireEvent.change(screen.getByLabelText('确认新密码'), { target: { value: 'Abcd1234!xyz' } });
+    fireEvent.click(screen.getByRole('button', { name: '重置密码' }));
+
+    expect(await screen.findByText(/验证码无效、已过期或已被使用/)).toBeTruthy();
+    // 关键：失败后**没有**回到登录页（不能假装重置成功）
+    expect(screen.getByRole('form', { name: '重置密码' })).toBeTruthy();
+  });
+});
+
+/**
+ * 邮箱验证状态面板（FR-ACC-08）。
+ *
+ * 状态**必须查服务端**：验证链接在系统浏览器里点开，桌面端拿不到信号，
+ * 会话里的 `emailVerified` 只是登录那一刻的快照。
+ */
+describe('邮箱验证状态（FR-ACC-08）', () => {
+  const identity = {
+    accountId: 'acc-1',
+    login: 'dev@example.com',
+    displayName: '小吴',
+    avatarUrl: null,
+    emailVerified: false,
+    hasPassword: true,
+  };
+
+  function renderPanel(sessionIdentity = identity) {
+    render(
+      <AuthApiProvider api={env.api}>
+        <EmailVerificationPanel identity={sessionIdentity} />
+      </AuthApiProvider>,
+    );
+  }
+
+  it('挂载即查服务端：外部浏览器完成验证后，刷新状态翻转为已验证', async () => {
+    renderPanel();
+    expect(await screen.findByText('未验证')).toBeTruthy();
+
+    // 模拟"用户刚在浏览器里点完了验证链接"
+    env.transport.serverEmailVerified = true;
+    fireEvent.click(screen.getByRole('button', { name: '刷新验证状态' }));
+
+    expect(await screen.findByText('已验证')).toBeTruthy();
+    expect(env.transport.calls.some((call) => call.url.includes('/api/auth/email/status'))).toBe(
+      true,
+    );
+  });
+
+  it('重发验证邮件：真的打到 /email/verify 并进入冷却；已验证则不再展示重发入口', async () => {
+    renderPanel();
+    await screen.findByText('未验证');
+
+    fireEvent.click(screen.getByRole('button', { name: '重新发送验证邮件' }));
+    await waitFor(() =>
+      expect(
+        env.transport.calls.some(
+          (call) => call.method === 'POST' && call.url.endsWith('/api/auth/email/verify'),
+        ),
+      ).toBe(true),
+    );
+    expect(screen.getByRole('button', { name: /重新发送（\d+s）/ })).toBeDisabled();
+
+    // 已登录且服务端已标记验证：不展示重发/刷新入口
+    cleanup();
+    env.transport.serverEmailVerified = true;
+    renderPanel({ ...identity, emailVerified: true });
+    expect(await screen.findByText('已验证')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /重新发送/ })).toBeNull();
   });
 });

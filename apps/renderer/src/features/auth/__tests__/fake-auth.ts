@@ -21,6 +21,51 @@ import type { AuthApi } from '../auth-api';
 
 const NOW = 1_700_000_000_000;
 
+/**
+ * 复刻服务端 `services/account/src/oauth/*` 的授权 URL 形状。
+ *
+ * 之所以要"复刻"而不是返回一个占位 URL：桌面侧的职责正是**把服务端给的地址原样交给
+ * 系统浏览器**，返一个 `accounts.example.com` 之类的假域名会让这条断言彻底失去意义。
+ */
+function authorizeUrlOf(
+  provider: string,
+  state: string,
+  codeChallenge: string,
+  redirectUri: string,
+): string {
+  if (provider === 'github') {
+    const url = new URL('https://github.com/login/oauth/authorize');
+    url.searchParams.set('client_id', 'client-id-1');
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', 'read:user user:email');
+    url.searchParams.set('state', state);
+    url.searchParams.set('code_challenge', codeChallenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    return url.toString();
+  }
+  if (provider === 'wechat') {
+    const url = new URL('https://open.weixin.qq.com/connect/oauth2/authorize');
+    url.searchParams.set('appid', 'client-id-1');
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', 'snsapi_userinfo');
+    url.searchParams.set('state', state);
+    url.searchParams.set('code_challenge', codeChallenge);
+    url.hash = 'wechat_redirect';
+    return url.toString();
+  }
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', 'client-id-1');
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid email profile');
+  url.searchParams.set('state', state);
+  url.searchParams.set('code_challenge', codeChallenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  return url.toString();
+}
+
 /** 内存安全存储（DPAPI 替身） */
 export class MemorySecureStore implements SecureStorePort {
   readonly map = new Map<string, string>();
@@ -56,6 +101,16 @@ export class MemoryTransport implements TransportPort {
   failNetwork = false;
   /** 微信扫码轮询计数（前 N 次 pending） */
   wechatPendingTimes = 1;
+  /**
+   * 服务端侧的邮箱验证状态。
+   *
+   * **与会话里的 `identity.emailVerified` 分开**：验证链接在外部浏览器里点开，
+   * 会话快照可能仍是旧值 —— 这正是 `EmailVerificationPanel` 必须主动查询的原因，
+   * 夹具不共用同一个字段才能测出这个区别。
+   */
+  serverEmailVerified = false;
+  /** 记录已发出的重置码请求（断言"真的请求了服务端"而不是只改本地状态） */
+  readonly resetRequests: string[] = [];
 
   private tokens(): TokenPair {
     return {
@@ -79,7 +134,22 @@ export class MemoryTransport implements TransportPort {
     });
     if (this.failNetwork) throw new TypeError('Failed to fetch');
 
-    if (input.url.includes('/authorize')) return { status: 200, json: { clientId: 'client-id-1' } };
+    if (input.url.includes('/authorize')) {
+      /**
+       * state 由服务端签发（客户端不自造 state），授权 URL 也由服务端拼好返回。
+       * 这里按 provider 复刻服务端 `services/account/src/oauth/*` 的 URL 形状
+       * （端点域名、scope、`code_challenge_method=S256`、微信的 `#wechat_redirect`），
+       * 好让"真的把正确的第三方地址交给了系统浏览器"可被断言。
+       */
+      const provider = /\/oauth\/([^/]+)\/authorize/.exec(input.url)?.[1] ?? 'google';
+      const state = 'srv-state-test';
+      const challenge = new URL(input.url).searchParams.get('code_challenge') ?? '';
+      const redirectUri = new URL(input.url).searchParams.get('redirect_uri') ?? '';
+      return {
+        status: 200,
+        json: { authorizeUrl: authorizeUrlOf(provider, state, challenge, redirectUri), state },
+      };
+    }
     if (input.url.includes('/wechat/state')) {
       if (this.wechatPendingTimes > 0) {
         this.wechatPendingTimes -= 1;
@@ -87,7 +157,29 @@ export class MemoryTransport implements TransportPort {
       }
       return { status: 200, json: { state: 'confirmed' } };
     }
-    if (input.url.includes('/bindings')) return { status: 200, json: { bindings: this.bindings } };
+    if (input.url.includes('/bindings')) {
+      // 绑定走真实 OAuth 换身份，此处只需把"服务端侧绑定清单"更新成含新绑定
+      if (input.method === 'POST') {
+        const provider = (input.body as { provider?: Binding['provider'] } | undefined)?.provider;
+        if (provider !== undefined && !this.bindings.some((item) => item.provider === provider)) {
+          this.bindings = [
+            ...this.bindings,
+            { id: `b-${provider}`, provider, externalId: `${provider}-user`, boundAt: 2 },
+          ];
+        }
+      }
+      return { status: 200, json: { bindings: this.bindings } };
+    }
+    // ⚠️ 顺序 matters：`/email/status` 不含 `/email/verify`，但 `/email/verify/confirm` 含之，
+    // 故具体路由必须排在通用前缀路由之前
+    if (input.url.includes('/email/status')) {
+      return { status: 200, json: { emailVerified: this.serverEmailVerified } };
+    }
+    if (input.url.includes('/password/reset/request')) {
+      const body = input.body as { email?: string } | undefined;
+      if (typeof body?.email === 'string') this.resetRequests.push(body.email);
+      return { status: 200, json: { ok: true } };
+    }
     if (input.url.includes('/email/verify') || input.url.includes('/password/reset')) {
       return { status: 200, json: { ok: true } };
     }
@@ -102,13 +194,23 @@ export class MemorySystem implements SystemPort {
   stopped = 0;
   loopbackAvailable = true;
   protocolAvailable = true;
+  /**
+   * 最近一次回环监听注册的处理器。
+   *
+   * 测试用它**模拟浏览器命中回环**：`AuthClient` 的 `bind` / `oauthSignIn` 会阻塞等待回调，
+   * 没有这条通道就只能干等 5 分钟超时 —— 而"授权完成后真的能接上"恰恰是必须覆盖的路径。
+   */
+  handler: ((callbackUrl: string) => void) | null = null;
 
   openExternal(url: string): Promise<void> {
     this.opened.push(url);
     return Promise.resolve();
   }
-  startLoopback(): Promise<{ redirectUri: string; stop: () => void }> {
+  startLoopback(
+    handler: (callbackUrl: string) => void,
+  ): Promise<{ redirectUri: string; stop: () => void }> {
     if (!this.loopbackAvailable) return Promise.reject(new Error('回环不可用'));
+    this.handler = handler;
     return Promise.resolve({
       redirectUri: 'http://127.0.0.1:49152/oauth/callback',
       stop: () => {
@@ -116,8 +218,10 @@ export class MemorySystem implements SystemPort {
       },
     });
   }
-  registerProtocol(): Promise<boolean> {
-    return Promise.resolve(this.protocolAvailable);
+  registerProtocol(handler: (callbackUrl: string) => void): Promise<boolean> {
+    if (!this.protocolAvailable) return Promise.resolve(false);
+    this.handler = handler;
+    return Promise.resolve(true);
   }
   writeClipboard(text: string): Promise<void> {
     this.clipboard.push(text);
@@ -192,6 +296,9 @@ export function createFakeAuthApi(): FakeAuthEnvironment {
     unbind: (provider, hasPassword) =>
       client.withToken((token) => client.unbind(provider, token, hasPassword)),
     requestEmailVerification: (email) => client.requestEmailVerification(email),
+    confirmEmailVerification: (token) => client.confirmEmailVerification(token),
+    emailVerified: (email) => client.emailVerified(email),
+    requestPasswordReset: (email) => client.requestPasswordReset(email),
     resetPassword: (input) => client.resetPassword(input),
     isOffline: () => offline.isOffline(),
     onOfflineChange: (listener) => offline.onChange(listener),

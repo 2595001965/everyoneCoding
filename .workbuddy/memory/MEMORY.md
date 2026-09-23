@@ -4,11 +4,27 @@
 > `env-and-shell.md`（**本机环境与环境坑，每会话先读**）；文档见 `docs/` 下 ACCEPTANCE-REPORT、
 > CAPABILITY-MATRIX、DEV-SETUP、tasks/。
 
-## 现状（2026-09-22）
+## 现状（2026-09-23）
 Windows 桌面端 AI 全栈开发工作台（Tauri 2 / Electron 双形态：需求→界面→技术文档→代码）。
 Tauri 四域 69 方法 + 11 生产能力域已经受控侧车打通，`ai`/`domain` 不再 `NOT_SUPPORTED`。
-门禁基线：单测 248 文件/2552 项、cargo test 24/24、clippy -D warnings、lint、17 包 typecheck、vite build 611 modules。
-未闭环（外部条件）：Tauri 安装包缺 MSVC linker、侧车随包分发、实机 GUI 冒烟、docx/pdf、OCR、Ollama。
+Wave 9 已收口：文档「一键转记忆」接真实 AI 摘要端口（`memory-extract`）、图片 OCR 走 Windows
+内置引擎（`Windows.Media.Ocr`，见 `packages/core/src/docs/parsers/windows-ocr.ts`）、
+邮箱验证与找回密码闭环、OAuth 回环 + `everyonecoding://` 双通道。
+门禁基线：单测 249 文件/2586 项（本机 2575 passed / 4 env-failed）、cargo test 24/24、
+clippy -D warnings、lint、17 包 typecheck、vite build 611 modules。
+未闭环（外部条件）：Tauri 安装包缺 MSVC linker、侧车随包分发、实机 GUI 冒烟、真机 OAuth 凭据、Ollama。
+
+### 高频陷阱（2026-09-23 新增，务必先看）
+- **网关流块文本判别值是 `delta`，不是 `chunk`**：`AiGateway.chat()` 只发
+  `delta`/`tool_call`/`usage`/`error`/`done`。曾六处手写 `type === 'chunk'`（恒假）⇒
+  六个域 AI 输出恒为空串，症状是"模型返回为空，请检查模型配置"（排查方向被带偏）。
+  统一走 `main/domain/ai-stream-text.ts`，别再手写判定。
+- **本机跑 vitest 必须 `--no-file-parallelism`**：否则沙盒 fs 代理写临时 SSR 模块报 EPERM，
+  症状是**一次只收集到一个测试文件**（极易误判成 include 写错）。
+- **本机 `spawnSync`/`execFileSync` 自举 node 恒报 EBUSY**（与代码无关）：
+  影响 `packages/ai/.../external-change-watcher.test.ts`（3 项）与
+  `sidecar-process.test.ts`（先手工跑 `apps/desktop-electron/scripts/build-sidecar.mjs` 备好产物即可绕过）。
+- `services/account` 的测试不在根 vitest include 里，必须 `cd services/account` 单独跑。
 
 ## 双形态与侧车（T13-01，最重要）
 - **运行时只有一份**（Node 侧），Tauri 经**受控侧车**承载，**绝不迁进 Rust**（= 重写第二遍必漂移）。

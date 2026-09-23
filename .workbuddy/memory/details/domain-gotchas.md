@@ -2,6 +2,23 @@
 
 > 索引见 `../MEMORY.md §领域口径`。本文件是被移出 MEMORY.md 的细节。
 
+## AI 网关流（2026-09-23，跨 6 个域踩过，最严重）
+
+- **`AiGateway.chat()` 的 `StreamChunk` 文本块判别值是 `delta`**，全部五种：
+  `delta`（带 `text`）/ `tool_call` / `usage` / `error` / `done`（带 `finishReason`/`partial`）。
+  定义在 `packages/ai/src/core/stream.ts`。
+- **不要手写 `chunk.type === 'chunk'`**：code / designer / git / pipeline / rename / docs
+  六个域曾各写一遍（恒为假）。这种错**不报错**，只让 `text` 恒为空串，最终以
+  「模型返回为空，请检查模型配置」暴露 —— 排查方向会被整体带偏到模型 / Key / 网络。
+  统一走 `apps/desktop-electron/src/main/domain/ai-stream-text.ts` 的
+  `textOfStreamChunk()` / `errorOfStreamChunk()`；改网关侧时只改这一处。
+- **测试夹具必须照抄真实判别值**：此前夹具也写 `'chunk'`，于是"夹具与实现错得一样"，
+  测试全绿而线上功能全灭。写 AI 相关夹具时先读 `StreamChunk` 定义。
+- 注意区分：`@ec/shell-api` 的 `AiStreamEvent` 信封里那个 `{ type: 'chunk', payload }`
+  是**跨进程封包的标签**（`ai-control.ts`），与原始网关流块不是一回事，别混。
+- `AiStackHandle.gateway.chat` 的返回类型是**手写的宽松结构**（`{type: string; text?: string}`，
+  为免 import `@ec/ai` 全量类型），所以拼错判别值**不会**被类型系统拦住 —— 只能靠这段约定防。
+
 - **`ArtifactStore` 产物平坦布局 + 阶段前缀**：`<projectId>/pipeline/s1-<前缀>-v<n>.md`，无阶段子目录。
 - **pipeline 合法序列**：`startStage → submitForReview → confirm`（`confirm` 不接受 `running`）；
   `advance(from,to)` 要求 `from` 已 confirmed 且相邻。同步/异步口都能分发到同一实现

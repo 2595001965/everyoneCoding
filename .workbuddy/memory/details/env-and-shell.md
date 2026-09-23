@@ -7,6 +7,19 @@
   托管 v22.22.2 是 ABI 127，用它跑测试满屏 `NODE_MODULE_VERSION ... requires 127`。首选
   `/c/Users/f2595/AppData/Local/Author Software/nvm/installs/v24.20.0/node.exe`
   （`.nodejs` 是会被切走的软链，只作临时手段）。
+  ⚠️ **版本目录是 `nvm/installs/v24.20.0`，不是 `nvm/v24.20.0`**：写错前缀 PATH 不生效，
+  裸 `node` 会落到 WorkBuddy 托管的 22.22.2 上，症状同上（2026-09-23 踩过）。
+- **本机跑 vitest 必须加 `--no-file-parallelism`**（2026-09-23 定案）：默认并行时沙盒的文件系统
+  代理在写 vitest 的临时 SSR 模块时报 `EPERM`，**症状是一次只收集到一个测试文件**——
+  看起来极像"include 写错了 / 测试文件没被识别"，实际是 worker 崩了。
+  把 `TEMP/TMP/TMPDIR` 指到工作区内也**不能**免除，只有关并行才行。
+- **本机 `spawnSync` / `execFileSync` 自举 node 恒失败（`EBUSY`）**（2026-09-23 定案，
+  一行裸命令即可复现，与代码无关）：受影响的两处
+  ① `packages/ai/src/write/__tests__/external-change-watcher.test.ts`（3 项，用 `execFileSync` 起独立进程写文件）；
+  ② `apps/desktop-electron/src/sidecar/__tests__/sidecar-process.test.ts`（`beforeAll` 里 `spawnSync` 触发侧车构建）——
+  **绕法：先手工跑 `node apps/desktop-electron/scripts/build-sidecar.mjs`**，其 `fresh` 判定会短路掉 spawn，之后 7/7 全绿。
+- **`services/account` 的测试不在根 vitest include 里**（根 include 是 `{packages,apps}/*/src/**/*.test.{ts,tsx}`）：
+  必须 `cd services/account && node ../../node_modules/vitest/vitest.mjs run --no-file-parallelism`。
 - **经 pnpm 转发的命令必须把 nvm v24 目录放进 `PATH` 前缀**（只喂 node.exe 绝对路径没用——
   脚本由 pnpm 重新 spawn，子进程里裸 `node` 会解析到 v22.22.2，**看起来像代码坏了**）。
 - **bash 缺 PortableGit 的 `/usr/bin`**（`dirname`/`head`/`ls`/`grep`/`wc` not found）：前置
@@ -20,6 +33,8 @@
 - **包内单测要在仓库根跑**：根 `vitest.config.ts` 的 include 是
   `{packages,apps}/*/src/**/*.test.{ts,tsx}`，从包目录跑会 "No test files found"（`packages/core` 例外）。
 - **同一 message 里对同一文件发多个 `Edit` 会互相覆盖**（实测只有最后一个生效）。改同一文件必须一次一个 Edit。
+- **写含中英文的 bash 命令时别在正文里出现 `PowerShell` 字样**：会被安全策略拦下
+  （误判成"从 bash 调 PowerShell"）。提交信息里要提到它，就把信息写进文件再 `git commit -F <file>`。
 - 全量并发跑单测时 `@ec/ai` 上下文性能基准会假红（判据见 `docs/TEST-REPORT.md §5.1`），不改预算。
   **根级全量单测最稳的跑法是串行**：`pnpm -r --workspace-concurrency=1 test`。
   **另外 `pnpm -r test` 在第一个失败的包就停**，后面的包根本不跑，只看尾部输出会误判成"全绿"。

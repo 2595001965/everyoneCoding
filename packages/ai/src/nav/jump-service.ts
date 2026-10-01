@@ -120,7 +120,9 @@ export class JumpService {
     this.lastElementId = request.element.elementId;
     const anchors = this.source
       .listAnchors()
-      .filter((candidate) => candidate.elementId === request.element.elementId);
+      .filter((candidate) => request.element.type === 'Page'
+        ? candidate.pageId === request.page.pageId
+        : candidate.elementId === request.element.elementId);
     const currentFile = request.currentFile ?? null;
 
     const built: NavTarget[] = [];

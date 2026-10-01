@@ -47,7 +47,7 @@ export class BudgetGuard {
   }
 
   configure(patch: Partial<BudgetConfig>): void {
-    this.config = { ...this.config, ...patch };
+    this.config = budgetSchema.parse({ ...this.config, ...patch });
   }
 
   getConfig(): BudgetConfig {

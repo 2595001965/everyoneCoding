@@ -586,12 +586,9 @@ export function createDesignerDomain(options: DesignerDomainOptions): {
             throw new ShellError('UNKNOWN', `页面生成失败：${streamError}`);
           }
         }
-        let candidate: unknown;
-        try {
-          candidate = JSON.parse(text) as unknown;
-        } catch {
-          candidate = null;
-        }
+        // 模型常把 JSON 包进 ```json 围栏或前后加一句说明：先剥壳再解析，
+        // 否则「结构化页面生成」在真实中转上大概率拿到 null 候选。
+        const candidate = parsePageCandidate(text);
         // 领域侧先校验一次并如实上报结论：渲染层仍会走 `dslFromAi` 的容错归一化
         // （未知组件降级、超深裁剪），但那属于"修复"，这里给出的是"原始候选是否合规"。
         const validation = candidate === null ? null : validatePageDsl(candidate);
@@ -715,3 +712,25 @@ export const designerPathGuard = (projectsDir: string, projectId: string): strin
   }
   return base;
 };
+
+/**
+ * 从模型输出里取页面 DSL 候选：原文 → 围栏内 → 第一个 `{` 到最后一个 `}`。
+ * 三步都失败返回 null（原文仍随结果返回，UI 可展示给用户）。
+ */
+export function parsePageCandidate(text: string): unknown {
+  const trimmed = text.trim();
+  const attempts: string[] = [trimmed];
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
+  if (fenced?.[1] !== undefined) attempts.push(fenced[1].trim());
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start >= 0 && end > start) attempts.push(trimmed.slice(start, end + 1));
+  for (const attempt of attempts) {
+    try {
+      return JSON.parse(attempt) as unknown;
+    } catch {
+      // 继续下一种剥壳方式
+    }
+  }
+  return null;
+}

@@ -8,7 +8,7 @@
  * 硬约束：**preview 绝不出现明文**——自检/报告里的预览统一用全 `***` 掩码。
  */
 
-import { BUILT_IN_RULES, type RedactionRule } from '@ec/core';
+import { BUILT_IN_RULES, knownSecretRule, type RedactionRule } from '@ec/core';
 
 import type { RedactionFinding } from './export-types';
 
@@ -74,8 +74,14 @@ export function isTextEntry(pkgPath: string): boolean {
 }
 
 function resolveRules(ruleIds?: readonly string[] | undefined): readonly RedactionRule[] {
-  if (ruleIds === undefined) return BUILT_IN_RULES;
-  return BUILT_IN_RULES.filter((rule) => ruleIds.includes(rule.id));
+  const base =
+    ruleIds === undefined
+      ? BUILT_IN_RULES
+      : BUILT_IN_RULES.filter((rule) => ruleIds.includes(rule.id));
+  // 本进程密钥环读写过的明文（中转 Key 常是任意随机串，规则认不出）按精确值命中
+  const known = knownSecretRule();
+  if (known === null || (ruleIds !== undefined && !ruleIds.includes(known.id))) return base;
+  return [known, ...base];
 }
 
 /**

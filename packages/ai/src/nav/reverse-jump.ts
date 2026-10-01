@@ -44,6 +44,10 @@ export class ReverseJumpService {
 
   /** 扫描文件中的 `// @everyonecoding:anchor <elementId>` 标记并定位到行号 */
   scanFile(filePath: string): ReverseJumpHit[] {
+    this.elementIndex.clear();
+    for (const page of this.source.listPages()) {
+      for (const element of page.elements) this.elementIndex.set(element.elementId, { element, page });
+    }
     const content = this.source.readFile(filePath);
     if (content === null) return [];
     const records = parseAnchorComments(content, filePath);
@@ -64,7 +68,7 @@ export class ReverseJumpService {
   jumpFromCode(input: { filePath: string; line: number }): ReverseJumpResult {
     const hits = this.scanFile(input.filePath);
     const hit = hits.find((candidate) => candidate.line === input.line) ?? null;
-    const success = hit !== null;
+    const success = hit?.element != null && hit.page !== null;
     const elementId = hit?.elementId ?? '';
     this.reverseRecords.push({ at: this.clock(), elementId, success });
 

@@ -39,6 +39,12 @@ export const AI_RPC_METHODS = [
   'applyRemoteSource',
   'ackRemoteRevision',
   'refreshRemoteSourcesOnBoot',
+  // 容灾 / 限流 / 运维事件 / 可用性自检（与网关同一份配置）
+  'failoverPolicy',
+  'setFailoverPolicy',
+  'limitsConfig',
+  'recentEvents',
+  'readiness',
   // 密钥环：明文 Key 的唯一入口，只回传引用名
   'persistApiKey',
   'discardTempKey',
@@ -108,8 +114,16 @@ export interface AiStackHandle {
       purpose: string;
       messages: ReadonlyArray<{ role: string; content: string }>;
       projectId?: string | undefined;
+      modelId?: string | undefined;
+      temperature?: number | undefined;
+      maxTokens?: number | undefined;
       signal?: AbortSignal | undefined;
     }): AsyncIterable<{ type: string; text?: string | undefined; [key: string]: unknown }>;
+    /** 某用途实际会用的模型（上下文预算 / 未配置引导）；null = 没有可用模型 */
+    describeModel?(
+      userId: string,
+      purpose: string,
+    ): { modelName: string; providerName: string; contextWindow: number | null } | null;
   };
   budget?: {
     configure(patch: {

@@ -13,7 +13,7 @@ import type {
   UpdateProviderInput,
   UsageTotals,
 } from '@ec/ai';
-import type { ApplyPlan, ConfigDiffItem } from '@ec/ai';
+import type { AiEventRecord, AiReadiness, ApplyPlan, ConfigDiffItem, FailoverPolicy } from '@ec/ai';
 import type { AiStreamHandle } from '@ec/shell-api';
 
 /**
@@ -101,6 +101,13 @@ export interface AiSettingsApi {
     options?: { overwriteLocal?: boolean; ackDefaultModel?: boolean },
   ): Promise<ApplyPlan>;
   ackRemoteRevision(id: string, revision: string): RemoteConfigSource | null;
+
+  /* 容灾 / 运维事件 / 可用性自检（可选：测试替身与旧外壳可不实现） */
+  failoverPolicy?(): Promise<FailoverPolicy | null>;
+  setFailoverPolicy?(patch: Partial<FailoverPolicy>): Promise<FailoverPolicy | null>;
+  /** 最近的运维事件（主进程已脱敏） */
+  recentEvents?(limit?: number): Promise<AiEventRecord[]>;
+  readiness?(): Promise<AiReadiness>;
 }
 
 const AiSettingsContext = createContext<AiSettingsApi | null>(null);

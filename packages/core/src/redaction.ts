@@ -77,6 +77,61 @@ export const BUILT_IN_RULES: readonly RedactionRule[] = [
 
 const customRules: RedactionRule[] = [];
 
+/**
+ * 已知密钥值登记表（FR-MDL-09）。
+ *
+ * 规则式脱敏只认得 `sk-` / Bearer 这类"长得像密钥"的文本；中转站签发的 Key 往往是
+ * 任意随机串，服务端报错时又常把它原样回显（"Incorrect API key provided: xxxx"）。
+ * 因此密钥环每读写一次明文就把它登记在这里，`mask()` 先按**精确值**替换，
+ * 只保留前 4 后 4 位——规则漏网也不会让明文进日志、遥测或事件。
+ */
+const knownSecrets = new Set<string>();
+/** 过短的值精确替换会误伤正文（如 "test"），不登记 */
+const MIN_KNOWN_SECRET_LENGTH = 8;
+const MAX_KNOWN_SECRETS = 256;
+
+export function registerSecretValue(value: string | null | undefined): void {
+  if (typeof value !== 'string') return;
+  const trimmed = value.trim();
+  if (trimmed.length < MIN_KNOWN_SECRET_LENGTH || knownSecrets.has(trimmed)) return;
+  if (knownSecrets.size >= MAX_KNOWN_SECRETS) {
+    const oldest = knownSecrets.values().next().value;
+    if (oldest !== undefined) knownSecrets.delete(oldest);
+  }
+  knownSecrets.add(trimmed);
+}
+
+export function forgetSecretValue(value: string | null | undefined): void {
+  if (typeof value === 'string') knownSecrets.delete(value.trim());
+}
+
+/** 按 FR-MDL-09 口径打码：前 4 后 4 位，其余替换为 *** */
+export function maskSecretValue(value: string): string {
+  if (value.length <= 12) return MASK;
+  return `${value.slice(0, 4)}${MASK}${value.slice(-4)}`;
+}
+
+/**
+ * 已登记密钥的规则形态（供归档导出等「按规则扫描 + 出命中清单」的链路复用）。
+ * 未登记任何密钥时返回 null。
+ */
+export function knownSecretRule(): RedactionRule | null {
+  if (knownSecrets.size === 0) return null;
+  const source = [...knownSecrets]
+    .sort((a, b) => b.length - a.length)
+    .map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  return { id: 'known-secret', pattern: new RegExp(source, 'g'), replace: maskSecretValue };
+}
+
+function maskKnownSecrets(input: string): string {
+  let output = input;
+  for (const secret of knownSecrets) {
+    if (output.includes(secret)) output = output.split(secret).join(maskSecretValue(secret));
+  }
+  return output;
+}
+
 /** 注册自定义脱敏规则（业务专属密钥格式） */
 export function registerRedactionRule(rule: RedactionRule): void {
   customRules.push(rule);
@@ -88,7 +143,7 @@ export function allRules(): RedactionRule[] {
 
 /** 对一段文本执行全部脱敏规则 */
 export function mask(input: string): string {
-  let output = input;
+  let output = maskKnownSecrets(input);
   for (const rule of allRules()) {
     output = output.replace(rule.pattern, (match, ...groups: unknown[]) => {
       if (!rule.replace) return MASK;

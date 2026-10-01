@@ -7,6 +7,7 @@ import { ProviderEditor } from './provider/ProviderEditor';
 import { ModelCapabilityTable } from './provider/ModelCapabilityTable';
 import { PurposeBindingPanel } from './provider/PurposeBinding';
 import { GenerationTest } from './provider/GenerationTest';
+import { ReliabilityPanel } from './provider/ReliabilityPanel';
 import { useProviderSettings } from './provider/useProviderSettings';
 import type { TestState } from './provider/ConnectionTest';
 
@@ -93,6 +94,8 @@ export function ProviderSettings(): JSX.Element {
       />
 
       {state.providers.length > 0 ? <GenerationTest /> : null}
+
+      <ReliabilityPanel />
 
       <section className="ec-ai__section" aria-label="本月用量">
         <h2 className="ec-ai__section-title">本月用量</h2>

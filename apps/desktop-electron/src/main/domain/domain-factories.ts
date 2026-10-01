@@ -65,8 +65,19 @@ export interface AiStackHandle {
       purpose: string;
       messages: ReadonlyArray<{ role: string; content: string }>;
       projectId?: string | undefined;
+      modelId?: string | undefined;
+      temperature?: number | undefined;
+      maxTokens?: number | undefined;
       signal?: AbortSignal | undefined;
     }): AsyncIterable<{ type: string; text?: string | undefined; [key: string]: unknown }>;
+    /**
+     * 某用途实际会用的模型（与 chat 同一条解析链）。
+     * 上下文组装据此取绑定模型的上下文窗口作预算；null = 尚未配置可用模型。
+     */
+    describeModel?(
+      userId: string,
+      purpose: string,
+    ): { modelName: string; providerName: string; contextWindow: number | null } | null;
     embed?(input: {
       userId: string;
       texts: readonly string[];
@@ -122,15 +133,6 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
   const disposers: Array<() => Promise<void>> = [];
 
   const memory = createMemoryDomain({ db: ctx.db, userId: ctx.userId });
-  const pipeline = createPipelineDomain({
-    db: ctx.db,
-    projectsDir: ctx.projectsDir,
-    dataDir: ctx.dataDir,
-    userId: ctx.userId,
-    aiStack: ctx.aiStack,
-    // 不传 emit：流水线的进度/阶段事件全部发生在请求内，走 runtime 的 ctx.emit
-    memoryRouter: memory.router,
-  });
   // 备注存储单例：设计器（读写）与上下文引擎（注入）必须看到同一份内存副本，
   // 否则「刚加的备注没进上下文」这类问题会以"偶发"的形态长期存在。
   const notes = createDesignerNoteStore({ db: ctx.db, userId: ctx.userId });
@@ -146,6 +148,7 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     projectsDir: ctx.projectsDir,
     userId: ctx.userId,
     notes,
+    aiStack: ctx.aiStack,
   });
   // code 域要**先建**：它导出的 `writePort` 是 git（冲突落盘）与 rename（代码栏）
   // 的唯一写入口。顺序反了就会退化成"各写各的文件"，D-04 也就名存实亡。
@@ -155,6 +158,15 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     emit: ctx.emit,
     aiStack: ctx.aiStack,
     userId: ctx.userId,
+  });
+  const pipeline = createPipelineDomain({
+    db: ctx.db,
+    projectsDir: ctx.projectsDir,
+    dataDir: ctx.dataDir,
+    userId: ctx.userId,
+    aiStack: ctx.aiStack,
+    memoryRouter: memory.router,
+    writeCode: code.writePort,
   });
   const git = createGitDomain({
     projectsDir: ctx.projectsDir,

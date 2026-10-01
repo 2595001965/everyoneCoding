@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 
 import { Badge, Button, EmptyState, Select, Tag, Tooltip } from '@ec/ui';
+import type { JumpResolution } from '@ec/ai';
+import { JumpOverlay, NavWorkspace, useNavApiOptional } from '../nav';
 
 import {
   BreakpointBar,
@@ -58,6 +60,9 @@ export function DesignerWorkspace(): JSX.Element {
 
   const store = useDesignerStore();
   const dsl = useEditorState((s) => s.dsl);
+  const nav = useNavApiOptional();
+  const [jump, setJump] = useState<JumpResolution | null>(null);
+  const [navError, setNavError] = useState<string | null>(null);
   const selectedIds = useEditorState((s) => s.selectedIds);
   const hoveredId = useEditorState((s) => s.hoveredId);
   const undoState = useEditorState((s) => s.undoState);
@@ -88,11 +93,24 @@ export function DesignerWorkspace(): JSX.Element {
       <div
         className="ec-designer"
         data-testid="designer-workspace"
+        onClickCapture={(event) => {
+          if ((!event.ctrlKey && !event.metaKey) || nav === null) return;
+          const hit = (event.target as HTMLElement).closest<HTMLElement>('[data-layer-id], [data-element-id], [data-page-id]');
+          if (hit === null) return;
+          const pageId = hit.dataset['pageId'] ?? dsl.id;
+          const elementId = hit.dataset['layerId'] ?? hit.dataset['elementId'] ?? pageId;
+          event.stopPropagation();
+          event.preventDefault();
+          void nav.resolveJump({ pageId, elementId, elementName: findById(dsl.tree, elementId)?.name ?? dsl.name }).then(async (resolution) => {
+            if (!resolution.needsChoice && resolution.preferred) await nav.commitJump(resolution.preferred);
+            else setJump(resolution);
+          }).catch((error: unknown) => setNavError(String(error)));
+        }}
         style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 6, padding: 8 }}
       >
         {/* --------------------------- 工具栏 --------------------------- */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: 13 }}>{dsl.name}</strong>
+          <strong style={{ fontSize: 13 }}><JumpOverlay pageId={dsl.id} element={{ elementId: dsl.id, name: dsl.name, type: 'Page', pageId: dsl.id, pageName: dsl.name }} /></strong>
           <Badge>{dsl.platform}</Badge>
           <Tag color="info">{dsl.route}</Tag>
           <Select
@@ -323,6 +341,12 @@ export function DesignerWorkspace(): JSX.Element {
           </aside>
         </div>
 
+        {navError && <p role="alert">{navError}</p>}
+        {jump && <div role="dialog" aria-label="选择跳转目标">
+          {jump.targets.map((target) => <Button key={target.id} onClick={() => { void nav?.commitJump(target).catch((error: unknown) => setNavError(String(error))); setJump(null); }}>{target.label} · {target.detail}</Button>)}
+          <Button onClick={() => setJump(null)}>关闭</Button>
+        </div>}
+        {nav !== null && <details><summary>关系图与双向导航</summary><NavWorkspace pageId={dsl.id} /></details>}
         <footer style={{ fontSize: 12, opacity: 0.65 }}>
           {`元素 ${countElements(dsl.tree)} 个 · 栅格 ${GRID_SIZE}px · 已选 ${selectedIds.length} 个`}
         </footer>

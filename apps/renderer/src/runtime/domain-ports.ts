@@ -183,6 +183,8 @@ export async function createDocsApi(call: DomainCaller): Promise<DocsApi> {
     countLinksForMemories: (memoryIds) => c('countLinksForMemories', { memoryIds }),
     previewConvertToMemory: (input) => c('previewConvertToMemory', { input }),
     commitConvertToMemory: (input) => c('commitConvertToMemory', { input }),
+    searchDocuments: (projectId, query) => c('searchDocuments', { projectId, query }),
+    ocrStatus: () => c('ocrStatus'),
     supportedFormats: () => formats,
   };
 }

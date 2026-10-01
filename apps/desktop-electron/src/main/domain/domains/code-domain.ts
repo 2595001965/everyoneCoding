@@ -18,12 +18,16 @@ import type Database from 'better-sqlite3';
 import {
   AnchorRepository,
   OUTPUT_CONTRACT_TEXT,
+  createGenerator,
   createWritePipeline,
   parseGenerationOutput,
   shouldIgnorePath,
   type AnchorPersistencePort,
   type CodeAnchorRow,
   type GenerationOutput,
+  type GenerationResult,
+  type GenerationTarget,
+  type StreamChunk,
   type WriteMode,
   type WritePlan,
   type WriteResult,
@@ -97,6 +101,30 @@ const LANG_BY_EXT: Record<string, string> = {
 /** 单次生成的上限（防止一次模型输出把工程目录写爆） */
 const MAX_GENERATED_FILES = 40;
 
+/** 代码类生成目标（界面 / 文档类不走 code 域） */
+const CODE_TARGETS: ReadonlySet<GenerationTarget> = new Set<GenerationTarget>([
+  'backend-code',
+  'frontend-code',
+  'mobile-code',
+  'harmony-code',
+  'desktop-code',
+]);
+
+/** 流式增量事件的合并窗口：逐 token 发 IPC 会把渲染层打满 */
+const DELTA_FLUSH_CHARS = 256;
+
+/** `code.generate` 的返回（渲染层据 status 决定展示差异 / 续写 / 原文） */
+export interface CodeGenerateResult {
+  status: 'planned' | 'aborted' | 'degraded';
+  plan: WritePlan | null;
+  raw: string;
+  partial: boolean;
+  attempts: number;
+  model: string | null;
+  summary: string | null;
+  issues: string[];
+}
+
 export function createCodeDomain(options: CodeDomainOptions): {
   router: DomainRouter;
   dispose: () => Promise<void>;
@@ -105,6 +133,10 @@ export function createCodeDomain(options: CodeDomainOptions): {
 } {
   const { db } = options;
   const watchHandles = new Map<string, { close: () => void }>();
+  /** 进行中的生成（按项目）：abortGeneration 据此中断，已生成部分保留 */
+  const generations = new Map<string, AbortController>();
+  /** 最近一次被中断的生成（按项目）：「继续生成」以它为前缀续写 */
+  const interrupted = new Map<string, GenerationResult>();
   const suppressed = new Map<string, number>();
   /** AI 自身写入的抑制窗口（毫秒）：文件监听会把刚写的文件也报成 modify */
   const SUPPRESS_WINDOW_MS = 1_500;
@@ -163,7 +195,11 @@ export function createCodeDomain(options: CodeDomainOptions): {
       } finally {
         closeSync(fd);
       }
-      renameSync(tmp, full);
+      try {
+        renameSync(tmp, full);
+      } finally {
+        if (existsSync(tmp)) rmSync(tmp, { force: true });
+      }
     },
     async exists(path) {
       return existsSync(relativeOf(root, path));
@@ -376,6 +412,9 @@ export function createCodeDomain(options: CodeDomainOptions): {
   };
 
   const dispose = async (): Promise<void> => {
+    for (const controller of generations.values()) controller.abort();
+    generations.clear();
+    interrupted.clear();
     for (const handle of watchHandles.values()) {
       try {
         handle.close();
@@ -386,7 +425,7 @@ export function createCodeDomain(options: CodeDomainOptions): {
     watchHandles.clear();
   };
 
-  const router: DomainRouter = async (method, params) => {
+  const router: DomainRouter = async (method, params, ctx) => {
     const projectId = String(params['projectId'] ?? '');
     if (projectId.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 projectId');
     const root = codeRootOf(projectId);
@@ -498,6 +537,151 @@ export function createCodeDomain(options: CodeDomainOptions): {
           source: 'rework',
         });
         return undefined;
+      }
+
+      /* --------- 代码生成：上下文 → 真实模型（流式）→ 输出契约 → WritePipeline.plan --------- */
+
+      case 'generate': {
+        const aiStack = options.aiStack;
+        if (aiStack === null) {
+          throw new ShellError(
+            'NOT_SUPPORTED',
+            'AI 栈未装配：请先在「设置 → 模型服务」新增服务、填写 API Key 并完成连接测试，再生成代码。',
+          );
+        }
+        const request = (params['request'] ?? {}) as {
+          system?: unknown;
+          user?: unknown;
+          target?: unknown;
+          noteIds?: unknown;
+          continue?: unknown;
+          temperature?: unknown;
+          maxTokens?: unknown;
+        };
+        const target: GenerationTarget =
+          typeof request.target === 'string' && CODE_TARGETS.has(request.target as GenerationTarget)
+            ? (request.target as GenerationTarget)
+            : 'backend-code';
+        const system = typeof request.system === 'string' ? request.system : '';
+        const user = typeof request.user === 'string' ? request.user : '';
+        const resume = request.continue === true ? (interrupted.get(projectId) ?? null) : null;
+        if (resume === null && (system.trim().length === 0 || user.trim().length === 0)) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            '代码生成需要已组装的上下文（system / user）：请先在上下文面板完成组装',
+          );
+        }
+        if (aiStack.gateway.describeModel?.(options.userId, 'code') === null) {
+          throw new ShellError(
+            'NOT_SUPPORTED',
+            '尚未配置可用模型：请打开「设置 → 模型服务」新增 OpenAI / Anthropic 兼容服务，填写 API Key 并点击「连接测试」拉取模型。',
+          );
+        }
+
+        generations.get(projectId)?.abort();
+        const controller = new AbortController();
+        generations.set(projectId, controller);
+
+        let streamError: string | null = null;
+        let answeredBy: string | null = null;
+        let pending = '';
+        const flush = (): void => {
+          if (pending.length === 0) return;
+          ctx.emit({ type: 'code:generate-delta', projectId, text: pending });
+          pending = '';
+        };
+        const generator = createGenerator({
+          run: (run) =>
+            (async function* (): AsyncIterable<StreamChunk> {
+              for await (const chunk of aiStack.gateway.chat({
+                userId: options.userId,
+                purpose: 'code',
+                projectId,
+                messages: run.messages as ReadonlyArray<{ role: string; content: string }>,
+                signal: run.signal ?? controller.signal,
+                ...(run.temperature !== undefined ? { temperature: run.temperature } : {}),
+                ...(run.maxTokens !== undefined ? { maxTokens: run.maxTokens } : {}),
+              })) {
+                const delta = textOfStreamChunk(chunk);
+                if (delta.model !== null) answeredBy = delta.model;
+                const error = errorOfStreamChunk(chunk);
+                if (error !== null) streamError = error;
+                yield chunk as unknown as StreamChunk;
+              }
+            })(),
+        });
+
+        ctx.emit({ type: 'code:generate-started', projectId, target, resumed: resume !== null });
+        let result: GenerationResult;
+        try {
+          const shared = {
+            signal: controller.signal,
+            ...(typeof request.temperature === 'number'
+              ? { temperature: request.temperature }
+              : {}),
+            ...(typeof request.maxTokens === 'number' ? { maxTokens: request.maxTokens } : {}),
+            onDelta: (text: string) => {
+              pending += text;
+              if (pending.length >= DELTA_FLUSH_CHARS) flush();
+            },
+          };
+          result =
+            resume !== null
+              ? await generator.continueGeneration(resume, shared)
+              : await generator.generate({ ...shared, target, prompt: { system, user } });
+        } finally {
+          flush();
+          if (generations.get(projectId) === controller) generations.delete(projectId);
+        }
+
+        const aborted = controller.signal.aborted;
+        if (!aborted && streamError !== null && result.raw.trim().length === 0) {
+          // 预算拒绝 / 未配置 / 全部服务不可用：网关给出的原因原样（已脱敏）交给 UI
+          throw new ShellError('UNKNOWN', `代码生成失败：${streamError}`);
+        }
+        const base = {
+          raw: result.raw,
+          partial: result.partial,
+          attempts: result.attempts,
+          model: answeredBy,
+          summary: result.output?.summary ?? null,
+          issues: result.parse.issues,
+        };
+        if (aborted || (result.partial && result.output === null)) {
+          // FR-AI-06：中断保留已生成部分，可「继续生成」
+          interrupted.set(projectId, result);
+          ctx.emit({ type: 'code:generate-done', projectId, status: 'aborted' });
+          return { ...base, status: 'aborted', plan: null } satisfies CodeGenerateResult;
+        }
+        interrupted.delete(projectId);
+        if (result.output === null) {
+          ctx.emit({ type: 'code:generate-done', projectId, status: 'degraded' });
+          return { ...base, status: 'degraded', plan: null } satisfies CodeGenerateResult;
+        }
+        if (result.output.files.length > MAX_GENERATED_FILES) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            `单次生成文件数超限（${result.output.files.length} > ${MAX_GENERATED_FILES}），请缩小范围后重试`,
+          );
+        }
+        const noteIds = Array.isArray(request.noteIds)
+          ? request.noteIds.filter((id): id is string => typeof id === 'string')
+          : undefined;
+        const plan = await pipelineOf(projectId).plan({
+          output: result.output,
+          mode: 'preview',
+          ...(noteIds !== undefined ? { noteIds } : {}),
+        });
+        options.emit('code', { type: 'code:write-plan', projectId, plan, source: 'generate' });
+        ctx.emit({ type: 'code:generate-done', projectId, status: 'planned' });
+        return { ...base, status: 'planned', plan } satisfies CodeGenerateResult;
+      }
+
+      case 'abortGeneration': {
+        const controller = generations.get(projectId);
+        if (controller === undefined) return false;
+        controller.abort();
+        return true;
       }
 
       default:

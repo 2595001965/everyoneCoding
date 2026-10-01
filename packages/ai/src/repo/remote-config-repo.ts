@@ -123,6 +123,19 @@ export class RemoteConfigRepo {
     return updated ? toSource(updated) : null;
   }
 
+  /**
+   * 作废缓存正文（地址或公钥变更后调用）。
+   * 缓存必须与「当前这把公钥」的校验结论绑定，换钥后旧缓存一律不可再被应用。
+   */
+  clearCache(id: string): RemoteConfigSource | null {
+    const updated = this.repo.update(id, {
+      last_payload_json: null,
+      last_status: 'idle',
+      last_error: '配置源地址或公钥已变更，需重新拉取',
+    });
+    return updated ? toSource(updated) : null;
+  }
+
   /** 标记用户已确认某版本（拒绝更新后不再弹窗） */
   ackRevision(id: string, revision: string): RemoteConfigSource | null {
     const updated = this.repo.update(id, { acked_revision: revision });

@@ -11,6 +11,8 @@ import type { Provider } from '../domain/provider';
  */
 
 export interface FailoverPolicy {
+  /** 容灾开关（FR-MDL-10「可配置开关」）；关闭后主 Provider 失败即如实报错，不切备用 */
+  enabled: boolean;
   /** 连续失败多少次触发切换 */
   failureThreshold: number;
   /** 降级状态自动解除时间（毫秒） */
@@ -18,6 +20,7 @@ export interface FailoverPolicy {
 }
 
 export const DEFAULT_FAILOVER_POLICY: FailoverPolicy = {
+  enabled: true,
   failureThreshold: 2,
   resetAfterMs: 5 * 60_000,
 };
@@ -36,11 +39,19 @@ export class FailoverController {
   private policy: FailoverPolicy;
 
   constructor(policy: Partial<FailoverPolicy> = {}) {
-    this.policy = { ...DEFAULT_FAILOVER_POLICY, ...policy };
+    this.policy = normalizeFailoverPolicy({ ...DEFAULT_FAILOVER_POLICY, ...policy });
   }
 
   configure(patch: Partial<FailoverPolicy>): void {
-    this.policy = { ...this.policy, ...patch };
+    this.policy = normalizeFailoverPolicy({ ...this.policy, ...patch });
+  }
+
+  getPolicy(): FailoverPolicy {
+    return { ...this.policy };
+  }
+
+  enabled(): boolean {
+    return this.policy.enabled;
   }
 
   onEvent(listener: (event: FailoverEvent) => void): () => void {
@@ -116,4 +127,24 @@ export class FailoverController {
   private emit(event: FailoverEvent): void {
     for (const listener of this.listeners) listener(event);
   }
+}
+
+/** 逐字段兜底：坏值回到默认，而不是让阈值变成 0（=首次失败即拉黑）或 NaN（=永不切换） */
+export function normalizeFailoverPolicy(input: Partial<FailoverPolicy>): FailoverPolicy {
+  const threshold = input.failureThreshold;
+  const reset = input.resetAfterMs;
+  return {
+    enabled: typeof input.enabled === 'boolean' ? input.enabled : DEFAULT_FAILOVER_POLICY.enabled,
+    failureThreshold:
+      typeof threshold === 'number' &&
+      Number.isInteger(threshold) &&
+      threshold >= 1 &&
+      threshold <= 20
+        ? threshold
+        : DEFAULT_FAILOVER_POLICY.failureThreshold,
+    resetAfterMs:
+      typeof reset === 'number' && Number.isFinite(reset) && reset >= 1_000
+        ? reset
+        : DEFAULT_FAILOVER_POLICY.resetAfterMs,
+  };
 }

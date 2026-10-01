@@ -16,9 +16,11 @@ import type { Protocol } from '../domain/provider';
 import { BudgetGuard, type BudgetConfig } from '../gateway/budget';
 import { UsageTracker } from '../gateway/usage-tracker';
 import { RequestQueue } from '../gateway/queue';
-import { FailoverController } from '../gateway/failover';
+import { FailoverController, type FailoverPolicy } from '../gateway/failover';
+import { AiEventLog, type AiEventRecord } from '../gateway/event-log';
 import { AiGateway } from '../gateway/client';
 import { parseProxyUrl } from '../gateway/proxy';
+import type { RetryPolicy } from '../gateway/retry';
 import { AiControlService } from './ai-control-api';
 
 /**
@@ -38,6 +40,12 @@ export interface AiStackOptions {
   budget?: Partial<BudgetConfig>;
   /** 各 Provider 的限流配置 */
   limits?: Record<string, { qps?: number; concurrency?: number }>;
+  /** 重试策略（缺省：指数退避最多 3 次，FR-AI-10）；测试可压到 0 */
+  retry?: Partial<RetryPolicy>;
+  /** 容灾策略（开关 / 连续失败阈值 / 自动恢复时间） */
+  failover?: Partial<FailoverPolicy>;
+  /** 运维事件落点（已脱敏）；Electron 用它写主进程日志 */
+  onAiEvent?: (record: AiEventRecord) => void;
 }
 
 export interface AiStack {
@@ -52,6 +60,7 @@ export interface AiStack {
   gateway: AiGateway;
   control: AiControlService;
   remoteConfig: RemoteConfigRepo;
+  events: AiEventLog;
   dispose(): Promise<void>;
 }
 
@@ -65,7 +74,9 @@ export function createAiStack(options: AiStackOptions): AiStack {
   const budget = new BudgetGuard(usageRepo, options.userId, options.budget ?? {});
   const usage = new UsageTracker(usageRepo, budget, options.logger ?? null);
   const queue = new RequestQueue();
-  const failover = new FailoverController();
+  const failover = new FailoverController(options.failover ?? {});
+  const events = new AiEventLog(200, options.onAiEvent ?? null);
+  failover.onEvent((event) => events.fromFailover(event));
   const remoteConfig = new RemoteConfigRepo(options.db);
 
   for (const [providerId, limit] of Object.entries(options.limits ?? {})) {
@@ -96,9 +107,13 @@ export function createAiStack(options: AiStackOptions): AiStack {
     },
     ...(proxy ? { proxy } : {}),
     ...(options.logger ? { logger: options.logger } : {}),
+    ...(options.retry ? { retry: options.retry } : {}),
   });
 
+  gateway.onEvent((event) => events.fromGateway(event));
+
   return {
+    events,
     providers,
     models,
     bindings,
@@ -120,6 +135,8 @@ export function createAiStack(options: AiStackOptions): AiStack {
       gateway,
       remoteConfig,
       transport,
+      failover,
+      events,
     }),
     async dispose(): Promise<void> {
       queue.clear();

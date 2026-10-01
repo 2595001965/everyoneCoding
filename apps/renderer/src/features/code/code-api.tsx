@@ -43,7 +43,45 @@ export interface CodeWriteApi {
   apply(plan: WritePlan): Promise<WriteResult>;
   /** 把重改要求交回 AI 对话（预填上下文） */
   requestRework(request: ReworkRequest): Promise<void>;
+  /**
+   * 以已组装的上下文生成代码（真实模型、流式；FR-AI-03/05/06）。
+   * 成功时同时经 `subscribeWritePlan` 回流计划（source = 'generate'）。
+   * 可选：未装配 AI 的外壳不提供，UI 据此隐藏入口并给出引导。
+   */
+  generate?(request: CodeGenerateRequest): Promise<CodeGenerateResult>;
+  /** 中断进行中的生成（已生成部分保留，可「继续生成」） */
+  abortGeneration?(): Promise<boolean>;
 }
+
+export type CodeGenerationTarget =
+  'backend-code' | 'frontend-code' | 'mobile-code' | 'harmony-code' | 'desktop-code';
+
+export interface CodeGenerateRequest {
+  /** 上下文面板组装结果的 system / user（用户可能已就地编辑过） */
+  system?: string;
+  user?: string;
+  target?: CodeGenerationTarget;
+  noteIds?: readonly string[];
+  /** true = 从上次被中断处继续 */
+  continue?: boolean;
+}
+
+export interface CodeGenerateResult {
+  status: 'planned' | 'aborted' | 'degraded';
+  plan: WritePlan | null;
+  raw: string;
+  partial: boolean;
+  attempts: number;
+  model: string | null;
+  summary: string | null;
+  issues: readonly string[];
+}
+
+/** 生成流事件（开始 / 增量 / 结束） */
+export type CodeGenerationEvent =
+  | { type: 'started'; target: string; resumed: boolean }
+  | { type: 'delta'; text: string }
+  | { type: 'done'; status: CodeGenerateResult['status'] };
 
 export interface ExternalChangeHint {
   path: string;
@@ -73,6 +111,8 @@ export interface CodeViewApi {
   subscribeExternalChanges?(listener: (change: ExternalChangeHint) => void): () => void;
   /** 订阅 AI 重改产出的写入计划（未接入时不订阅） */
   subscribeWritePlan?(listener: (hint: WritePlanHint) => void): () => void;
+  /** 订阅代码生成流（未接入时不订阅） */
+  subscribeGeneration?(listener: (event: CodeGenerationEvent) => void): () => void;
 }
 
 const CodeViewContext = createContext<CodeViewApi | null>(null);

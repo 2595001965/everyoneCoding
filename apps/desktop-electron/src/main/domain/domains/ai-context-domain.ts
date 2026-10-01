@@ -30,6 +30,7 @@ import {
 import { ShellError } from '@ec/shell-api';
 
 import type { DomainRouter } from '../runtime';
+import type { AiStackHandle } from '../domain-factories';
 import { createDesignerNoteStore, type DesignerNoteStore } from '../designer-notes';
 import { createPageDslReader } from '../designer-pages';
 
@@ -57,6 +58,28 @@ export interface AiContextDomainOptions {
   userId: string;
   /** 与 designer 域共用同一份备注存储（禁止两处各持一份内存副本） */
   notes?: DesignerNoteStore | undefined;
+  /**
+   * AI 栈句柄：取「该用途绑定模型」的上下文窗口作 token 预算（FR-AI-02）。
+   * 与生成走同一条选模型链路——组装按 128k 裁、实际却发给 32k 的模型，必然超限失败。
+   */
+  aiStack?: AiStackHandle | null | undefined;
+}
+
+/** 默认总预算（FR-AI-02） */
+const DEFAULT_CONTEXT_BUDGET = 128_000;
+/** 上下文最多占模型窗口的比例：其余留给输出 */
+const CONTEXT_WINDOW_SHARE = 0.75;
+
+/** 预算：显式给出优先；否则取绑定模型窗口的 75%（且不超过默认 128k）；取不到用默认 */
+export function contextBudgetFor(
+  explicit: number | undefined,
+  contextWindow: number | null | undefined,
+): number | undefined {
+  if (explicit !== undefined) return explicit;
+  if (typeof contextWindow !== 'number' || !Number.isFinite(contextWindow) || contextWindow <= 0) {
+    return undefined;
+  }
+  return Math.min(DEFAULT_CONTEXT_BUDGET, Math.floor(contextWindow * CONTEXT_WINDOW_SHARE));
 }
 
 function toHit(item: MemoryItem): ContextMemoryHit {
@@ -530,10 +553,13 @@ export function createAiContextDomain(options: AiContextDomainOptions): DomainRo
     const contracts = (params['contracts'] ?? []) as DependencyContract[];
     if (contracts.length > 0) engine.setDependencyContracts(contracts);
 
+    const purpose = request.purpose ?? 'code';
+    const bound = options.aiStack?.gateway.describeModel?.(options.userId, purpose) ?? null;
+    const budget = contextBudgetFor(request.budget, bound?.contextWindow);
     const full: ContextAssemblyRequest = {
       userId: options.userId,
       projectId: request.projectId,
-      purpose: request.purpose ?? 'code',
+      purpose,
       ...(request.target !== undefined ? { target: request.target } : {}),
       ...(request.elementId !== undefined ? { elementId: request.elementId } : {}),
       ...(request.pageId !== undefined ? { pageId: request.pageId } : {}),
@@ -542,7 +568,7 @@ export function createAiContextDomain(options: AiContextDomainOptions): DomainRo
       ...(request.history !== undefined ? { history: request.history } : {}),
       ...(request.disabledBlocks !== undefined ? { disabledBlocks: request.disabledBlocks } : {}),
       ...(request.overrides !== undefined ? { overrides: request.overrides } : {}),
-      ...(request.budget !== undefined ? { budget: request.budget } : {}),
+      ...(budget !== undefined ? { budget } : {}),
       ...(request.since !== undefined ? { since: request.since } : {}),
     };
     return engine.assemble(full);

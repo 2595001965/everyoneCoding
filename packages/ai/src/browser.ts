@@ -27,3 +27,6 @@ export type * from './remote-config/applier';
 /* 用量报表与预算面板：纯函数，渲染层安全引用 */
 export * from './gateway/usage-report';
 export * from './gateway/budget-alert';
+export type { AiEventRecord } from './gateway/event-log';
+export type { FailoverPolicy } from './gateway/failover';
+export type { AiReadiness, BootRefreshItem } from './service/ai-control-api';

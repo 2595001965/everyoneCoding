@@ -12,10 +12,15 @@ import type { UsageTracker } from '../gateway/usage-tracker';
 import type { BudgetGuard } from '../gateway/budget';
 import type { RequestQueue } from '../gateway/queue';
 import type { AiGateway } from '../gateway/client';
+import type { FailoverController, FailoverPolicy } from '../gateway/failover';
+import type { AiEventLog, AiEventRecord } from '../gateway/event-log';
+import type { ProviderLimits } from '../gateway/queue';
+import { AI_PURPOSES, PURPOSE_LABELS, type AiPurpose } from '../domain/purpose-binding';
 import type { UsageTotals } from '../repo/usage-repo';
 import {
   fetchRemoteConfig,
   parseRemoteConfig,
+  type RemoteConfigPayload,
   type RemoteFetchResult,
 } from '../remote-config/fetcher';
 import {
@@ -50,6 +55,37 @@ export interface AiControlDeps {
   gateway: AiGateway;
   remoteConfig: RemoteConfigRepo;
   transport: HttpTransport;
+  failover?: FailoverController;
+  events?: AiEventLog;
+}
+
+/** 启动刷新的单源结果（设置页「上次拉取」与默认模型询问都读它） */
+export interface BootRefreshItem {
+  id: string;
+  name: string;
+  result: RemoteFetchResult;
+  /** 拉取失败但本地有上次成功的缓存：继续用缓存，不阻塞 */
+  usingCache: boolean;
+  /** 本次自动应用（只新增本地没有的服务，本地优先）；未应用为 null */
+  applied: { revision: string; created: string[]; skipped: string[] } | null;
+  /** 远程默认模型与本地不同且该版本未被拒绝过：UI 需弹窗询问 */
+  pendingDefaultModel: { before: string | null; after: string; revision: string } | null;
+}
+
+/** 「是否已可用」的引导清单（没有配置时 UI 据此给出可执行的下一步） */
+export interface AiReadiness {
+  ready: boolean;
+  providers: number;
+  enabledProviders: number;
+  providersWithKey: number;
+  models: number;
+  purposes: Array<{
+    purpose: AiPurpose;
+    label: string;
+    modelName: string | null;
+    providerName: string | null;
+  }>;
+  steps: Array<{ id: string; done: boolean; label: string; action: string }>;
 }
 
 export class AiControlService {
@@ -307,7 +343,18 @@ export class AiControlService {
       updateIntervalMin?: number;
     },
   ): RemoteConfigSource | null {
-    return this.deps.remoteConfig.update(id, patch);
+    const before = this.deps.remoteConfig.findById(id);
+    const updated = this.deps.remoteConfig.update(id, patch);
+    // 换了地址或公钥：旧缓存不再可信（可能来自别的源、或当初未经这把公钥校验），必须作废，
+    // 否则「签名错误不应用」可以被「先无公钥拉一次、再填公钥」绕过。
+    if (
+      updated &&
+      before &&
+      (before.url !== updated.url || (before.publicKey ?? null) !== (updated.publicKey ?? null))
+    ) {
+      return this.deps.remoteConfig.clearCache(id);
+    }
+    return updated;
   }
 
   removeRemoteSource(id: string): boolean {
@@ -334,7 +381,8 @@ export class AiControlService {
     this.deps.remoteConfig.recordFetch(id, {
       status: result.status,
       error: result.ok ? null : result.message,
-      ...(result.ok && result.document ? { payloadJson: result.document.raw } : {}),
+      // 只缓存「校验通过 + 已剔除敏感头」的正文；失败时不动旧缓存（断网回退）
+      ...(result.ok && result.document ? { payloadJson: result.document.cacheJson } : {}),
     });
     return result;
   }
@@ -352,7 +400,7 @@ export class AiControlService {
     if (!payload) return { items: [], summary: '尚未成功拉取过配置', revision: null, plan: null };
     const items = diffRemoteConfig(this.localSnapshots(), payload);
     const plan = planApply(payload, this.localSnapshots(), {
-      currentDefaultModel: this.deps.bindings.get(this.deps.userId).defaultModelId,
+      currentDefaultModel: this.currentDefaultModelName(),
     });
     return { items, summary: summarizeDiff(items), revision: payload.revision, plan };
   }
@@ -365,10 +413,17 @@ export class AiControlService {
     const source = this.deps.remoteConfig.findById(id);
     if (!source) throw new Error('配置源不存在');
     const payload = await this.payloadOf(source);
-    if (!payload) throw new Error('尚未成功拉取过配置，无法应用');
+    if (!payload) throw new Error('尚未成功拉取过配置（或签名校验未通过），无法应用');
+    return this.applyPayload(id, payload, options);
+  }
 
+  private async applyPayload(
+    id: string,
+    payload: RemoteConfigPayload,
+    options: { overwriteLocal?: boolean; ackDefaultModel?: boolean },
+  ): Promise<ApplyPlan> {
     const plan = planApply(payload, this.localSnapshots(), {
-      currentDefaultModel: this.deps.bindings.get(this.deps.userId).defaultModelId,
+      currentDefaultModel: this.currentDefaultModelName(),
       ...(options.overwriteLocal ? { overwriteLocal: true } : {}),
     });
 
@@ -388,9 +443,23 @@ export class AiControlService {
           order: this.deps.providers.list(this.deps.userId).length,
           manualModels: item.config.models,
         });
-        for (const modelName of item.config.models) {
-          this.deps.models.create(created.id, modelName);
-        }
+        this.ensureModels(created.id, item.config.models);
+      } else if (item.kind === 'update') {
+        // 用户显式选择「以远程覆盖本地」才会走到这里；Key 与启用状态始终保留本地值
+        const local = this.deps.providers
+          .list(this.deps.userId)
+          .find((provider) => provider.name === item.name);
+        if (!local) continue;
+        await this.deps.providers.update(local.id, {
+          protocol: item.config.protocol,
+          baseUrl: item.config.baseUrl,
+          headers: item.config.headers,
+          timeoutMs: item.config.timeoutMs,
+          supportsStream: item.config.supportsStream,
+          supportsTools: item.config.supportsTools,
+          supportsVision: item.config.supportsVision,
+        });
+        this.ensureModels(local.id, item.config.models);
       }
     }
 
@@ -411,35 +480,170 @@ export class AiControlService {
     return plan;
   }
 
+  private ensureModels(providerId: string, names: readonly string[]): void {
+    for (const name of names) {
+      if (!this.deps.models.findByName(providerId, name)) this.deps.models.create(providerId, name);
+    }
+  }
+
   /** 拒绝本次默认模型更新：记录已读版本，后续不再弹窗 */
   ackRemoteRevision(id: string, revision: string): RemoteConfigSource | null {
     return this.deps.remoteConfig.ackRevision(id, revision);
   }
 
-  /** 启动时的静默刷新：失败用缓存、绝不抛错、不阻塞启动 */
-  async refreshRemoteSourcesOnBoot(): Promise<Array<{ id: string; result: RemoteFetchResult }>> {
+  /**
+   * 启动时的静默刷新（FR-MDL-06）：失败用缓存、绝不抛错、不阻塞启动。
+   *
+   * 每个启用的源：拉取 →（成功且是新版本）按「本地优先」自动应用——只新增本地没有的服务，
+   * 同名服务一律保留本地配置，默认模型**不**自动改，而是返回 `pendingDefaultModel`
+   * 交给 UI 询问（FR-MDL-08；用户拒绝过的版本不再询问）。
+   * 签名失败 / 格式不合法 / 不可达都不会触碰本地配置与旧缓存。
+   */
+  async refreshRemoteSourcesOnBoot(): Promise<BootRefreshItem[]> {
     const sources = this.deps.remoteConfig.enabledSources(this.deps.userId);
-    const out: Array<{ id: string; result: RemoteFetchResult }> = [];
+    const out: BootRefreshItem[] = [];
     for (const source of sources) {
+      let result: RemoteFetchResult;
       try {
-        out.push({ id: source.id, result: await this.fetchRemoteSource(source.id) });
+        result = await this.fetchRemoteSource(source.id);
       } catch (error) {
-        out.push({
-          id: source.id,
-          result: {
-            ok: false,
-            status: 'unreachable',
-            document: null,
-            latencyMs: 0,
-            message: error instanceof Error ? error.message : String(error),
-          },
+        result = {
+          ok: false,
+          status: 'unreachable',
+          document: null,
+          latencyMs: 0,
+          message: error instanceof Error ? error.message : String(error),
+        };
+        this.deps.remoteConfig.recordFetch(source.id, {
+          status: 'unreachable',
+          error: result.message,
         });
       }
+
+      let applied: BootRefreshItem['applied'] = null;
+      let pendingDefaultModel: BootRefreshItem['pendingDefaultModel'] = null;
+      const payload = result.ok ? (result.document?.payload ?? null) : null;
+      if (payload) {
+        try {
+          if (payload.revision !== source.appliedRevision) {
+            const plan = await this.applyPayload(source.id, payload, {});
+            applied = {
+              revision: plan.revision,
+              created: plan.items.filter((item) => item.kind === 'create').map((item) => item.name),
+              skipped: plan.items.filter((item) => item.kind === 'skip').map((item) => item.name),
+            };
+          }
+          const plan = planApply(payload, this.localSnapshots(), {
+            currentDefaultModel: this.currentDefaultModelName(),
+          });
+          if (plan.defaultModelChange && source.ackedRevision !== payload.revision) {
+            pendingDefaultModel = { ...plan.defaultModelChange, revision: payload.revision };
+          }
+        } catch (error) {
+          // 应用失败不影响启动；原因记在源上，设置页可见
+          this.deps.remoteConfig.recordFetch(source.id, {
+            status: 'invalid',
+            error: `自动应用失败：${error instanceof Error ? error.message : String(error)}`,
+          });
+        }
+      }
+
+      // 不回传整份文档：启动结果只给 UI 摘要，正文已在库里
+      out.push({
+        id: source.id,
+        name: source.name,
+        result: { ...result, document: null },
+        usingCache: !result.ok && source.lastPayloadJson !== null,
+        applied,
+        pendingDefaultModel,
+      });
     }
     return out;
   }
 
+  /* ----------------------------- 容灾 / 限流 / 事件 ----------------------------- */
+
+  failoverPolicy(): FailoverPolicy | null {
+    return this.deps.failover?.getPolicy() ?? null;
+  }
+
+  setFailoverPolicy(patch: Partial<FailoverPolicy>): FailoverPolicy | null {
+    this.deps.failover?.configure(patch);
+    return this.failoverPolicy();
+  }
+
+  /** 各 Provider 当前生效的限流（未配置即不限） */
+  limitsConfig(): Record<string, ProviderLimits> {
+    const out: Record<string, ProviderLimits> = {};
+    for (const provider of this.deps.providers.list(this.deps.userId)) {
+      out[provider.id] = this.deps.queue.limitsOf(provider.id);
+    }
+    return out;
+  }
+
+  /** 最近的运维事件（已脱敏）：容灾切换、重试、预算拒绝、失败 */
+  recentEvents(limit = 50): AiEventRecord[] {
+    return this.deps.events?.recent(limit) ?? [];
+  }
+
+  /**
+   * 可用性自检：没有配置时 UI 据此给出「下一步做什么」，而不是等用户点生成后才报错。
+   */
+  readiness(): AiReadiness {
+    const providers = this.deps.providers.list(this.deps.userId);
+    const enabled = providers.filter((provider) => provider.enabled);
+    const withKey = enabled.filter((provider) => provider.keyRef !== null);
+    const models = enabled.reduce(
+      (total, provider) => total + this.deps.models.list(provider.id).length,
+      0,
+    );
+    const purposes = AI_PURPOSES.filter((purpose) => purpose !== 'embedding').map((purpose) => {
+      const described = this.deps.gateway.describeModel(this.deps.userId, purpose);
+      return {
+        purpose,
+        label: PURPOSE_LABELS[purpose],
+        modelName: described?.modelName ?? null,
+        providerName: described?.providerName ?? null,
+      };
+    });
+    const steps: AiReadiness['steps'] = [
+      {
+        id: 'provider',
+        done: enabled.length > 0,
+        label: '添加并启用一个模型服务（OpenAI / Anthropic 兼容中转均可）',
+        action: '打开「设置 → 模型服务」，点击「新增服务」，填写协议与 Base URL',
+      },
+      {
+        id: 'key',
+        done: withKey.length > 0,
+        label: '为模型服务填写 API Key（只保存在本机系统加密存储）',
+        action: '在服务编辑页填写 API Key 后点击「连接测试」',
+      },
+      {
+        id: 'model',
+        done: models > 0,
+        label: '至少有一个可用模型',
+        action: '连接测试会自动拉取模型列表；中转不支持列举时可手工添加模型名',
+      },
+    ];
+    return {
+      ready: steps.every((step) => step.done),
+      providers: providers.length,
+      enabledProviders: enabled.length,
+      providersWithKey: withKey.length,
+      models,
+      purposes,
+      steps,
+    };
+  }
+
   /* ----------------------------- 内部 ----------------------------- */
+
+  /** 当前默认模型的**名字**（远程配置按名字描述模型，比较必须同一口径） */
+  private currentDefaultModelName(): string | null {
+    const id = this.deps.bindings.get(this.deps.userId).defaultModelId;
+    return id ? (this.deps.models.findById(id)?.name ?? null) : null;
+  }
 
   private async payloadOf(source: RemoteConfigSource) {
     if (source.lastPayloadJson) {

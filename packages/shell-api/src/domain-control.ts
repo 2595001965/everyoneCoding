@@ -103,6 +103,7 @@ export const DOMAIN_RPC_METHODS = {
     'commitConvertToMemory',
     'supportedFormats',
     'ocrStatus',
+    'searchDocuments',
   ],
   auth: [
     'register',
@@ -179,6 +180,7 @@ export const DOMAIN_RPC_METHODS = {
     'switchVersion',
     'notifyDownstream',
     'generateRequirement',
+    'captureDesign',
     'getTechChoice',
     'saveTechChoice',
     'generateTechDoc',
@@ -192,6 +194,7 @@ export const DOMAIN_RPC_METHODS = {
     'retryNode',
     'skipNode',
     'pauseQueue',
+    'getQueueState',
   ],
   git: [
     'openProject',
@@ -308,7 +311,7 @@ export const DOMAIN_RPC_METHODS = {
   ],
   usage: ['listRows', 'getBudget', 'setBudget', 'budgetDecision'],
   'ai-context': ['assemble'],
-  code: ['listFiles', 'readFile', 'plan', 'apply', 'requestRework'],
+  code: ['listFiles', 'readFile', 'plan', 'apply', 'requestRework', 'generate', 'abortGeneration'],
   nav: [
     'openProject',
     'hoverTargets',
@@ -387,6 +390,7 @@ export const DOMAIN_SYNC_METHODS = {
     'getSplit',
     'getResumeProgress',
     'getQueueState',
+    'pauseQueue',
   ],
 } as const satisfies Partial<Record<DomainKind, readonly string[]>>;
 
@@ -641,6 +645,13 @@ export const CODE_EXTERNAL_CHANGE_EVENT = 'code:external-change';
  * 用户确认后调用 `code.apply` 走同一份 WritePipeline 事务。
  */
 export const CODE_WRITE_PLAN_EVENT = 'code:write-plan';
+/**
+ * 代码生成流式事件（FR-AI-06）：`code.generate` 进行中逐段推送模型输出，
+ * 开始 / 结束各一帧，UI 据此展示「正在生成…」并提供中断。
+ */
+export const CODE_GENERATE_STARTED_EVENT = 'code:generate-started';
+export const CODE_GENERATE_DELTA_EVENT = 'code:generate-delta';
+export const CODE_GENERATE_DONE_EVENT = 'code:generate-done';
 
 function isPositiveRatio(value: unknown): boolean {
   if (value === null) return true;
@@ -653,7 +664,7 @@ function isPipelineStageEventShape(value: unknown): boolean {
   return (
     typeof event['projectId'] === 'string' &&
     typeof event['event'] === 'string' &&
-    isPositiveRatio(event['ratio']) &&
+    (event['ratio'] === undefined || isPositiveRatio(event['ratio'])) &&
     (event['data'] === undefined || typeof event['data'] === 'object')
   );
 }
@@ -737,6 +748,27 @@ function isCodeWritePlanEventShape(value: unknown): boolean {
   );
 }
 
+function isCodeGenerateStartedShape(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  const event = value as Record<string, unknown>;
+  return typeof event['projectId'] === 'string' && typeof event['target'] === 'string';
+}
+
+function isCodeGenerateDeltaShape(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  const event = value as Record<string, unknown>;
+  return typeof event['projectId'] === 'string' && typeof event['text'] === 'string';
+}
+
+function isCodeGenerateDoneShape(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  const event = value as Record<string, unknown>;
+  return (
+    typeof event['projectId'] === 'string' &&
+    ['planned', 'aborted', 'degraded'].includes(event['status'] as string)
+  );
+}
+
 /** 域事件载荷注册表：`type` 判别字段 → 形状守卫（跨进程数据不信任） */
 const DOMAIN_EVENT_PAYLOAD_GUARDS: ReadonlyArray<{
   type: string;
@@ -751,6 +783,9 @@ const DOMAIN_EVENT_PAYLOAD_GUARDS: ReadonlyArray<{
   { type: PACKAGE_PROGRESS_EVENT, guard: isPackageProgressEventShape },
   { type: CODE_EXTERNAL_CHANGE_EVENT, guard: isCodeExternalChangeEventShape },
   { type: CODE_WRITE_PLAN_EVENT, guard: isCodeWritePlanEventShape },
+  { type: CODE_GENERATE_STARTED_EVENT, guard: isCodeGenerateStartedShape },
+  { type: CODE_GENERATE_DELTA_EVENT, guard: isCodeGenerateDeltaShape },
+  { type: CODE_GENERATE_DONE_EVENT, guard: isCodeGenerateDoneShape },
 ];
 
 /**

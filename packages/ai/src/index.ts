@@ -102,6 +102,7 @@ export * from './gateway/usage-report';
 export * from './gateway/failover';
 export * from './gateway/proxy';
 export * from './gateway/client';
+export * from './gateway/event-log';
 
 /* ------------------------------ context ----------------------------- */
 export * from './context';

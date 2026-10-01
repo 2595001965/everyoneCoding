@@ -1,4 +1,4 @@
-import type { SecureStore } from '@ec/core';
+import { registerSecretValue, type SecureStore } from '@ec/core';
 
 import { KEY_NAMESPACE, isTempKeyRef, keyRefOf } from '../domain/provider';
 
@@ -27,6 +27,7 @@ export class ApiKeyStore {
   /** 写入并返回可被真实外壳接受的引用名。 */
   async save(providerId: string, apiKey: string): Promise<string> {
     const ref = keyRefOf(providerId);
+    registerSecretValue(apiKey);
     try {
       await this.store.set(KEY_NAMESPACE, ref, apiKey);
       return ref;
@@ -37,7 +38,7 @@ export class ApiKeyStore {
 
   async get(providerId: string): Promise<string | null> {
     try {
-      return await this.store.get(KEY_NAMESPACE, keyRefOf(providerId));
+      return remember(await this.store.get(KEY_NAMESPACE, keyRefOf(providerId)));
     } catch {
       throw new KeyStoreError(providerId);
     }
@@ -49,12 +50,13 @@ export class ApiKeyStore {
     apiKey: string,
     namespace: AiKeyNamespace = KEY_NAMESPACE,
   ): Promise<string> {
+    registerSecretValue(apiKey);
     await this.store.set(namespace, ref, apiKey);
     return ref;
   }
 
   async getByRef(ref: string, namespace: AiKeyNamespace = KEY_NAMESPACE): Promise<string | null> {
-    return this.store.get(namespace, ref);
+    return remember(await this.store.get(namespace, ref));
   }
 
   async removeRef(ref: string, namespace: AiKeyNamespace = KEY_NAMESPACE): Promise<void> {
@@ -86,4 +88,10 @@ export class ApiKeyStore {
       throw new KeyStoreError(providerId);
     }
   }
+}
+
+/** 读出的明文登记进脱敏表：之后任何日志 / 事件 / 错误里回显它都会被打码 */
+function remember(value: string | null): string | null {
+  registerSecretValue(value);
+  return value;
 }

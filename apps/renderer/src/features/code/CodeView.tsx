@@ -10,6 +10,9 @@ import {
 
 import { AiFixEntry } from './AiFixEntry';
 import { useCodeViewApi, type CodeFileEntry } from './code-api';
+import { readInjectedNavApi } from '../nav/nav-api';
+import { useNavLocation } from '../../runtime/nav-location';
+import { useProjectStore } from '../../store/useProjectStore';
 
 /**
  * CodeView：只读代码视图（T4-05 要点 2 / E2E-18）。
@@ -41,6 +44,10 @@ export function CodeView({
   onRequestAiFix,
 }: CodeViewProps): JSX.Element {
   const api = useCodeViewApi();
+  const location = useNavLocation((state) => state.target);
+  const projectId = useProjectStore((state) => state.current?.id);
+  const target = location?.projectId === projectId ? location : null;
+  const highlightedRef = useRef<HTMLSpanElement>(null);
   const [loadedFiles, setLoadedFiles] = useState<readonly CodeFileEntry[]>([]);
   const [activePath, setActivePath] = useState<string | null>(path ?? null);
   const [content, setContent] = useState<string>('');
@@ -49,7 +56,8 @@ export function CodeView({
   const blockedCountRef = useRef(0);
 
   const fileList = files ?? loadedFiles;
-  const effectivePath = path ?? activePath;
+  const effectivePath = path ?? target?.filePath ?? activePath;
+  useEffect(() => { highlightedRef.current?.scrollIntoView?.({ block: 'center' }); }, [content, target]);
 
   useEffect(() => {
     if (files !== undefined) return;
@@ -202,7 +210,17 @@ export function CodeView({
             whiteSpace: 'pre',
           }}
         >
-          <code>{content}</code>
+          <code>{lines.map((line, index) => (
+            <span key={index} ref={target?.line === index + 1 ? highlightedRef : undefined}
+              data-line={index + 1} data-highlighted={target?.line === index + 1 || undefined}
+              style={target?.line === index + 1 ? { background: '#fff3bf' } : undefined}
+              onClick={(event) => {
+                if ((event.ctrlKey || event.metaKey) && effectivePath !== null) {
+                  void readInjectedNavApi()?.reverseJump({ filePath: effectivePath, line: index + 1 }).catch((cause: unknown) => setError(String(cause)));
+                }
+              }}
+            >{line}{index < lines.length - 1 ? '\n' : ''}</span>
+          ))}</code>
         </pre>
       )}
 

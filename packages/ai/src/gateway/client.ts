@@ -1,4 +1,4 @@
-import type { Logger } from '@ec/core';
+import { mask, type Logger } from '@ec/core';
 
 import type { AdapterContext, ProviderAdapter } from '../core/adapter';
 import type { ChatMessage } from '../core/message';
@@ -13,7 +13,7 @@ import type { ConnectionTestResult } from '../core/adapter';
 import { embeddingUnavailable, type EmbeddingOutcome } from '../core/embedding';
 import type { Model, ModelDiscovery } from '../domain/model';
 import type { Protocol, Provider } from '../domain/provider';
-import { resolveModelId, type AiPurpose } from '../domain/purpose-binding';
+import { normalizePurpose, resolveModelId, type AiPurpose } from '../domain/purpose-binding';
 import type { ModelRepo } from '../repo/model-repo';
 import type { ProviderRepo } from '../repo/provider-repo';
 import type { PurposeBindingRepo } from '../repo/purpose-binding-repo';
@@ -57,6 +57,7 @@ export interface AiGatewayDeps {
 
 export interface GatewayChatRequest {
   userId: string;
+  /** 标准用途；业务侧别名（如 `commit-message`）在入口经 `normalizePurpose` 归一 */
   purpose: AiPurpose;
   messages: ChatMessage[];
   projectId?: string | null;
@@ -138,7 +139,9 @@ export class AiGateway {
 
   /* ------------------------------ 对话 ------------------------------ */
 
-  async *chat(request: GatewayChatRequest): AsyncIterable<StreamChunk> {
+  async *chat(input: GatewayChatRequest): AsyncIterable<StreamChunk> {
+    // 用途归一：绑定解析、用量落库、事件上报都用同一个标准用途
+    const request: GatewayChatRequest = { ...input, purpose: normalizePurpose(input.purpose) };
     const model = this.resolveModel(request);
     if (!model) {
       const error = new ProviderUnavailableError(
@@ -193,11 +196,12 @@ export class AiGateway {
       }
 
       // 只有达到阈值后才允许切换；单次瞬时失败不应绕过容灾策略。
+      // 容灾关闭时照常计数（UI 仍能看到连续失败），但不切备用。
       const shouldSwitch = this.deps.failover.recordFailure(
         candidate.provider.id,
-        outcome.error.message,
+        mask(outcome.error.message),
       );
-      if (!shouldSwitch) break;
+      if (!shouldSwitch || !this.deps.failover.enabled()) break;
 
       const next = candidates.find(
         (item) =>
@@ -205,21 +209,18 @@ export class AiGateway {
           !this.deps.failover.isDegraded(item.provider.id),
       );
       if (!next) break;
-      this.deps.failover.notifySwitch(
-        candidate.provider.id,
-        next.provider.id,
-        outcome.error.message,
-      );
+      const reason = mask(outcome.error.message);
+      this.deps.failover.notifySwitch(candidate.provider.id, next.provider.id, reason);
       this.deps.logger?.warn('模型服务故障，切换备用', {
         from: candidate.provider.name,
         to: next.provider.name,
-        reason: outcome.error.message,
+        reason,
       });
       this.emit({
         type: 'failover',
         fromProviderId: candidate.provider.id,
         toProviderId: next.provider.id,
-        reason: outcome.error.message,
+        reason,
       });
     }
 
@@ -288,6 +289,11 @@ export class AiGateway {
 
       let emittedContent = false;
       try {
+        const currentBudget = this.deps.budget.check();
+        if (!currentBudget.ok) {
+          this.emit({ type: 'budget-exceeded', message: currentBudget.message });
+          throw new ProviderUnavailableError(currentBudget.message, { retryable: false });
+        }
         const result = yield* this.streamOnce(adapter, provider, model, request, (chunk) => {
           if (chunk.type === 'delta' || chunk.type === 'tool_call') emittedContent = true;
         });
@@ -362,7 +368,7 @@ export class AiGateway {
       recorded = true;
       if (!usage) usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
       this.deps.failover.recordSuccess(provider.id);
-      this.deps.usage.record({
+      const entry = {
         userId: request.userId,
         providerId: provider.id,
         modelId: model.id,
@@ -374,7 +380,25 @@ export class AiGateway {
           outputPricePerMTok: model.capability.outputPricePerMTok,
         },
         latencyMs: Date.now() - started,
-      });
+      };
+      // 用量落库失败不得让「模型已经答完」的请求变成失败：
+      // 常见原因是 projectId 在 project 表里没有行（外部导入 / 已删除项目）→ 外键失败。
+      // 退一步按「无项目」记一次，保住预算统计；仍失败只告警。
+      try {
+        this.deps.usage.record(entry);
+      } catch (error) {
+        try {
+          if (entry.projectId === null) throw error;
+          this.deps.usage.record({ ...entry, projectId: null });
+        } catch (fallbackError) {
+          this.deps.logger?.warn('用量落库失败（本次调用不计入预算）', {
+            provider: provider.name,
+            reason: mask(
+              fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+            ),
+          });
+        }
+      }
     };
 
     for await (const chunk of chunks) {
@@ -521,6 +545,36 @@ export class AiGateway {
     return testProxyConnectivity(this.proxy, target);
   }
 
+  /**
+   * 某用途实际会用到的模型（与 chat 同一条解析链）。
+   *
+   * 上下文组装据此取「绑定模型的上下文窗口」作 token 预算，UI 据此判断
+   * 「是否已配置可用模型」并给出引导——两处都不能自己再写一套选模型逻辑。
+   */
+  describeModel(
+    userId: string,
+    purpose: string,
+    explicitModelId: string | null = null,
+  ): {
+    modelId: string;
+    modelName: string;
+    providerId: string;
+    providerName: string;
+    contextWindow: number | null;
+  } | null {
+    const model = this.resolveModelFor(userId, normalizePurpose(purpose), explicitModelId);
+    if (!model) return null;
+    const provider = this.deps.providers.findById(model.providerId);
+    if (!provider) return null;
+    return {
+      modelId: model.id,
+      modelName: model.name,
+      providerId: provider.id,
+      providerName: provider.name,
+      contextWindow: model.capability.contextWindow ?? null,
+    };
+  }
+
   /* ------------------------------ 内部 ------------------------------ */
 
   private resolveModel(request: GatewayChatRequest): Model | null {
@@ -564,14 +618,18 @@ export class AiGateway {
     const owner = this.deps.providers.findById(model.providerId);
     const all = this.deps.providers.list(owner?.userId ?? userId, { enabledOnly: true });
     const preferred = preferredId ? all.find((provider) => provider.id === preferredId) : undefined;
-    const ordered = [
-      preferred,
-      owner,
-      ...all.filter((provider) => provider.id !== owner?.id && provider.id !== preferredId),
-    ]
-      .filter((provider): provider is Provider => Boolean(provider))
-      .filter((provider) => !this.deps.failover.isDegraded(provider.id))
+    // 顺序＝显式指定 → 绑定模型所属 → 其余按 sort_order。
+    // 只对「其余」排序：此前对整个列表排序，绑定模型所在的 Provider 只要不是
+    // order 最小的那个，就会被排到后面——用途绑定形同虚设，首发请求打到别家的第一个模型。
+    const head = [preferred, owner].filter((provider): provider is Provider =>
+      Boolean(provider && provider.enabled),
+    );
+    const rest = all
+      .filter((provider) => !head.some((item) => item.id === provider.id))
       .sort((a, b) => a.order - b.order);
+    const ordered = [...new Map([...head, ...rest].map((p) => [p.id, p])).values()].filter(
+      (provider) => !this.deps.failover.isDegraded(provider.id),
+    );
     return ordered
       .map((provider) => {
         const selected =
@@ -581,8 +639,10 @@ export class AiGateway {
       .filter((item): item is { provider: Provider; model: Model } => Boolean(item));
   }
 
+  /** 事件出口统一脱敏：原因文本可能回显服务端报文（含 Key），监听方拿到的一律是打码后的 */
   private emit(event: GatewayEvent): void {
-    for (const listener of this.listeners) listener(event);
+    const safe = sanitizeEvent(event);
+    for (const listener of this.listeners) listener(safe);
   }
 }
 
@@ -605,4 +665,17 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     };
     signal?.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+function sanitizeEvent(event: GatewayEvent): GatewayEvent {
+  switch (event.type) {
+    case 'retry':
+    case 'failover':
+      return { ...event, reason: mask(event.reason) };
+    case 'budget-exceeded':
+    case 'budget-warning':
+      return { ...event, message: mask(event.message) };
+    default:
+      return event;
+  }
 }

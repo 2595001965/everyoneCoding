@@ -17,6 +17,8 @@ import { DiffView } from '../features/code/DiffView';
 import {
   CodeViewProvider,
   readInjectedCodeApi,
+  type CodeGenerateResult,
+  type CodeGenerationTarget,
   type ExternalChangeHint,
   type ReworkRequest,
 } from '../features/code';
@@ -50,6 +52,22 @@ const PURPOSE_OPTIONS: ReadonlyArray<{ label: string; value: AiPurpose }> = [
   { value: 'requirement', label: '需求文档' },
   { value: 'commit-msg', label: '提交信息' },
 ];
+
+const TARGET_OPTIONS: ReadonlyArray<{ label: string; value: CodeGenerationTarget }> = [
+  { value: 'backend-code', label: '后端代码' },
+  { value: 'frontend-code', label: 'Web 前端' },
+  { value: 'mobile-code', label: '移动端（Flutter）' },
+  { value: 'harmony-code', label: '鸿蒙（ArkTS）' },
+  { value: 'desktop-code', label: '桌面端（Tauri）' },
+];
+
+/** 流式预览只保留尾部：长输出整段塞进 DOM 会拖慢输入 */
+const STREAM_PREVIEW_CHARS = 4_000;
+
+/** 错误文案指向「设置 → 模型服务」时，给出一键前往的入口（未配置时的可执行引导） */
+function needsModelSetup(message: string | null): boolean {
+  return message !== null && /设置\s*→\s*模型服务|尚未配置可用模型|AI 栈未装配/.test(message);
+}
 
 interface ElementOption {
   id: string;
@@ -113,6 +131,10 @@ export function CodePage(): JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
   const [changes, setChanges] = useState<readonly ExternalChangeHint[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [target, setTarget] = useState<CodeGenerationTarget>('backend-code');
+  const [generating, setGenerating] = useState(false);
+  const [streamText, setStreamText] = useState('');
+  const [generation, setGeneration] = useState<CodeGenerateResult | null>(null);
 
   const projectId = project?.id ?? '';
 
@@ -158,6 +180,18 @@ export function CodePage(): JSX.Element {
       setApplied(null);
       setBusy(false);
       setNotice('模型已返回差异：确认无误后点击应用（写入会走事务，失败整体回滚）。');
+    });
+  }, [codeApi]);
+
+  /* -------------------- 代码生成流（逐段展示模型输出） -------------------- */
+  useEffect(() => {
+    if (codeApi?.subscribeGeneration === undefined) return;
+    return codeApi.subscribeGeneration((event) => {
+      if (event.type === 'started') {
+        if (!event.resumed) setStreamText('');
+      } else if (event.type === 'delta') {
+        setStreamText((previous) => (previous + event.text).slice(-STREAM_PREVIEW_CHARS));
+      }
     });
   }, [codeApi]);
 
@@ -232,6 +266,55 @@ export function CodePage(): JSX.Element {
       setNotice(cause instanceof Error ? cause.message : String(cause));
     }
   }, [codeApi, projectId, reworkPaths, reworkComment, model]);
+
+  const runGeneration = useCallback(
+    async (resume: boolean) => {
+      const generate = codeApi?.write.generate;
+      if (generate === undefined || projectId.length === 0) return;
+      if (!resume && context === null) {
+        setNotice('请先完成上下文组装，再生成代码。');
+        return;
+      }
+      setGenerating(true);
+      setNotice(null);
+      if (!resume) setGeneration(null);
+      try {
+        const result = await generate(
+          resume
+            ? { continue: true, target }
+            : {
+                system: context?.system ?? '',
+                user: context?.user ?? '',
+                target,
+                noteIds: context?.noteIds ?? [],
+              },
+        );
+        setGeneration(result);
+        if (result.status === 'planned') {
+          setPlan(result.plan);
+          setApplied(null);
+          setNotice(
+            `生成完成${result.model !== null ? `（${result.model}）` : ''}：请在下方确认差异后应用。`,
+          );
+        } else if (result.status === 'aborted') {
+          setNotice('生成已中断，已保留已生成部分；可点击「继续生成」从中断处续写。');
+        } else {
+          setNotice(
+            `模型输出不符合输出契约（已自动重试 ${Math.max(0, result.attempts - 1)} 次），未生成写入计划：${result.issues.join('；')}`,
+          );
+        }
+      } catch (cause) {
+        setNotice(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [codeApi, projectId, context, target],
+  );
+
+  const abortGeneration = useCallback(() => {
+    void codeApi?.write.abortGeneration?.();
+  }, [codeApi]);
 
   const applyPlan = useCallback(
     async (target: WritePlan): Promise<WriteResult> => {
@@ -391,6 +474,63 @@ export function CodePage(): JSX.Element {
             </p>
           )}
 
+          {codeApi?.write.generate !== undefined && (
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                margin: '0 0 8px',
+              }}
+              data-testid="ec-code-generate-bar"
+            >
+              <Select
+                aria-label="生成目标"
+                size="sm"
+                value={target}
+                onChange={(next) => setTarget(next as CodeGenerationTarget)}
+                options={TARGET_OPTIONS.map((option) => ({ ...option }))}
+              />
+              <Button
+                size="sm"
+                onClick={() => void runGeneration(false)}
+                loading={generating}
+                disabled={generating || context === null}
+              >
+                按上下文生成代码
+              </Button>
+              {generating && (
+                <Button size="sm" variant="ghost" onClick={abortGeneration}>
+                  中断
+                </Button>
+              )}
+              {!generating && generation?.status === 'aborted' && (
+                <Button size="sm" variant="ghost" onClick={() => void runGeneration(true)}>
+                  继续生成
+                </Button>
+              )}
+            </div>
+          )}
+          {(generating || streamText.length > 0) && (
+            <pre
+              data-testid="ec-code-generate-stream"
+              aria-live="polite"
+              style={{
+                maxHeight: 180,
+                overflow: 'auto',
+                fontSize: 11,
+                background: 'var(--ec-color-bg-subtle, #f5f7fa)',
+                padding: 8,
+                borderRadius: 6,
+                whiteSpace: 'pre-wrap',
+                margin: '0 0 8px',
+              }}
+            >
+              {streamText.length > 0 ? streamText : '正在等待模型输出…'}
+            </pre>
+          )}
+
           <ContextPanel
             request={request}
             context={context}
@@ -419,6 +559,17 @@ export function CodePage(): JSX.Element {
           {notice !== null && (
             <p role="status" style={{ fontSize: 12, marginTop: 8 }} data-testid="ec-code-notice">
               {notice}
+              {needsModelSetup(notice) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => navigate('/settings')}
+                  data-testid="ec-code-goto-model-settings"
+                >
+                  前往配置模型服务
+                </Button>
+              )}
             </p>
           )}
 

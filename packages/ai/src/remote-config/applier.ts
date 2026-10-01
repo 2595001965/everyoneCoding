@@ -123,6 +123,7 @@ export interface ApplyPlan {
 export function planApply(
   payload: RemoteConfigPayload,
   locals: readonly LocalProviderSnapshot[],
+  /** currentDefaultModel 是**模型名**（与远程配置同一口径），不是本地 model.id */
   options: { currentDefaultModel?: string | null; overwriteLocal?: boolean } = {},
 ): ApplyPlan {
   const localByName = new Map(locals.map((provider) => [provider.name, provider]));
@@ -141,7 +142,9 @@ export function planApply(
   });
 
   const incomingDefault =
-    payload.providers.find((provider) => provider.defaultModel)?.defaultModel ?? null;
+    payload.defaultModel ??
+    payload.providers.find((provider) => provider.defaultModel)?.defaultModel ??
+    null;
   const currentDefault = options.currentDefaultModel ?? null;
   const defaultModelChange =
     incomingDefault && incomingDefault !== currentDefault

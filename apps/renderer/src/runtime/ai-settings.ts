@@ -1,10 +1,13 @@
 import type { AiControlHost, AiRpcRequest, AiStreamHandle, AiStreamRequest } from '@ec/shell-api';
 import { createRequestId } from '@ec/shell-api';
 import type {
+  AiEventRecord,
+  AiReadiness,
   ApplyPlan,
   ConfigDiffItem,
   ConnectionTestResult,
   CreateProviderInput,
+  FailoverPolicy,
   Model,
   Provider,
   PurposeBinding,
@@ -150,6 +153,11 @@ export async function createRendererAiSettings(host: AiControlHost): Promise<AiS
       void after(invoke<RemoteConfigSource | null>('ackRemoteRevision', { id, revision }));
       return sources.find((source) => source.id === id) ?? null;
     },
+    failoverPolicy: () => invoke<FailoverPolicy | null>('failoverPolicy', {}),
+    setFailoverPolicy: (patch) =>
+      invoke<FailoverPolicy | null>('setFailoverPolicy', { policy: patch }),
+    recentEvents: (limit = 20) => invoke<AiEventRecord[]>('recentEvents', { limit }),
+    readiness: () => invoke<AiReadiness>('readiness', {}),
   };
 }
 

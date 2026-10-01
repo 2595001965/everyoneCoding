@@ -21,6 +21,8 @@ import {
 } from '../features/designer/designer-api';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectStore } from '../store/useProjectStore';
+import { NavApiProvider, readInjectedNavApi } from '../features/nav';
+import { useNavLocation } from '../runtime/nav-location';
 
 /**
  * 设计器页面（Wave 3 + T12-01 生产端口总装）。
@@ -120,8 +122,12 @@ function DesignerSession({ api, projectId }: DesignerSessionProps): JSX.Element 
         if (cancelled) return;
         if (loaded.length === 0) throw new Error('项目内没有可用的页面 DSL，请重新创建页面');
         setPages(loaded);
-        setPageStore(new MultiPageStore({ pages: loaded, activePageId: loaded[0]?.id ?? null }));
-        setEditorStore(createEditorStore({ dsl: loaded[0] as PageDsl }));
+        const target = useNavLocation.getState().target;
+        const active = loaded.find((page) => target?.projectId === projectId && page.id === target.pageId) ?? loaded[0] as PageDsl;
+        setPageStore(new MultiPageStore({ pages: loaded, activePageId: active.id }));
+        const editor = createEditorStore({ dsl: active });
+        if (target?.projectId === projectId && target.elementId) editor.getState().select([target.elementId]);
+        setEditorStore(editor);
         setStatus('ready');
       } catch (cause) {
         if (cancelled) return;
@@ -291,7 +297,7 @@ function DesignerSession({ api, projectId }: DesignerSessionProps): JSX.Element 
   return (
     <DesignerProvider store={editorStore} ports={ports}>
       <MultiPageProvider store={pageStore}>
-        <DesignerWorkspace />
+        <NavApiProvider api={readInjectedNavApi()}><DesignerWorkspace /></NavApiProvider>
       </MultiPageProvider>
     </DesignerProvider>
   );

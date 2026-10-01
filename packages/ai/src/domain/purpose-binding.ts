@@ -76,3 +76,38 @@ export function withBinding(
 export function boundCount(binding: PurposeBinding): number {
   return AI_PURPOSES.filter((purpose) => Boolean(binding.bindings[purpose])).length;
 }
+
+/**
+ * 业务侧用途别名 → 标准用途（FR-MDL-05）。
+ *
+ * 各域历史上各写各的用途字面量（git 写 `commit-message`、流水线写 `pipeline`、
+ * 重命名写 `migration`…）。这些值不在 {@link AI_PURPOSES} 里，`resolveModelId`
+ * 取不到绑定就静默回落默认模型——用户在设置页给「提交信息」绑的廉价模型永远不生效，
+ * 用量统计里也出现设置页不认识的用途。网关入口统一归一，别名表是唯一口径。
+ */
+export const PURPOSE_ALIASES: Readonly<Record<string, AiPurpose>> = {
+  'commit-message': 'commit-msg',
+  commit: 'commit-msg',
+  'merge-conflict': 'code',
+  migration: 'code',
+  rework: 'code',
+  'backend-code': 'code',
+  'frontend-code': 'code',
+  'mobile-code': 'code',
+  'harmony-code': 'code',
+  'desktop-code': 'code',
+  page: 'interface',
+  designer: 'interface',
+  memory: 'memory-extract',
+  'doc-summary': 'memory-extract',
+  pipeline: 'requirement',
+  'tech-doc': 'techdoc',
+};
+
+/** 归一用途；未知值回落 `code`（最常见的生成用途），绝不抛错打断调用 */
+export function normalizePurpose(input: string | null | undefined): AiPurpose {
+  if (typeof input !== 'string') return 'code';
+  const trimmed = input.trim();
+  if ((AI_PURPOSES as readonly string[]).includes(trimmed)) return trimmed as AiPurpose;
+  return PURPOSE_ALIASES[trimmed] ?? 'code';
+}

@@ -95,6 +95,10 @@ export function RemoteConfigList({
                       ? `上次拉取：${new Date(source.lastFetchAt).toLocaleString()}`
                       : '尚未拉取'}
                     {source.lastError ? ` · ${source.lastError}` : ''}
+                    {source.lastStatus !== 'success' && source.lastPayloadJson !== null
+                      ? ' · 正在使用上次成功拉取的缓存'
+                      : ''}
+                    {source.appliedRevision ? ` · 已应用版本 ${source.appliedRevision}` : ''}
                     {source.publicKey ? ' · 已配置公钥' : ' · 未校验签名'}
                   </span>
                 </button>

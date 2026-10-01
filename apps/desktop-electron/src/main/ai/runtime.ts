@@ -16,7 +16,16 @@ import {
 import { SecureStore } from '@ec/core';
 import { Migrator } from '@ec/data';
 import type { SecureNamespace } from '@ec/shell-api';
-import { createAiStack, DEFAULT_BUDGET, type BudgetConfig } from '@ec/ai';
+import {
+  createAiStack,
+  DEFAULT_BUDGET,
+  normalizeFailoverPolicy,
+  type AiEventRecord,
+  type BudgetConfig,
+  type FailoverPolicy,
+  type HttpTransport,
+  type RetryPolicy,
+} from '@ec/ai';
 import { createSettingStore } from '../domain/setting-store';
 import type { SafeStorageLike } from '../types';
 
@@ -26,6 +35,12 @@ export interface ElectronAiRuntimeOptions {
   migrationsDir: string;
   safeStorage: SafeStorageLike | null;
   userId?: string;
+  /** 测试注入（生产走 Node HTTP 实现）；集成测试用它把请求打到本机 mock，从不连真实服务 */
+  transport?: HttpTransport;
+  /** 运维事件落点（已脱敏）；缺省写主进程控制台 */
+  onAiEvent?: (record: AiEventRecord) => void;
+  /** 重试策略覆盖（测试把退避压到 0；生产用缺省） */
+  retry?: Partial<RetryPolicy>;
 }
 
 const KEY_PATTERN = /^[A-Za-z0-9._-]{1,120}$/;
@@ -73,7 +88,26 @@ export async function createElectronAiRuntime(
   const settingsStore = createSettingStore({ db, userId });
   const persistedBudget = readPersistedBudget(settingsStore);
 
-  const stack = createAiStack({ db, secureStore: secure, userId, budget: persistedBudget });
+  /**
+   * 限流与容灾同理：设置页改完必须落库，重启后由同一份配置装回网关。
+   * 此前 `setLimits` 只改内存队列，重启即回到「不限」。
+   */
+  const stack = createAiStack({
+    db,
+    secureStore: secure,
+    userId,
+    budget: persistedBudget,
+    limits: readPersistedLimits(settingsStore),
+    failover: readPersistedFailover(settingsStore),
+    ...(options.transport ? { transport: options.transport } : {}),
+    ...(options.retry ? { retry: options.retry } : {}),
+    onAiEvent:
+      options.onAiEvent ??
+      ((record) => {
+        // record.message 已在事件日志里脱敏
+        console.warn(`[AI] ${record.kind} ${record.providerId ?? '-'}: ${record.message}`);
+      }),
+  });
   const aborters = new Map<string, AbortController>();
   const control = stack.control;
 
@@ -146,6 +180,9 @@ export async function createElectronAiRuntime(
           purpose: string;
           messages: ReadonlyArray<{ role: string; content: string }>;
           projectId?: string | undefined;
+          modelId?: string | undefined;
+          temperature?: number | undefined;
+          maxTokens?: number | undefined;
           signal?: AbortSignal | undefined;
         }) =>
           stack.gateway.chat(input as Parameters<typeof stack.gateway.chat>[0]) as AsyncIterable<{
@@ -153,6 +190,7 @@ export async function createElectronAiRuntime(
             text?: string | undefined;
             [key: string]: unknown;
           }>,
+        describeModel: (id: string, purpose: string) => stack.gateway.describeModel(id, purpose),
       },
       budget: {
         configure: (patch: {
@@ -212,6 +250,34 @@ function ensureUser(db: Database.Database, userId: string): void {
 
 /** 预算持久化键（与 usage 域共用同一口径） */
 const USAGE_BUDGET_SETTING_KEY = 'usage_budget';
+/** 各 Provider 限流（QPS / 并发）持久化键 */
+export const AI_LIMITS_SETTING_KEY = 'ai_limits';
+/** 容灾策略持久化键 */
+export const AI_FAILOVER_SETTING_KEY = 'ai_failover';
+
+/** 装载限流：非法项逐条丢弃（负数 / NaN 当成「不限」比当成 0 更安全——0 本身即不限） */
+export function readPersistedLimits(
+  store: ReturnType<typeof createSettingStore>,
+): Record<string, { qps: number; concurrency: number }> {
+  const stored = store.read<Record<string, unknown>>(AI_LIMITS_SETTING_KEY);
+  if (stored === null || typeof stored !== 'object') return {};
+  const out: Record<string, { qps: number; concurrency: number }> = {};
+  const num = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+  for (const [providerId, raw] of Object.entries(stored)) {
+    if (raw === null || typeof raw !== 'object') continue;
+    const record = raw as Record<string, unknown>;
+    out[providerId] = { qps: num(record['qps']), concurrency: num(record['concurrency']) };
+  }
+  return out;
+}
+
+export function readPersistedFailover(
+  store: ReturnType<typeof createSettingStore>,
+): FailoverPolicy {
+  const stored = store.read<Partial<FailoverPolicy>>(AI_FAILOVER_SETTING_KEY);
+  return normalizeFailoverPolicy(stored !== null && typeof stored === 'object' ? stored : {});
+}
 
 /**
  * 从 `setting` 表装载预算配置。
@@ -309,8 +375,28 @@ async function routeInvoke(
       settingsStore.write(USAGE_BUDGET_SETTING_KEY, control.budgetConfig());
       return undefined;
     }
-    case 'setLimits':
-      return control.setLimits(String(params['providerId']), params['limits'] as never);
+    case 'setLimits': {
+      const providerId = String(params['providerId']);
+      control.setLimits(providerId, params['limits'] as never);
+      // 落库：否则重启后限流回到「不限」
+      const all = readPersistedLimits(settingsStore);
+      all[providerId] = control.limitsConfig()[providerId] ?? { qps: 0, concurrency: 0 };
+      settingsStore.write(AI_LIMITS_SETTING_KEY, all);
+      return undefined;
+    }
+    case 'limitsConfig':
+      return control.limitsConfig();
+    case 'failoverPolicy':
+      return control.failoverPolicy();
+    case 'setFailoverPolicy': {
+      const next = control.setFailoverPolicy((params['policy'] ?? params) as never);
+      settingsStore.write(AI_FAILOVER_SETTING_KEY, next);
+      return next;
+    }
+    case 'recentEvents':
+      return control.recentEvents(typeof params['limit'] === 'number' ? params['limit'] : 50);
+    case 'readiness':
+      return control.readiness();
     case 'setProxy':
       return control.setProxy((params['proxy'] ?? null) as never);
     case 'testProxy':

@@ -16,6 +16,7 @@ import {
 import type { SafeStorageLike } from '../main/secure-storage';
 import { createLink, HostCallError, type SidecarLink, type SidecarTransport } from './link';
 import { resolveSidecarMigrationsDir } from './paths';
+import { refreshRemoteConfigOnBoot } from '../main/ai/boot-refresh';
 import {
   HOST_CAPABILITIES,
   isProtocolCompatible,
@@ -397,6 +398,15 @@ export function createSidecarService(
     };
     link.send(frame);
     resolveReady(frame);
+
+    // 远程配置启动刷新（与 Electron 主进程同一实现）：ready 帧发出之后再做，
+    // 宿主首屏不等网络；日志走协议 log 帧（侧车 stdout 只能是协议帧）。
+    void refreshRemoteConfigOnBoot(runtime.ai, {
+      logger: {
+        info: (message: string) => link.log('info', message),
+        warn: (message: string) => link.log('warn', message),
+      },
+    });
   };
 
   void run({

@@ -3,6 +3,11 @@
 > 生成：Wave 10 / T10-03（2026-09-13）；2026-09-14 复测并修正门禁脚本；**2026-09-15 环境恢复后补齐 git 实测**。
 > 数据来源：`ci/quality-gate.mts`（六核心模块逐模块覆盖率门禁）、全仓 vitest、既有各 Wave 测试。
 > 门禁定义：`ci/quality-gate.yml`（lint / typecheck / test / coverage / clippy 五 job，任一失败 = 构建失败）。
+> 2026-10-01 同步：§5.3 补记 2026-09-30 文档/OCR/账号复核结果；本次仅更新文档，未重跑全量门禁。
+
+> 2026-10-01 补充 T12-03 生产运行时复验：相关测试 264 项、完整 E2E 55 项、lint 与 17 个 workspace typecheck 通过（§5.2）。
+> 未在本次重跑的覆盖率、全仓单测和独立 E2E 类型检查按原记录日期解读。
+> 2026-10-01 复跑 Wave 9 相关门禁子集全绿（§5.3.1）；`pnpm format:check` 的 44 个问题文件均属其他任务未提交改动，Wave 9 范围文件全部通过。
 
 ## 1. 六核心模块行覆盖率（门禁阈值 ≥70%）
 
@@ -122,6 +127,8 @@ T12-01 收尾跑全量单测时，以下两个文件共 8 项红（其余 2411 �
 
 ## 3. 静态检查门禁
 
+下表保留早期基线；2026-10-01 的实际执行范围与结果见 §5.2。
+
 | 检查                            | 状态                               | 命令                                                                                                                                                  |
 | ------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TypeScript strict 零 error      | ✅（17 个工程 + `e2e/`）           | `pnpm typecheck` + `tsc -p e2e/tsconfig.json`                                                                                                         |
@@ -208,3 +215,120 @@ Tauri Rust 侧由 5 覆盖；渲染层与包为两形态共用代码，天然双
    或认读它在全量运行里打印的 `[T4-02 基准]` 行并注明并发度；
 3. 若全量运行再次出现红，先做上表那种"只改并发度"的对照，再判断是否为本仓回归；
 4. 治本仍是把 `git.exe` / `node.exe` 与仓库目录加入杀毒实时扫描白名单（需管理员权限）。
+
+### 5.2 T12-03 生产运行时复验（2026-10-01）
+
+本节记录本会话实现阶段的实际执行结果。本次文档同步未重新运行业务测试。
+
+| 检查                                  | 执行结果与范围                                                                                 |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `pnpm lint`                           | 全仓零 error / warning                                                                         |
+| `pnpm -r typecheck`                   | 17 个 workspace 全部通过；不包含独立 `e2e/tsconfig.json`                                       |
+| 相关 Vitest 集合                      | 21 文件 / 264 项通过，命令如下                                                                 |
+| `pnpm test:e2e --no-file-parallelism` | 完整 `e2e/` 套件 14 文件 / 55 项通过                                                           |
+| 关键新增/扩展测试                     | 主进程流水线 12 项、持久化事务 3 项、真实 Electron E2E-26 1 项；这些计数已经包含在上面的集合中 |
+
+从仓库根目录复现相关测试：
+
+```bash
+pnpm exec vitest run --no-file-parallelism packages/pipeline apps/desktop-electron/src/main/__tests__/pipeline-production.test.ts apps/desktop-electron/src/main/__tests__/pipeline-persistence.test.ts apps/desktop-electron/src/main/__tests__/domain-production.test.ts apps/desktop-electron/src/main/__tests__/domain-workspace.test.ts apps/renderer/src/features/pipeline apps/renderer/src/runtime/__tests__/production-ports.test.ts packages/shell-api/src/__tests__ packages/data/src/__tests__ packages/ai/src/write/__tests__/write-pipeline.test.ts
+```
+
+覆盖的故障包括：台账 SQL 失败、第二个代码文件写入失败、文件发布后 SQLite 尚未提交、
+提交完成但撤销日志尚未清理、S5 模型失败、暂停后重启、生成中直接关闭客户端、S4 生效版本回退后重启。
+S3 测试还覆盖直接调用绕过问卷的尝试；E2E-26 则验证真实进程和页面链路，细节见
+[E2E 清单](E2E-CHECKLIST.md#e2e-26-electron-流水线进程重启t12-03追加)。
+
+E2E 的 AI 网关使用确定性回复，SQLite、磁盘、生产端口、preload、IPC 和 Electron 进程均为真实实现。
+本次未重跑全仓单测、覆盖率、Rust 门禁或独立 E2E TypeScript 工程，不将相关集合的通过扩大为这些门禁通过。
+Node 侧使用 v24.21.0；NVM 的 pnpm shim 报 NVM4306 时，本次使用已安装的 pnpm 9.15.9
+`bin/pnpm.cjs` 执行同名脚本，业务命令与断言保持不变，见 [开发环境说明](DEV-SETUP.md#31-electron-流水线端到端测试)。
+
+### 5.3 Wave 9 文档与账号复核（2026-09-30）
+
+2026-10-01 将上一轮执行记录同步到本报告。本节数字属于 **9 月 30 日工作树**，不代表最新工作树、
+已提交版本或 CI 的重新验收，也不更新 §1 的覆盖率数据。
+
+| 范围                            | 结果                            | 主要证据                                                                             |
+| ------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------ |
+| 根级单测                        | 249 文件 / 2619 项通过，0 失败  | 包含 account、Electron domain/protocol、renderer 测试；独立服务端与 e2e 结果列于下方 |
+| core docs                       | 4 文件 / 38 项通过              | 解析器、服务格式矩阵、schema alignment、Windows OCR 真机测试                         |
+| Electron docs / auth / protocol | 24 / 17 / 19 项通过             | 真实 SQLite/临时文件、回环 HTTP、协议桥和真实端口冲突回退                            |
+| renderer docs / auth            | 25 / 21 项通过                  | OCR 语言与失败提示、正文命中定位、段落预选；登录、验证状态、密码重置与 OAuth 收口    |
+| `services/account`              | 3 文件 / 26 项通过              | account 10、contract 7、email-flow 9；AuthClient × app.inject 真实契约               |
+| E2E-01/02/22                    | 3 文件 / 9 项通过               | 账号 3、OAuth 4、流水线生产归档 2；这是相关子集，不是完整 e2e 套件                   |
+| typecheck / lint / format       | 17 工程通过 / 零 warning / 通过 | `pnpm -r typecheck`、`pnpm lint`、`pnpm format:check`                                |
+
+子集行已包含在相应根级或服务端结果中，不应重复相加。Windows OCR 真机测试在本机仅装
+`zh-Hans-CN` 时通过：现场生成文字图、显式与缺省语言识别、导入后搜索命中。非 Windows 或缺引擎/
+识别语言时用例会跳过；报告须记录跳过原因，不能据此声称真机识别已通过。
+
+复跑命令（仓库根；Node 与 `better-sqlite3` ABI 须匹配）：
+
+```powershell
+# 根级全量；上一轮放宽了运行超时，没有修改用例中的性能阈值
+node node_modules/vitest/vitest.mjs run --no-file-parallelism --testTimeout 60000
+
+# 服务端单独运行，使用该目录的 Vitest 配置
+Push-Location services/account
+node ../../node_modules/vitest/vitest.mjs run --no-file-parallelism
+Pop-Location
+
+# 仅相关 E2E 子集
+node node_modules/vitest/vitest.mjs run -c e2e/vitest.config.ts --no-file-parallelism e2e/services/e2e-01-account.test.ts e2e/services/e2e-02-oauth.test.ts e2e/domain/e2e-22-pipeline-production.test.ts
+
+pnpm -r typecheck
+pnpm lint
+pnpm format:check
+```
+
+验收边界见 [验收报告 §2.12.5](ACCEPTANCE-REPORT.md#2125-复核补缺与验收边界2026-09-30)：
+真实邮件送达、真实提供方 OAuth 与真实模型摘要仍按 [手工清单 M-01/M-02/M-08](E2E-CHECKLIST.md) 执行。
+
+#### 5.3.1 Wave 9 门禁复跑（2026-10-01，相关子集）
+
+同任务重新下达后复跑 Wave 9 相关门禁。本轮是**子集复验**，未重跑根级全量单测（249 文件）与完整
+e2e 套件；工作树同时承载其他任务的未提交改动，其结果不计入本节。
+
+| 范围                                   | 结果                           | 说明                                                                                                  |
+| -------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `services/account`                     | 3 文件 / 26 项通过             | account 10、contract 7、email-flow 9，与 9-30 一致                                                    |
+| `@ec/account` auth-client              | 30 项通过                      | 根配置下运行                                                                                          |
+| core docs                              | 4 文件 / 38 项通过             | parsers 18、doc-service 16、schema-alignment 3、**windows-ocr.integration 1（真机识别实际执行通过）** |
+| Electron domain-auth / docs / protocol | 17 / 24 / 19 项通过            | 3 文件共 60 项；含回环真 HTTP、协议桥、真实端口占用回退                                               |
+| renderer docs / auth                   | 25 / 21 项通过                 | 同轮顺带 reliability-panel 3 项（属 T12 范围文件）亦通过，合计 4 文件 49 项                           |
+| E2E-01 / E2E-02                        | 2 文件 / 7 项通过              | `-c e2e/vitest.config.ts`；**E2E-22 本轮未重跑**                                                      |
+| typecheck / lint                       | 17 工程通过 / 全仓零 warning   | `pnpm -r typecheck`、`pnpm lint`                                                                      |
+| `pnpm format:check`                    | 不通过（44 文件），均非 Wave 9 | 问题文件全部属于同工作区其他任务的未提交改动；Wave 9 范围文件全部通过格式检查                         |
+
+复跑命令与 §5.3 所列相同（子集筛选改为仅 `e2e-01-account` 与 `e2e-02-oauth` 两个文件；
+本机 pnpm shim 被 NVM 拦截时以 `node <corepack>/pnpm/9.15.9/bin/pnpm.cjs` 等价执行）。
+
+### 5.4 T12-04 Git/预览/导航/统一重命名生产端口复验（2026-10-01）
+
+本节为 T12-04 收口轮的实际执行结果（环境：本机 bash，node v24.21.0 / ABI 137）。
+验收证据与缺陷明细见 [验收报告 §2.14](ACCEPTANCE-REPORT.md#214-t12-04-git预览导航和统一重命名生产端口2026-10-01)。
+
+| 检查                                                       | 执行结果与范围                                                                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`                                                | 全仓零 error / warning（修复渲染层 3 处 `import()` 类型注解后）                                                                             |
+| `pnpm -r typecheck`                                        | 17 个 workspace 全部通过                                                                                                                    |
+| `apps/desktop-electron` 全套                               | 25 文件 / 336 项通过，1 项失败（未跟踪的 updater 看门狗用例断言文案不匹配，属 T12-09 在途工作，非本轮范围）                                 |
+| `domain-run-ports.test.ts`                                 | 24 项全过：路径安全、静态/Mock 预览、端口顺延、局域网默认关闭、**Node 与 Python demo 真实托管**、导航、重命名事务、Git 凭据与破坏性操作拦截 |
+| `packages/git` / `preview` / `registry` + renderer runtime | 21 文件 / 296 项全过（git 包两处契约回归已修复）                                                                                            |
+| `pnpm test:e2e --no-file-parallelism`                      | 完整 `e2e/` 套件 14 文件 / 55 项通过（含 E2E-06/07/08/15/16/17、E2E-24）                                                                    |
+| `pnpm format:check`                                        | 本任务文件全部通过；其余不合文件属同工作区其他在途任务，未代改                                                                              |
+
+从仓库根目录复现相关测试：
+
+```bash
+node node_modules/vitest/vitest.mjs run --no-file-parallelism packages/git packages/preview packages/registry apps/renderer/src/runtime
+cd apps/desktop-electron && node ../../node_modules/vitest/vitest.mjs run --no-file-parallelism
+node node_modules/vitest/vitest.mjs run -c e2e/vitest.config.ts --no-file-parallelism
+```
+
+本轮实测要点：`e2e-24` 生产端口 Git 全流程（init→修改→diff→提交→分支→冲突→解决落盘→回滚→stash）
+7.9s；Node demo 905ms / Python demo 836ms 表单请求均以 `source=backend` 打到真实后端且回显端口与
+预分配一致。`domain-run-ports` 的 HTTP 断言改用 `agent: false` 无池客户端——全局 fetch（undici）的
+连接池在"预览同端口 stop→start 后立即请求"时会复用已销毁的 keep-alive socket，稳定复现
+`read ECONNRESET`（§5.2 时段记录的范围外红①即此因，本轮修复闭环）。

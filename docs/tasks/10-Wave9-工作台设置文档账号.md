@@ -2,6 +2,13 @@
 
 > 目标：补齐项目生命周期、全局设置、文档与记忆关联、四种登录方式。
 > 依赖：Wave 0（内核、存储、UI 库）；账号服务端（T9-06）可与客户端并行开发。
+>
+> 2026-10-01 文档同步：T9-04/05/06 的文档摘要、OCR 与账号闭环已完成代码实现和自动化复核；
+> 本次记录的是 **2026-09-30** 的测试结果。真实邮件投递、第三方 OAuth 授权与真实模型摘要仍待手工验收。
+> 证据见 [验收报告 §2.12.5](../ACCEPTANCE-REPORT.md#2125-复核补缺与验收边界2026-09-30)。
+> **2026-10-01 复跑**：同任务重新下达后复跑相关门禁子集全绿（服务端 26、auth-client 30、core docs 38
+> 含真机 OCR、Electron domain 60、renderer docs/auth 46、E2E-01/02 共 7、typecheck 17 工程、lint 零告警），
+> 详见 [测试报告 §5.3.1](../TEST-REPORT.md#531-wave-9-门禁复跑2026-10-01相关子集)。
 
 ---
 
@@ -151,7 +158,7 @@
 
 **产出物**
 
-- `packages/core/src/docs/{doc-service.ts,parsers/{markdown,docx,pdf,txt,image-ocr}.ts,versioning.ts}`
+- `packages/core/src/docs/{doc-service.ts,parsers/{markdown,docx,pdf,txt,image-ocr,windows-ocr}.ts,versioning.ts}`
 - `apps/renderer/src/features/docs/{DocLibrary.tsx,DocViewer.tsx,DocMemoryLink.tsx,ConvertToMemoryDialog.tsx}`
 - 测试
 
@@ -165,10 +172,17 @@
 
 **验收标准**
 
-- [ ] Markdown / Word / PDF / TXT 四类导入解析正确（标题层级保留）
-- [ ] 文档可关联到五类记忆节点，记忆卡片显示关联数并可展开
-- [ ] 双向跳转定位准确（Markdown 标题锚点、PDF 页码）
-- [ ] 转记忆生成的结构化摘要可编辑且保留原文链接
+- [x] Markdown / Word / PDF / TXT 导入解析测试通过（使用测试夹具验证标题层级）；Markdown / Word / PDF / 图片均补成功与失败用例
+- [x] 文档可关联到五类记忆节点，记忆卡片显示关联数并可展开（服务与 renderer 测试）
+- [x] 双向查询与段落定位自动化通过（Markdown 标题锚点、PDF 页码、OCR `sec-N`）
+- [x] AI 网关摘要草稿可编辑、提交保留原文链接；未配置 AI、流错误或空输出时如实失败（模拟网关）
+- [x] Windows 真机 OCR → 入库 → `searchDocuments` 命中；语言选择、缺语言提示、无标题段落转记忆已接入 UI
+- [ ] 真实模型摘要质量与完整桌面操作验收（[手工清单 M-08](../E2E-CHECKLIST.md)）
+
+**2026-09-30 复核补充**：修复 WinRT 语言构造、`zh-CN`/`zh-Hans-CN` 对齐、中文词间空格和行间距分段；
+`fileName`/`ocrLanguage` 从导入面板传到 OCR 端口。空 Markdown、无文字 PDF、OCR 零文本均拒绝入库；
+解析器异常封装为 `parse_failed`，Electron 映射为 `INVALID_ARGUMENT`。编辑清空正文同样拒绝且不升版本。
+正文检索按项目逐段匹配并返回锚点与片段，回收站文档不参与；尚无索引检索性能验收。
 
 **▶ AI 执行提示词**
 
@@ -217,6 +231,11 @@
 - [ ] Token 落 DPAPI，明文不可检索；退出登录后本地缓存清除
 - [ ] 云端不可达时进入离线模式，本地项目可用，登录入口置灰
 
+**2026-09-30 自动化复核**：`@ec/account`、Electron auth/protocol 域与 renderer auth 测试通过。
+回环真 HTTP 回调、自定义协议桥投递、真实端口占用后的回退、state/PKCE 校验及一次性消费均有用例。
+邮箱注册后发送验证邮件、验证状态刷新、找回密码两步表单已有覆盖。当前允许未验证邮箱登录；
+以上结果不替代 E2E-01 的真实投递时长与 E2E-02 的真实第三方授权验收（手工清单 M-01/M-02）。
+
 **▶ AI 执行提示词**
 
 ```
@@ -264,6 +283,12 @@
 - [ ] 统一错误结构与幂等键生效（重复提交同幂等键只生效一次）
 - [ ] 自注册后可直接登录使用，无审核环节
 
+**2026-09-30 自动化复核**：服务端 3 文件 / 26 项通过（account 10、contract 7、email-flow 9）。
+`contract.test.ts` 使用真实 `AuthClient` 与 `app.inject` 联测：注册/登录/OAuth 回调返回 `{ identity, tokens }`，
+刷新接口直接返回 `TokenPair`，bindings 返回 `{ bindings }` 且按 `bindingId` 解绑。
+验证链接由服务自托管，随机令牌经哈希查询及有效期/消费状态校验；密码重置使用 6 位验证码，单次有效、过期拒绝、
+发送冷却限流，成功后撤销旧 refresh。开发 outbox 与邮件 webhook 的配置见 [账号服务说明](../../services/account/README.md)。
+
 **▶ AI 执行提示词**
 
 ```
@@ -281,4 +306,12 @@
 
 ---
 
-**Wave 9 出口检查**：E2E-01（邮箱注册 ≤2 分钟）、E2E-02（GitHub 登录）通过；项目 CRUD 与模板可用；文档可关联记忆并双向跳转；设置页无云端同步入口。
+**Wave 9 出口检查**：E2E-01/02 的自动化部分通过；真实邮件投递 ≤2 分钟与真实 GitHub 授权仍待手工确认。
+文档关联、正文搜索、OCR 与摘要链路的证据见验收报告 §2.12.5；其他任务仍按各自清单验收。
+9 月 30 日根测试为 249 文件 / 2619 项通过，相关 E2E-01/02/22 为 9 项通过，typecheck 17 工程通过，
+lint 与 format:check 通过；这些是当日结果，不代表 10 月 1 日重跑全量门禁。
+**2026-10-01 复跑**（相关子集，未重跑根级全量与完整 e2e）：服务端 3 文件 26 项、auth-client 30 项、
+core docs 4 文件 38 项（真机 OCR 集成测试当日实际执行通过）、Electron domain-auth/docs/protocol 60 项、
+renderer docs 25 / auth 21 项、E2E-01/02 共 7 项全部通过；typecheck 17 工程通过、lint 零告警。
+`pnpm format:check` 在当前工作树不通过，但 44 个问题文件均属同工作区其他任务的未提交改动，
+Wave 9 范围文件全部通过格式检查（明细见[测试报告 §5.3.1](../TEST-REPORT.md#531-wave-9-门禁复跑2026-10-01相关子集)）。

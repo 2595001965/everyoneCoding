@@ -4,15 +4,15 @@
 
 ## 1. 环境要求
 
-| 依赖                                  | 版本                                  | 用途                                 | 本机状态（2026-09-15）         |
-| ------------------------------------- | ------------------------------------- | ------------------------------------ | ------------------------------ |
-| Node.js                               | ≥ 22                                  | 构建 / Electron 主进程 / 测试        | ✅ v24.20.0 / v22.22.2         |
-| pnpm                                  | ≥ 9（`packageManager` 已锁定 9.15.9） | monorepo 包管理                      | ✅ 经 corepack 调用            |
-| Rust 工具链（stable）                 | ≥ 1.77                                | 仅构建 Tauri 外壳时需要              | ❌ 未安装（需管理员，见 §2.3） |
-| MSVC C++ 生成工具 + Windows 10/11 SDK | 最新                                  | Tauri 与原生模块编译                 | ❌ 未安装（需管理员，见 §2.3） |
-| WebView2 Runtime                      | 常青版                                | Tauri 版渲染（缺失时应用内引导安装） | ✅ 152.0.4191.66               |
-| Git                                   | ≥ 2.40                                | 仓库管理                             | ✅ 2.55.0                      |
-| Electron 运行时二进制                 | 33.4.11                               | Electron 版外壳                      | ✅ 已就位（见 §2.1）           |
+| 依赖                                  | 版本                                  | 用途                                 | 本机状态（2026-09-30）                                         |
+| ------------------------------------- | ------------------------------------- | ------------------------------------ | -------------------------------------------------------------- |
+| Node.js                               | ≥ 22                                  | 构建 / Electron 主进程 / 测试        | ✅ v24.21.0                                                    |
+| pnpm                                  | ≥ 9（`packageManager` 已锁定 9.15.9） | monorepo 包管理                      | ✅ 9.15.9（corepack）                                          |
+| Rust 工具链（stable）                 | ≥ 1.77                                | 仅构建 Tauri 外壳时需要              | ✅ 1.98.1（用户级安装，`x86_64-pc-windows-gnu`）               |
+| MSVC C++ 生成工具 + Windows 10/11 SDK | 最新                                  | Tauri 与原生模块编译                 | ❌ 未安装（需管理员，见 §2.3；免管理员替代路径已验证部分可用） |
+| WebView2 Runtime                      | 常青版                                | Tauri 版渲染（缺失时应用内引导安装） | ✅ 154.0.4258.48                                               |
+| Git                                   | ≥ 2.40                                | 仓库管理                             | ✅ 已就位                                                      |
+| Electron 运行时二进制                 | 33.4.11                               | Electron 版外壳                      | ⚠️ 见 §2.1（`pnpm install` 时被 build script 策略拦下需补装）  |
 
 ## 2. 安装依赖
 
@@ -82,9 +82,9 @@ pnpm dev:electron
 
 数据落点：`%APPDATA%\@ec\desktop-electron\data\everyonecoding.sqlite`（迁移在首次启动时自动执行）。
 
-### 2.3 Tauri 形态的前置条件（需管理员权限）
+### 2.3 Tauri 形态的前置条件
 
-Tauri 侧需要 **Rust 工具链 + MSVC C++ 生成工具**，且这两者必须一起装：
+**官方路径（需管理员）**：Tauri 侧需要 **Rust 工具链 + MSVC C++ 生成工具**，且这两者必须一起装：
 
 - Tauri 在 Windows 上唯一官方支持的链接器是 MSVC 的 `link.exe`（来自 VS Build Tools）；
 - Rust 工具链本身可装到用户目录，但**没有 `link.exe` 时连 `cargo check` 都跑不起来**
@@ -105,31 +105,109 @@ powershell -ExecutionPolicy Bypass -File apps\desktop-tauri\scripts\setup-rust-t
 → 打印后续 `cargo check` / `cargo clippy` / `pnpm build:tauri` 命令。
 可选开关：`-SkipBuildTools`（已有 VS 时）、`-NoMirror`（不写镜像）、`-CheckOnly`。
 
-> **替代路径（免管理员，非官方支持）**：装便携版 MinGW-w64 并改用
-> `x86_64-pc-windows-gnu` 工具链。Tauri 官方未支持该组合，构建可能失败，
-> 仅在确实无法取得管理员权限时考虑。
-
 装完后的验收口径见 `docs/ACCEPTANCE-REPORT.md` 的 L-09（含 `cargo clippy --all-targets -- -D warnings`）。
+
+**免管理员替代路径（`x86_64-pc-windows-gnu` + Zig，Tauri 官方未支持，已实测部分可用）**：
+在拿不到管理员权限时用 rustup 的 GNU 工具链（自带 rust-mingw 的 mingw-w64 CRT）配合 Zig
+提供的 C 编译器 / `dlltool` / `windres`，链接交给 rustc 自带的 `rust-lld`：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File apps\desktop-tauri\scripts\setup-rust-tauri-gnu.ps1
+# 生成 env 与门禁命令；加 -RunGates 会直接跑 cargo check + clippy
+```
+
+实测结论（2026-09-30，见 `docs/ACCEPTANCE-REPORT.md §2.11.8`）：
+
+| 命令                                                | 结果                                                        |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `cargo check --locked`                              | ✅ 通过                                                     |
+| `cargo clippy --all-targets -- -D warnings`         | ✅ 通过                                                     |
+| `cargo build --locked` + 启动 `everyone-coding.exe` | ✅ 窗口起来、侧车随启动建库（34 表）                        |
+| `cargo test`（执行单测）                            | ❌ 测试二进制以 `STATUS_ENTRYPOINT_NOT_FOUND` 退出，需 MSVC |
+
+> 也就是说：**调试 / 冒烟可以用这条路径，跑 Rust 单测仍然要 MSVC。**
+> 该路径下 `pnpm build:tauri` 未验证（NSIS bundler 与 Tauri 官方只保证 MSVC）。
 
 ## 3. 常用命令
 
-| 命令                                  | 作用                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------ |
-| `pnpm dev:renderer`                   | 启动渲染层 dev server（http://localhost:5173，mock 外壳）                |
-| `pnpm dev:tauri`                      | 启动 Tauri 2 桌面外壳（需要 Rust 工具链）                                |
-| `pnpm dev:electron`                   | 构建 main/preload 并启动 Electron 外壳（自动准备原生绑定，见 §2.1/§2.2） |
-| `pnpm build:renderer`                 | 构建渲染层产物（`apps/renderer/dist`）                                   |
-| `pnpm build:tauri`                    | 产出 Tauri NSIS 安装包                                                   |
-| `pnpm build:electron`                 | 产出 Electron NSIS 安装包                                                |
-| `pnpm typecheck`                      | 全仓库 TypeScript strict 类型检查（`pnpm -r typecheck`）                 |
-| `pnpm test`                           | 全仓库单元测试（Vitest，`pnpm -r test`）                                 |
-| `pnpm test:coverage`                  | 覆盖率（核心模块门禁 ≥ 70%）                                             |
-| `pnpm test:e2e`                       | 21 条 E2E 验收用例（独立工程 `e2e/`，见 `docs/E2E-CHECKLIST.md`）        |
-| `pnpm quality-gate`                   | 六核心模块逐模块覆盖率门禁（≥70%，低于即失败）                           |
-| `pnpm perf`                           | 性能基准（7 项可复现基准，结果写 `perf/last-run.md`）                    |
-| `pnpm version:check` / `version:sync` | 校验 / 同步双形态版本号（单一事实源在根 `package.json`）                 |
-| `pnpm release:manifest`               | 生成发布清单与分发页（含体积门禁）                                       |
-| `pnpm lint` / `pnpm format`           | ESLint / Prettier                                                        |
+| 命令                                  | 作用                                                                                               |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `pnpm dev:renderer`                   | 启动渲染层 dev server（http://localhost:5173，mock 外壳）                                          |
+| `pnpm dev:tauri`                      | 启动 Tauri 2 桌面外壳（需要 Rust 工具链）                                                          |
+| `pnpm dev:electron`                   | 构建 main/preload 并启动 Electron 外壳（自动准备原生绑定，见 §2.1/§2.2）                           |
+| `pnpm build:renderer`                 | 构建渲染层产物（`apps/renderer/dist`）                                                             |
+| `pnpm build:tauri`                    | 产出 Tauri NSIS 安装包                                                                             |
+| `pnpm build:electron`                 | 产出 Electron NSIS 安装包                                                                          |
+| `pnpm typecheck`                      | 全仓库 TypeScript strict 类型检查（`pnpm -r typecheck`）                                           |
+| `pnpm test`                           | 全仓库单元测试（Vitest，`pnpm -r test`）                                                           |
+| `pnpm test:coverage`                  | 覆盖率（核心模块门禁 ≥ 70%）                                                                       |
+| `pnpm test:e2e`                       | 完整 E2E 套件（独立工程 `e2e/`；2026-10-01 为 14 文件/55 项，含真实 Electron E2E-26，前置见 §3.1） |
+| `pnpm quality-gate`                   | 六核心模块逐模块覆盖率门禁（≥70%，低于即失败）                                                     |
+| `pnpm perf`                           | 性能基准（7 项可复现基准，结果写 `perf/last-run.md`）                                              |
+| `pnpm version:check` / `version:sync` | 校验 / 同步双形态版本号（单一事实源在根 `package.json`）                                           |
+| `pnpm release:manifest`               | 生成发布清单与分发页（含体积门禁）                                                                 |
+| `pnpm lint` / `pnpm format`           | ESLint / Prettier                                                                                  |
+
+### 3.1 Electron 流水线端到端测试
+
+E2E-26 会启动实际 Electron，并使用其专用 SQLite 原生绑定。先完成 §2.1 的 Electron 二进制准备，
+再在仓库根执行以下命令；无需预先启动 Vite dev server 或打开用户工作区。
+
+```bash
+pnpm --filter @ec/desktop-electron prepare:native
+pnpm test:e2e --no-file-parallelism e2e-26-electron-pipeline
+```
+
+完整验收命令为 `pnpm test:e2e --no-file-parallelism`。测试自行构建主进程/preload/页面测试入口，
+创建 `apps/desktop-electron/.tmp-pipeline-e2e-*`，在两个进程中复用其中的测试数据库与项目，结束后清理。
+BrowserWindow 隐藏运行；生产 preload、IPC、PipelinePage、领域实现和磁盘写入均参与，外部 AI 网关使用确定性回复。
+它不需要用户 API Key，也不修改用户数据、默认项目目录或发布安装包。
+
+原生绑定缺失时先运行 `prepare:native`；不要把 Node 单测的 `.node` 文件复制给 Electron。
+本机此次测试使用 Node v24.21.0。若同一环境的 pnpm shim 报 `NVM4306`，先确认所用 pnpm 的来源和路径；
+本次执行记录使用已安装的 pnpm 9.15.9 入口运行同名命令，例如在 PowerShell 中：
+
+```powershell
+node "$env:LOCALAPPDATA/node/corepack/v1/pnpm/9.15.9/bin/pnpm.cjs" test:e2e --no-file-parallelism
+```
+
+此路径是本机环境记录，不是仓库对所有开发机的目录要求。结果与测试边界见
+[TEST-REPORT §5.2](TEST-REPORT.md#52-t12-03-生产运行时复验2026-10-01)。
+
+### 3.2 文档 AI 摘要、图片 OCR 与账号联调
+
+本节于 2026-10-01 同步代码现状；自动化记录见 [测试报告 §5.3](TEST-REPORT.md#53-wave-9-文档与账号复核2026-09-30)。
+
+**图片 OCR**：Windows 使用系统 `Windows.Media.Ocr`，不需随应用分发第三方 OCR 二进制。
+PowerShell 必须可启动，且系统已安装对应 OCR 识别语言；以导入面板的实际检测结果为准。
+Windows 设置 → 时间和语言 → 语言和区域 → 添加语言，检查该语言的“光学字符识别”组件；
+安装后重新打开导入对话框。选“图片”后会列出本机已装语言；不可用时给出原因并禁用导入。
+`zh-CN` 可对齐 `zh-Hans-CN`，简体/繁体不会互相替代。非 Windows 返回不可用提示。
+
+```powershell
+# 可用性探测之外，还实际生成图片、识别并检索；缺环境时会跳过并说明原因
+node node_modules/vitest/vitest.mjs run --no-file-parallelism packages/core/src/docs/__tests__/windows-ocr.integration.test.ts
+```
+
+导入后在文档中心搜索图片文字，点击“正文命中”定位段落，再点“转为记忆”。在“设置 → 模型”配置
+可用 Provider、Key 与模型，并确认 `memory-extract` 用途有可用模型。摘要生成成功后可编辑提交，
+来源文档及段落锚点会保留。AI 请求失败或输出为空会显示错误；扫描件 PDF 无文字时需导出页面图片再导入。
+
+**邮箱联调**：另开终端执行 `pnpm --filter @ec/account-service dev`（默认端口 3000）。
+默认不配置 `ACCOUNT_MAIL_WEBHOOK_URL`，邮件进入本地 outbox；验证链接默认由服务的 `/verify-email`
+页面承载。完整步骤与部署限制见 [账号服务 README](../services/account/README.md#开发环境完整操作)。
+
+**Electron OAuth**：服务端凭据使用 `ACCOUNT_OAUTH_<GOOGLE|GITHUB|WECHAT>_ID/SECRET/REDIRECT`。
+客户端的通道设置如下，须在启动 Electron 的终端设置；回调地址还必须满足对应提供方的应用注册规则。
+
+| 客户端变量               | 默认行为                   | 用途                                                                                   |
+| ------------------------ | -------------------------- | -------------------------------------------------------------------------------------- |
+| `EC_OAUTH_LOOPBACK_PORT` | 随机空闲端口               | 设为 1024–65535 的整数可固定监听端口；非法值退回随机端口；用于白名单或端口冲突回退验收 |
+| `EC_OAUTH_CHANNEL`       | 先回环，监听失败才回退协议 | `protocol` 显式跳过回环；协议须由 OS 注册并能拉起应用。正常验收应先不设置此覆盖值      |
+
+回环地址为 `http://127.0.0.1:<端口>/oauth/callback`，协议为 `everyonecoding://oauth`。
+固定端口被占用可验证真实监听失败回退；state 不匹配不换令牌，已消费回调不能重放。
+手工验收见 [E2E 清单 M-01/M-02/M-08](E2E-CHECKLIST.md)。
 
 ## 4. 目录约定
 
@@ -166,7 +244,12 @@ everyoneCoding/
 - 迁移文件：`packages/data/migrations/*.sql`（`-- up` / `-- down` 段，事务化执行、失败回滚、幂等）；
 - 连接：WAL + busy_timeout + foreign_keys ON；
 - FTS5 不可用时关键词检索自动退化为 LIKE 并告警；sqlite-vec 不可用时语义检索关闭；
-- 测试一律用 `DataClient.open()`（`:memory:`），不要触碰真实数据目录。
+- 纯 DAO 测试可使用 `DataClient.open()`（`:memory:`）；主进程集成和 Electron E2E 使用独立临时目录中的真实 SQLite，不得触碰用户数据目录。
+- 流水线迁移 `0007_pipeline_checkpoint.sql` 在业务库打开时自动执行，新增 checkpoint 与提交回执表。
+  新 checkpoint 存在时以数据库为准；旧快照可导入。恢复日志位于 `<dataDir>/pipeline-transactions/`，
+  其清理由运行时依据提交回执完成，排查问题时不要把删除日志当成恢复手段。
+- 文档在 `<project>/docs/`，版本产物在 `<project>/pipeline/`，S4 当前拆分在 `pipeline/S4/split.json`；
+  S5 代码经 `resolveCodeRoot()` 使用已有代码根登记，未登记时使用 `<project>/code`。
 
 ## 7. 安全基线（违反即返工）
 

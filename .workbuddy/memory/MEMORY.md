@@ -4,7 +4,28 @@
 > `env-and-shell.md`（**本机环境与环境坑，每会话先读**）；文档见 `docs/` 下 ACCEPTANCE-REPORT、
 > CAPABILITY-MATRIX、DEV-SETUP、tasks/。
 
-## 现状（2026-09-23）
+## 最新补充（2026-10-01 · T12-04）
+
+Git/预览/导航/统一重命名四域生产端口已收口验收：路径安全、事务化重命名、受控进程托管、
+DPAPI 凭据 + 破坏性操作快照、跳转同项目上下文全部成立；完整 E2E 14 文件/55 项全绿
+（含 E2E-06/07/08/15/16/17、E2E-24）。本轮修复渲染层 3 处 `import()` 注解、预览测试 undici 池
+陈旧 socket、`buildAuthEnv` BatchMode 回归、`isBackupBranch` 过宽四处缺陷。详见
+[当天记录](2026-10-01.md) 与 `docs/ACCEPTANCE-REPORT.md §2.14`、`docs/TEST-REPORT.md §5.4`。
+
+**测试铁律（2026-10-01）**：测试代码对"会被重启的同端口本地服务"发请求**必须用无池客户端**
+（`http.request` + `agent: false` 或等价）；全局 `fetch`（undici）按 origin 复用 keep-alive socket，
+服务重启后立刻请求会拿到已销毁的 socket ⇒ 稳定 `read ECONNRESET`，插 20ms sleep 即消失，
+极易误判为环境抖动。
+
+## 最新补充（2026-10-01 · T12-03）
+
+Electron 流水线生产接线已验收：checkpoint/提交回执 + 文件事务、真实项目上下文、S3 选型阻断、
+S5 重试/跳过/暂停及退出恢复；真实 Electron E2E-26 用两个进程验证 UI/IPC 与续跑，仅 AI 网关替身。
+本次 lint、17 个 workspace typecheck、相关测试 21 文件/264 项、完整 E2E 14 文件/55 项通过。
+264 项不是全仓单测数。详见 [当天记录](2026-10-01.md)、`docs/ACCEPTANCE-REPORT.md §2.9`、
+`docs/TEST-REPORT.md §5.2` 和 `docs/DEV-SETUP.md §3.1`；其他任务按各自最新记录判定。
+
+## 历史基线（2026-09-23）
 Windows 桌面端 AI 全栈开发工作台（Tauri 2 / Electron 双形态：需求→界面→技术文档→代码）。
 Tauri 四域 69 方法 + 11 生产能力域已经受控侧车打通，`ai`/`domain` 不再 `NOT_SUPPORTED`。
 Wave 9 已收口：文档「一键转记忆」接真实 AI 摘要端口（`memory-extract`）、图片 OCR 走 Windows

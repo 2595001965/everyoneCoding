@@ -113,6 +113,7 @@ export interface ExportJobResult {
 }
 
 export interface ExportJobRequest {
+  incremental?: boolean;
   outputPath: string;
   selection: ExportSelection;
   useDefaultExcludes?: boolean;
@@ -172,6 +173,7 @@ export interface ModePreview {
 }
 
 export interface ImportReportData {
+  healing?: HealingReportData;
   mode: ImportMode;
   counts: { added: number; conflicted: number; unchanged: number; missing: number };
   applied: {

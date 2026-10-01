@@ -78,7 +78,7 @@ export async function createSnapshot(options: {
   // 同秒冲突兜底（串行场景罕见，防御性处理）
   let attempt = 1;
   while (fs.existsSync(absolutePath)) {
-    fileName = `ec-backup-${options.now.getTime()}-${attempt}-${options.origin}.ecpkg`;
+    fileName = snapshotFileName(new Date(options.now.getTime() + attempt), options.origin);
     absolutePath = path.join(options.targetDir, fileName);
     attempt += 1;
   }

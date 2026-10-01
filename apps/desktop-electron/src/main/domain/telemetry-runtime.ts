@@ -82,6 +82,7 @@ export function createTelemetryRuntime(options: TelemetryRuntimeOptions): Teleme
   const store = createTelemetryFileStore(options.bufferPath);
   const telemetry = new Telemetry({ enabled: options.enabled });
   const client = new TelemetryClient({ telemetry, store });
+  let enabled = options.enabled;
 
   const clearDbRecords = (): number => {
     let cleared = 0;
@@ -110,10 +111,14 @@ export function createTelemetryRuntime(options: TelemetryRuntimeOptions): Teleme
       this.track(buildEvent(name, result, extra));
     },
 
-    setEnabled(enabled: boolean): void {
-      telemetry.setEnabled(enabled);
+    setEnabled(next: boolean): void {
+      enabled = next;
+      telemetry.setEnabled(next);
       // 撤销授权时立刻清空本地缓冲：用户点"关闭"就是不想留数据
-      if (!enabled) client.clearLocalBuffer();
+      if (!next) {
+        client.clearLocalBuffer();
+        clearDbRecords();
+      }
     },
 
     buffered(): number {
@@ -129,7 +134,7 @@ export function createTelemetryRuntime(options: TelemetryRuntimeOptions): Teleme
       const fileCleared = client.buffered();
       // ① 内存队列：置空 Telemetry 的待发队列（setEnabled(false) 的既有语义）
       telemetry.setEnabled(false);
-      telemetry.setEnabled(options.enabled);
+      telemetry.setEnabled(enabled);
       // ② 文件缓冲
       client.clearLocalBuffer();
       // ③ 数据库记录（历史遗留表）

@@ -5,10 +5,14 @@
  * 导出/导入（.ecpkg）在此页一级可见。
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { AiSettingsApi } from './ai-settings-context';
 import { BackupPanel } from './BackupPanel';
+import { ArchiveSettings } from '../package/ArchiveSettings';
+import { readInjectedPackageApi } from '../package/package-api';
+import { readInjectedWorkspaceApi } from '../workspace/workspace-api';
+import { UsageDashboard } from '../usage/UsageDashboard';
 import { DataLocation } from './DataLocation';
 import { GeneralSettings } from './GeneralSettings';
 import { PrivacyPanel } from './PrivacyPanel';
@@ -76,6 +80,8 @@ function SettingsBody({
   renderAiSection,
 }: SettingsBodyProps): JSX.Element {
   const api = useSettingsOptional();
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => { const workspace = readInjectedWorkspaceApi(); if (workspace) void workspace.listProjects().then(setProjects).catch(() => {}); }, []);
   const usage = useUsageOptional();
   const [category, setCategory] = useState<SettingsCategory>(api ? 'general' : 'ai');
 
@@ -99,7 +105,7 @@ function SettingsBody({
         {!api ? <SettingsUnavailable /> : null}
         {category === 'general' && api ? <GeneralSettings /> : null}
         {category === 'data' && api ? <DataLocation /> : null}
-        {category === 'backup' && api ? <BackupPanel projectId={projectId} /> : null}
+        {category === 'backup' ? (readInjectedPackageApi() ? <ArchiveSettings projects={projects} /> : api ? <BackupPanel projectId={projectId} /> : null) : null}
         {category === 'privacy' && api ? <PrivacyPanel /> : null}
         {category === 'shortcuts' && api ? <ShortcutSettings /> : null}
         {category === 'ai' ? (
@@ -112,6 +118,7 @@ function SettingsBody({
         {category === 'usage' ? (
           <UsageApiProvider api={usageApi ?? usage}>
             <div className="ec-usage-page">
+              <UsageDashboard projectOptions={projects} />
               <BudgetSettings />
             </div>
           </UsageApiProvider>

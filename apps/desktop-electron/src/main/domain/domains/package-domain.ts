@@ -18,7 +18,10 @@ import {
   listSnapshots,
   pruneSnapshots,
   restoreFromSnapshot,
-  advanceCursor,
+  previewMode,
+  type ExportJobRequest,
+  type ImportJobRequest,
+  type ImportMode,
   BackupScheduler,
   type AnchorRelocation,
   type AttachmentContentPort,
@@ -180,37 +183,27 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
 
   const router: DomainRouter = async (method, params, ctx) => {
     switch (method) {
-      case 'pickExportPath':
+      case 'pickExportPath': {
+        const { dialog } = await import('electron');
+        const picked = await dialog.showSaveDialog({ defaultPath: join(readBackupDir(), String(params['defaultName'] ?? 'everyonecoding.ecpkg')), filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }] });
+        return picked.canceled ? null : picked.filePath ?? null;
+      }
       case 'pickPackagePath': {
-        // 文件对话框属渲染层 dialog 能力（Shell API 已有）；域内不重复实现。
-        // 返回默认路径，让渲染层先走自己的 dialog.openFile/openDirectory。
-        const defaultName = String(params['defaultName'] ?? `export-${Date.now()}.ecpkg`);
-        return join(readBackupDir(), defaultName);
+        const { dialog } = await import('electron');
+        const picked = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }] });
+        return picked.canceled ? null : picked.filePaths[0] ?? null;
       }
 
       case 'exportPackage': {
         const request = params['request'] as Record<string, unknown>;
         const outputPath = String(request['outputPath'] ?? '');
         if (outputPath.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 outputPath');
-        const selection = (request['selection'] ?? {}) as never;
         const password = typeof request['password'] === 'string' ? request['password'] : undefined;
         mkdirSync(dirname(outputPath), { recursive: true });
-
-        ctx.emit({ type: 'package:progress', stage: 'enumerating', processed: 0, total: 0 });
-        const result = await runExport(
-          {
-            outputPath,
-            selection,
-            redact: request['redact'] !== false,
-            ...(password !== undefined ? { password } : {}),
-          },
-          createExportSourcePort({
-            db: options.db,
-            projectsDir: options.projectsDir,
-            userId: options.userId,
-          }),
-        );
-        ctx.emit({ type: 'package:progress', stage: 'done', processed: 1, total: 1 });
+        const result = await runExport({
+          ...(request as unknown as ExportJobRequest), outputPath,
+          onProgress: (snapshot) => ctx.emit({ type: 'package:progress', ...snapshot }),
+        }, createExportSourcePort(options));
         return {
           outputPath: result.outputPath,
           archiveSizeBytes: result.archiveSizeBytes,
@@ -231,13 +224,15 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
         if (!existsSync(packagePath))
           throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
-        const report = verifyPackage(packagePath, password !== undefined ? { password } : {});
+        const report = verifyPackage(packagePath, { password, signaturePublicKeyPem: typeof params['publicKeyPem'] === 'string' ? params['publicKeyPem'] : undefined });
         return report;
       }
 
       case 'previewImport': {
         const packagePath = String(params['packagePath'] ?? '');
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
+        const verification = await verifyPackage(packagePath, { password });
+        if (!verification.ok) throw new Error(verification.failureMessage ?? '包校验失败');
         const reader = EcpkgReader.open(packagePath, password !== undefined ? { password } : {});
         try {
           const objects = collectPackageObjects(reader);
@@ -249,8 +244,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
               userId: options.userId,
             }),
           );
-          const counts = { added: 0, conflicted: 0, unchanged: 0, missing: 0 };
-          for (const item of preview.items) counts[item.classification] += 1;
+          const counts = preview.counts;
           return {
             items: preview.items.map((item) => ({
               incoming: {
@@ -266,7 +260,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
               classification: item.classification,
             })),
             counts,
-            missingLocals: [],
+            missingLocals: preview.missingLocals,
           };
         } finally {
           reader.close();
@@ -278,6 +272,8 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const mode = String(params['mode'] ?? 'merge');
         const packagePath = String(params['packagePath'] ?? '');
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
+        const verification = await verifyPackage(packagePath, { password });
+        if (!verification.ok) throw new Error(verification.failureMessage ?? '包校验失败');
         const reader = EcpkgReader.open(packagePath, password !== undefined ? { password } : {});
         try {
           const objects = collectPackageObjects(reader);
@@ -289,103 +285,19 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
               userId: options.userId,
             }),
           );
-          const conflicted = preview.items.filter(
-            (item) => item.classification === 'conflicted',
-          ).length;
-          const added = preview.items.filter((item) => item.classification === 'added').length;
-          const toApply = mode === 'full-restore' ? objects.length : added + conflicted;
-          return {
-            mode: mode as never,
-            toApply,
-            toOverwrite: mode === 'full-restore' ? conflicted : 0,
-            toSkip: objects.length - toApply,
-            summary:
-              mode === 'full-restore'
-                ? `完整恢复：${objects.length} 个对象全部写入（同名覆盖 ${conflicted} 个）`
-                : `合并模式：新增 ${added}，冲突 ${conflicted}（默认保留本地）`,
-          };
+          return previewMode(mode as ImportMode, preview);
         } finally {
           reader.close();
         }
       }
 
       case 'importPackage': {
-        const request = params['request'] as Record<string, unknown>;
-        const packagePath = String(request['packagePath'] ?? '');
-        const password = typeof request['password'] === 'string' ? request['password'] : undefined;
-        if (!existsSync(packagePath))
-          throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
-
-        const reader = EcpkgReader.open(packagePath, password !== undefined ? { password } : {});
-        let objects: PackageObject[] = [];
-        try {
-          objects = collectPackageObjects(reader);
-        } finally {
-          reader.close();
-        }
-        const localPort = createImportLocalStatePort({
-          db: options.db,
-          projectsDir: options.projectsDir,
-          userId: options.userId,
-        });
-        const preview = buildDiffPreview(objects, localPort);
-        const decisions = preview.items
-          .filter((item) => item.classification === 'conflicted')
-          .map((item) => ({
-            id: item.incoming.id,
-            resolution: ((
-              request['decisions'] as Array<{ id: string; resolution: string }> | undefined
-            )?.find((decision) => decision.id === item.incoming.id)?.resolution ??
-              'keepLocal') as ConflictResolution,
-          }));
-
-        ctx.emit({
-          type: 'package:progress',
-          stage: 'importing',
-          processed: 0,
-          total: objects.length,
-        });
-        const report = await runImport(
-          {
-            packagePath,
-            mode: (request['mode'] ?? 'merge') as never,
-            decisions,
-            ...(password !== undefined ? { password } : {}),
-          },
-          {
-            local: localPort,
-            target: createImportTargetPort({
-              db: options.db,
-              projectsDir: options.projectsDir,
-              userId: options.userId,
-            }),
-          },
-        );
-        ctx.emit({
-          type: 'package:progress',
-          stage: 'done',
-          processed: objects.length,
-          total: objects.length,
-        });
-        return {
-          mode: (request['mode'] ?? 'merge') as never,
-          counts: report.counts,
-          applied: {
-            createdProjects: report.applied.createdProjects ?? 0,
-            updatedProjects: report.applied.updatedProjects ?? 0,
-            createdObjects: report.applied.createdObjects ?? 0,
-            updatedObjects: report.applied.updatedObjects ?? 0,
-            keptBothObjects: report.applied.keptBothObjects ?? 0,
-            memoryCreated: report.applied.memoryCreated ?? 0,
-            memoryUpdated: report.applied.memoryUpdated ?? 0,
-            memorySuperseded: report.applied.memorySuperseded ?? 0,
-            filesWritten: report.applied.filesWritten ?? 0,
-          },
-          resolutions: report.resolutions,
-          failures: report.failures,
-          reportPath: report.reportPath,
-          durationMs: report.durationMs,
-        };
+        const request = params['request'] as ImportJobRequest;
+        const report = await runImport({ ...request,
+          onProgress: (stage, processed, total, currentFile) => ctx.emit({ type: 'package:progress', stage, processed, total, currentFile }),
+        }, { local: createImportLocalStatePort(options), target: createImportTargetPort(options) });
+        const healing = await router('runHealing', { projectId: null }, ctx);
+        return { ...report, healing };
       }
 
       case 'runHealing': {
@@ -445,6 +357,9 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           }));
           const relocations = relocateAnchors(relocatable, pid, codePort);
           anchorsAll.push(...relocations);
+          for (const located of relocations) if (located.status === 'relocated') {
+            options.db.prepare('UPDATE code_anchor SET file_path = ?, start_line = ?, end_line = ?, updated_at = ? WHERE id = ?').run(located.newFilePath, located.newStartLine, located.newEndLine, Date.now(), located.anchorId);
+          }
 
           // ② 失效链接修复（目标 id 变化时按名称/相似度重建）
           const linkRows = options.db
@@ -486,7 +401,9 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
             targetId: row.document_id,
             targetName: row.doc_title ?? undefined,
           }));
-          linksAll.push(...fixLinks(healingLinks, { memory: memoryIndex, document: docIndex }));
+          const fixed = fixLinks(healingLinks, { memory: memoryIndex, document: docIndex });
+          linksAll.push(...fixed);
+          for (const link of fixed) if (link.status === 'fixed') options.db.prepare('UPDATE memory_doc_link SET document_id = ? WHERE id = ?').run(link.newTargetId, link.linkId);
 
           // ③ 附件清点（内容寻址：<sha256>.<ext>）
           const attachmentPort: AttachmentContentPort = {
@@ -596,7 +513,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           throw new ShellError('INVALID_ARGUMENT', '备份时间必须是 HH:mm 格式');
         }
         const keepCount = Number(incoming['keepCount'] ?? 7);
-        if (!Number.isFinite(keepCount) || keepCount < 1) {
+        if (!Number.isInteger(keepCount) || keepCount < 1) {
           throw new ShellError('INVALID_ARGUMENT', '保留份数必须是 ≥1 的整数');
         }
         const targetDir = String(incoming['targetDir'] ?? '');
@@ -702,7 +619,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
                 resolution: 'takeNew' as ConflictResolution,
               }));
             return runImport(
-              { packagePath: snapshotAbsolutePath, mode: 'full-restore' as never, decisions },
+              { packagePath: snapshotAbsolutePath, mode: 'full-restore', decisions, replaceWorkspace: true },
               {
                 local: localPort,
                 target: createImportTargetPort({
@@ -756,7 +673,9 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const request = params['request'] as Record<string, unknown>;
         const outputPath = String(request['outputPath'] ?? '');
         if (outputPath.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 outputPath');
-        const stored = settings.read<{ since: number; savedAt: number }>(INCREMENTAL_CURSOR_KEY);
+        const cursorKey = `${INCREMENTAL_CURSOR_KEY}:${JSON.stringify(request['selection'] ?? 'all')}`;
+        const startedAt = Date.now();
+        const stored = settings.read<{ since: number; savedAt: number }>(cursorKey);
         const since =
           typeof request['since'] === 'number'
             ? (request['since'] as number)
@@ -786,26 +705,10 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         );
 
         // 推进游标：以当前真实水位为准（记忆/文档/项目的 updatedAt 最大值）
-        const cursor = advanceCursor(
-          {
-            maxUpdatedAt: () => {
-              const row = options.db
-                .prepare(
-                  `SELECT MAX(v) AS m FROM (
-                     SELECT MAX(updated_at) AS v FROM memory_item
-                     UNION ALL SELECT MAX(updated_at) FROM document
-                     UNION ALL SELECT MAX(updated_at) FROM project
-                   )`,
-                )
-                .get() as { m: number | null } | undefined;
-              return row?.m ?? 0;
-            },
-          },
-          Date.now(),
-        );
-        settings.write(INCREMENTAL_CURSOR_KEY, cursor);
-
+        const cursor = { since: startedAt - 1, savedAt: Date.now() };
+        settings.write(cursorKey, cursor);
         return {
+          ...result,
           outputPath: result.outputPath,
           archiveSizeBytes: result.archiveSizeBytes,
           rawSizeBytes: result.rawSizeBytes,
@@ -817,7 +720,8 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
       }
 
       case 'getIncrementalCursor': {
-        const stored = settings.read<{ since: number; savedAt: number }>(INCREMENTAL_CURSOR_KEY);
+        const cursorKey = `${INCREMENTAL_CURSOR_KEY}:${JSON.stringify(params['selection'] ?? 'all')}`;
+        const stored = settings.read<{ since: number; savedAt: number }>(cursorKey);
         return stored ?? null;
       }
 

@@ -42,6 +42,8 @@ export interface PackageObject {
   updatedAt: number;
   /** 对象负载（JSON 字符串；代码文件为文本内容） */
   payload: string;
+  packagePath?: string;
+  encoding?: 'base64';
 }
 
 /** 单条差异 */
@@ -142,6 +144,11 @@ export interface ImportLocalStatePort {
  * 供"重试失败项"使用。绝不产生半导入状态的前提是前置校验全部通过。
  */
 export interface ImportTargetPort {
+  /** 生产端口用数据库事务与文件日志实现原子提交。 */
+  begin?(): void;
+  commit?(): void;
+  rollback?(): void;
+  resetWorkspace?(): void;
   /** 写入/覆盖一个项目（full-restore 覆盖同名项目） */
   upsertProject(meta: { id: string; name: string; metaJson: string }): 'created' | 'updated';
   /** 写入对象；返回实际生效的写法 */
@@ -187,6 +194,8 @@ export interface ImportReportData {
 export interface ImportJobRequest {
   packagePath: string;
   mode: ImportMode;
+  /** 仅本地快照恢复使用；调用方已先创建安全快照。 */
+  replaceWorkspace?: boolean;
   /** 加密包口令 */
   password?: string | undefined;
   /** 签名公钥（提供则强制校验） */

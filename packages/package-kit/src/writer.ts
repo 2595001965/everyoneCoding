@@ -51,6 +51,7 @@ export interface FinalizeMetaInput {
   excludes: readonly string[];
   counts: EcpkgManifest['counts'];
   redacted: boolean;
+  incremental?: EcpkgManifest['incremental'];
   /** 仅作 manifest 标记；真正的信封加密由 encryptor 在 finalize 之后包裹 */
   encryption?: EncryptionInfo | undefined;
   /** 默认 FORMAT_VERSION；兼容矩阵测试可覆盖 */
@@ -145,6 +146,7 @@ export class EcpkgWriter {
       counts: meta.counts,
       encryption: meta.encryption,
       redacted: meta.redacted,
+      ...(meta.incremental ? { incremental: meta.incremental } : {}),
     });
 
     // ③ 可选签名：对"去掉 signature 字段的 manifest 规范化字节"签名

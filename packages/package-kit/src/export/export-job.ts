@@ -14,6 +14,7 @@
  */
 
 import * as fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 import { EcpkgReader } from '../reader';
 import { EcpkgWriteError, EcpkgWriter } from '../writer';
@@ -73,6 +74,7 @@ interface AttachmentCandidate {
   sourcePath: string;
   size: number;
   excluded: boolean;
+  projectIds: string[];
 }
 
 function resolveSelectedProjectIds(request: ExportJobRequest): string[] | null {
@@ -104,14 +106,20 @@ export async function runExport(
       : allProjects.filter((p) => selectedProjectIds.includes(p.id));
   const includedProjectIds = new Set(includedProjects.map((p) => p.id));
 
-  const memoryItems = port.listMemory(selectedProjectIds, content.memory);
+  const inWindow = (at: number): boolean =>
+    request.updatedSince === undefined || at > request.updatedSince;
+  const memoryItems = port
+    .listMemory(selectedProjectIds, content.memory)
+    .filter((m) => inWindow(m.updatedAt));
   const memoryLinks = port
     .listMemoryLinks(selectedProjectIds)
     .filter((l) => includedProjectIds.has(l.projectId));
-  const documents = content.documents ? port.listDocuments(selectedProjectIds) : [];
+  const documents = content.documents
+    ? port.listDocuments(selectedProjectIds).filter((d) => inWindow(d.updatedAt))
+    : [];
 
   // 规则集合：默认 + 额外 + 项目级 .ecignore
-  const globalRules = [...DEFAULT_EXCLUDE_RULES];
+  const globalRules = useDefaultExcludes ? [...DEFAULT_EXCLUDE_RULES] : [];
   if (request.extraExcludes && request.extraExcludes.length > 0) {
     for (const pattern of request.extraExcludes) globalRules.push({ pattern, builtin: false });
   }
@@ -133,6 +141,8 @@ export async function runExport(
       const files = port.listCodeFiles(proj.id);
       const rules = rulesForCode(proj.id);
       for (const rel of files) {
+        if (port.updatedAt && !inWindow(port.updatedAt(`${projectCodeDir(proj.id)}${rel}`)))
+          continue;
         const data = port.readCodeFile(proj.id, rel);
         if (data === null) {
           tracker.addFailure({
@@ -149,19 +159,36 @@ export async function runExport(
 
   const attachmentCandidates: AttachmentCandidate[] = [];
   if (content.attachments) {
-    for (const att of port.listAttachments()) {
+    for (const att of port.listAttachments(selectedProjectIds)) {
       let size = 0;
       try {
         size = fs.statSync(att.sourcePath).size;
       } catch {
         size = 0;
       }
-      const excluded = matchExclude(`${attachmentsDir()}${att.hashName}`, globalRules);
+      if (
+        !/^[a-f0-9]{64}\.[A-Za-z0-9]+$/.test(att.hashName) ||
+        createHash('sha256').update(fs.readFileSync(att.sourcePath)).digest('hex') !==
+          att.hashName.split('.')[0]
+      ) {
+        throw new Error(
+          `附件内容寻址校验失败：${att.sourcePath}。请恢复原文件，或按实际 SHA-256 重命名附件并更新引用后重试。`,
+        );
+      }
+      const duplicate = attachmentCandidates.find(
+        (candidate) => candidate.hashName === att.hashName,
+      );
+      if (duplicate) {
+        duplicate.projectIds = [...new Set([...duplicate.projectIds, ...(att.projectIds ?? [])])];
+        continue;
+      }
+      const excluded = false; // 已引用资源不能被代码排除规则静默移除。
       attachmentCandidates.push({
         hashName: att.hashName,
         sourcePath: att.sourcePath,
         size,
         excluded,
+        projectIds: att.projectIds ?? [],
       });
     }
   }
@@ -240,6 +267,7 @@ export async function runExport(
         name: d.name,
         projectId: d.projectId,
         updatedAt: d.updatedAt,
+        ...(d.metadata ? { metadata: d.metadata } : {}),
       })),
     );
     ops.push({ kind: 'text', pkgPath: documentsIndexPath(), text: indexText });
@@ -345,6 +373,15 @@ export async function runExport(
   }
 
   // 附件（排除命中的不写入，二进制流式）
+  if (content.attachments) {
+    ops.push({
+      kind: 'text',
+      pkgPath: 'attachments/index.json',
+      text: JSON.stringify(
+        attachmentCandidates.map(({ hashName, projectIds }) => ({ hashName, projectIds })),
+      ),
+    });
+  }
   for (const att of attachmentCandidates) {
     if (att.excluded) continue;
     ops.push({
@@ -356,6 +393,18 @@ export async function runExport(
   }
 
   // 写入
+  if (request.updatedSince !== undefined && port.updatedAt) {
+    for (let i = ops.length - 1; i >= 0; i--) {
+      const op = ops[i]!;
+      if (
+        /^projects\/[^/]+\/(?:design|pipeline|anchors\.json|registry\.json)/.test(op.pkgPath) &&
+        !inWindow(port.updatedAt(op.pkgPath))
+      ) {
+        if (/\/design\/pages\//.test(op.pkgPath)) counts.pages -= 1;
+        ops.splice(i, 1);
+      }
+    }
+  }
   if (redact) tracker.setStage('redacting');
   tracker.setStage('writing');
   const plainTmpPath =
@@ -421,6 +470,9 @@ export async function runExport(
         codeFiles: counts.codeFiles,
       },
       redacted: redact,
+      ...(request.updatedSince !== undefined
+        ? { incremental: { since: request.updatedSince, deletionsIncluded: false as const } }
+        : {}),
       ...(request.password !== undefined ? { encryption: encryptionInfo() } : {}),
       ...(request.signWithPrivateKeyPem !== undefined
         ? { signWithPrivateKeyPem: request.signWithPrivateKeyPem }

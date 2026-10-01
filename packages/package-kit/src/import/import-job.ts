@@ -14,6 +14,7 @@
  */
 
 import * as fs from 'node:fs';
+import { isTextEntry } from '../export/redactor';
 
 import { EcpkgReader } from '../reader';
 import { verifyPackage } from './verifier';
@@ -79,7 +80,7 @@ function parseJsonlItems(text: string): MemoryItem[] {
     try {
       out.push(JSON.parse(trimmed) as MemoryItem);
     } catch {
-      /* 跳过坏行（单条不影响整体） */
+      throw new Error('归档记忆 JSONL 损坏，请重新导出');
     }
   }
   return out;
@@ -111,10 +112,22 @@ function genericObject(
   projectId: string,
   type: PackageObjectType,
 ): PackageObject {
-  const text = reader.readEntryText(path);
+  const binary = !isTextEntry(path);
+  const text = binary
+    ? reader.readEntryBuffer(path).toString('base64')
+    : reader.readEntryText(path);
   const name = path.split('/').pop() ?? path;
   const id = name.replace(/\.json$/, '');
-  return { id, type, projectId, name, updatedAt: readUpdatedAt(text), payload: text };
+  return {
+    id: `${type}:${projectId}:${path.split(`projects/${projectId}/`)[1] ?? id}`,
+    type,
+    projectId,
+    name,
+    packagePath: path,
+    ...(binary ? { encoding: 'base64' as const } : {}),
+    updatedAt: readUpdatedAt(text),
+    payload: text,
+  };
 }
 
 /** 收集包内全部可比较对象（记忆 + 文档/设计/注册表/锚点/流水线/代码） */
@@ -198,7 +211,10 @@ export function collectPackageObjects(reader: EcpkgReader): PackageObject[] {
         projectId: code[1] ?? '',
         name: code[2] ?? '',
         updatedAt: 0,
-        payload: reader.readEntryText(p),
+        payload: isTextEntry(p)
+          ? reader.readEntryText(p)
+          : reader.readEntryBuffer(p).toString('base64'),
+        ...(!isTextEntry(p) ? { encoding: 'base64' as const } : {}),
       });
       continue;
     }
@@ -213,6 +229,7 @@ interface DocIndexEntry {
   name: string;
   projectId: string | null;
   updatedAt: number;
+  metadata?: Record<string, unknown>;
 }
 
 function parseDocIndex(text: string): DocIndexEntry[] {
@@ -221,16 +238,23 @@ function parseDocIndex(text: string): DocIndexEntry[] {
     const arr = Array.isArray(parsed) ? parsed : (parsed as { docs?: unknown }).docs;
     if (!Array.isArray(arr)) return [];
     return arr.map((raw) => {
-      const d = raw as { id: string; name?: string; projectId?: string | null; updatedAt?: number };
+      const d = raw as {
+        id: string;
+        name?: string;
+        projectId?: string | null;
+        updatedAt?: number;
+        metadata?: Record<string, unknown>;
+      };
       return {
         id: d.id,
         name: d.name ?? d.id,
         projectId: d.projectId ?? null,
         updatedAt: d.updatedAt ?? 0,
+        ...(d.metadata ? { metadata: d.metadata } : {}),
       };
     });
   } catch {
-    return [];
+    throw new Error('文档索引损坏，请重新导出');
   }
 }
 
@@ -286,6 +310,14 @@ export async function runImport(
 ): Promise<ImportReportData> {
   const start = Date.now();
   const onProgress = request.onProgress;
+  if (!Object.hasOwn(MODE_PARTICIPATING_TYPES, request.mode)) throw new Error('未知导入模式');
+  const resolutions = ['keepLocal', 'takeNew', 'keepBoth'];
+  if (
+    !Array.isArray(request.decisions) ||
+    request.decisions.some((d) => !resolutions.includes(d.resolution)) ||
+    Object.values(request.batchDecisions ?? {}).some((v) => !resolutions.includes(v))
+  )
+    throw new Error('无效的冲突决策');
 
   // ① 包内重新校验（不信任外部预览）
   onProgress?.('verifying', 0, 1, null);
@@ -302,6 +334,13 @@ export async function runImport(
   try {
     onProgress?.('collecting', 0, 1, null);
     const incoming = collectPackageObjects(reader);
+    if (
+      request.replaceWorkspace &&
+      (request.mode !== 'full-restore' ||
+        reader.manifest.scope !== 'all' ||
+        reader.manifest.incremental)
+    )
+      throw new Error('工作区回滚需要全量快照');
     const files = collectPackageFiles(reader);
     const preview = buildDiffPreview(incoming, ports.local);
 
@@ -311,7 +350,7 @@ export async function runImport(
     // 聚合逐条 + 批量决策
     const batchByType = request.batchDecisions ?? {};
     const batchDecisions = batchDecideByType(preview, batchByType);
-    const allDecisions: ConflictDecision[] = [...request.decisions, ...batchDecisions];
+    const allDecisions: ConflictDecision[] = [...batchDecisions, ...request.decisions];
     const decisionIds = new Set(request.decisions.map((d) => d.id));
 
     // ④ 硬约束（E2E-14）：冲突条目必须有决策（逐条或按类型批量覆盖）
@@ -327,13 +366,27 @@ export async function runImport(
 
     const plan: ResolutionPlan = resolveConflicts(preview, allDecisions);
 
+    ports.target.begin?.();
+    if (request.replaceWorkspace) {
+      if (!ports.target.resetWorkspace) throw new Error('当前宿主不支持完整快照回滚');
+      ports.target.resetWorkspace();
+      for (const outcome of plan.outcomes) outcome.resolution = 'takeNew';
+    }
+
     const total = applicable.length + files.length;
     let processed = 0;
     onProgress?.('applying', processed, total, null);
 
     // 项目容器（仅 full-restore / merge 覆盖同名项目）
-    if (request.mode === 'full-restore' || request.mode === 'merge') {
+    {
       for (const meta of collectProjectMetas(reader)) {
+        if (
+          request.mode !== 'full-restore' &&
+          request.mode !== 'merge' &&
+          (!applicable.some((item) => item.incoming.projectId === meta.id) ||
+            ports.local.listProjects().some((p) => p.id === meta.id))
+        )
+          continue;
         try {
           const result = ports.target.upsertProject(meta);
           if (result === 'created') applied.createdProjects += 1;
@@ -378,9 +431,19 @@ export async function runImport(
     // 原始文件（文档原始文件 + 附件）：文档参与时复制
     if (attachmentsAllowed(request.mode)) {
       for (const f of files) {
+        let path = f.path;
+        if (f.kind === 'doc') {
+          const docId = f.path.split('/')[1];
+          const outcome = plan.outcomes.find(
+            (item) => item.incoming.type === 'document' && item.incoming.id === docId,
+          );
+          if (!outcome || outcome.resolution === 'keepLocal') continue;
+          if (outcome.created)
+            path = f.path.replace(`documents/${docId}/`, `documents/${outcome.created.id}/`);
+        }
         try {
           const content = reader.readEntryBuffer(f.path);
-          const result = ports.target.putFile(f.path, content);
+          const result = ports.target.putFile(path, content);
           if (result !== 'skipped') applied.filesWritten += 1;
           processed += 1;
           onProgress?.('applying', processed, total, f.path);
@@ -419,6 +482,23 @@ export async function runImport(
       }
     }
 
+    if (types.has('memory') && types.has('document')) {
+      for (const path of reader
+        .listEntries()
+        .filter((p) => /^memory\/projects\/[^/]+\/links\.json$/.test(p))) {
+        try {
+          ports.target.putFile(path, reader.readEntryBuffer(path));
+        } catch (error) {
+          failures.push({ path, reason: errMsg(error) });
+        }
+      }
+    }
+
+    if (failures.length > 0 && ports.target.rollback) {
+      throw new Error(`导入已撤销：${failures.map((f) => `${f.path}: ${f.reason}`).join('；')}`);
+    }
+    ports.target.commit?.();
+
     onProgress?.('done', total, total, null);
 
     return {
@@ -430,6 +510,9 @@ export async function runImport(
       reportPath: null,
       durationMs: Date.now() - start,
     };
+  } catch (error) {
+    ports.target.rollback?.();
+    throw error;
   } finally {
     reader.close();
   }

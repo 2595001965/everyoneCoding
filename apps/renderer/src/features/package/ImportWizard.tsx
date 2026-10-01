@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Button, Select } from '@ec/ui';
+import { Button, Input, Select } from '@ec/ui';
 
 import {
   usePackageApi,
@@ -23,6 +23,7 @@ import {
 } from './package-api';
 import { ConflictResolver } from './ConflictResolver';
 import { ImportReport } from './ImportReport';
+import { HealingReportView } from './HealingReport';
 
 type Step = 'select' | 'mode' | 'diff' | 'report';
 
@@ -45,6 +46,9 @@ const MODE_OPTIONS: Array<{ label: string; value: ImportMode }> = [
 
 export function ImportWizard(): JSX.Element {
   const api = usePackageApi();
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState('');
   const [step, setStep] = useState<Step>('select');
   const [packagePath, setPackagePath] = useState<string | null>(null);
   const [verifyReport, setVerifyReport] = useState<VerificationReport | null>(null);
@@ -72,7 +76,7 @@ export function ImportWizard(): JSX.Element {
   const undecidedCount = conflictedItems.filter(
     (i) => decisions[i.incoming.id] === undefined,
   ).length;
-  const canImport = verifyReport?.ok === true && undecidedCount === 0;
+  const canImport = !busy && verifyReport?.ok === true && undecidedCount === 0;
 
   if (api === null) {
     return (
@@ -101,7 +105,7 @@ export function ImportWizard(): JSX.Element {
     const path = await api.pickPackagePath();
     if (path === null) return;
     setPackagePath(path);
-    const v = await api.verifyPackage(path);
+    const v = await api.verifyPackage(path, password || undefined);
     setVerifyReport(v);
     if (!v.ok) {
       setError(v.failureMessage ?? '包校验未通过');
@@ -114,8 +118,8 @@ export function ImportWizard(): JSX.Element {
     if (packagePath === null) return;
     setMode(next);
     const [mp, dp] = await Promise.all([
-      api.previewMode(packagePath, next),
-      api.previewImport(packagePath),
+      api.previewMode(packagePath, next, password || undefined),
+      api.previewImport(packagePath, password || undefined),
     ]);
     setModePreview({
       toApply: mp.toApply,
@@ -148,16 +152,26 @@ export function ImportWizard(): JSX.Element {
     if (packagePath === null || !canImport) return;
     setError(null);
     try {
-      const r = await api.importPackage({ packagePath, mode, decisions: decisionList() });
+      setBusy(true);
+      const r = await api.importPackage({ packagePath, mode, ...(password ? { password } : {}), decisions: decisionList(), onProgress: (stage, n, total) => setProgress(`${stage} ${n}/${total}`) });
       setReport(r);
       setStep('report');
+      setBusy(false);
     } catch (e) {
+      setBusy(false);
       setError(e instanceof Error ? e.message : String(e));
     }
   };
 
   return (
     <div className="import-wizard">
+      <Input type="password" aria-label="导入口令" placeholder="加密包口令（未加密可留空）" value={password} onChange={setPassword} />
+      {progress && <p role="status">{progress}</p>}
+      {report?.healing && <HealingReportView report={report.healing} onExport={() => {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(report.healing, null, 2)], { type: 'application/json' }));
+        const link = document.createElement('a'); link.href = url; link.download = 'healing-report.json'; link.click(); URL.revokeObjectURL(url);
+      }} />}
+
       {step === 'select' && (
         <section className="import-wizard__select">
           <h2>导入 .ecpkg 包</h2>

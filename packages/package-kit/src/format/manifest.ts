@@ -72,6 +72,7 @@ export interface EcpkgManifest {
   encryption: EncryptionInfo;
   /** 是否执行了敏感信息脱敏 */
   redacted: boolean;
+  incremental?: { since: number; deletionsIncluded: false } | undefined;
   /** 可选 Ed25519 签名（ed25519:<base64>），权威载体是 signature.sig */
   signature?: string | undefined;
 }
@@ -113,6 +114,9 @@ export const ecpkgManifestSchema: z.ZodType<EcpkgManifest> = z.object({
     }),
   ]),
   redacted: z.boolean(),
+  incremental: z
+    .object({ since: z.number().finite().nonnegative(), deletionsIncluded: z.literal(false) })
+    .optional(),
   signature: z.string().optional(),
 });
 
@@ -151,6 +155,7 @@ export function buildManifest(input: {
   checksumsEntryFile?: string | undefined;
   encryption?: EncryptionInfo | undefined;
   redacted: boolean;
+  incremental?: EcpkgManifest['incremental'];
 }): EcpkgManifest {
   const encryption: EncryptionInfo =
     input.encryption !== undefined ? input.encryption : { mode: 'none' };
@@ -165,6 +170,7 @@ export function buildManifest(input: {
     checksums: { algorithm: 'sha-256', entries: input.checksumsEntryFile ?? 'checksums.sha256' },
     encryption,
     redacted: input.redacted,
+    ...(input.incremental ? { incremental: input.incremental } : {}),
   };
   const result = ecpkgManifestSchema.safeParse(manifest);
   if (!result.success) {

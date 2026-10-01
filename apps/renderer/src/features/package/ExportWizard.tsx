@@ -16,6 +16,7 @@ import { Button, Checkbox, Input, Modal } from '@ec/ui';
 
 import { usePackageApi } from './package-api';
 import type {
+  ExportPlanPreset,
   ExportJobRequest,
   ExportJobResult,
   ExportProgressSnapshot,
@@ -50,6 +51,9 @@ export interface ExportWizardProps {
 
 export function ExportWizard(props: ExportWizardProps): React.ReactElement {
   const api = usePackageApi();
+  const [incremental, setIncremental] = React.useState(false);
+  const [savedPresets, setSavedPresets] = React.useState<ExportPlanPreset[]>([]);
+  React.useEffect(() => { if (api) void api.listExportPresets().then(setSavedPresets).catch(() => {}); }, [api]);
   const [selection, setSelection] = React.useState<ExportSelection>(DEFAULT_SELECTION);
   const [useDefaultExcludes, setUseDefaultExcludes] = React.useState(true);
   const [redact, setRedact] = React.useState(true);
@@ -74,7 +78,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
   }
 
   const passwordOk = !encryptEnabled || (password.length > 0 && password === confirmPassword);
-  const canExport = !exporting && passwordOk;
+  const canExport = !exporting && passwordOk && (selection.scope === 'all' || selection.projectIds.length > 0);
 
   const handleRedactChange = (value: boolean): void => {
     if (value) {
@@ -96,6 +100,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
     try {
       const request: ExportJobRequest = {
         outputPath,
+        incremental,
         selection,
         useDefaultExcludes,
         redact,
@@ -116,22 +121,17 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
       <ScopeSelector
         selection={selection}
         projects={props.projects ?? []}
-        presets={(props.presets ?? []).map((p) => ({
-          name: p.name,
-          selection: DEFAULT_SELECTION,
-          useDefaultExcludes: true,
-          redact: true,
-          savedAt: 0,
-        }))}
+        presets={savedPresets}
         useDefaultExcludes={useDefaultExcludes}
         onChange={setSelection}
         onToggleDefaultExcludes={setUseDefaultExcludes}
-        onSavePreset={(name) => props.onSavedPreset?.(name)}
-        onLoadPreset={(name) => props.onLoadedPreset?.(name)}
-        onDeletePreset={(name) => props.onDeletedPreset?.(name)}
+        onSavePreset={(name) => { void api.saveExportPreset({ name, selection, useDefaultExcludes, redact, savedAt: Date.now() }).then(() => api.listExportPresets()).then(setSavedPresets); props.onSavedPreset?.(name); }}
+        onLoadPreset={(name) => { const preset = savedPresets.find((p) => p.name === name); if (preset) { setSelection(preset.selection); setUseDefaultExcludes(preset.useDefaultExcludes); setRedact(preset.redact); } props.onLoadedPreset?.(name); }}
+        onDeletePreset={(name) => { void api.deleteExportPreset(name).then(() => api.listExportPresets()).then(setSavedPresets); props.onDeletedPreset?.(name); }}
       />
 
       <section className="ec-export-wizard__security">
+        <Checkbox label="增量导出（同一范围首次导出为全量，后续仅包含更新；删除项需完整恢复）" checked={incremental} onChange={setIncremental} />
         <h3>安全选项</h3>
         <Checkbox
           label="加密导出（需设置口令）"

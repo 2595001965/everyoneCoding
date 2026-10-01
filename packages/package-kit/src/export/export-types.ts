@@ -165,6 +165,7 @@ export interface ExportDocumentMeta {
   name: string;
   projectId: string | null;
   updatedAt: number;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -198,7 +199,11 @@ export interface ExportSourcePort {
   listDesignComponents(projectId: string): string[];
   readDesignComponent(projectId: string, fileName: string): string | null;
   /** 附件（内容寻址：<sha256>.<ext>），返回流式读取的磁盘路径 */
-  listAttachments(): Array<{ hashName: string; sourcePath: string }>;
+  listAttachments(
+    projectIds?: string[] | null,
+  ): Array<{ hashName: string; sourcePath: string; projectIds?: string[] }>;
+  /** 文件/数据库产物的真实更新时间，供增量窗口过滤。 */
+  updatedAt?(packagePath: string): number;
   /** 项目级 .ecignore 内容（无则 null） */
   readEcignore(projectId: string): string | null;
 }

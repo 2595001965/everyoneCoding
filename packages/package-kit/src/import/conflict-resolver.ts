@@ -105,9 +105,9 @@ export function buildDiffPreview(
     const incs = incoming.filter((o) => o.type === type);
     if (incs.length === 0) continue;
     const locals = localPort.listObjects(type, null);
-    const localById = new Map(locals.map((l) => [l.id, l]));
+    const localById = new Map(locals.map((l) => [`${l.projectId}:${l.id}`, l]));
     for (const o of incs) {
-      const local = localById.get(o.id) ?? null;
+      const local = localById.get(`${o.projectId}:${o.id}`) ?? null;
       let classification: PackageDiffItem['classification'];
       if (!local) {
         classification = 'added';
@@ -155,6 +155,29 @@ export function resolveConflicts(
 
     if (resolution === 'keepBoth') {
       const created: PackageObject = { ...item.incoming, id: generateNewId() };
+      if (['code', 'design', 'pipeline'].includes(created.type)) {
+        const rename = (name: string): string =>
+          name.replace(/(\.[^/.]+)?$/, `-copy-${created.id}$1`);
+        created.name = rename(created.name);
+        if (created.packagePath) created.packagePath = rename(created.packagePath);
+      }
+      if (created.encoding !== 'base64') {
+        try {
+          const payload = JSON.parse(created.payload) as Record<string, unknown>;
+          if (Array.isArray(payload))
+            created.payload = JSON.stringify(
+              payload.map((row) => ({ ...row, id: generateNewId() })),
+            );
+          else {
+            payload['id'] = created.id;
+            if (payload['page'] && typeof payload['page'] === 'object')
+              (payload['page'] as Record<string, unknown>)['id'] = created.id;
+            created.payload = JSON.stringify(payload);
+          }
+        } catch {
+          /* 代码文本保留原内容，路径已分配新名称。 */
+        }
+      }
       outcomes.push({ id: item.incoming.id, resolution, incoming: item.incoming, created });
       summary.keepBoth += 1;
     } else {

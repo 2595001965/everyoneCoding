@@ -169,7 +169,7 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
             `SELECT provider_id, model_id, project_id, purpose, prompt_tokens, completion_tokens,
                     total_tokens, cost, latency_ms, created_at
              FROM usage_record WHERE user_id = ? AND created_at >= ? AND created_at <= ?
-             ORDER BY created_at DESC LIMIT 2000`,
+             ORDER BY created_at DESC`,
           )
           .all(options.userId, since, until) as UsageRow[];
         return rows.map((row) => ({
@@ -194,13 +194,13 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
         const daily = config['dailyUsd'];
         const monthly = config['monthlyUsd'];
         const alert = config['alertRatio'];
-        if (daily !== null && typeof daily !== 'number') {
+        if (daily !== null && (typeof daily !== 'number' || !Number.isFinite(daily) || daily < 0)) {
           throw new ShellError('INVALID_ARGUMENT', 'dailyUsd 必须为数字或 null');
         }
-        if (monthly !== null && typeof monthly !== 'number') {
+        if (monthly !== null && (typeof monthly !== 'number' || !Number.isFinite(monthly) || monthly < 0)) {
           throw new ShellError('INVALID_ARGUMENT', 'monthlyUsd 必须为数字或 null');
         }
-        if (typeof alert !== 'number' || alert <= 0 || alert > 1) {
+        if (typeof alert !== 'number' || !Number.isFinite(alert) || alert <= 0 || alert > 1) {
           throw new ShellError('INVALID_ARGUMENT', 'alertRatio 必须在 (0, 1] 区间');
         }
         writeBudget({

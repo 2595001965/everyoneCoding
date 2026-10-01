@@ -211,6 +211,7 @@ export class BackupScheduler {
     const now = this.clock();
     const lastRunAt = this.optionsRef.getLastRunAt();
     if (!isCatchUpDue(config, lastRunAt, now)) {
+      this.start();
       return { caughtUp: false, message: '无漏跑，按计划执行' };
     }
     const ok = await this.optionsRef.runBackup();

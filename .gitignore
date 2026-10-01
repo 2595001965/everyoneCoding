@@ -9,6 +9,11 @@ yarn-error.log*
 # 构建产物
 dist/
 build/
+# electron-builder 的 buildResources 目录里只有 NSIS 钩子是源码（回滚留档，见 docs/RELEASE.md §3.4），
+# 其余（better-sqlite3 的 build/Release 等）仍是产物。git 不能在已忽略目录里反选文件，故先放开目录再逐项忽略。
+!apps/desktop-electron/build/
+apps/desktop-electron/build/*
+!apps/desktop-electron/build/installer.nsh
 out/
 release/
 .vite/

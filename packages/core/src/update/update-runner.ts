@@ -11,7 +11,7 @@
  * core 负责**何时做、做失败了怎么办**。
  */
 
-import type { UpdateInfo, UpdateProgress, UpdaterApi } from '@ec/shell-api';
+import type { UpdateErrorKind, UpdateInfo, UpdateProgress, UpdaterApi } from '@ec/shell-api';
 
 import {
   DEFAULT_UPDATE_SETTINGS,
@@ -30,6 +30,7 @@ import {
   type UpdateRecord,
 } from './update-ledger';
 import { isNewerVersion } from './update-types';
+import { classifyUpdateError } from './update-errors';
 
 /** 版本号非法时当作"没有更新"，而不是让更新检查抛错打断启动。 */
 function isNewerSafe(candidate: string | undefined, current: string): boolean {
@@ -79,12 +80,24 @@ export interface UpdatePorts {
 
 export type UpdateFlowEvent =
   | { type: 'check-skipped'; reason: string }
+  | { type: 'check-failed'; kind: UpdateErrorKind; error: string; detail: string }
   | { type: 'check-done'; info: UpdateInfo | null }
   | { type: 'remind'; version: string; notes?: string }
   | { type: 'defer'; version: string; until: number }
   | { type: 'install-started'; version: string }
+  /** 更新包已下载并通过校验（sha512 / minisign），等待重启应用 */
+  | { type: 'download-ready'; version: string }
+  /** 台账已落盘，即将交给安装器并重启 */
   | { type: 'install-applied'; version: string; backupPath: string | null }
-  | { type: 'install-failed'; version: string; error: string }
+  | {
+      type: 'install-failed';
+      version: string;
+      error: string;
+      kind?: UpdateErrorKind;
+      detail?: string;
+    }
+  /** 上一轮收尾核对：重启后仍是旧版本，更新没生效 */
+  | { type: 'install-not-applied'; version: string; error: string }
   | { type: 'health-marked'; version: string }
   | { type: 'rollback-needed'; restoreFrom: string; toVersion: string; fromVersion: string }
   | { type: 'rollback-done'; toVersion: string }
@@ -110,7 +123,10 @@ export class UpdateService {
   /** 台账实例在整个会话内唯一——每次从 runtime 重建会让"改了却没写回"变成静默 bug。 */
   private ledgerInstance: UpdateLedger = new UpdateLedger();
   private readonly eventListeners = new Set<(event: UpdateFlowEvent) => void>();
+  private readonly progressListeners = new Set<(progress: UpdateProgress) => void>();
   private availableInfoValue: UpdateInfo | null = null;
+  /** 已下载并校验、等待重启的版本（会话内有效；重启后以台账为准） */
+  private readyVersionValue: string | null = null;
   private ready = false;
 
   constructor(options: UpdateServiceOptions) {
@@ -125,6 +141,12 @@ export class UpdateService {
   subscribeEvents(listener: (event: UpdateFlowEvent) => void): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
+  }
+
+  /** 订阅外壳下载进度（百分比 / 差分信息）。返回取消函数。 */
+  subscribeProgress(listener: (progress: UpdateProgress) => void): () => void {
+    this.progressListeners.add(listener);
+    return () => this.progressListeners.delete(listener);
   }
 
   /** 读取持久化状态（幂等；重复调用只加载一次）。 */
@@ -162,6 +184,11 @@ export class UpdateService {
     return this.availableInfoValue;
   }
 
+  /** 已下载就绪、等待重启的版本（null = 没有）。 */
+  get readyVersion(): string | null {
+    return this.readyVersionValue;
+  }
+
   /** 导出当前运行时状态快照（只读用途：面板展示"上次检查时间"等）。 */
   async exportRuntime(): Promise<UpdateRuntimeState> {
     await this.init();
@@ -178,8 +205,9 @@ export class UpdateService {
    *
    * **必须在业务初始化之前调用**——崩溃循环场景下，业务初始化本身就是会崩的那一步。
    */
-  async bootstrap(): Promise<BootDecision> {
+  async bootstrap(options: { skipCheck?: boolean } = {}): Promise<BootDecision> {
     await this.init();
+    await this.reconcile();
     const decision = await this.recordBoot();
     if (decision.decision === 'rollback') {
       await this.performRollback(decision);
@@ -189,8 +217,36 @@ export class UpdateService {
       this.emit({ type: 'rollback-unavailable', toVersion: decision.toVersion });
       return decision;
     }
-    await this.checkNow(false);
+    // skipCheck：外壳先拿回滚判定、渲染完首屏再发起网络检查（启动不被网络阻塞）
+    if (options.skipCheck !== true) await this.checkNow(false);
     return decision;
+  }
+
+  /**
+   * 按实际运行版本核对上一轮收尾（安装是否生效、回滚是否落定）。
+   * 安装器与回滚安装包都会结束当前进程，所以"成功与否"只能由下一次启动来判定。
+   */
+  async reconcile(): Promise<void> {
+    await this.init();
+    const running = await this.ports.currentVersion();
+    const settled = this.ledgerInstance.reconcileBoot(running, this.ports.now());
+    if (settled === null) return;
+    await this.persist();
+    if (settled.stage === 'install-failed') {
+      this.emit({
+        type: 'install-not-applied',
+        version: settled.toVersion,
+        error: settled.lastError ?? '',
+      });
+    } else if (settled.stage === 'rolled-back') {
+      this.emit({ type: 'rollback-done', toVersion: settled.fromVersion });
+    } else if (settled.stage === 'rollback-failed') {
+      this.emit({
+        type: 'rollback-failed',
+        toVersion: settled.fromVersion,
+        error: settled.lastError ?? '',
+      });
+    }
   }
 
   /** 启动计数 + 回滚判定（单独暴露，便于"只想知道该不该回滚"的场景）。 */
@@ -232,7 +288,20 @@ export class UpdateService {
       return null;
     }
 
-    const info = (await this.ports.updater?.check()) ?? null;
+    let info: UpdateInfo | null;
+    try {
+      info = (await this.ports.updater?.check()) ?? null;
+    } catch (cause: unknown) {
+      // 网络失败 / 清单异常都不能打断启动，也不能吞掉：归类后如实上报
+      const classified = classifyUpdateError(cause);
+      this.emit({
+        type: 'check-failed',
+        kind: classified.kind,
+        error: classified.summary,
+        detail: classified.detail,
+      });
+      return null;
+    }
     this.runtime.lastCheckAt = now;
     this.availableInfoValue = isNewerSafe(info?.version, await this.ports.currentVersion())
       ? info
@@ -258,7 +327,8 @@ export class UpdateService {
     } else if (action.action === 'defer') {
       this.emit({ type: 'defer', version: action.version, until: action.until });
     } else if (action.action === 'silent-install') {
-      await this.install();
+      // 自动下载只做到"下载并校验"：重启时机交给用户，绝不在用户工作时强行重启
+      await this.download();
     }
     return info;
   }
@@ -276,60 +346,132 @@ export class UpdateService {
   }
 
   /**
-   * 下载并安装更新。
-   *
-   * 三步不可调换：**先备份**（否则失败无处可退）→ **再安装** → **登记 pending-healthy**。
-   * 任何一步失败都如实上报，绝不静默吞掉（NFR-U-02）。
+   * 下载并校验更新包（不安装）。失败时**台账不动**——当前版本完好，没有什么需要回滚。
    */
-  async install(): Promise<boolean> {
+  async download(): Promise<boolean> {
     await this.init();
     const updater = this.ports.updater;
     if (updater === null) {
-      this.emit({ type: 'install-failed', version: '', error: '当前外壳不支持自动更新' });
+      this.emit({
+        type: 'install-failed',
+        version: '',
+        error: '当前外壳不支持自动更新',
+        kind: 'not-configured',
+      });
+      return false;
+    }
+    if (!this.ports.isOnline()) {
+      const classified = classifyUpdateError('UPDATE_OFFLINE: 系统报告当前离线');
+      this.emit({
+        type: 'install-failed',
+        version: this.availableInfoValue?.version ?? '',
+        error: classified.summary,
+        kind: 'offline',
+        detail: classified.detail,
+      });
       return false;
     }
 
-    const info = await updater.check();
-    if (info === null) {
-      this.emit({ type: 'install-failed', version: '', error: '没有可用更新' });
+    const unsubscribe = updater.onProgress((progress) => {
+      this.onProgress?.(progress);
+      for (const listener of this.progressListeners) listener(progress);
+    });
+    let version = this.availableInfoValue?.version ?? '';
+    try {
+      const info = await updater.check();
+      if (info === null) {
+        this.emit({ type: 'install-failed', version: '', error: '没有可用更新' });
+        return false;
+      }
+      version = info.version;
+      this.emit({ type: 'install-started', version });
+      const ready = await updater.download();
+      if (ready === null) {
+        this.emit({ type: 'install-failed', version, error: '没有可用更新' });
+        return false;
+      }
+      version = ready.version;
+    } catch (cause: unknown) {
+      const classified = classifyUpdateError(cause);
+      this.readyVersionValue = null;
+      this.emit({
+        type: 'install-failed',
+        version,
+        error: classified.summary,
+        kind: classified.kind,
+        detail: classified.detail,
+      });
+      return false;
+    } finally {
+      unsubscribe();
+    }
+
+    this.readyVersionValue = version;
+    this.emit({ type: 'download-ready', version });
+    return true;
+  }
+
+  /**
+   * 应用已下载的更新并重启。
+   *
+   * 顺序不可调换：**先定位留档** → **登记 pending-healthy 并落盘** → **交给安装器**。
+   * 安装器会结束当前进程，落盘必须发生在它之前，否则新版本启动失败时台账里什么都没有，
+   * 回滚无从谈起。安装器没能启动时把台账改记 install-failed，当前版本照常可用。
+   */
+  async applyAndRestart(): Promise<boolean> {
+    await this.init();
+    const updater = this.ports.updater;
+    const version = this.readyVersionValue;
+    if (updater === null || version === null) {
+      this.emit({
+        type: 'install-failed',
+        version: version ?? '',
+        error: '没有已下载的更新，请先下载',
+      });
       return false;
     }
 
     const currentVersion = await this.ports.currentVersion();
-    this.emit({ type: 'install-started', version: info.version });
-
-    this.ledgerInstance.beginUpdate({
-      fromVersion: currentVersion,
-      toVersion: info.version,
-      backupPath: null,
-      now: this.ports.now(),
-    });
-
-    let backupPath: string | null = null;
+    let backupPath: string | null;
     try {
       backupPath = await this.ports.backupCurrentVersion(currentVersion);
-      const record = this.ledgerInstance.current;
-      if (record !== null) record.backupPath = backupPath;
-      const unsubscribe =
-        this.onProgress === undefined ? null : updater.onProgress(this.onProgress);
-      try {
-        await updater.downloadAndInstall();
-      } finally {
-        unsubscribe?.();
-      }
-    } catch (cause: unknown) {
-      const error = cause instanceof Error ? cause.message : String(cause);
-      this.ledgerInstance.markRollbackFailed(this.ports.now(), error);
-      await this.persist();
-      this.emit({ type: 'install-failed', version: info.version, error });
-      return false;
+    } catch {
+      // 找不到留档不阻止更新：台账如实记 backupPath=null，崩溃时上报"无法自动回滚"
+      backupPath = null;
     }
-
+    this.ledgerInstance.beginUpdate({
+      fromVersion: currentVersion,
+      toVersion: version,
+      backupPath,
+      now: this.ports.now(),
+    });
     this.ledgerInstance.markInstalled(this.ports.now());
     this.runtime.reminder = clearReminder();
     await this.persist();
-    this.emit({ type: 'install-applied', version: info.version, backupPath });
+    this.emit({ type: 'install-applied', version, backupPath });
+
+    try {
+      await updater.installAndRestart();
+    } catch (cause: unknown) {
+      const classified = classifyUpdateError(cause);
+      this.ledgerInstance.markInstallFailed(this.ports.now(), classified.detail);
+      await this.persist();
+      this.emit({
+        type: 'install-failed',
+        version,
+        error: classified.kind === 'unknown' ? '安装器启动失败' : classified.summary,
+        kind: classified.kind === 'unknown' ? 'install' : classified.kind,
+        detail: classified.detail,
+      });
+      return false;
+    }
     return true;
+  }
+
+  /** 一步到位："立即更新" = 下载校验 + 应用并重启。 */
+  async install(): Promise<boolean> {
+    if (!(await this.download())) return false;
+    return this.applyAndRestart();
   }
 
   /** 应用到达可交互后调用：落定本次更新，避免下次启动被误判为崩溃。 */
@@ -345,18 +487,17 @@ export class UpdateService {
     toVersion: string;
     fromVersion: string;
   }): Promise<void> {
+    // 回滚安装包会结束当前进程：先把"回滚中"落盘，结果由下次启动按实际版本核对
+    this.ledgerInstance.markRollingBack(this.ports.now());
+    await this.persist();
     try {
       await this.ports.restoreBackup(decision.restoreFrom);
     } catch (cause: unknown) {
       const error = cause instanceof Error ? cause.message : String(cause);
       this.ledgerInstance.markRollbackFailed(this.ports.now(), error);
       await this.persist();
-      this.emit({ type: 'rollback-failed', toVersion: decision.toVersion, error });
-      return;
+      this.emit({ type: 'rollback-failed', toVersion: decision.fromVersion, error });
     }
-    this.ledgerInstance.markRolledBack(this.ports.now());
-    await this.persist();
-    this.emit({ type: 'rollback-done', toVersion: decision.toVersion });
   }
 
   /** 把内存中的台账快照写回 runtime，再交给外壳落盘。 */

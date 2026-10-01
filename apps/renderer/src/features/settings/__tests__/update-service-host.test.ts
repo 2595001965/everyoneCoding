@@ -14,7 +14,14 @@ import type { UpdateProgressEvent } from '../update-api';
  * 适配器测试：**真实 `UpdateService` + 内存假端口**（与 Wave 7 重命名同一思路）。
  * 断言的是"点一个按钮，服务真的走了对应分支、状态真的变成 X"，而不是渲染文本。
  */
-function createEnv(options: { available?: UpdateInfo | null; failDownload?: boolean } = {}) {
+function createEnv(
+  options: {
+    available?: UpdateInfo | null;
+    failDownload?: string;
+    failCheck?: string;
+    online?: boolean;
+  } = {},
+) {
   let now = 1_700_000_000_000;
   let persisted: UpdateRuntimeState | null = {
     lastCheckAt: null,
@@ -28,21 +35,37 @@ function createEnv(options: { available?: UpdateInfo | null; failDownload?: bool
       ? { version: '0.2.0', notes: '修了几个问题' }
       : options.available;
 
+  const progressListeners = new Set<(progress: UpdateProgress) => void>();
   const ports: UpdatePorts = {
     updater: {
       async check() {
+        if (options.failCheck !== undefined) throw new Error(options.failCheck);
         return available;
       },
-      async downloadAndInstall() {
-        if (options.failDownload === true) throw new Error('下载中断');
+      async download() {
+        if (options.failDownload !== undefined) throw new Error(options.failDownload);
+        for (const listener of progressListeners) {
+          listener({
+            phase: 'downloading',
+            percent: 37,
+            message: '差分下载：仅需 1.2 MB（共 80 MB）',
+          });
+        }
+        return available;
+      },
+      async installAndRestart() {
         installed = available?.version ?? installed;
       },
-      onProgress(_listener: (progress: UpdateProgress) => void) {
-        return () => undefined;
+      async downloadAndInstall() {
+        throw new Error('不应被调用');
+      },
+      onProgress(listener: (progress: UpdateProgress) => void) {
+        progressListeners.add(listener);
+        return () => progressListeners.delete(listener);
       },
     },
     now: () => now,
-    isOnline: () => true,
+    isOnline: () => options.online ?? true,
     async backupCurrentVersion(fromVersion) {
       return `D:/bak/${fromVersion}`;
     },
@@ -66,6 +89,7 @@ function createEnv(options: { available?: UpdateInfo | null; failDownload?: bool
   const api = createUpdateApi({
     service,
     currentVersion: '0.1.0',
+    isOnline: () => options.online ?? true,
     persistSettings: async (patch) => {
       savedPatches.push(patch);
     },
@@ -116,23 +140,70 @@ describe('更新端口适配器（真实服务 + 内存端口）', () => {
     expect(state.available).toBeNull();
   });
 
-  it('安装成功后阶段为 done、进度 100，且服务记录了备份路径', async () => {
+  it('立即更新：进入"正在重启并安装"，服务已落盘备份路径，安装器接管', async () => {
     const env = createEnv();
     await env.api.check();
     const state = await env.api.install();
-    expect(state.phase).toBe('done');
+    expect(state.phase).toBe('installing');
     expect(state.percent).toBe(100);
-    expect(state.message).toContain('重启后生效');
+    expect(state.message).toContain('正在重启并安装');
     expect(env.service.currentRecord?.backupPath).toBe('D:/bak/0.1.0');
     expect(env.installedVersion()).toBe('0.2.0');
   });
 
-  it('安装失败时阶段为 error 且带出原因（不静默）', async () => {
-    const env = createEnv({ failDownload: true });
+  it('下载进度（含差分下载说明）实时推给面板', async () => {
+    const env = createEnv();
+    const seen: UpdateProgressEvent[] = [];
+    env.api.onProgress((progress) => seen.push(progress));
+    await env.api.check();
+    await env.api.install();
+    expect(seen).toContainEqual({
+      phase: 'downloading',
+      percent: 37,
+      message: '差分下载：仅需 1.2 MB（共 80 MB）',
+    });
+  });
+
+  it.each([
+    ['验签失败', 'UPDATE_SIGNATURE: minisign signature verification failed', /签名校验失败/],
+    ['半包', 'UPDATE_INTEGRITY: sha512 checksum mismatch', /校验不一致/],
+    ['网络中断', 'UPDATE_NETWORK: socket hang up', /无法连接更新服务或下载中断/],
+  ])('下载阶段%s：阶段为 error，文案归类、原始原因进详情', async (_name, error, pattern) => {
+    const env = createEnv({ failDownload: error });
     await env.api.check();
     const state = await env.api.install();
     expect(state.phase).toBe('error');
-    expect(state.message).toContain('下载中断');
+    expect(state.message).toMatch(pattern);
+    expect(state.detail).toBe(error);
+    expect(env.installedVersion()).toBe('0.1.0');
+  });
+
+  it('检查时更新源不可达：面板报"检查更新失败"而不是卡在"正在检查"', async () => {
+    const env = createEnv({ failCheck: 'connect ECONNREFUSED 127.0.0.1:18080' });
+    const state = await env.api.check();
+    expect(state.phase).toBe('error');
+    expect(state.message).toMatch(/检查更新失败：无法连接更新服务/);
+  });
+
+  it('离线：状态带 offline=true，手动检查只提示离线', async () => {
+    const env = createEnv({ online: false });
+    const state = await env.api.check();
+    expect(state.offline).toBe(true);
+    expect(state.phase).toBe('idle');
+    expect(state.message).toContain('当前离线');
+  });
+
+  it('自动下载完成后为 ready，点"重启并更新"才交给安装器', async () => {
+    const env = createEnv();
+    await env.api.saveSettings({ autoDownload: true });
+    await env.service.checkNow(true);
+    let state = await env.api.getState();
+    expect(state.phase).toBe('ready');
+    expect(state.readyVersion).toBe('0.2.0');
+    expect(env.installedVersion()).toBe('0.1.0');
+    state = await env.api.restart();
+    expect(state.phase).toBe('installing');
+    expect(env.installedVersion()).toBe('0.2.0');
   });
 
   it('安装后再次装配（模拟重启）→ 健康落定 → lastSettled 显示已更新到新版本', async () => {
@@ -177,7 +248,7 @@ describe('更新端口适配器（真实服务 + 内存端口）', () => {
     await env.api.check();
     expect(seen.at(-1)?.phase).toBe('available');
     await env.api.install();
-    expect(seen.some((progress) => progress.phase === 'done')).toBe(true);
+    expect(seen.some((progress) => progress.phase === 'installing')).toBe(true);
     unsubscribe();
     const before = seen.length;
     await env.api.defer('0.2.0');

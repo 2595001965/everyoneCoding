@@ -278,6 +278,8 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
 
   const updater = {
     check: () => ipc.invoke(CHANNELS.updater.check),
+    download: () => ipc.invoke(CHANNELS.updater.download),
+    installAndRestart: () => ipc.invoke(CHANNELS.updater.installAndRestart),
     downloadAndInstall: () => ipc.invoke(CHANNELS.updater.downloadAndInstall),
     onProgress: (cb: (progress: { phase: string; percent?: number; message?: string }) => void) => {
       if (typeof cb !== 'function') throw new TypeError('参数 cb 必须是函数');

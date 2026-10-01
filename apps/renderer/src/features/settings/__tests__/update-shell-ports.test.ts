@@ -58,7 +58,7 @@ describe('外壳更新端口（双形态共用）', () => {
     expect(await ports.backupCurrentVersion('0.1.0')).toBeNull();
   });
 
-  it('回滚会静默重跑留档的安装包（NSIS /S），并触发外壳重启', async () => {
+  it('回滚会静默重跑留档的安装包，并让安装器装完后拉起应用（Electron NSIS 参数）', async () => {
     const { shell, seedInstaller } = await createEnv();
     const installer = seedInstaller('EveryoneCoding_0.1.0_x64-setup.exe');
     let relaunched = 0;
@@ -72,8 +72,65 @@ describe('外壳更新端口（双形态共用）', () => {
     await ports.restoreBackup(installer);
     expect(
       shell.process.handles.map((handle) => ({ command: handle.command, args: handle.args })),
-    ).toEqual([{ command: installer, args: ['/S'] }]);
+    ).toEqual([
+      {
+        command: 'powershell.exe',
+        args: [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Start-Process -FilePath '${installer}' -ArgumentList '/S','--force-run'`,
+        ],
+      },
+    ]);
     expect(relaunched).toBe(1);
+  });
+
+  it('Tauri 形态用 Tauri NSIS 的静默 + 重启参数（/S /R）', async () => {
+    const { shell, seedInstaller } = await createEnv();
+    const installer = seedInstaller('EveryoneCoding_0.1.0_x64-setup.exe');
+    const info = await shell.appInfo.get();
+    shell.appInfo.get = async () => ({ ...info, kind: 'tauri' });
+    const { ports } = await createShellUpdatePorts({ shell });
+    await ports.restoreBackup(installer);
+    expect(shell.process.handles.at(-1)?.args.at(-1)).toMatch(/-ArgumentList '\/S','\/R'$/);
+  });
+
+  it('安装包经 Start-Process 独立拉起（不随应用退出被清理），路径里的单引号被转义', async () => {
+    const { shell } = await createEnv();
+    const odd = shell.path.join(DATA_DIR, "it's here", 'EveryoneCoding-0.1.0-x64-setup.exe');
+    shell.fs.seed(odd, 'MZ');
+    const { ports } = await createShellUpdatePorts({ shell });
+    await ports.restoreBackup(odd);
+    expect(shell.process.handles.at(-1)?.args.at(-1)).toContain("it''s here");
+  });
+
+  it('两种形态同版本号的留档混在一起时，只取本形态命名的安装包（Tauri 不会重跑 Electron 安装包）', async () => {
+    const { shell, seedInstaller } = await createEnv();
+    seedInstaller('EveryoneCoding-0.1.0-x64-setup.exe');
+    const tauriInstaller = seedInstaller('EveryoneCoding_0.1.0_x64-setup.exe');
+    const info = await shell.appInfo.get();
+    shell.appInfo.get = async () => ({ ...info, kind: 'tauri' });
+    const { ports } = await createShellUpdatePorts({ shell });
+    expect(await ports.backupCurrentVersion('0.1.0')).toBe(tauriInstaller);
+
+    shell.appInfo.get = async () => ({ ...info, kind: 'electron' });
+    const electron = await createShellUpdatePorts({ shell });
+    expect(await electron.ports.backupCurrentVersion('0.1.0')).toMatch(
+      /EveryoneCoding-0\.1\.0-x64-setup\.exe$/,
+    );
+  });
+
+  it('留档目录优先取外壳报出的 updateBackupDir（NSIS 钩子写在 LocalAppData，不在数据目录下）', async () => {
+    const { shell } = await createEnv();
+    const local = 'C:\\Users\\demo\\AppData\\Local\\EveryoneCoding-updates\\electron';
+    const info = await shell.appInfo.get();
+    shell.appInfo.get = async () => ({ ...info, updateBackupDir: local });
+    const installer = shell.path.join(local, 'EveryoneCoding-0.1.0-x64-setup.exe');
+    shell.fs.seed(installer, 'MZ');
+    const { ports, backupDir } = await createShellUpdatePorts({ shell });
+    expect(backupDir).toBe(local);
+    expect(await ports.backupCurrentVersion('0.1.0')).toBe(installer);
   });
 
   it('备份文件丢失时回滚抛错（不会静默变成"回滚成功"）', async () => {
@@ -113,10 +170,14 @@ describe('外壳更新端口（双形态共用）', () => {
     const installer = seedInstaller('EveryoneCoding_0.1.0_x64-setup.exe');
     shell.nextUpdateInfo = { version: '0.2.0', notes: '修复若干问题' };
 
-    const { ports } = await createShellUpdatePorts({ shell });
+    const created = await createShellUpdatePorts({ shell });
+    // 安装器重启后运行的是新版本：MockShell 的版本号是构造时固定的，这里让端口读"实际安装的版本"
+    let running = '0.1.0';
+    const ports = { ...created.ports, currentVersion: async () => running };
     const service = new UpdateService({ ports, maxBootAttempts: 2 });
     await service.bootstrap();
     expect(await service.install()).toBe(true);
+    running = '0.2.0';
     // 备份路径指向"当前已安装版本"的留档安装包，不是随便一个文件
     expect(service.currentRecord).toMatchObject({
       toVersion: '0.2.0',
@@ -129,7 +190,15 @@ describe('外壳更新端口（双形态共用）', () => {
     await service.bootstrap();
     const decision = await service.bootstrap();
     expect(decision).toMatchObject({ decision: 'rollback', restoreFrom: installer });
-    expect(shell.process.handles.map((handle) => handle.command)).toContain(installer);
-    expect(service.lastSettled?.stage).toBe('rolled-back');
+    expect(shell.process.handles.map((handle) => handle.args.join(' ')).join('\n')).toContain(
+      installer,
+    );
+    expect(service.currentRecord?.stage).toBe('rolling-back');
+
+    // 留档安装包装回 0.1.0 并拉起：这次启动按实际版本确认回滚落定
+    running = '0.1.0';
+    const afterRollback = new UpdateService({ ports, maxBootAttempts: 2 });
+    await afterRollback.bootstrap({ skipCheck: true });
+    expect(afterRollback.lastSettled?.stage).toBe('rolled-back');
   });
 });

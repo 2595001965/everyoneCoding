@@ -25,7 +25,8 @@ const PHASE_TEXT: Record<UpdateViewState['phase'], string> = {
   checking: '正在检查更新…',
   available: '发现新版本',
   downloading: '正在下载…',
-  installing: '正在安装…',
+  ready: '已下载，待重启',
+  installing: '正在重启并安装…',
   // 状态短标签与下方 message 分开措辞：两者都写"重启后生效"会让界面与测试都出现重复文本
   done: '更新完成',
   error: '更新失败',
@@ -80,6 +81,8 @@ export function UpdatePanel({ api }: { api?: UpdateApi | null }): JSX.Element {
   const settled = state.lastSettled;
   const rolledBack = settled !== null && settled.stage === 'rolled-back';
   const rollbackFailed = settled !== null && settled.stage === 'rollback-failed';
+  const installFailed = settled !== null && settled.stage === 'install-failed';
+  const working = state.phase === 'downloading' || state.phase === 'installing';
 
   return (
     <div className="ec-update">
@@ -109,6 +112,17 @@ export function UpdatePanel({ api }: { api?: UpdateApi | null }): JSX.Element {
           </div>
         ) : null}
         {state.message !== null ? <p className="ec-update__message">{state.message}</p> : null}
+        {state.detail !== null ? (
+          <details className="ec-update__detail">
+            <summary>失败详情</summary>
+            <code>{state.detail}</code>
+          </details>
+        ) : null}
+        {state.offline ? (
+          <p className="ec-settings__hint" role="status">
+            当前处于离线状态：更新检查与下载已暂停，联网后会按计划自动检查，不影响正常使用。
+          </p>
+        ) : null}
       </section>
 
       <section className="ec-update__block">
@@ -116,14 +130,21 @@ export function UpdatePanel({ api }: { api?: UpdateApi | null }): JSX.Element {
         <div className="ec-update__actions">
           <Button
             variant="ghost"
-            disabled={busy}
+            disabled={busy || working || state.offline}
             onClick={() => void run((target) => target.check())}
           >
             检查更新
           </Button>
-          {state.available !== null ? (
+          {state.phase === 'ready' ? (
+            <Button disabled={busy} onClick={() => void run((target) => target.restart())}>
+              重启并更新
+            </Button>
+          ) : state.available !== null ? (
             <>
-              <Button disabled={busy} onClick={() => void run((target) => target.install())}>
+              <Button
+                disabled={busy || working || state.offline}
+                onClick={() => void run((target) => target.install())}
+              >
                 立即更新
               </Button>
               {state.allowDeferred ? (
@@ -189,6 +210,10 @@ export function UpdatePanel({ api }: { api?: UpdateApi | null }): JSX.Element {
           ) : rollbackFailed ? (
             <p className="ec-update__rollback-failed">
               {`${settled.toVersion} 启动失败且自动回滚未成功${settled.lastError !== null ? `（${settled.lastError}）` : ''}，请重新安装 ${settled.fromVersion} 安装包。`}
+            </p>
+          ) : installFailed ? (
+            <p className="ec-update__rollback-failed">
+              {`更新到 ${settled.toVersion} 未完成，仍在使用 ${settled.fromVersion}${settled.lastError !== null ? `（${settled.lastError}）` : ''}。`}
             </p>
           ) : (
             <p>{`已更新到 ${settled.toVersion}（${formatTime(settled.updatedAt)}）`}</p>

@@ -5,6 +5,7 @@ import { ErrorBoundary } from './error-boundary';
 import { createShell, detectShellKind, negotiate } from '@ec/shell-api';
 import { createRendererAiSettings } from './runtime/ai-settings';
 import { installDomainPorts } from './runtime/domain-ports';
+import { installUpdateRuntime, type InstalledUpdateRuntime } from './runtime/update-runtime';
 import { settingsStore } from '@ec/core';
 import { useAppStore } from './store/useAppStore';
 import '@ec/ui/tokens.css';
@@ -25,6 +26,7 @@ async function bootstrap(): Promise<void> {
   let shellKind = 'mock';
   let degraded: string[] = [];
   let domainReport = '';
+  let updateRuntime: InstalledUpdateRuntime | null = null;
   try {
     // 外壳包只在对应运行环境中加载：其模块副作用会注册 ShellFactory。
     // 这样渲染层仍不感知 Electron/Tauri API，同时生产启动不会因为工厂未注册而静默回退。
@@ -38,6 +40,16 @@ async function bootstrap(): Promise<void> {
     (
       globalThis as unknown as { __EC_SHELL__?: unknown; __EC_AI_SETTINGS__?: unknown }
     ).__EC_SHELL__ = shell;
+    // 更新台账必须在业务装配与首屏之前判定（崩溃循环时它们正是会崩的那一步），见 update-runtime.ts
+    if (handshake.capabilities.updater && shellKind !== 'mock') {
+      try {
+        updateRuntime = await installUpdateRuntime(shell);
+      } catch (error) {
+        console.warn(
+          `[bootstrap] 自动更新装配失败：${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
     if (handshake.capabilities.ai) {
       try {
         const api = await createRendererAiSettings(shell.ai);
@@ -87,6 +99,8 @@ async function bootstrap(): Promise<void> {
       </ErrorBoundary>
     </StrictMode>,
   );
+  // 首屏之后才发起更新检查 / 安排健康落定（离线与慢网都不拖首屏）
+  updateRuntime?.afterFirstRender();
 }
 
 void bootstrap();

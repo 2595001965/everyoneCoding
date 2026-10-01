@@ -222,3 +222,26 @@ runShellContract('TauriShell', () => createTauriShell(), {
   beforeEach,
   afterEach,
 } as unknown as ContractHarness);
+
+/**
+ * 路径能力的回归用例。
+ *
+ * 背景：曾出现 `join('C:\\Users\\x', 'sub')` 产出 `C:\\C:\\Users\\x\\sub` 的盘符重复缺陷——
+ * 契约套件只覆盖 `ShellHost` 的通用行为，不锁死 Windows 盘符语义，故这里单独固定。
+ */
+describe('TauriShell.path（Windows 语义回归）', () => {
+  it('join 不重复盘符前缀', async () => {
+    const shell = await createTauriShell();
+    expect(shell.path.join('C:\\Users\\tester', 'sub')).toBe('C:\\Users\\tester\\sub');
+    expect(shell.path.join('C:\\', 'a', 'b.txt')).toBe('C:\\a\\b.txt');
+    expect(shell.path.join('C:/Users/x', 'y')).toBe('C:\\Users\\x\\y');
+  });
+
+  it('basename / extname / isWithin 语义正确', async () => {
+    const shell = await createTauriShell();
+    expect(shell.path.basename('C:\\a\\b.txt')).toBe('b.txt');
+    expect(shell.path.extname('C:\\a\\b.txt')).toBe('.txt');
+    expect(shell.path.isWithin('C:\\workspace', 'C:\\workspace\\p\\x')).toBe(true);
+    expect(shell.path.isWithin('C:\\workspace', 'D:\\other')).toBe(false);
+  });
+});

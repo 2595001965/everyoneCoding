@@ -59,6 +59,8 @@ export const CHANNELS = {
   },
   updater: {
     check: 'ec:updater:check',
+    download: 'ec:updater:download',
+    installAndRestart: 'ec:updater:installAndRestart',
     downloadAndInstall: 'ec:updater:downloadAndInstall',
     onProgress: 'ec:updater:event:progress',
   },
@@ -165,7 +167,7 @@ export const PRELOAD_METHOD_KEYS: Record<string, readonly string[]> = {
     'close',
   ],
   secureStore: ['set', 'get', 'delete', 'has', 'listKeys'],
-  updater: ['check', 'downloadAndInstall', 'onProgress'],
+  updater: ['check', 'download', 'installAndRestart', 'downloadAndInstall', 'onProgress'],
   appInfo: ['get', 'getDataDir', 'setWorkspaceRoot'],
   clipboard: ['readText', 'writeText', 'clear'],
   net: ['fetch', 'isHostAllowed', 'setAllowedHosts'],

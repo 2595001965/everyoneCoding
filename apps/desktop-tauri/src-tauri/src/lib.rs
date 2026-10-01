@@ -121,6 +121,8 @@ pub fn run() {
             commands::window::window_close,
             // 更新
             commands::updater::updater_check,
+            commands::updater::updater_download,
+            commands::updater::updater_install_and_restart,
             commands::updater::updater_download_and_install,
             commands::updater::updater_subscribe,
             commands::updater::updater_unsubscribe,

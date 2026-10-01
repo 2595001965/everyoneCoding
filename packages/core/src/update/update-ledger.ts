@@ -22,8 +22,12 @@ export type UpdateStage =
   | 'pending-healthy'
   | 'healthy'
   | 'rolled-back'
+  /** 已拉起上一版本安装包、等待下次启动确认版本真的退回去了 */
+  | 'rolling-back'
   /** 回滚也失败了——需要人工介入，必须让用户看见 */
-  | 'rollback-failed';
+  | 'rollback-failed'
+  /** 安装器没跑起来 / 重启后仍是旧版本：更新未生效，当前版本不受影响 */
+  | 'install-failed';
 
 export interface UpdateRecord {
   /** 目标版本（正在安装/等待确认的版本） */
@@ -148,6 +152,61 @@ export class UpdateLedger {
     return record;
   }
 
+  /** 安装器启动失败 / 重启后仍是旧版本：归档为 install-failed，当前版本照常可用。 */
+  markInstallFailed(now: number, error: string): UpdateRecord | null {
+    const record = this.state.current;
+    if (record === null) return null;
+    record.stage = 'install-failed';
+    record.updatedAt = now;
+    record.lastError = error;
+    this.pushHistory(record);
+    this.state.current = null;
+    return record;
+  }
+
+  /**
+   * 已拉起上一版本安装包：**先落盘这个状态再让安装器接管**——安装器会结束当前进程，
+   * 事后再写"已回滚"就可能永远写不进去。结果由下次启动 `reconcileBoot()` 按实际版本判定。
+   */
+  markRollingBack(now: number): UpdateRecord | null {
+    const record = this.state.current;
+    if (record === null) return null;
+    record.stage = 'rolling-back';
+    record.updatedAt = now;
+    return record;
+  }
+
+  /**
+   * 启动时先按**实际运行的版本**核对上一轮的收尾（在 `recordBoot()` 之前调用）：
+   * - 待确认更新，但运行的仍是 fromVersion → 安装没生效，记 install-failed（不计启动次数）；
+   * - 回滚中，运行的已是 fromVersion → 回滚落定 rolled-back；
+   * - 回滚中，运行的仍是 toVersion → 回滚安装器没成功，记 rollback-failed。
+   * 返回被落定的记录（没有可核对的返回 null）。
+   */
+  reconcileBoot(runningVersion: string, now: number): UpdateRecord | null {
+    const record = this.state.current;
+    if (record === null) return null;
+    if (record.stage === 'pending-healthy' && record.bootAttempts === 0) {
+      if (runningVersion === record.fromVersion && runningVersion !== record.toVersion) {
+        return this.markInstallFailed(
+          now,
+          `重启后仍是 ${runningVersion}，更新 ${record.toVersion} 未安装成功`,
+        );
+      }
+      return null;
+    }
+    if (record.stage === 'rolling-back') {
+      if (runningVersion === record.fromVersion) {
+        return this.markRolledBack(now, record.lastError);
+      }
+      return this.markRollbackFailed(
+        now,
+        `回滚安装包已执行，但当前仍是 ${runningVersion}（期望 ${record.fromVersion}）`,
+      );
+    }
+    return null;
+  }
+
   /**
    * 启动时调用一次，决定本次启动是否被允许。
    *
@@ -211,7 +270,7 @@ export class UpdateLedger {
     return record;
   }
 
-  /** 最近一次已落定的记录（healthy / rolled-back / rollback-failed）。 */
+  /** 最近一次已落定的记录（healthy / rolled-back / rollback-failed / install-failed）。 */
   lastSettled(): UpdateRecord | null {
     return this.state.history[0] ?? null;
   }
@@ -234,7 +293,9 @@ function normalizeRecord(raw: Record<string, unknown>): UpdateRecord {
     'pending-healthy',
     'healthy',
     'rolled-back',
+    'rolling-back',
     'rollback-failed',
+    'install-failed',
   ];
   const stage = stages.includes(raw['stage'] as UpdateStage)
     ? (raw['stage'] as UpdateStage)

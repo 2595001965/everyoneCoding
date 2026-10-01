@@ -3,6 +3,11 @@ productName: EveryoneCoding
 # 版本号与根 package.json 保持一致（发布流水线以根版本为唯一事实源）
 copyright: Copyright © 2026 EveryoneCoding（Apache License 2.0）
 
+# NSIS 产物版本（`extraMetadata.version`）：与 Tauri 版共用同一版本号。
+# 这段由 `ci/version.mts` 读写 —— 删掉它会让 `pnpm version:check` 直接报漂移（见 docs/RELEASE.md §1）。
+extraMetadata:
+  version: 0.1.0
+
 directories:
   app: dist
   output: release
@@ -44,11 +49,17 @@ nsis:
   # 装完留档本版本安装包（供更新失败回滚时静默重装），与 Tauri 版同口径
   include: build/installer.nsh
 
-# electron-updater 通用通道；端点为占位，接入自建更新服务时替换
+# electron-updater 更新源：本仓库的 GitHub Releases（tag = v<版本>，与 ci/release.yml 的触发一致）。
+# - 打包时写进 resources/app-update.yml；构建脚本带 `--publish never`，打包永不自动上传；
+# - 旧版本的 .blockmap 从上一个 release 取，差分下载开箱即用；
+# - 自建静态源 / 本地演练：运行时设 EC_UPDATE_URL=<目录 URL>（generic provider，见 docs/RELEASE.md §3）；
+# - 代码签名：CI 注入 CSC_LINK / CSC_KEY_PASSWORD 时 electron-builder 自动签名，并把证书发布者写进
+#   app-update.yml 的 publisherName —— 此后 electron-updater 会拒绝发布者不符的更新包。
 publish:
-  provider: generic
-  url: https://updates.everyonecoding.invalid/electron/
-  channel: latest
+  provider: github
+  owner: '2595001965'
+  repo: everyoneCoding
+  releaseType: release
 
 asar: true
 # better-sqlite3 由 prepare-native.mjs 按 Electron ABI 单独准备；pnpm 虚拟目录不参与二次 rebuild。

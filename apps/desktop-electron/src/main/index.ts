@@ -1,9 +1,16 @@
 import { app, BrowserWindow, ipcMain, safeStorage, clipboard, dialog, shell } from 'electron';
+import { CancellationToken, NsisUpdater } from 'electron-updater';
 import path from 'node:path';
 import { registerAllIpc, type RegisteredIpc } from './ipc';
 import { installOAuthProtocol, type ProtocolAppLike, type ProtocolBridge } from './protocol';
 import type { IpcDependencies } from './types';
 import { createHeadlessRuntime, type HeadlessRuntime } from './runtime/bootstrap';
+import { refreshRemoteConfigOnBoot } from './ai/boot-refresh';
+import {
+  createElectronUpdaterHost,
+  resolveFeedOverride,
+  type NsisUpdaterLike,
+} from './updater/electron-updater-host';
 
 /**
  * Electron 主进程入口。
@@ -43,6 +50,15 @@ const shouldAutoOpenDevTools = isDev && process.env['EC_ELECTRON_DEVTOOLS'] === 
 const oauthChannelEnv = process.env['EC_OAUTH_CHANNEL'];
 const oauthChannel: 'loopback' | 'protocol' | null =
   oauthChannelEnv === 'loopback' || oauthChannelEnv === 'protocol' ? oauthChannelEnv : null;
+
+/** OAuth 回环固定端口（`EC_OAUTH_LOOPBACK_PORT`，1024~65535；非法值忽略并回到随机端口） */
+const oauthLoopbackPortEnv = Number(process.env['EC_OAUTH_LOOPBACK_PORT'] ?? '');
+const oauthLoopbackPort =
+  Number.isInteger(oauthLoopbackPortEnv) &&
+  oauthLoopbackPortEnv >= 1024 &&
+  oauthLoopbackPortEnv <= 65535
+    ? oauthLoopbackPortEnv
+    : null;
 
 let mainWindow: BrowserWindow | null = null;
 let registered: RegisteredIpc | null = null;
@@ -127,6 +143,35 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+/**
+ * 自动更新（FR-SET-05）：electron-updater 的 NSIS 更新器。
+ *
+ * 更新源：打包时由 electron-builder `publish` 写进 `resources/app-update.yml`（GitHub Releases）；
+ * `EC_UPDATE_URL` 可在运行时覆盖为任意 generic 源（本地静态源演练 / 企业内网镜像）。
+ * 未打包且没有覆盖源时宿主如实报"未配置"，不假装检查成功。
+ */
+function createUpdater(): IpcDependencies['updater'] {
+  const log = (line: string): void => console.info(line);
+  const feedUrl = resolveFeedOverride(process.env['EC_UPDATE_URL'], log);
+  try {
+    const updater = new NsisUpdater();
+    // 开发期只有显式给了覆盖源才启用（electron-updater 默认只在已打包时工作）
+    if (!app.isPackaged && feedUrl !== null) updater.forceDevUpdateConfig = true;
+    return createElectronUpdaterHost({
+      updater: updater as unknown as NsisUpdaterLike,
+      feedUrl,
+      enabled: app.isPackaged || feedUrl !== null,
+      log,
+      createCancellationToken: () => new CancellationToken(),
+    });
+  } catch (error) {
+    console.warn(
+      `[updater] 更新器装配失败：${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
 function buildDependencies(): IpcDependencies {
   const userData = app.getPath('userData');
   const dataDir = path.join(userData, 'data');
@@ -137,7 +182,7 @@ function buildDependencies(): IpcDependencies {
     getWindow: () => mainWindow,
     clipboard,
     safeStorage: safeStorage ?? null,
-    updater: null, // electron-updater 在 build 阶段接入；未配置时显式 NOT_SUPPORTED
+    updater: createUpdater(),
     app: {
       getName: () => app.getName(),
       getVersion: () => app.getVersion(),
@@ -192,6 +237,7 @@ async function buildRuntime(): Promise<HeadlessRuntime> {
       : {}),
     // 通道策略可由运维强制（企业策略禁回环时设 EC_OAUTH_CHANNEL=protocol）
     ...(oauthChannel !== null ? { oauthChannel } : {}),
+    ...(oauthLoopbackPort !== null ? { oauthLoopbackPort } : {}),
     ports: {
       openExternal: (url) => shell.openExternal(url),
       writeClipboard: (text) => clipboard.writeText(text),
@@ -229,6 +275,13 @@ void app.whenReady().then(async () => {
   registered = registerAllIpc(ipcMain, buildDependencies());
 
   mainWindow = createWindow();
+
+  /**
+   * 远程配置启动刷新（FR-MDL-06）：**建窗之后**再发起，且不 await ——
+   * 远程源不可达/很慢都不能拖住首屏；失败时本地缓存照常可用，
+   * 每个源的上次结果与原因落在库里，设置页「远程配置」直接可见。
+   */
+  void refreshRemoteConfigOnBoot(runtime?.ai ?? null);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();

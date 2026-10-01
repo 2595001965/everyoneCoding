@@ -5,11 +5,13 @@
  * - `@ec/core` 的 `UpdateService` 需要 `UpdatePorts`，这里用既有的 `ShellHost` 能力拼出来
  *   （`updater` / `fs` / `path` / `process` / `appInfo`），**不新增任何 shell 能力**，
  *   于是 Tauri 与 Electron 无需各写一遍等价逻辑。
- * - 回滚依赖"上一版本安装包留档"：由 NSIS 安装钩子在**每次安装时**把自身安装包复制到
- *   `%LOCALAPPDATA%\EveryoneCoding\updates\backup\`（见 `nsis/installer-hooks.nsh` 与
- *   `build/installer.nsh`）。客户端按版本号在文件名中匹配，找不到就如实返回 null，
+ * - 回滚依赖"上一版本安装包留档"：由 NSIS 安装钩子在**每次安装时**把自身安装包以规范名复制到
+ *   `%LOCALAPPDATA%\EveryoneCoding-updates\<tauri|electron>\`（见 `nsis/installer-hooks.nsh` 与
+ *   `build/installer.nsh`）。该目录由外壳经 `AppInfo.updateBackupDir` 报出（它不在数据目录下）。
+ *   客户端按版本号在文件名中匹配，找不到就如实返回 null，
  *   由台账判定 `no-backup`（提示手动重装），绝不假装回滚成功。
- * - 还原 = 静默重跑该安装包（NSIS 的 `/S`），随后由外壳重启应用。
+ * - 还原 = 静默重跑该安装包并让安装器装完后拉起应用：electron-builder 的 NSIS 认
+ *   `/S --force-run`，Tauri 的 NSIS 认 `/S /R`。安装器会结束正在运行的旧进程。
  */
 
 import type { ShellHost } from '@ec/shell-api';
@@ -30,10 +32,12 @@ export interface UpdateHostOptions {
    */
   dataDir?: string | undefined;
   /**
-   * 备份目录。缺省 `<dataDir>/updates/backup`。
-   * 装到别处（如企业统一目录）时由外壳显式指定。
+   * 备份目录。缺省取 `appInfo.updateBackupDir`（NSIS 钩子写入的固定目录），
+   * 外壳报不出时退回 `<dataDir>/updates/backup`。
    */
   backupDir?: string | undefined;
+  /** 静默重装留档安装包的参数；缺省按外壳形态选择（见文件头）。 */
+  restoreArgs?: string[] | undefined;
   /** 安装包文件名 → 版本号（各形态命名不同，默认两种都认）。 */
   parseVersionFromFile?: ((fileName: string) => string | null) | undefined;
   /** 回滚重装后重启应用；缺省不重启（仅还原文件）。 */
@@ -60,6 +64,18 @@ const INSTALLER_NAME_PATTERNS = [
   /(\d+\.\d+\.\d+)/,
 ] as const;
 
+/** 只认本形态命名的安装包：两种形态同版本号的安装包绝不能互相顶替。 */
+export function parseInstallerVersionFor(kind: string): (fileName: string) => string | null {
+  const pattern =
+    kind === 'tauri'
+      ? /^EveryoneCoding_(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)_x64-setup\.exe$/i
+      : kind === 'electron'
+        ? /^EveryoneCoding-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)-x64-setup\.exe$/i
+        : null;
+  if (pattern === null) return parseVersionFromInstallerName;
+  return (fileName) => pattern.exec(fileName)?.[1] ?? null;
+}
+
 export function parseVersionFromInstallerName(fileName: string): string | null {
   for (const pattern of INSTALLER_NAME_PATTERNS) {
     const match = pattern.exec(fileName);
@@ -81,10 +97,15 @@ export interface ShellUpdateHost {
 export async function createShellUpdatePorts(options: UpdateHostOptions): Promise<ShellUpdateHost> {
   const { shell } = options;
   const dataDir = options.dataDir ?? (await shell.appInfo.getDataDir());
+  const appInfo = await shell.appInfo.get();
   const backupDir =
-    options.backupDir ?? (await shell.path.join(dataDir, ...UPDATE_BACKUP_SEGMENTS));
+    options.backupDir ??
+    appInfo.updateBackupDir ??
+    (await shell.path.join(dataDir, ...UPDATE_BACKUP_SEGMENTS));
+  const parse = options.parseVersionFromFile ?? parseInstallerVersionFor(appInfo.kind);
+  const restoreArgs =
+    options.restoreArgs ?? (appInfo.kind === 'tauri' ? ['/S', '/R'] : ['/S', '--force-run']);
   const runtimeFile = await shell.path.join(dataDir, UPDATE_RUNTIME_FILE);
-  const parse = options.parseVersionFromFile ?? parseVersionFromInstallerName;
   const now = options.now ?? ((): number => Date.now());
 
   const ports: UpdatePorts = {
@@ -108,9 +129,18 @@ export async function createShellUpdatePorts(options: UpdateHostOptions): Promis
     async restoreBackup(backupPath: string): Promise<void> {
       const exists = await shell.fs.exists(backupPath);
       if (!exists) throw new Error(`回滚失败：找不到上一版本安装包 ${backupPath}`);
-      // NSIS 静默安装（/S）。安装器会替换正在运行的客户端文件，因此由外壳在调用前
-      // 让出（本函数不等待安装完成，也不杀安装进程——杀掉它就等于回滚没发生）。
-      await shell.process.spawn(backupPath, ['/S']);
+      // NSIS 静默安装。安装器会结束正在运行的客户端并替换文件、装完再拉起应用；
+      // 结果由下一次启动按实际运行版本核对（UpdateLedger.reconcileBoot）。
+      //
+      // **不能直接 spawn 安装包**：外壳 spawn 的子进程随应用退出被一并清理（Electron 的
+      // disposeProcessIpc），而安装器要做的第一件事就是请应用退出 —— 应用退出时顺手杀掉安装器，
+      // 回滚永远完成不了（真实安装包演练实测）。经 Start-Process 拉起的进程与应用无父子托管关系。
+      await shell.process.spawn('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Start-Process -FilePath ${psQuote(backupPath)} -ArgumentList ${restoreArgs.map(psQuote).join(',')}`,
+      ]);
       if (options.relaunch !== undefined) await options.relaunch();
     },
 
@@ -137,4 +167,9 @@ export async function createShellUpdatePorts(options: UpdateHostOptions): Promis
   };
 
   return { ports, backupDir, runtimeFile };
+}
+
+/** PowerShell 单引号字面量（内部单引号双写），路径里的空格 / $ / 反引号都不会被解释。 */
+function psQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
 }

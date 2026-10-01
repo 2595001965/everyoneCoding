@@ -5,13 +5,13 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use tokio::sync::Mutex;
 use tauri::ipc::Channel;
+use tokio::sync::Mutex;
 
 use crate::commands::fs::WatcherHandle;
 use crate::commands::net::AllowedHosts;
 use crate::commands::process::RunningProcess;
-use crate::commands::updater::UpdateProgressEvent;
+use crate::commands::updater::{PendingUpdate, UpdateProgressEvent};
 
 /// 全局共享状态，由 Tauri 注入（`tauri::State`）。
 pub struct AppState {
@@ -25,6 +25,8 @@ pub struct AppState {
     pub workspace_root: Mutex<Option<String>>,
     /// 更新进度订阅（key = 订阅 id）。
     pub updater_subs: Mutex<HashMap<String, Channel<UpdateProgressEvent>>>,
+    /// 已下载并通过 minisign 验签、等待安装的更新包（`updater_download` 写，安装时取走）。
+    pub pending_update: Mutex<Option<PendingUpdate>>,
     /// 文件监听句柄表（key = 监听 id）。
     pub watchers: Mutex<HashMap<String, WatcherHandle>>,
 }
@@ -37,6 +39,7 @@ impl Default for AppState {
             allowed_hosts: Mutex::new(AllowedHosts::default()),
             workspace_root: Mutex::new(None),
             updater_subs: Mutex::new(HashMap::new()),
+            pending_update: Mutex::new(None),
             watchers: Mutex::new(HashMap::new()),
         }
     }

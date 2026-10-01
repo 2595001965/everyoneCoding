@@ -91,6 +91,8 @@ export const METHOD_CHANNELS = {
   'secureStore.listKeys': 'ec:secureStore:listKeys',
   // updater
   'updater.check': 'ec:updater:check',
+  'updater.download': 'ec:updater:download',
+  'updater.installAndRestart': 'ec:updater:installAndRestart',
   'updater.downloadAndInstall': 'ec:updater:downloadAndInstall',
   // appInfo
   'appInfo.get': 'ec:appInfo:get',
@@ -220,6 +222,8 @@ export interface ElectronShellApi {
 
   // updater
   'updater.check': () => Promise<UpdateInfo | null>;
+  'updater.download': () => Promise<UpdateInfo | null>;
+  'updater.installAndRestart': () => Promise<void>;
   'updater.downloadAndInstall': () => Promise<void>;
 
   // appInfo

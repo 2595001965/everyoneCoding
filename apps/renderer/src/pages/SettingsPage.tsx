@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 
-import { SettingsPageContainer, readInjectedSettingsApi } from '../features/settings';
+import {
+  SettingsPageContainer,
+  readInjectedSettingsApi,
+  readInjectedUpdateApi,
+} from '../features/settings';
 import type { AiSettingsApi } from '../features/settings/ai-settings-context';
 import { readInjectedUsageApi } from '../features/usage/usage-api';
 import { useAppStore } from '../store/useAppStore';
@@ -12,6 +16,7 @@ import { useAppStore } from '../store/useAppStore';
  * - `globalThis.__EC_SETTINGS__`：通用设置 / 数据目录 / 导出备份 / 隐私 / 快捷键
  * - `globalThis.__EC_AI_SETTINGS__`：模型服务与远程配置（Wave 1 产物）
  * - `globalThis.__EC_USAGE__`：用量与预算（T10-01）
+ * - `globalThis.__EC_UPDATE__`：自动更新（T10-04，由 `runtime/update-runtime.ts` 装配）
  *
  * 未注入时对应区块展示引导；**状态栏与设置页不提供任何云端同步入口**（D-02）。
  */
@@ -31,6 +36,7 @@ export function SettingsPage(): JSX.Element {
         settingsApi: readInjectedSettingsApi(),
         aiApi: readInjectedAiApi(),
         usageApi: readInjectedUsageApi(),
+        updateApi: readInjectedUpdateApi(),
       }
     ),
     [shellReady],
@@ -41,6 +47,7 @@ export function SettingsPage(): JSX.Element {
       settingsApi={ports.settingsApi}
       aiApi={ports.aiApi}
       usageApi={ports.usageApi}
+      updateApi={ports.updateApi}
     />
   );
 }

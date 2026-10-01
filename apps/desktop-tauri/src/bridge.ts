@@ -446,6 +446,12 @@ const updaterApi: UpdaterApi = {
   async check(): Promise<UpdateInfo | null> {
     return call<UpdateInfo | null>('updater_check');
   },
+  async download(): Promise<UpdateInfo | null> {
+    return call<UpdateInfo | null>('updater_download');
+  },
+  async installAndRestart(): Promise<void> {
+    await call<void>('updater_install_and_restart');
+  },
   async downloadAndInstall(): Promise<void> {
     await call<void>('updater_download_and_install');
   },

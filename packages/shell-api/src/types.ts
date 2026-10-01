@@ -236,8 +236,31 @@ export interface UpdateProgress {
   message?: string;
 }
 
+/**
+ * 更新失败的分类（外壳在错误消息前加 `UPDATE_<KIND>:` 前缀，`@ec/core` 据此归类）。
+ * - `offline`   本机无网络（不算故障，提示即可）
+ * - `network`   连不上更新源 / 超时 / 下载中断（半包）
+ * - `signature` 验签失败（Tauri minisign / Electron Authenticode 发布者不符）
+ * - `integrity` 校验和不符（Electron sha512 / 半包写盘）
+ * - `not-configured` 未配置更新源或公钥
+ * - `install`   安装器启动失败
+ */
+export type UpdateErrorKind =
+  'offline' | 'network' | 'signature' | 'integrity' | 'not-configured' | 'install' | 'unknown';
+
 export interface UpdaterApi {
   check(): Promise<UpdateInfo | null>;
+  /**
+   * 下载更新并完成校验（Electron：sha512 + blockmap 差分；Tauri：minisign 验签），
+   * 但**不安装**。返回已就绪的版本；没有可用更新返回 null。
+   */
+  download(): Promise<UpdateInfo | null>;
+  /**
+   * 安装已下载的更新并重启应用。成功时进程随即退出（promise 可能永不 resolve），
+   * 所以调用方必须在调用**之前**把"待确认"台账落盘。
+   */
+  installAndRestart(): Promise<void>;
+  /** 兼容旧调用方：等价于 `download()` + `installAndRestart()`。 */
   downloadAndInstall(): Promise<void>;
   onProgress(listener: (progress: UpdateProgress) => void): Unsubscribe;
 }
@@ -258,6 +281,12 @@ export interface AppInfo {
   workspaceRoot: string | null;
   locale: string;
   isPackaged: boolean;
+  /**
+   * 上一版本安装包留档目录（NSIS 钩子写入，更新失败回滚时重跑其中的安装包）。
+   * 固定在 `%LOCALAPPDATA%\EveryoneCoding-updates\<tauri|electron>`（两形态分目录），与数据目录无关；
+   * 外壳取不到时为 null / 缺省（此时回滚如实判定为"无备份"）。
+   */
+  updateBackupDir?: string | null;
 }
 
 export interface AppInfoApi {

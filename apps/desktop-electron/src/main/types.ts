@@ -76,6 +76,8 @@ import type { SafeStorageLike } from './secure-storage';
 
 export interface UpdaterLike {
   check(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;
+  download(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;
+  installAndRestart(): Promise<void>;
   downloadAndInstall(): Promise<void>;
   onProgress(
     listener: (progress: { phase: string; percent?: number; message?: string }) => void,

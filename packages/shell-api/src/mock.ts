@@ -650,6 +650,15 @@ export class MockShell implements ShellHost {
     const progressListeners = new Set<(progress: UpdateProgress) => void>();
     this.updater = {
       check: async () => this.nextUpdateInfo,
+      download: async () => {
+        const info = this.nextUpdateInfo;
+        if (info === null) return null;
+        for (const listener of progressListeners) listener({ phase: 'downloading', percent: 100 });
+        return info;
+      },
+      installAndRestart: async () => {
+        for (const listener of progressListeners) listener({ phase: 'done' });
+      },
       downloadAndInstall: async () => {
         for (const listener of progressListeners) listener({ phase: 'downloading', percent: 100 });
         for (const listener of progressListeners) listener({ phase: 'done' });

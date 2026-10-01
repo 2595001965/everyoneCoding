@@ -16,6 +16,9 @@ function baseState(patch: Partial<UpdateViewState> = {}): UpdateViewState {
     phase: 'idle',
     percent: undefined,
     message: null,
+    detail: null,
+    offline: false,
+    readyVersion: null,
     lastSettled: null,
     ...patch,
   };
@@ -41,7 +44,12 @@ function createFakeUpdateApi(initial: Partial<UpdateViewState> = {}) {
     },
     async install() {
       calls.push('install');
-      state = { ...state, phase: 'done', percent: 100, message: '更新已应用，重启后生效' };
+      state = { ...state, phase: 'installing', percent: 100, message: '正在重启并安装更新…' };
+      return state;
+    },
+    async restart() {
+      calls.push('restart');
+      state = { ...state, phase: 'installing', percent: 100, message: '正在重启并安装更新…' };
       return state;
     },
     async defer(version) {
@@ -123,13 +131,62 @@ describe('更新面板（T10-04 / FR-SET-05）', () => {
     expect(screen.getByText('42%')).toBeTruthy();
   });
 
-  it('安装完成后提示"重启后生效"', async () => {
+  it('立即更新后进入"正在重启并安装"，期间不能重复点检查', async () => {
     renderPanel(fake.api);
     await screen.findByRole('button', { name: '检查更新' });
     fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
     fireEvent.click(await screen.findByRole('button', { name: '立即更新' }));
-    expect(await screen.findByText('更新完成')).toBeTruthy();
-    expect(screen.getByText('更新已应用，重启后生效')).toBeTruthy();
+    expect(await screen.findByText('正在重启并安装…')).toBeTruthy();
+    expect(screen.getByText('正在重启并安装更新…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '检查更新' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('自动下载完成（ready）时提供"重启并更新"，点击后才重启', async () => {
+    fake.setState({
+      phase: 'ready',
+      available: { version: '0.2.0' },
+      readyVersion: '0.2.0',
+      message: '0.2.0 已下载并通过校验，重启后生效',
+    });
+    renderPanel(fake.api);
+    expect(await screen.findByText('已下载，待重启')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '立即更新' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '重启并更新' }));
+    await waitFor(() => expect(fake.calls).toContain('restart'));
+  });
+
+  it('离线时提示且禁用检查与下载（不是报错）', async () => {
+    fake.setState({ offline: true, available: { version: '0.2.0' }, phase: 'available' });
+    renderPanel(fake.api);
+    expect(await screen.findByText(/当前处于离线状态/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: '检查更新' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: '立即更新' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('验签失败等错误展示归类后的原因与可展开的原始详情', async () => {
+    fake.setState({
+      phase: 'error',
+      message: '更新失败：更新包签名校验失败，已拒绝安装（可能被篡改或发布配置有误）',
+      detail: 'UPDATE_SIGNATURE: signature verification failed',
+    });
+    renderPanel(fake.api);
+    expect(await screen.findByText(/更新包签名校验失败/)).toBeTruthy();
+    expect(screen.getByText('失败详情')).toBeTruthy();
+    expect(screen.getByText('UPDATE_SIGNATURE: signature verification failed')).toBeTruthy();
+  });
+
+  it('上次更新未安装成功时如实说明仍在旧版本', async () => {
+    fake.setState({
+      lastSettled: {
+        toVersion: '0.2.0',
+        fromVersion: '0.1.0',
+        stage: 'install-failed',
+        updatedAt: 1_700_000_000_000,
+        lastError: '重启后仍是 0.1.0',
+      },
+    });
+    renderPanel(fake.api);
+    expect(await screen.findByText(/更新到 0.2.0 未完成，仍在使用 0.1.0/)).toBeTruthy();
   });
 
   it('上次更新回滚成功时显示回滚版本与原因', async () => {

@@ -23,22 +23,33 @@ export interface CreateUpdateApiOptions {
   currentVersion: string;
   /** 把偏好写回全局设置（外壳写入 settings store），返回落定后的值 */
   persistSettings?: ((patch: UpdateSettingsPatch) => Promise<void>) | undefined;
+  /** 在线判定（缺省恒 true）；离线时面板提示而不是报错 */
+  isOnline?: (() => boolean) | undefined;
 }
 
 /** 状态机构建器：把流程事件折叠成面板可读的阶段。 */
 export function createUpdateApi(options: CreateUpdateApiOptions): UpdateApi {
   const { service, currentVersion, persistSettings } = options;
+  const isOnline = options.isOnline ?? ((): boolean => true);
   const progressListeners = new Set<(progress: UpdateProgressEvent) => void>();
   let phase: UpdateViewState['phase'] = 'idle';
   let percent: number | undefined;
   let message: string | null = null;
+  let detail: string | null = null;
 
   const notify = (progress: UpdateProgressEvent): void => {
     for (const listener of progressListeners) listener(progress);
   };
 
   const handleEvent = (event: UpdateFlowEvent): void => {
+    detail = null;
     switch (event.type) {
+      case 'check-failed':
+        // 离线不是故障：回到 idle 只做提示；其余（网络 / 清单异常）如实报错
+        phase = event.kind === 'offline' ? 'idle' : 'error';
+        message = `检查更新失败：${event.error}`;
+        detail = event.detail;
+        break;
       case 'check-skipped':
         phase = 'idle';
         message =
@@ -65,18 +76,29 @@ export function createUpdateApi(options: CreateUpdateApiOptions): UpdateApi {
         percent = 0;
         message = `开始下载 ${event.version}`;
         break;
+      case 'download-ready':
+        phase = 'ready';
+        percent = 100;
+        message = `${event.version} 已下载并通过校验，重启后生效`;
+        break;
       case 'install-applied':
-        phase = 'done';
+        phase = 'installing';
         percent = 100;
         message =
           event.backupPath === null
-            ? '更新已应用，重启后生效（当前外壳未保留上一版本备份，更新失败需手动重装）'
-            : '更新已应用，重启后生效';
+            ? '正在重启并安装更新…（未找到上一版本留档，若新版本无法启动需手动重装）'
+            : '正在重启并安装更新…';
         break;
       case 'install-failed':
-        phase = 'error';
+        phase = event.kind === 'offline' ? 'idle' : 'error';
         percent = undefined;
         message = `更新失败：${event.error}`;
+        detail = event.detail ?? null;
+        break;
+      case 'install-not-applied':
+        phase = 'error';
+        message = `${event.version} 未安装成功（重启后仍是当前版本），可重新尝试更新`;
+        detail = event.error;
         break;
       case 'health-marked':
         phase = 'idle';
@@ -109,6 +131,18 @@ export function createUpdateApi(options: CreateUpdateApiOptions): UpdateApi {
 
   // 事件订阅与会话同生命周期（api 每次装配创建一次），无需在面板卸载时解绑
   service.subscribeEvents(handleEvent);
+  // 外壳下载进度（Electron 差分下载会在 message 里说明实际下载量）
+  service.subscribeProgress((progress) => {
+    if (progress.phase !== 'downloading') return;
+    phase = 'downloading';
+    if (progress.percent !== undefined) percent = progress.percent;
+    if (progress.message !== undefined) message = progress.message;
+    notify({
+      phase,
+      ...(percent === undefined ? {} : { percent }),
+      ...(message === null ? {} : { message }),
+    });
+  });
 
   const snapshot = async (): Promise<UpdateViewState> => {
     await service.init();
@@ -126,6 +160,9 @@ export function createUpdateApi(options: CreateUpdateApiOptions): UpdateApi {
       phase,
       percent,
       message,
+      detail,
+      offline: !isOnline(),
+      readyVersion: service.readyVersion,
       lastSettled:
         settled === null
           ? null
@@ -150,6 +187,10 @@ export function createUpdateApi(options: CreateUpdateApiOptions): UpdateApi {
     },
     async install() {
       await service.install();
+      return snapshot();
+    },
+    async restart() {
+      await service.applyAndRestart();
       return snapshot();
     },
     async defer(version) {

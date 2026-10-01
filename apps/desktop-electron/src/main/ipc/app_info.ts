@@ -1,5 +1,13 @@
+import path from 'node:path';
+
 import type { IpcDependencies, IpcMainLike } from '../types';
 import { CHANNELS } from '../channels';
+
+/** 与 NSIS 钩子（build/installer.nsh）写入的留档目录逐字一致。 */
+function updateBackupDir(): string | null {
+  const local = process.env['LOCALAPPDATA'];
+  return local ? path.join(local, 'EveryoneCoding-updates', 'electron') : null;
+}
 
 /** appInfo IPC：形态、版本、数据目录；workspaceRoot 由主进程持有。 */
 export function registerAppInfoIpc(ipc: IpcMainLike, deps: IpcDependencies): void {
@@ -16,6 +24,7 @@ export function registerAppInfoIpc(ipc: IpcMainLike, deps: IpcDependencies): voi
     workspaceRoot,
     locale: deps.app.getLocale(),
     isPackaged: deps.app.isPackaged,
+    updateBackupDir: updateBackupDir(),
   }));
 
   ipc.handle(CHANNELS.appInfo.getDataDir, async () => deps.dataDir);

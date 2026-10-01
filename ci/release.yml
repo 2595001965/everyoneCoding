@@ -8,6 +8,11 @@
 # 但 release 阶段任一形态缺产物 = 发版失败。
 #
 # 触发：打 tag（v*）发版，或手动 workflow_dispatch。
+#
+# 需要的 Secret（**私钥只在这里出现，绝不入库**，生成与轮换见 docs/RELEASE.md §3.2 / §6）：
+#   TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD  Tauri 更新包 minisign 签名（必需）
+#   WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD  Windows 代码签名证书（.pfx 的 base64 / 口令；可选，缺省产出未签名包并告警）
+#   GITHUB_TOKEN                          发布到本仓库 GitHub Releases（平台自带）
 
 name: release
 
@@ -26,7 +31,6 @@ on:
 env:
   # 版本号单一事实源 = 根 package.json；双形态共用
   CHANNEL: ${{ github.event.inputs.channel || 'stable' }}
-  UPDATE_BASE_URL: https://update.everyonecoding.com
 
 jobs:
   # ---- 发版前置门禁：版本号必须五处一致，否则双形态会各自打包出不同版本 ----
@@ -62,11 +66,14 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
-      - name: 生成 updater 签名密钥（仅首次；密钥内容不落仓库）
+      - name: 校验 updater 签名私钥已注入（密钥内容不落仓库）
         shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
-            Write-Error "缺少 TAURI_SIGNING_PRIVATE_KEY（minisign 私钥，CI Secret 注入）；生成方法见 docs/RELEASE.md"
+            Write-Error "缺少 TAURI_SIGNING_PRIVATE_KEY（minisign 私钥，CI Secret 注入）；生成方法见 docs/RELEASE.md §3.2"
+            exit 1
           }
       - name: 构建渲染层
         run: pnpm build:renderer
@@ -75,12 +82,13 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm build
-      - name: 收集产物
+        # 渲染层上一步已构建，跳过 beforeBuildCommand 避免重复构建
+        run: pnpm tauri build --ci --config '{"build":{"beforeBuildCommand":""}}'
+      - name: 收集产物（安装包 = 更新包，外加 .sig）
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
-          Copy-Item "apps/desktop-tauri/src-tauri/target/release/bundle/nsis/*" release-artifacts/ -Recurse
+          Copy-Item "apps/desktop-tauri/src-tauri/target/release/bundle/nsis/*-setup.exe*" release-artifacts/
       - uses: actions/upload-artifact@v4
         with:
           name: tauri-windows
@@ -103,14 +111,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: 构建渲染层
         run: pnpm build:renderer
-      - name: 构建 Electron 安装包（原生模块按 Node ABI 重建）
+      - name: 构建 Electron 安装包（原生模块按 Node ABI 重建；有证书时自动代码签名）
         working-directory: apps/desktop-electron
+        env:
+          # electron-builder 读到证书即签名，并把发布者写进 app-update.yml 的 publisherName，
+          # 此后客户端会拒绝发布者不符的更新包；未配置时产出未签名包（SmartScreen 会提示）
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: pnpm build
-      - name: 收集产物
+      - name: 收集产物（安装包 = 更新包，外加 .blockmap）
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
-          Copy-Item "apps/desktop-electron/release/*" release-artifacts/ -Recurse
+          Copy-Item "apps/desktop-electron/release/*-setup.exe*" release-artifacts/
       - uses: actions/upload-artifact@v4
         with:
           name: electron-windows
@@ -135,11 +148,12 @@ jobs:
         with:
           path: release-artifacts
           merge-multiple: true
-      - name: 生成 latest.json / latest.yml / release-manifest.json / distribution.html
+      # --strict：两种安装包 / .sig / .blockmap 缺一不可，且 .sig 必须能用 tauri.conf.json 的公钥验过
+      - name: 生成 latest.json / latest.yml / release-manifest.json / distribution.html（体积 + 签名门禁）
         run: >-
           pnpm release:manifest --
           --dir release-artifacts
-          --base-url ${{ env.UPDATE_BASE_URL }}
+          --strict
           --channel ${{ env.CHANNEL }}
           --notes "EveryoneCoding ${{ github.ref_name }}"
       - uses: actions/upload-artifact@v4
@@ -150,11 +164,13 @@ jobs:
             release-artifacts/latest.yml
             release-artifacts/release-manifest.json
             release-artifacts/distribution.html
-      - name: 上传到内部更新服务（占位：接入内部对象存储 / 静态站）
+      # 客户端更新源：Tauri 读 releases/latest/download/latest.json，Electron（github provider）读该 release 的 latest.yml。
+      # beta 通道发成 prerelease：GitHub 的 "latest" 不含预发布，stable 用户不会收到。
+      - name: 发布到 GitHub Releases
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          Write-Host "将 release-artifacts/ 同步到 $env:UPDATE_BASE_URL/$env:CHANNEL/ 下："
-          Write-Host "  windows-x86_64/  安装包与更新包"
-          Write-Host "  latest.json      Tauri Updater 响应体（服务按 {{target}}/{{arch}}/{{current_version}} 路由）"
-          Write-Host "  latest.yml       electron-updater 清单"
-          Write-Host "  分发页与清单由运维脚本推送，不在本流水线内直连生产存储"
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $pre = if ($env:CHANNEL -eq 'beta') { '--prerelease' } else { '' }
+          gh release create "v$version" (Get-ChildItem release-artifacts -File).FullName --title "EveryoneCoding v$version" --notes-file release-artifacts/distribution.html $pre

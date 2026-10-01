@@ -38,12 +38,22 @@ export interface UpdateViewState {
   lastCheckAt: number | null;
   /** 发现的新版本；null = 已是最新或尚未检查 */
   available: UpdateInfo | null;
-  /** 当前阶段 */
-  phase: 'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error';
+  /**
+   * 当前阶段。`ready` = 已下载并通过校验（sha512 / minisign），等用户点"重启并更新"；
+   * `installing` = 台账已落盘、安装器正在接管（应用即将退出并由安装器重新拉起）。
+   */
+  phase:
+    'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'done' | 'error';
   /** 0–100，仅下载阶段有意义 */
   percent: number | undefined;
   /** 失败 / 提示文案（含"更新失败已回滚到 x.y.z"） */
   message: string | null;
+  /** 失败的原始原因（供"详情"展开与排查；成功时为 null） */
+  detail: string | null;
+  /** 系统报告离线（离线时不发起检查 / 下载，只提示） */
+  offline: boolean;
+  /** 已下载就绪、等待重启的版本 */
+  readyVersion: string | null;
   /**
    * 最近一次已落定的更新记录（含回滚）。
    * `stage: 'rolled-back'` 时设置页必须显示"已回滚到上一版本"。
@@ -68,8 +78,10 @@ export interface UpdateApi {
   getState(): Promise<UpdateViewState>;
   /** 手动检查更新（忽略自动检查间隔） */
   check(): Promise<UpdateViewState>;
-  /** 下载并安装 */
+  /** 立即更新：下载校验后直接重启安装（成功时应用会退出，由安装器重新拉起） */
   install(): Promise<UpdateViewState>;
+  /** 应用已下载（ready）的更新并重启 */
+  restart(): Promise<UpdateViewState>;
   /** 稍后提醒 */
   defer(version: string): Promise<UpdateViewState>;
   saveSettings(patch: UpdateSettingsPatch): Promise<UpdateViewState>;

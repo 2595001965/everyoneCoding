@@ -21,6 +21,19 @@ pub struct AppInfoWire {
     pub workspace_root: Option<String>,
     pub locale: String,
     pub is_packaged: bool,
+    /// 上一版本安装包留档目录（与 `nsis/installer-hooks.nsh` 逐字一致）。
+    pub update_backup_dir: Option<String>,
+}
+
+/// 留档目录固定在 `%LOCALAPPDATA%\EveryoneCoding-updates\tauri`，与数据目录、安装目录都无关。
+fn update_backup_dir() -> Option<String> {
+    std::env::var("LOCALAPPDATA").ok().map(|base| {
+        std::path::PathBuf::from(base)
+            .join("EveryoneCoding-updates")
+            .join("tauri")
+            .to_string_lossy()
+            .to_string()
+    })
 }
 
 /// 架构归一化：x86_64→x64，aarch64→arm64，x86→ia32，其余→unknown。
@@ -68,6 +81,7 @@ pub async fn app_info_get(
         workspace_root,
         locale: detect_locale(),
         is_packaged: !cfg!(debug_assertions),
+        update_backup_dir: update_backup_dir(),
     })
 }
 

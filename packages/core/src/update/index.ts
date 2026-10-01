@@ -10,3 +10,4 @@ export * from './update-types';
 export * from './update-policy';
 export * from './update-ledger';
 export * from './update-runner';
+export * from './update-errors';

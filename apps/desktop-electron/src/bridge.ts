@@ -103,6 +103,8 @@ export interface EcShellPreload {
   };
   updater: {
     check(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;
+    download(): Promise<{ version: string; notes?: string; releaseDate?: string } | null>;
+    installAndRestart(): Promise<void>;
     downloadAndInstall(): Promise<void>;
     onProgress(
       cb: (progress: {
@@ -360,6 +362,8 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
     },
     updater: {
       check: () => call(() => api.updater.check()),
+      download: () => call(() => api.updater.download()),
+      installAndRestart: () => call(() => api.updater.installAndRestart()),
       downloadAndInstall: () => call(() => api.updater.downloadAndInstall()),
       onProgress: (listener) => api.updater.onProgress(listener),
     },

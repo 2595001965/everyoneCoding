@@ -612,7 +612,7 @@ describe('并发项目不串数据', () => {
         method: 'snapshot',
         params: { projectId: b },
       }).S1.status,
-    ).toBe('pending');
+    ).toBe('awaiting_confirm');
 
     // 记忆各一条（页面记忆）
     const memoriesA = callSync<Array<{ pageId: string | null }>>({

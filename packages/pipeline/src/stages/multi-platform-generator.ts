@@ -140,7 +140,10 @@ export interface PlatformGenerationResult {
 /** 工具链运行端口（外壳装配到 node 子进程；测试注入假实现） */
 export interface ToolchainRunner {
   detect(command: string): Promise<boolean>;
-  run(command: string[]): Promise<{ ok: boolean; output: string }>;
+  run(
+    command: string[],
+    files?: ReadonlyArray<{ path: string; content: string }>,
+  ): Promise<{ ok: boolean; output: string }>;
 }
 
 export interface MultiPlatformGeneratorDeps {
@@ -219,7 +222,7 @@ export class MultiPlatformGenerator {
 
     let currentFiles = files;
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
-      const result = await this.deps.toolchain.run(toolchain.buildCommand);
+      const result = await this.deps.toolchain.run(toolchain.buildCommand, currentFiles);
       if (result.ok) {
         return { status: 'passed', output: result.output, retries: attempt, installGuide: null };
       }
@@ -229,6 +232,7 @@ export class MultiPlatformGenerator {
       const repairPrompt = this.buildRepairPrompt(input, toolchain, result.output);
       const repaired = await this.deps.generate.generate(repairPrompt);
       currentFiles = this.parseFiles(repaired.content);
+      files.splice(0, files.length, ...currentFiles);
     }
     return {
       status: 'failed',

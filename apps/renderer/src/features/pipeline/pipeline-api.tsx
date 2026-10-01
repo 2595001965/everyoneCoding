@@ -25,6 +25,8 @@ import type {
 export interface PipelineApi {
   readonly ready: boolean;
   readonly reason?: string | undefined;
+  captureDesign(projectId: string): Promise<{ artifact: ArtifactVersion; pages: number }>;
+  getQueueState(projectId: string): QueueState | null;
 
   /* ------------------------------ 状态机 ------------------------------ */
   /** 只读阶段状态快照 */
@@ -112,7 +114,7 @@ export interface PipelineApi {
   /** S5 队列：单节点重试（返回最新队列状态） */
   retryNode(projectId: string, nodeId: string): Promise<QueueState>;
   /** S5 队列：单节点跳过 */
-  skipNode(projectId: string, nodeId: string): QueueState;
+  skipNode(projectId: string, nodeId: string): Promise<QueueState>;
   /** S5 队列：暂停 */
   pauseQueue(projectId: string): QueueState;
   /** 断点恢复信息：阶段快照 + S5 进度 + 待续阶段 */
@@ -120,6 +122,7 @@ export interface PipelineApi {
     snapshot: PipelineStageSnapshot;
     s5Progress: string | null;
     resumeStage: PipelineStage | null;
+    inputs?: { description: string };
   };
   /** 重启恢复：校验产物一致性并返回断点 */
   recoverProject(projectId: string): Promise<{

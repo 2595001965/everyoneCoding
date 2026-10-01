@@ -78,6 +78,18 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
 
   const api: PipelineApi = {
     ready: true,
+    getQueueState: () => null,
+    async captureDesign() {
+      machine.startStage('S2');
+      const artifact = await api.saveArtifact({
+        projectId,
+        stage: 'S2',
+        artifactType: 'design_dsl',
+        content: '{}',
+      });
+      machine.submitForReview('S2');
+      return { artifact, pages: 1 };
+    },
     snapshot(): PipelineStageSnapshot {
       return machine.snapshot();
     },
@@ -152,7 +164,7 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
       machine.notifyDownstream(stage, message);
     },
     async generateRequirement(): Promise<RequirementGenerationResult> {
-      return {
+      const result = {
         content: EIGHT_SECTIONS_DOC,
         documentId: 'doc-1',
         version: 1,
@@ -161,6 +173,15 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
         completeness: { missing: [], present: [] },
         degraded: false,
       };
+      machine.startStage('S1');
+      await api.saveArtifact({
+        projectId,
+        stage: 'S1',
+        artifactType: 'requirement_doc',
+        content: result.content,
+      });
+      machine.submitForReview('S1');
+      return result;
     },
     getTechChoice() {
       return choice;
@@ -169,7 +190,7 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
       choice = value;
     },
     async generateTechDoc(): Promise<TechDocGenerationResult> {
-      return {
+      const result: TechDocGenerationResult = {
         content: '# 商城 技术文档\n## 技术选型\ntargets: web\n## 接口设计\nopenapi 3.0',
         documentId: 'doc-2',
         version: 1,
@@ -180,6 +201,15 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
         regenerated: false,
         degraded: false,
       };
+      machine.startStage('S3');
+      await api.saveArtifact({
+        projectId,
+        stage: 'S3',
+        artifactType: 'tech_doc',
+        content: result.content,
+      });
+      machine.submitForReview('S3');
+      return result;
     },
     getSplit() {
       return split;
@@ -219,7 +249,7 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
     async retryNode(): Promise<QueueState> {
       return emptyQueue();
     },
-    skipNode(): QueueState {
+    async skipNode(): Promise<QueueState> {
       return emptyQueue();
     },
     pauseQueue(): QueueState {

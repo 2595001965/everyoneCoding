@@ -35,6 +35,7 @@ export function PipelinePage(): JSX.Element {
       ) : (
         <PipelineProvider api={api}>
           <PipelineWorkspace
+            key={project.id}
             projectId={project.id}
             userId={currentUserId()}
             projectName={project.name}

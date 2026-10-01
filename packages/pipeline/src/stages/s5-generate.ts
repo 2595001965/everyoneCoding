@@ -218,7 +218,7 @@ export class S5GenerateStage {
 
     const results: Record<string, { status: string; files: number; summary: string }> = {};
     const commits: Array<{ nodeId: string; sha: string; message: string }> = [];
-    this.deps.queue.setExecutor(this.defaultExecutor(input, results, commits));
+    this.deps.queue.setExecutor(this.createNodeExecutor(input, results, commits));
 
     const finalState = await this.deps.queue.run();
 
@@ -343,10 +343,10 @@ export class S5GenerateStage {
 
   /* ------------------------------ 内部 ------------------------------ */
 
-  private defaultExecutor(
+  createNodeExecutor(
     input: S5RunInput,
-    results: Record<string, { status: string; files: number; summary: string }>,
-    commits: Array<{ nodeId: string; sha: string; message: string }>,
+    results: Record<string, { status: string; files: number; summary: string }> = {},
+    commits: Array<{ nodeId: string; sha: string; message: string }> = [],
   ): (node: QueueNode<S5NodeData>) => Promise<void> {
     const bus = this.deps.bus;
     return async (node) => {
@@ -377,6 +377,7 @@ export class S5GenerateStage {
           pages: input.split.result().pages.filter((page) => data.pageIds.includes(page.id)),
         };
         const result = await this.deps.generator.generateFor(generationInput);
+        if (result.build.status === 'failed') throw new Error(result.build.output);
         data.summary = `${result.framework}（${result.build.status}）`;
 
         // 3. 落盘（未装配 fs 时跳过；Wave 9/10 外壳装配）

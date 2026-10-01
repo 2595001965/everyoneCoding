@@ -343,7 +343,7 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
    *
    * 尚无 pipeline_run 记录时返回 null（= 项目未进入流水线），这是真实状态。
    * `confirmed` 取「状态为 confirmed 的阶段数」，`total` 取「出现过的阶段数」——
-   * 由于流水线写入端（@ec/pipeline + 持久化）尚未装配，本方法目前实际返回 null。
+   * 生产运行时从 pipeline_checkpoint 读取七阶段快照；旧数据回退到 run 表。
    */
   const projectStage = (projectId: string): ProjectStageInfo | null => {
     const latest = db
@@ -352,6 +352,20 @@ export function createWorkspaceDomain(options: WorkspaceDomainOptions): Workspac
       )
       .get(projectId) as { stage: string; status: string } | undefined;
     if (!latest) return null;
+    const checkpoint = db
+      .prepare('SELECT envelope_json FROM pipeline_checkpoint WHERE project_id = ?')
+      .get(projectId) as { envelope_json: string } | undefined;
+    if (checkpoint) {
+      const saved = JSON.parse(checkpoint.envelope_json) as {
+        state: { stages: Record<string, { status: string }> };
+      };
+      const stages = Object.values(saved.state.stages);
+      return {
+        ...latest,
+        confirmed: stages.filter((state) => state.status === 'confirmed').length,
+        total: stages.length,
+      };
+    }
     return {
       stage: latest.stage,
       status: latest.status,

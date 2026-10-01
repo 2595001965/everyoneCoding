@@ -111,30 +111,43 @@ export class ArtifactStore {
     }
 
     const contentRef = this.contentPath(input.stage, nextVersion);
-    await this.deps.fs.writeAtomic(contentRef, input.content);
-
-    const previous = versions[versions.length - 1];
     let diffRef: string | null = null;
-    if (previous !== undefined) {
-      // 注意参数顺序：read(stage, version)。历史上一处把两者写反，
-      // 导致 diff 计算时抛 ArtifactNotFoundError，v2 起全部保存失败。
-      const before = await this.read(input.stage, previous.version);
-      const diffText = this.buildLineDiff(before, input.content);
-      if (diffText.length > 0) {
-        diffRef = this.diffPath(input.stage, nextVersion);
-        await this.deps.fs.writeAtomic(diffRef, diffText);
-      }
-    }
+    let entry: ArtifactVersion;
+    // 事务语义：内容文件 / diff 文件 / 落库回调任一步失败，都删掉本次已写的文件再抛出，
+    // 内存台账与指针保持原样——不留"磁盘上有 vN、表里没有"的半成品。
+    try {
+      await this.deps.fs.writeAtomic(contentRef, input.content);
 
-    const entry: ArtifactVersion = {
-      stage: input.stage,
-      artifactType: input.artifactType,
-      version: nextVersion,
-      contentRef,
-      diffRef,
-      createdAt: input.createdAt ?? this.clock(),
-      note: input.note ?? '',
-    };
+      const previous = versions[versions.length - 1];
+      if (previous !== undefined) {
+        // 注意参数顺序：read(stage, version)。历史上一处把两者写反，
+        // 导致 diff 计算时抛 ArtifactNotFoundError，v2 起全部保存失败。
+        const before = await this.read(input.stage, previous.version);
+        const diffText = this.buildLineDiff(before, input.content);
+        if (diffText.length > 0) {
+          diffRef = this.diffPath(input.stage, nextVersion);
+          await this.deps.fs.writeAtomic(diffRef, diffText);
+        }
+      }
+
+      entry = {
+        stage: input.stage,
+        artifactType: input.artifactType,
+        version: nextVersion,
+        contentRef,
+        diffRef,
+        createdAt: input.createdAt ?? this.clock(),
+        note: input.note ?? '',
+      };
+      // 落库（外壳装配 PipelineRepo；未装配时为纯内存台账）
+      this.deps.onVersionSaved?.({ ...entry });
+    } catch (cause) {
+      for (const path of [contentRef, diffRef]) {
+        if (path === null) continue;
+        await this.deps.fs.remove(path).catch(() => undefined);
+      }
+      throw cause;
+    }
     versions.push(entry);
     versions.sort((a, b) => a.version - b.version);
 
@@ -143,8 +156,6 @@ export class ArtifactStore {
     if (input.version === undefined || this.active.get(input.stage) === undefined) {
       this.active.set(input.stage, nextVersion);
     }
-    // 落库（外壳装配 PipelineRepo；未装配时为纯内存台账）
-    this.deps.onVersionSaved?.({ ...entry });
     return { ...entry };
   }
 

@@ -178,7 +178,7 @@ export class PipelineRecovery {
 }
 
 /** 第一个待续生成的阶段：running 优先（断点），其次 stale（重新生成），再次 awaiting_confirm */
-function findResumeStage(snapshot: PipelineStageSnapshot): PipelineStage | null {
+export function findResumeStage(snapshot: PipelineStageSnapshot): PipelineStage | null {
   for (const stage of STAGE_ORDER) {
     if (snapshot[stage].status === 'running') return stage;
   }

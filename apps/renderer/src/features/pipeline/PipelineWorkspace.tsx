@@ -43,7 +43,11 @@ export function PipelineWorkspace({
   projectName,
 }: PipelineWorkspaceProps): JSX.Element {
   const api = usePipelineApi();
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(
+    () => api.getResumeProgress(projectId).inputs?.description ?? '',
+  );
+  const [busy, setBusy] = useState(false);
+  const [downstreamStage, setDownstreamStage] = useState<PipelineStage | null>(null);
   const [snapshot, setSnapshot] = useState<PipelineStageSnapshot>(() => api.snapshot(projectId));
   const [viewingStage, setViewingStage] = useState<PipelineStage | null>(null);
   const [viewingVersion, setViewingVersion] = useState(0);
@@ -58,134 +62,121 @@ export function PipelineWorkspace({
 
   // 订阅流水线事件刷新快照
   useEffect(() => {
-    const unsubscribe = api.subscribe('pipeline:*', () => setSnapshot(api.snapshot(projectId)));
+    const unsubscribe = api.subscribe('pipeline:*', (raw) => {
+      const event = raw as { projectId?: string; event?: string; data?: { stage?: PipelineStage } };
+      if (event.projectId && event.projectId !== projectId) return;
+      setSnapshot(api.snapshot(projectId));
+      if (event.event === 'downstream-stale' && event.data?.stage)
+        setDownstreamStage(event.data.stage);
+    });
     return unsubscribe;
   }, [api, projectId]);
 
   const currentStage = useMemo<PipelineStage>(() => {
-    for (let index = STAGE_ORDER_LIST.length - 1; index >= 0; index -= 1) {
-      const stage = STAGE_ORDER_LIST[index] as PipelineStage;
-      if (snapshot[stage].status !== 'pending') return stage;
-    }
-    return 'S1';
+    for (const stage of STAGE_ORDER_LIST) if (snapshot[stage].status === 'running') return stage;
+    for (const stage of STAGE_ORDER_LIST)
+      if (snapshot[stage].status === 'awaiting_confirm' || snapshot[stage].status === 'stale')
+        return stage;
+    return (
+      [...STAGE_ORDER_LIST].reverse().find((stage) => snapshot[stage].status === 'confirmed') ??
+      'S1'
+    );
   }, [snapshot]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .recoverProject(projectId)
+      .then((result) => {
+        if (cancelled) return;
+        setSnapshot(api.snapshot(projectId));
+        if (result.integrityProblems.length > 0)
+          setError(
+            '部分阶段产物缺失，请回到对应阶段重新生成：' +
+              result.integrityProblems.map((p) => `${p.stage} v${p.version}`).join('、'),
+          );
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(String(cause));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, projectId]);
 
   const activeView = viewingStage ?? currentStage;
 
   /* ------------------------------ 操作 ------------------------------ */
 
-  /** S1 起点：输入想法 → 生成需求文档 */
-  const handleGenerateS1 = useCallback(
-    async (instruction?: string | undefined) => {
-      const text = (
-        instruction !== undefined && instruction.trim().length > 0 ? instruction : description
-      ).trim();
-      if (text.length === 0) {
-        setError('请先输入想法（约 200 字）');
-        return;
-      }
+  const execute = useCallback(
+    async (work: () => Promise<unknown>) => {
+      setBusy(true);
+      setError(null);
       try {
-        api.startStage(projectId, 'S1');
-        const result = await api.generateRequirement({
-          projectId,
-          userId,
-          projectName,
-          description: text,
-          ...(instruction !== undefined && instruction.trim().length > 0 ? { instruction } : {}),
-        });
-        await api.saveArtifact({
-          projectId,
-          stage: 'S1',
-          artifactType: 'requirement_doc',
-          content: result.content,
-          note:
-            instruction !== undefined && instruction.trim().length > 0
-              ? `追加要求：${instruction}`
-              : '初始生成',
-        });
-        api.submitForReview(projectId, 'S1');
+        await work();
         setSnapshot(api.snapshot(projectId));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setBusy(false);
       }
     },
-    [api, projectId, userId, projectName, description],
+    [api, projectId],
   );
 
-  /** S3：生成技术文档（未选方案先弹问卷） */
+  const handleGenerateS1 = useCallback(
+    async (instruction?: string) =>
+      execute(() =>
+        api.generateRequirement({
+          projectId,
+          userId,
+          projectName,
+          description,
+          ...(instruction ? { instruction } : {}),
+        }),
+      ),
+    [api, projectId, userId, projectName, description, execute],
+  );
+
   const handleGenerateS3 = useCallback(
-    async (instruction?: string | undefined) => {
+    async (instruction?: string) => {
       const choice = api.getTechChoice(projectId);
       if (choice === null) {
         setWizardOpen(true);
         return;
       }
-      try {
-        api.startStage(projectId, 'S3');
-        // 需求文档读 S1 真实产物（生效版本），读不到给占位文案
-        const s1Versions = api.listArtifacts(projectId, 'S1');
-        const activeVersion =
-          snapshot.S1.activeVersion ?? s1Versions[s1Versions.length - 1]?.version ?? 0;
-        const requirement =
-          activeVersion > 0
-            ? await api.readArtifact(projectId, 'S1', activeVersion).catch(() => '')
-            : '';
-        const result = await api.generateTechDoc({
+      await execute(() =>
+        api.generateTechDoc({
           projectId,
           userId,
           projectName,
           description,
           choice,
-          requirementDoc: requirement.length > 0 ? requirement : '# 需求文档（未生成）',
-          ...(instruction !== undefined && instruction.trim().length > 0 ? { instruction } : {}),
-        });
-        await api.saveArtifact({
-          projectId,
-          stage: 'S3',
-          artifactType: 'tech_doc',
-          content: result.content,
-          note:
-            instruction !== undefined && instruction.trim().length > 0
-              ? `追加要求：${instruction}`
-              : '初始生成',
-        });
-        api.submitForReview(projectId, 'S3');
-        setSnapshot(api.snapshot(projectId));
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
-      }
+          requirementDoc: '',
+          ...(instruction ? { instruction } : {}),
+        }),
+      );
     },
-    [api, projectId, userId, projectName, description, snapshot],
+    [api, projectId, userId, projectName, description, execute],
   );
 
-  /** S4：自动拆分（规则解析技术文档 → 落 S4/split.json）并装载编辑模型 */
-  const handleGenerateS4 = useCallback(async () => {
-    try {
-      api.startStage(projectId, 'S4');
-      // 传当前生效版本号：S3/S1 产物从主进程真实读取，而不是让 UI 传全文
-      const s1Versions = api.listArtifacts(projectId, 'S1');
-      const s3Versions = api.listArtifacts(projectId, 'S3');
-      const split = await api.generateSplit(projectId, {
-        techDocVersion: s3Versions[s3Versions.length - 1]?.version ?? 0,
-        requirementDocVersion: s1Versions[s1Versions.length - 1]?.version ?? 0,
-      });
-      await api.saveSplit(projectId, split);
-      setSplitModel(SplitModelClass.fromResult(split));
-      api.submitForReview(projectId, 'S4');
-      setSnapshot(api.snapshot(projectId));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }, [api, projectId]);
+  const handleGenerateS4 = useCallback(
+    async () =>
+      execute(async () => {
+        const split = await api.generateSplit(projectId);
+        setSplitModel(SplitModelClass.fromResult(split));
+      }),
+    [api, projectId, execute],
+  );
 
   const handleRegenerate = useCallback(
     (stage: PipelineStage) => {
       if (stage === 'S1') void handleGenerateS1();
+      else if (stage === 'S2') void execute(() => api.captureDesign(projectId));
       else if (stage === 'S3') void handleGenerateS3();
       else if (stage === 'S4') void handleGenerateS4();
-      else api.startStage(projectId, stage);
     },
-    [api, projectId, handleGenerateS1, handleGenerateS3, handleGenerateS4],
+    [api, projectId, execute, handleGenerateS1, handleGenerateS3, handleGenerateS4],
   );
 
   const handleConfirm = useCallback(
@@ -204,10 +195,12 @@ export function PipelineWorkspace({
   );
 
   const handleAdvance = useCallback(() => {
-    const to = nextStageOf(currentStage);
+    const to = nextStageOf(activeView);
     if (to === null) return;
     try {
-      api.advance(projectId, currentStage, to);
+      api.advance(projectId, activeView, to);
+      setViewingStage(null);
+      setViewingVersion(0);
       setSnapshot(api.snapshot(projectId));
       if (to === 'S3' && api.getTechChoice(projectId) === null) setWizardOpen(true);
       if (to === 'S4') {
@@ -218,7 +211,7 @@ export function PipelineWorkspace({
       if (to === 'S3') setWizardOpen(true);
       else setError(cause instanceof Error ? cause.message : String(cause));
     }
-  }, [api, projectId, currentStage]);
+  }, [api, projectId, activeView]);
 
   const handleRollbackConfirm = useCallback(() => {
     if (rollbackTarget === null) return;
@@ -257,11 +250,39 @@ export function PipelineWorkspace({
       <PipelineBar
         projectId={projectId}
         snapshot={snapshot}
-        onReview={(stage) => setViewingStage(stage)}
+        onReview={(stage) => {
+          setViewingStage(stage);
+          setViewingVersion(0);
+        }}
         onRollback={(_from, to) => setRollbackTarget(to)}
         viewingStage={viewingStage}
       />
 
+      {downstreamStage !== null && (
+        <Modal
+          open
+          title="文档已更新，是否重新生成下游"
+          onOpenChange={(open) => {
+            if (!open) setDownstreamStage(null);
+          }}
+          footer={
+            <>
+              <Button onClick={() => setDownstreamStage(null)}>保留现有产物</Button>
+              <Button
+                onClick={() => {
+                  api.applyDownstreamStale(projectId, downstreamStage);
+                  setSnapshot(api.snapshot(projectId));
+                  setDownstreamStage(null);
+                }}
+              >
+                标记下游待重新生成
+              </Button>
+            </>
+          }
+        >
+          <p>历史产物仍可回看，继续生成将使用当前生效版本。</p>
+        </Modal>
+      )}
       {rollbackTarget !== null && (
         <Modal
           open
@@ -308,7 +329,7 @@ export function PipelineWorkspace({
         />
       )}
 
-      {activeView === 'S1' && snapshot.S1.status === 'pending' && (
+      {activeView === 'S1' && (
         <div className="ec-pipe-workspace__idea" data-testid="idea-input-area">
           <h3>输入你的想法</h3>
           <Textarea
@@ -321,6 +342,7 @@ export function PipelineWorkspace({
           <Button
             variant="primary"
             data-testid="idea-generate"
+            disabled={busy}
             onClick={() => void handleGenerateS1()}
           >
             生成需求文档
@@ -331,6 +353,8 @@ export function PipelineWorkspace({
       <div className="ec-pipe-workspace__body">
         <section className="ec-pipe-workspace__stage">
           <StagePanel
+            key={activeView}
+            busy={busy}
             projectId={projectId}
             stage={activeView}
             snapshot={snapshot}
@@ -345,7 +369,7 @@ export function PipelineWorkspace({
               variant="secondary"
               data-testid="stage-advance"
               onClick={handleAdvance}
-              disabled={snapshot[activeView].status !== 'confirmed'}
+              disabled={busy || activeView === 'S7' || snapshot[activeView].status !== 'confirmed'}
             >
               进入下一阶段
             </Button>
@@ -387,15 +411,20 @@ export function PipelineWorkspace({
             <SplitEditor
               projectId={projectId}
               model={splitModel}
-              onChange={(model) => setSplitModel(model)}
+              onChange={(model) => {
+                void execute(async () => {
+                  await api.saveSplit(projectId, model.result());
+                  setSplitModel(SplitModelClass.fromResult(api.getSplit(projectId)!));
+                });
+              }}
             />
           )}
-          {activeView === 'S5' && splitModel !== null && (
+          {activeView === 'S5' && choice !== null && (
             <S5QueueSection
               projectId={projectId}
               userId={userId}
               projectName={projectName}
-              choice={choice ?? defaultChoice()}
+              choice={choice}
             />
           )}
         </aside>
@@ -406,9 +435,10 @@ export function PipelineWorkspace({
         open={wizardOpen}
         initial={choice}
         onComplete={(completed: TechChoice) => {
-          void api.saveTechChoice(projectId, completed);
-          setWizardOpen(false);
-          setSnapshot(api.snapshot(projectId));
+          void execute(async () => {
+            await api.saveTechChoice(projectId, completed);
+            setWizardOpen(false);
+          });
         }}
         onClose={() => setWizardOpen(false)}
       />
@@ -431,28 +461,6 @@ function nextStageOf(stage: PipelineStage): PipelineStage | null {
     : null;
 }
 
-function defaultChoice(): TechChoice {
-  return {
-    targets: ['web'],
-    web: 'react',
-    mobile: 'flutter',
-    harmony: 'arkts',
-    desktop: 'tauri2',
-    frontend: 'react',
-    backend: 'node-nest',
-    database: 'sqlite',
-    orm: 'prisma',
-    deploy: 'desktop',
-  };
-}
-
 function formatStack(choice: TechChoice): string {
-  return [
-    `目标端：${choice.targets.join(' / ')}`,
-    `移动：${choice.mobile}`,
-    `桌面：${choice.desktop}`,
-    `前端：${choice.frontend}`,
-    `后端：${choice.backend}`,
-    `数据库：${choice.database}`,
-  ].join('\n');
+  return `目标端：${choice.targets.join(' / ')}\n前端：${choice.frontend}\n后端：${choice.backend}\n数据库：${choice.database}`;
 }

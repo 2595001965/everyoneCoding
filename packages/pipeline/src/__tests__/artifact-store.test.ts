@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ArtifactNotFoundError, ArtifactStore } from '../artifact-store';
-import { confirmThrough, createFixture, saveS1 } from './helpers';
+import { confirmThrough, createFixture, createMemoryFs, saveS1 } from './helpers';
 
 /**
  * T5-01 产物版本化测试：保存 / 切换 / diff / 完整性校验。
@@ -135,5 +135,40 @@ describe('ArtifactStore 版本化', () => {
     } finally {
       fx.close();
     }
+  });
+});
+
+describe('ArtifactStore 保存事务', () => {
+  it('落库回调失败：已写的内容/diff 文件被删除，台账与指针保持原样', async () => {
+    const fs = createMemoryFs();
+    let failNext = false;
+    const store = new ArtifactStore({
+      projectId: 'P1',
+      rootDir: '/root/P1/pipeline',
+      fs,
+      onVersionSaved: () => {
+        if (failNext) throw new Error('db down');
+      },
+    });
+    await store.save({ stage: 'S1', artifactType: 'requirement_doc', content: '# v1' });
+    const filesBefore = [...fs.files.keys()].sort();
+
+    failNext = true;
+    await expect(
+      store.save({ stage: 'S1', artifactType: 'requirement_doc', content: '# v2 新增' }),
+    ).rejects.toThrow('db down');
+
+    expect([...fs.files.keys()].sort()).toEqual(filesBefore);
+    expect(store.latestVersion('S1')).toBe(1);
+    expect(store.activeVersion('S1')).toBe(1);
+
+    // 故障恢复后重试拿到的仍是 v2（版本号没有被失败的那次占掉）
+    failNext = false;
+    const saved = await store.save({
+      stage: 'S1',
+      artifactType: 'requirement_doc',
+      content: '# v2',
+    });
+    expect(saved.version).toBe(2);
   });
 });

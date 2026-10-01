@@ -17,6 +17,7 @@ import { VersionSwitcher } from './VersionSwitcher';
  */
 
 export interface StagePanelProps {
+  busy?: boolean;
   projectId: string;
   stage: PipelineStage;
   /** 阶段状态快照（父层持有，跨组件共享） */
@@ -32,6 +33,7 @@ export interface StagePanelProps {
 }
 
 export function StagePanel({
+  busy = false,
   projectId,
   stage,
   snapshot,
@@ -49,8 +51,8 @@ export function StagePanel({
 
   const state = snapshot[stage];
   const hasArtifact = versions.length > 0;
-  const isCodeStage = stage === 'S5' || stage === 'S6' || stage === 'S7';
-  const allowManualEdit = !isCodeStage;
+  const allowManualEdit = stage === 'S1' || stage === 'S3' || stage === 'S6' || stage === 'S7';
+  const [error, setError] = useState<string | null>(null);
 
   /** 手动编辑保存：走 saveArtifact 版本化落库（写主进程产物文件 + stage_artifact 表），
    * 绝不把 UI 本地 textarea 状态当持久化实现 */
@@ -66,6 +68,8 @@ export function StagePanel({
       });
       setContent(draft);
       setManualEdit(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setSaving(false);
     }
@@ -83,11 +87,22 @@ export function StagePanel({
       viewingVersion > 0
         ? viewingVersion
         : (state.activeVersion ?? list[list.length - 1]?.version ?? 0);
-    void api.readArtifact(projectId, stage, target).then((text) => {
-      setContent(text);
-      setDraft(text);
-    });
-  }, [api, projectId, stage, viewingVersion, state.activeVersion]);
+    let cancelled = false;
+    void api
+      .readArtifact(projectId, stage, target)
+      .then((text) => {
+        if (!cancelled) {
+          setContent(text);
+          setDraft(text);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(String(cause));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, projectId, stage, viewingVersion, state.activeVersion, state.latestVersion]);
 
   return (
     <div className="ec-pipe-stage-panel" data-testid="stage-panel">
@@ -107,19 +122,35 @@ export function StagePanel({
               onSwitch={onSwitchVersion}
             />
           )}
-          <Button
-            size="sm"
-            variant="primary"
-            data-testid="stage-generate"
-            onClick={onRegenerate}
-            disabled={state.status === 'running'}
-          >
-            {hasArtifact ? '重新生成' : `生成${STAGE_DEFS[stage].artifactLabel}`}
-          </Button>
+          {stage !== 'S5' && (
+            <Button
+              size="sm"
+              variant="primary"
+              data-testid="stage-generate"
+              onClick={
+                stage === 'S6' || stage === 'S7'
+                  ? () => {
+                      setDraft(content);
+                      setManualEdit(true);
+                    }
+                  : onRegenerate
+              }
+              disabled={busy || saving}
+            >
+              {stage === 'S2'
+                ? '保存设计稿快照'
+                : stage === 'S6' || stage === 'S7'
+                  ? `记录${STAGE_DEFS[stage].artifactLabel}`
+                  : hasArtifact
+                    ? '重新生成'
+                    : `生成${STAGE_DEFS[stage].artifactLabel}`}
+            </Button>
+          )}
         </div>
       </div>
 
-      {!hasArtifact ? (
+      {error && <p role="alert">{error}</p>}
+      {!hasArtifact && !manualEdit ? (
         <div className="ec-pipe-stage-panel__empty" data-testid="stage-panel-empty">
           <p>该阶段尚未生成产物。点击「生成{STAGE_DEFS[stage].artifactLabel}」开始。</p>
           <p className="ec-pipe-stage-panel__hint">{STAGE_DEFS[stage].completionCondition}</p>
@@ -151,13 +182,15 @@ export function StagePanel({
       ) : (
         <>
           <ArtifactViewer content={content} artifactType={STAGE_DEFS[stage].artifactType} />
-          {viewingVersion > 0 &&
-            state.activeVersion !== null &&
-            viewingVersion !== state.activeVersion && (
-              <div className="ec-pipe-stage-panel__diff">
-                <DiffPanel projectId={projectId} stage={stage} version={viewingVersion} />
-              </div>
-            )}
+          {(viewingVersion || state.activeVersion || 0) > 1 && (
+            <div className="ec-pipe-stage-panel__diff">
+              <DiffPanel
+                projectId={projectId}
+                stage={stage}
+                version={viewingVersion || state.activeVersion || 0}
+              />
+            </div>
+          )}
         </>
       )}
 

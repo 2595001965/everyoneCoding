@@ -460,3 +460,42 @@ describe('S5GenerateStage（编排 + 自动提交）', () => {
     expect(stage.buildCommitMessage('fix', 'auth 模块', '修复 登录')).toBe('fix(auth): 修复 登录');
   });
 });
+
+it('编译校验使用本次候选文件，修复成功后返回修复版文件', async () => {
+  let generations = 0;
+  const candidates: string[] = [];
+  const generator = new MultiPlatformGenerator({
+    generate: {
+      async generate() {
+        generations += 1;
+        return {
+          content: JSON.stringify({
+            files: [{ path: 'lib/main.dart', content: generations === 1 ? 'broken' : 'fixed' }],
+          }),
+          degraded: false,
+        };
+      },
+    },
+    toolchain: {
+      async detect() {
+        return true;
+      },
+      async run(_command, files) {
+        candidates.push(files![0]!.content);
+        return { ok: files![0]!.content === 'fixed', output: 'compile' };
+      },
+    },
+  });
+  const result = await generator.generateFor({
+    platform: 'android',
+    framework: 'flutter',
+    projectName: 'test',
+    stack: 'flutter',
+    requirementDoc: '',
+    techDoc: '',
+    pages: [],
+  });
+  expect(candidates).toEqual(['broken', 'fixed']);
+  expect(result.files[0]?.content).toBe('fixed');
+  expect(result.build.status).toBe('passed');
+});

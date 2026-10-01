@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -282,17 +282,7 @@ async function prepareThroughS4(projectId: string, projectName: string): Promise
   const s1 = await p<{ content: string }>({
     projectId,
     method: 'generateRequirement',
-    params: { userId: USER_ID, projectName, description: '做一个轻量项目管理系统' },
-  });
-  await p({
-    projectId,
-    method: 'saveArtifact',
-    params: {
-      stage: 'S1',
-      artifactType: 'requirement_doc',
-      content: s1.content,
-      note: '初始生成',
-    },
+    params: { projectName, description: '做一个轻量项目管理系统' },
   });
   await runStage(projectId, 'S1');
   await p({ projectId, method: 'advance', params: { from: 'S1', to: 'S2' } });
@@ -320,36 +310,11 @@ async function prepareThroughS4(projectId: string, projectName: string): Promise
   await p({ projectId, method: 'saveTechChoice', params: { choice: defaultChoice(['web']) } });
   await p({ projectId, method: 'advance', params: { from: 'S2', to: 'S3' } });
 
-  const s3 = await p<{ content: string; title: string; version: number }>({
-    projectId,
-    method: 'generateTechDoc',
-    params: {
-      userId: USER_ID,
-      projectName,
-      description: '做一个轻量项目管理系统',
-      choice: defaultChoice(['web']),
-      requirementDoc: s1.content,
-    },
-  });
-  await p({
-    projectId,
-    method: 'saveArtifact',
-    params: {
-      stage: 'S3',
-      artifactType: 'tech_doc',
-      content: s3.content,
-      note: '初始生成',
-    },
-  });
+  await p({ projectId, method: 'generateTechDoc', params: { requirementDoc: s1.content } });
   await runStage(projectId, 'S3');
   await p({ projectId, method: 'advance', params: { from: 'S3', to: 'S4' } });
 
-  const split = await p<SplitResult>({
-    projectId,
-    method: 'generateSplit',
-    params: { techDocVersion: 1 },
-  });
-  await p({ projectId, method: 'saveSplit', params: { split } });
+  await p({ projectId, method: 'generateSplit' });
   await runStage(projectId, 'S4');
   await p({ projectId, method: 'advance', params: { from: 'S4', to: 'S5' } });
 }
@@ -472,8 +437,7 @@ describe('S1→S5 全链路 + 关停重启续跑', () => {
       expect(run.results[node.id]?.status).toBe('success');
       // 编译校验：web 框架无内置工具链定义 → 如实标注"未编译校验"，不假装通过
       const summary = (node.data as { summary?: string } | undefined)?.summary ?? '';
-      expect(summary).toContain('个文件');
-      expect(summary).toContain('未编译校验');
+      expect(summary).toContain('skipped_toolchain_missing');
     }
 
     const codeDir = join(projectsDir, projectId, 'code');
@@ -527,7 +491,7 @@ describe('S1→S5 全链路 + 关停重启续跑', () => {
     expect(recovered.integrityProblems).toEqual([]);
     // 正常关停（dispose 把快照标干净）不该被当成异常退出
     expect(recovered.unexpectedExit).toBe(false);
-    expect(recovered.artifactVersions).toBe(4);
+    expect(recovered.artifactVersions).toBe(5);
     expect(recovered.resumeStage).toBe('S5');
     expect(recovered.snapshot['S1']?.status).toBe('confirmed');
     expect(recovered.snapshot['S4']?.status).toBe('confirmed');
@@ -685,4 +649,208 @@ describe('异常退出识别（dirty 快照语义）', () => {
     // 断点仍然准确：异常退出不丢阶段状态
     expect(recovered.resumeStage).toBe('S5');
   });
+});
+
+describe('流水线事务与队列控制回归', () => {
+  it('台账写入失败不留下文档、版本或文件，重试仍从 v1 开始', async () => {
+    runtime = buildRuntime(db, createFakeAi().handle);
+    const projectId = await newProject('事务失败');
+    db.exec(
+      "CREATE TRIGGER fail_pipeline BEFORE INSERT ON stage_artifact BEGIN SELECT RAISE(ABORT, 'disk ledger failed'); END",
+    );
+    await expect(
+      p({ projectId, method: 'generateRequirement', params: { description: '完整需求' } }),
+    ).rejects.toThrow();
+    expect(db.prepare('SELECT * FROM document WHERE project_id=?').all(projectId)).toEqual([]);
+    expect(db.prepare('SELECT * FROM stage_artifact WHERE project_id=?').all(projectId)).toEqual(
+      [],
+    );
+    expect(readdirSync(join(projectsDir, projectId, 'docs'))).toEqual([]);
+    expect(
+      pSync<Record<string, { status: string }>>({ projectId, method: 'snapshot' })['S1']?.status,
+    ).toBe('pending');
+    db.exec('DROP TRIGGER fail_pipeline');
+    const result = await p<{ version: number }>({
+      projectId,
+      method: 'generateRequirement',
+      params: { description: '完整需求' },
+    });
+    expect(result.version).toBe(1);
+  });
+
+  it('不能经直接生成或 startStage 绕过技术选型，客户端传 choice 也不能放行', async () => {
+    runtime = buildRuntime(db, createFakeAi().handle);
+    const projectId = await newProject('直接入口');
+    await expect(p({ projectId, method: 'startStage', params: { stage: 'S3' } })).rejects.toThrow(
+      /技术选型/,
+    );
+    await expect(
+      p({ projectId, method: 'generateTechDoc', params: { choice: defaultChoice(['web']) } }),
+    ).rejects.toThrow(/技术选型/);
+  });
+
+  it('失败节点重启后可单独重试，成功节点不重跑；跳过操作会持久化', async () => {
+    runtime = buildRuntime(db, createFakeAi({ s5FailAt: 2 }).handle);
+    const projectId = await newProject('单节点重试');
+    await prepareThroughS4(projectId, '单节点重试');
+    const first = await p<{ state: QueueState }>({ projectId, method: 'runGeneration' });
+    const failed = first.state.nodes.find((node) => node.status === 'failed')!;
+    expect(first.state.stats.success).toBe(2);
+    await runtime.dispose();
+    db.close();
+    db = openBusinessDb({ dataDir });
+    const ai = createFakeAi();
+    runtime = buildRuntime(db, ai.handle);
+    const retried = await p<QueueState>({
+      projectId,
+      method: 'retryNode',
+      params: { nodeId: failed.id },
+    });
+    expect(retried.stats.success).toBe(3);
+    expect(ai.counts.s5).toBe(1);
+    expect(
+      pSync<Record<string, { status: string }>>({ projectId, method: 'snapshot' })['S5']?.status,
+    ).toBe('awaiting_confirm');
+  });
+
+  it('运行中暂停在当前节点后停止，重启读取进度并跳过待办，继续时不重做成功节点', async () => {
+    const events = createDomainEventSink();
+    runtime = buildRuntime(db, createFakeAi().handle, events);
+    const projectId = await newProject('暂停恢复');
+    await prepareThroughS4(projectId, '暂停恢复');
+    let paused = false;
+    events.register('test', (event) => {
+      const payload = event.payload as { event?: string; data?: { state?: QueueState } };
+      if (!paused && payload.data?.state?.stats.success === 1) {
+        paused = true;
+        pSync({ projectId, method: 'pauseQueue' });
+      }
+    });
+    const first = await p<{ state: QueueState }>({ projectId, method: 'runGeneration' });
+    expect(first.state.paused).toBe(true);
+    expect(first.state.stats.success).toBe(1);
+    await runtime.dispose();
+    db.close();
+    db = openBusinessDb({ dataDir });
+    const ai = createFakeAi();
+    runtime = buildRuntime(db, ai.handle);
+    const queue = pSync<QueueState>({ projectId, method: 'getQueueState' });
+    expect(queue.stats.success).toBe(1);
+    expect(queue.paused).toBe(true);
+    await p({
+      projectId,
+      method: 'skipNode',
+      params: { nodeId: queue.nodes.find((node) => node.status === 'pending')!.id },
+    });
+    const result = await p<{ state: QueueState }>({
+      projectId,
+      method: 'runGeneration',
+      params: { resume: true },
+    });
+    expect(result.state.stats.success).toBe(2);
+    expect(result.state.stats.skipped).toBe(1);
+    expect(ai.counts.s5).toBe(1);
+  });
+});
+
+it('S4 生效版本回退后重启仍读取旧拆分；stale 与文档指针保持一致', async () => {
+  runtime = buildRuntime(db, createFakeAi().handle);
+  const projectId = await newProject('版本恢复');
+  await prepareThroughS4(projectId, '版本恢复');
+  const before = pSync<SplitResult>({ projectId, method: 'getSplit' });
+  await p({
+    projectId,
+    method: 'saveSplit',
+    params: {
+      split: { features: [{ id: 'new', name: '新版功能', pageIds: [], dependsOn: [] }], pages: [] },
+    },
+  });
+  pSync({ projectId, method: 'switchVersion', params: { stage: 'S4', version: 1 } });
+  pSync({ projectId, method: 'back', params: { from: 'S5', to: 'S3' } });
+  const snapshot = pSync({ projectId, method: 'snapshot' });
+  await runtime.dispose();
+  db.close();
+  db = openBusinessDb({ dataDir });
+  runtime = buildRuntime(db, null);
+  expect(pSync({ projectId, method: 'getSplit' })).toEqual(before);
+  expect(pSync({ projectId, method: 'snapshot' })).toEqual(snapshot);
+  const versions = pSync<Array<{ version: number }>>({
+    projectId,
+    method: 'listArtifacts',
+    params: { stage: 'S4' },
+  });
+  expect(versions.map((v) => v.version)).toEqual([1, 2]);
+  expect(await p({ projectId, method: 'readDiff', params: { stage: 'S4', version: 2 } })).toContain(
+    '新版功能',
+  );
+});
+
+it('S5 第二个文件写失败时撤销第一个文件和临时文件，其他节点仍完成调度', async () => {
+  const ai = createFakeAi();
+  const chat = ai.handle.gateway.chat.bind(ai.handle.gateway);
+  ai.handle.gateway.chat = (input) =>
+    input.purpose !== 'code'
+      ? chat(input)
+      : (async function* () {
+          yield {
+            type: 'delta',
+            text: JSON.stringify({
+              files: [
+                { path: 'partial/a.ts', content: 'export const a = 1;' },
+                { path: 'partial/b.ts', content: 'export const b = 1;' },
+              ],
+            }),
+          };
+        })();
+  runtime = buildRuntime(db, ai.handle);
+  const projectId = await newProject('写入故障');
+  await prepareThroughS4(projectId, '写入故障');
+  const codeDir = join(projectsDir, projectId, 'code/partial');
+  // An existing directory at the second temporary-file path forces a real OS write failure
+  // after the first file was published. Planning still succeeds for both final paths.
+  mkdirSync(join(codeDir, 'b.ts.ec-tmp'), { recursive: true });
+  const result = await p<{ state: QueueState }>({ projectId, method: 'runGeneration' });
+  expect(result.state.stats.failed).toBe(3);
+  expect(result.state.nodes.every((node) => node.attempts === 1)).toBe(true);
+  expect(readdirSync(codeDir)).toEqual(['b.ts.ec-tmp']);
+});
+
+it('关闭客户端会中止运行节点，重启续跑会重做中断节点而不是把它当失败跳过', async () => {
+  const ai = createFakeAi();
+  const chat = ai.handle.gateway.chat.bind(ai.handle.gateway);
+  let started!: () => void;
+  const begun = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  ai.handle.gateway.chat = (input) =>
+    input.purpose !== 'code'
+      ? chat(input)
+      : (async function* () {
+          started();
+          await new Promise<void>((resolve) =>
+            input.signal!.addEventListener('abort', () => resolve(), { once: true }),
+          );
+          yield { type: 'done' };
+        })();
+  runtime = buildRuntime(db, ai.handle);
+  const projectId = await newProject('关闭续跑');
+  await prepareThroughS4(projectId, '关闭续跑');
+  const running = p({ projectId, method: 'runGeneration' });
+  await begun;
+  await runtime.dispose();
+  await running;
+  db.close();
+  db = openBusinessDb({ dataDir });
+  const resumedAi = createFakeAi();
+  runtime = buildRuntime(db, resumedAi.handle);
+  const queue = pSync<QueueState>({ projectId, method: 'getQueueState' });
+  expect(queue.stats.failed).toBe(0);
+  expect(queue.stats.pending).toBe(3);
+  const result = await p<{ state: QueueState }>({
+    projectId,
+    method: 'runGeneration',
+    params: { resume: true },
+  });
+  expect(result.state.stats.success).toBe(3);
+  expect(resumedAi.counts.s5).toBe(3);
 });

@@ -51,7 +51,7 @@ export function VersionSwitcher({
           const version = Number(value);
           if (Number.isNaN(version)) return;
           api.switchVersion(projectId, stage, version);
-          if (version < latest) {
+          if (version !== activeVersion) {
             // 切换回历史版本：提示"正在查看历史版本"，不强制重建下游
             api.notifyDownstream(
               projectId,

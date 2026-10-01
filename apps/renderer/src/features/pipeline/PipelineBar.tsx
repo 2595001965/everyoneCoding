@@ -47,7 +47,12 @@ export function PipelineBar({
   const api = usePipelineApi();
   const states = snapshot ?? api.snapshot(projectId);
   const current =
-    [...STAGE_ORDER].reverse().find((stage) => states[stage].status !== 'pending') ?? 'S1';
+    STAGE_ORDER.find((stage) => states[stage].status === 'running') ??
+    STAGE_ORDER.find(
+      (stage) => states[stage].status === 'awaiting_confirm' || states[stage].status === 'stale',
+    ) ??
+    [...STAGE_ORDER].reverse().find((stage) => states[stage].status === 'confirmed') ??
+    'S1';
 
   return (
     <div className="ec-pipe-bar" data-testid="pipeline-bar">

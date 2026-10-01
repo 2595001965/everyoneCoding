@@ -22,9 +22,16 @@ export function backupBranchName(now: number): string {
   return `backup/${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
-/** 备份分支名是否合法（列表过滤用） */
+/**
+ * 备份分支名是否合法（列表过滤用）。
+ *
+ * 兼容两种生成器：本服务的 `backup/YYYYMMDD-HHMMSS` 与 git 域安全快照的
+ * `backup/<ISO 时间戳>-<序号>[-标签]`。两者的时间段都以数字开头，
+ * 因此用 `backup/` + 数字开头判定——不能放宽成任意 `backup/*`：
+ * 用户自己的 `backup/latest` 之类分支会被误当快照列进回滚清单。
+ */
 export function isBackupBranch(name: string): boolean {
-  return /^backup\/\d{8}-\d{6}$/.test(name);
+  return /^backup\/\d/.test(name);
 }
 
 export interface MergeExecuteOptions {

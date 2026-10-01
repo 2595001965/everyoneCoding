@@ -52,6 +52,7 @@ export class BackendRunner {
   } | null = null;
   private running = false;
   private listeners = new Set<(event: RunnerEvent) => void>();
+  private readonly ready: ((port: number, exited: Promise<unknown>) => Promise<void>) | undefined;
 
   constructor(opts: {
     process: ProcessHostPort;
@@ -59,15 +60,18 @@ export class BackendRunner {
     startPort?: number;
     probe?: PortProbe;
     clock?: () => number;
+    ready?: (port: number, exited: Promise<unknown>) => Promise<void>;
   }) {
     this.process = opts.process;
     this.logs = opts.logs;
     this.startPort = opts.startPort ?? DEFAULT_PREVIEW_PORT;
     this.probe = opts.probe ?? (async () => true);
     this.clock = opts.clock ?? (() => Date.now());
+    this.ready = opts.ready;
   }
 
   async start(profile: ProjectProfile, cwd: string): Promise<PreviewResult<ManagedProcess>> {
+    if (this.running && this.current !== null) return ok(this.current.proc, this.logsEntries());
     if (profile.startCmd === null) {
       this.logs.warn(`该项目无法自动启动：${profile.label}`);
       return fail(
@@ -79,8 +83,10 @@ export class BackendRunner {
     const alloc = await allocatePort({ start: this.startPort, probe: this.probe });
     if (alloc.log) this.logs.info(alloc.log);
 
-    const handle = await this.process.spawn(profile.startCmd, [], { cwd, shell: true });
-    this.attach(handle, 'run');
+    const handle = await this.process.spawn(profile.startCmd, [], {
+      cwd, shell: true,
+      env: { PORT: String(alloc.port), HOST: '127.0.0.1', PYTHONUNBUFFERED: '1' },
+    });
 
     const proc: ManagedProcess = {
       id: handle.id,
@@ -91,6 +97,15 @@ export class BackendRunner {
       startedAt: this.clock(),
     };
     this.current = { handle, proc, profile, cwd };
+    this.attach(handle, 'run');
+    try {
+      await this.ready?.(alloc.port, handle.exited);
+    } catch (error) {
+      await handle.kill();
+      this.current = null;
+      this.running = false;
+      return fail('START_FAILED', `后端未就绪：${String(error)}`, this.logsEntries());
+    }
     this.running = true;
     this.logs.info(`后端已启动：${proc.command}（端口 ${proc.port}）`);
     this.emit({ type: 'started', detail: proc.url });

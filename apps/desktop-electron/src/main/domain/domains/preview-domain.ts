@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { existsSync, readFileSync, readdirSync, statSync, watch, type Dirent } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { networkInterfaces } from 'node:os';
+import { connect } from 'node:net';
 import { extname, join, relative } from 'node:path';
 import type Database from 'better-sqlite3';
 
@@ -25,7 +26,6 @@ import {
   type ManagedProcess,
   type MockSettings,
   type PreviewResult,
-  type ProcessHostPort,
   type ProjectProfile,
   type ResolvedResponse,
   type StreamedLogLine,
@@ -88,7 +88,7 @@ const MAX_BODY_BYTES = 1_048_576;
 const MAX_REQUEST_LOGS = 500;
 
 /** 局域网开关（默认关闭，D-09） */
-const LAN_SHARING_KEY = 'preview_lan_sharing';
+const lanSharingKey = (projectId: string): string => `preview_lan_sharing:${projectId}`;
 /** Mock 设置按项目存 */
 const mockSettingsKey = (projectId: string): string => `preview_mock_settings:${projectId}`;
 
@@ -103,6 +103,7 @@ export interface ApiRequestLog {
   requestBody: string | null;
   responseBody: string;
   errorMessage: string | null;
+  requestHeaders?: Record<string, string>;
 }
 
 export interface PreviewDomainOptions {
@@ -177,6 +178,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
   const requireProject = (params: Record<string, unknown>): string => {
     const projectId = String(params['projectId'] ?? '');
     if (projectId.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 projectId');
+    paths.codeRoot(projectId);
     return projectId;
   };
 
@@ -199,7 +201,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const collect = (dir: string, depth = 0): void => {
       if (depth > 3 || !existsSync(dir)) return;
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
+        const full = paths.inside(dir, entry.name);
         if (entry.isDirectory()) {
           if (entry.name === 'node_modules' || entry.name === '.git') continue;
           collect(full, depth + 1);
@@ -309,7 +311,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     // 后端请求能力：只有"受控进程托管的真实后端"才算可用（FR-PRV-02 的第一优先级）
     const backendRequester = {
       get available(): boolean {
-        return backendPort.available && backendUrl !== null;
+        return instance.mode !== 'static' && backendPort.available && backendUrl !== null;
       },
       async request(input: {
         url: string;
@@ -384,11 +386,12 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     instance: PreviewInstance,
     urlPath: string,
   ): { status: number; body: Buffer; type: string } | null => {
-    const relativePath = decodeURIComponent(urlPath.split('?')[0] ?? '/');
     const root = instance.staticRoot;
     let target: string;
     try {
-      target = paths.inside(root, relativePath === '/' ? 'index.html' : relativePath);
+      const relativePath = decodeURIComponent(urlPath.split('?')[0] ?? '/').replace(/^\//, '');
+      if (relativePath.split(/[\\/]/).some((part) => part.startsWith('.'))) return null;
+      target = paths.inside(root, relativePath === '' ? 'index.html' : relativePath);
     } catch {
       return null;
     }
@@ -408,7 +411,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
   const isApiRequest = (instance: PreviewInstance, method: string, urlPath: string): boolean => {
     if (urlPath.startsWith('/api/') || urlPath === '/api') return true;
     if (method !== 'GET' && method !== 'HEAD') return true;
-    return matchRoute(instance.openapi.routes, method, urlPath) !== null;
+    return matchRoute(instance.openapi.routes, method, urlPath.split('?')[0] ?? urlPath) !== null;
   };
 
   const recordRequest = (
@@ -418,6 +421,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       url: string;
       requestBody: string | null;
       response: ResolvedResponse;
+      headers?: Record<string, string>;
     },
   ): ApiRequestLog => {
     instance.requestSeq += 1;
@@ -432,6 +436,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       requestBody: input.requestBody,
       responseBody: safeStringify(input.response.data),
       errorMessage: input.response.errorMessage,
+      requestHeaders: input.headers ?? {},
     };
     instance.requests.push(entry);
     if (instance.requests.length > MAX_REQUEST_LOGS) {
@@ -448,12 +453,21 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const method = (req.method ?? 'GET').toUpperCase() as HttpMethodName;
     const urlPath = req.url ?? '/';
     const body = await readBody(req);
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (
+        typeof value === 'string' &&
+        !['host', 'connection', 'content-length', 'transfer-encoding'].includes(key)
+      )
+        headers[key] = value;
+    }
     const binding: DataBinding | null = null;
     let response: ResolvedResponse;
     try {
       response = await instance.resolver.resolve({
         url: urlPath,
         method,
+        headers,
         ...(body.length > 0 ? { body: parseMaybeJson(body) } : {}),
         binding,
       });
@@ -473,6 +487,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       url: urlPath,
       requestBody: body.length > 0 ? body : null,
       response,
+      headers,
     });
     res.writeHead(response.status, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -487,7 +502,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
   const startServer = async (instance: PreviewInstance, mode: PreviewMode): Promise<void> => {
     if (instance.server !== null) await stopServer(instance);
-    const lanSharing = readLanSharing();
+    const lanSharing = readLanSharing(instance.projectId);
     const allocation = await allocatePort({
       start: DEFAULT_PREVIEW_PORT,
       probe: probePort,
@@ -500,6 +515,15 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const host = lanSharing ? '0.0.0.0' : '127.0.0.1';
     const server = createServer((req, res) => {
       const method = (req.method ?? 'GET').toUpperCase();
+      if (method === 'OPTIONS') {
+        res.writeHead(204, {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': '*',
+          'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+        });
+        res.end();
+        return;
+      }
       const urlPath = req.url ?? '/';
       if (isApiRequest(instance, method, urlPath)) {
         // 异步处理，但**必须兜住异常**：未处理的 rejection 会让请求悬空、连接被重置
@@ -525,6 +549,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       res.writeHead(200, {
         'Content-Type': file.type,
         'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*',
       });
       res.end(file.body);
     });
@@ -554,6 +579,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     if (instance.server === null) return;
     await new Promise<void>((resolveClose) => {
       instance.server?.close(() => resolveClose());
+      instance.server?.closeAllConnections();
     });
     instance.server = null;
     instance.port = null;
@@ -584,7 +610,8 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         }
         for (const entry of entries) {
           if (entry.name === 'node_modules' || entry.name === '.git') continue;
-          const full = join(dir, entry.name);
+          if (entry.isSymbolicLink()) continue;
+          const full = paths.inside(dir, entry.name);
           if (entry.isDirectory()) {
             walk(full, depth + 1);
             continue;
@@ -678,7 +705,8 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
   /* ------------------------------ 设置读取 ------------------------------ */
 
-  const readLanSharing = (): boolean => settings.read<boolean>(LAN_SHARING_KEY) === true;
+  const readLanSharing = (projectId: string): boolean =>
+    settings.read<boolean>(lanSharingKey(projectId)) === true;
 
   /* ------------------------------ 路由 ------------------------------ */
 
@@ -697,6 +725,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           dataSource: instance.server === null ? null : (lastSource ?? 'static'),
           backendAvailable: instance.runner?.status().running ?? false,
           notice: instance.notice,
+          revision: instance.lastChangeAt,
         };
       }
 
@@ -738,7 +767,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           for (const entry of readdirSync(designDir)) {
             if (!entry.endsWith('.dsl.json')) continue;
             try {
-              const envelope = JSON.parse(readFileSync(join(designDir, entry), 'utf8')) as {
+              const envelope = JSON.parse(readFileSync(paths.inside(designDir, entry), 'utf8')) as {
                 page?: { route?: string; name?: string };
               };
               pages.push({
@@ -757,6 +786,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         const instance = instanceOf(projectId);
         const now = Date.now();
         const elapsedMs = instance.lastChangeAt === null ? null : now - instance.lastChangeAt;
+        instance.lastChangeAt = now;
         // 无变更时如实返回 null 而不是 0：0 会被读成"刷新耗时 0ms"，是假的
         return { elapsedMs, reason: String(params['reason'] ?? 'manual') };
       }
@@ -797,6 +827,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           throw new ShellError('NOT_FOUND', `未找到该请求记录：${String(input.id ?? '')}`);
         }
         const url = typeof input.url === 'string' && input.url.length > 0 ? input.url : source.url;
+        validateApiPath(url);
         const method =
           typeof input.method === 'string' && input.method.length > 0
             ? (input.method.toUpperCase() as HttpMethodName)
@@ -806,6 +837,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         const response = await instance.resolver.resolve({
           url,
           method,
+          headers: source.requestHeaders ?? {},
           ...(body !== null && body !== undefined && `${body}`.length > 0 ? { body } : {}),
         });
         recordRequest(instance, {
@@ -813,6 +845,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           url,
           requestBody: body === null || body === undefined ? null : safeStringify(body),
           response,
+          headers: source.requestHeaders ?? {},
         });
         return response;
       }
@@ -853,18 +886,15 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         if (options.process === null) {
           throw new ShellError('NOT_SUPPORTED', '后端托管需要受控进程端口，当前未装配。');
         }
-        // ① 先分配端口（应用要从 PORT 环境变量读它）
-        const basePort = profile.portHint ?? DEFAULT_PREVIEW_PORT + 100;
-        const allocation = await allocatePort({ start: basePort, probe: probePort });
-        instance.pendingPort.value = allocation.port;
-        if (allocation.log !== null) instance.logs.info(allocation.log);
-
-        // ② 用同一个端口建 runner，保证 runner 报的 url 与应用真实监听的端口一致
+        if (instance.runner?.status().running) {
+          return { ok: true, data: instance.runner.status().process, logs: [], error: null };
+        }
         const runner = new BackendRunner({
-          process: withPortEnv(options.process, instance.pendingPort),
+          process: options.process,
           logs: instance.logs,
-          startPort: allocation.port,
+          startPort: profile.portHint ?? DEFAULT_PREVIEW_PORT + 100,
           probe: probePort,
+          ready: waitForBackend,
         });
         runner.onEvent((event) => {
           if (event.type === 'started') instance.setBackend(runner.status().process?.url ?? null);
@@ -875,12 +905,6 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         const result = await runner.start(profile, instance.codeRoot);
         if (result.ok && result.data !== null) {
           instance.setBackend(result.data.url);
-          if (result.data.port !== allocation.port) {
-            instance.logs.warn(
-              `后端实际端口 ${result.data.port} 与预分配端口 ${allocation.port} 不一致，` +
-                '接口代理将使用实际端口；若表单请求 502，请检查应用是否忽略 PORT 环境变量。',
-            );
-          }
         }
         return result;
       }
@@ -943,7 +967,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           );
         }
         // 默认关闭，且拒绝在未开启时"顺手给个地址"——那等于绕过了用户的显式授权
-        if (!readLanSharing()) {
+        if (!readLanSharing(projectId)) {
           throw new ShellError(
             'NOT_SUPPORTED',
             '局域网预览默认关闭：开启后同一网络下的其它设备即可访问你的本机工程，请确认网络环境可信后再开启。',
@@ -958,11 +982,11 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'lanSharingEnabled':
-        return readLanSharing();
+        return readLanSharing(projectId);
 
       case 'setLanSharing': {
         const enabled = params['enabled'] === true;
-        settings.write(LAN_SHARING_KEY, enabled);
+        settings.write(lanSharingKey(projectId), enabled);
         const instance = instanceOf(projectId);
         instance.logs.warn(
           enabled
@@ -1022,7 +1046,22 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         // 读不到就少几个证据，不影响探测
       }
     }
-    return detectProjectType([...names]);
+    const profile = detectProjectType([...names]);
+    if (profile.kind === 'node') {
+      const pkg = JSON.parse(
+        readFileSync(paths.inside(instance.codeRoot, 'package.json'), 'utf8'),
+      ) as { scripts?: Record<string, string> };
+      profile.startCmd = pkg.scripts?.['dev']
+        ? 'npm run dev'
+        : pkg.scripts?.['start']
+          ? 'npm start'
+          : names.has('server.js')
+            ? 'node server.js'
+            : names.has('app.js')
+              ? 'node app.js'
+              : null;
+    }
+    return profile;
   };
 
   const dispose = async (): Promise<void> => {
@@ -1039,7 +1078,20 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     return instance === undefined ? [] : instance.requests;
   };
 
-  return { router, dispose, readRequestLogs };
+  const pending = new Map<string, Promise<unknown>>();
+  const serialized: DomainRouter = (method, params, ctx) => {
+    const projectId = requireProject(params);
+    const previous = pending.get(projectId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(() => router(method, params, ctx));
+    pending.set(projectId, next);
+    void next
+      .finally(() => {
+        if (pending.get(projectId) === next) pending.delete(projectId);
+      })
+      .catch(() => undefined);
+    return next;
+  };
+  return { router: serialized, dispose, readRequestLogs };
 }
 
 /* ------------------------------ 纯工具 ------------------------------ */
@@ -1072,23 +1124,33 @@ function probePort(port: number): Promise<boolean> {
  * 不注入的话 BackendRunner 分配的端口与应用真实监听的端口会不一致，
  * 于是"预览地址能打开、接口全 502"——这是最容易误判成后端有 bug 的一种故障。
  */
-function withPortEnv(
-  base: ControlledProcessHost,
-  pendingPort: { value: number | null },
-): ProcessHostPort {
-  return {
-    async spawn(command, args, spawnOptions) {
-      const port = pendingPort.value;
-      return base.spawn(command, args, {
-        ...(spawnOptions?.cwd !== undefined ? { cwd: spawnOptions.cwd } : {}),
-        env: {
-          ...(spawnOptions?.env ?? {}),
-          ...(port !== null ? { PORT: String(port) } : {}),
-        },
-        shell: spawnOptions?.shell ?? true,
-      });
-    },
-  };
+async function waitForBackend(port: number, exited: Promise<unknown>): Promise<void> {
+  let ended = false;
+  void exited.then(() => {
+    ended = true;
+  });
+  const deadline = Date.now() + 15_000;
+  while (!ended && Date.now() < deadline) {
+    const listening = await new Promise<boolean>((done) => {
+      const socket = connect({ port, host: '127.0.0.1' });
+      const finish = (ok: boolean): void => {
+        socket.destroy();
+        done(ok);
+      };
+      socket.once('connect', () => finish(true));
+      socket.once('error', () => finish(false));
+      socket.setTimeout(200, () => finish(false));
+    });
+    if (listening && !ended) return;
+    await new Promise<void>((done) => setTimeout(done, 80));
+  }
+  throw new Error(ended ? '进程已退出，请查看启动日志' : '等待监听端口超时，请检查 PORT 配置');
+}
+
+function validateApiPath(path: string): void {
+  if (!path.startsWith('/') || path.startsWith('//') || /[\\\r\n]/.test(path)) {
+    throw new ShellError('INVALID_ARGUMENT', '接口地址必须是当前预览服务的相对路径');
+  }
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -1137,11 +1199,19 @@ async function forwardToBackend(
   baseUrl: string,
   input: { url: string; method: HttpMethodName; headers?: Record<string, string>; body?: unknown },
 ): Promise<{ status: number; data: unknown }> {
+  validateApiPath(input.url);
   const target = new URL(input.url, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+  if (target.origin !== new URL(baseUrl).origin)
+    throw new ShellError('INVALID_ARGUMENT', '接口请求越出托管后端');
   // `localhost` 在 Windows 上可能先解析到 ::1，而后端通常只 listen 了 127.0.0.1，
   // 直连会得到 ECONNRESET（表现为"预览地址能打开、接口全炸"）。这里统一落到 IPv4 回环。
   const hostname = target.hostname === 'localhost' ? '127.0.0.1' : target.hostname;
-  const payload = input.body === undefined ? null : JSON.stringify(input.body);
+  const payload =
+    input.body === undefined
+      ? null
+      : typeof input.body === 'string'
+        ? input.body
+        : JSON.stringify(input.body);
   return new Promise((resolveForward) => {
     const req = httpRequest(
       {
@@ -1152,7 +1222,10 @@ async function forwardToBackend(
         headers: {
           ...(input.headers ?? {}),
           ...(payload !== null
-            ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+            ? {
+                'Content-Type': input.headers?.['content-type'] ?? 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+              }
             : {}),
         },
         timeout: 15_000,
@@ -1178,10 +1251,17 @@ async function forwardToBackend(
 
 /** 生成可直接粘贴执行的 cURL（含请求体，单引号转义） */
 export function buildCurl(entry: ApiRequestLog, baseUrl: string): string {
-  const url = entry.url.startsWith('http') ? entry.url : `${baseUrl}${entry.url}`;
-  const parts = [`curl -X ${entry.method} '${url}'`];
+  validateApiPath(entry.url);
+  const quote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
+  const url = `${baseUrl}${entry.url}`;
+  const method = entry.method.toUpperCase();
+  if (!/^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/.test(method))
+    throw new ShellError('INVALID_ARGUMENT', '不支持的请求方法');
+  const parts = [`curl -X ${method} ${quote(url)}`];
+  for (const [key, value] of Object.entries(entry.requestHeaders ?? {}))
+    parts.push(`-H ${quote(`${key}: ${value}`)}`);
   if (entry.requestBody !== null && entry.requestBody.length > 0) {
-    parts.push("-H 'Content-Type: application/json'");
+    if (!entry.requestHeaders?.['content-type']) parts.push("-H 'Content-Type: application/json'");
     parts.push(`--data-raw '${entry.requestBody.replace(/'/g, `'\\''`)}'`);
   }
   return parts.join(' ');

@@ -32,12 +32,15 @@ export interface GitCredentialStoreOptions {
   /** 直接给外壳（推荐）或已包装好的 SecureStore */
   shell?: ShellHost | undefined;
   store?: SecureStore | undefined;
+  scope?: string;
 }
 
 export class GitCredentialStore {
   private readonly store: SecureStore;
+  private readonly prefix: string;
 
   constructor(options: GitCredentialStoreOptions) {
+    this.prefix = options.scope === undefined ? '' : `${encodeURIComponent(options.scope)}/`;
     if (options.store !== undefined) {
       this.store = options.store;
       return;
@@ -49,12 +52,17 @@ export class GitCredentialStore {
   }
 
   /** HTTPS：Personal Access Token */
+  scoped(projectId: string): GitCredentialStore {
+    return new GitCredentialStore({ store: this.store, scope: projectId });
+  }
+
+  /** HTTPS：Personal Access Token */
   async setHttpsCredential(input: {
     remoteName: string;
     username: string;
     token: string;
   }): Promise<void> {
-    const scope = input.remoteName;
+    const scope = this.prefix + input.remoteName;
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.kind}`, 'https');
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.username}`, input.username);
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.token}`, input.token);
@@ -72,7 +80,7 @@ export class GitCredentialStore {
     privateKeyPath: string;
     passphrase?: string | null;
   }): Promise<void> {
-    const scope = input.remoteName;
+    const scope = this.prefix + input.remoteName;
     await this.store.set(GIT_CREDENTIAL_NAMESPACE, `${scope}${SUFFIX.kind}`, 'ssh');
     await this.store.set(
       GIT_CREDENTIAL_NAMESPACE,
@@ -99,7 +107,10 @@ export class GitCredentialStore {
   }
 
   async kindOf(remoteName: string): Promise<GitCredentialKind | null> {
-    const kind = await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.kind}`);
+    const kind = await this.store.get(
+      GIT_CREDENTIAL_NAMESPACE,
+      `${this.prefix}${remoteName}${SUFFIX.kind}`,
+    );
     return kind === 'https' || kind === 'ssh' ? kind : null;
   }
 
@@ -111,6 +122,7 @@ export class GitCredentialStore {
   async get(remoteName: string): Promise<GitCredential | null> {
     const kind = await this.kindOf(remoteName);
     if (kind === null) return null;
+    remoteName = this.prefix + remoteName;
     if (kind === 'https') {
       const username =
         (await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.username}`)) ?? '';
@@ -135,6 +147,7 @@ export class GitCredentialStore {
   }
 
   async remove(remoteName: string): Promise<void> {
+    remoteName = this.prefix + remoteName;
     for (const suffix of Object.values(SUFFIX)) {
       await this.store
         .delete(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${suffix}`)
@@ -148,8 +161,8 @@ export class GitCredentialStore {
     const names = [
       ...new Set(
         keys
-          .filter((key) => key.endsWith(SUFFIX.kind))
-          .map((key) => key.slice(0, -SUFFIX.kind.length)),
+          .filter((key) => key.startsWith(this.prefix) && key.endsWith(SUFFIX.kind))
+          .map((key) => key.slice(this.prefix.length, -SUFFIX.kind.length)),
       ),
     ];
     const bindings: CredentialBinding[] = [];
@@ -158,11 +171,17 @@ export class GitCredentialStore {
       if (kind === null) continue;
       const username =
         kind === 'https'
-          ? await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.username}`)
+          ? await this.store.get(
+              GIT_CREDENTIAL_NAMESPACE,
+              `${this.prefix}${remoteName}${SUFFIX.username}`,
+            )
           : null;
       const privateKeyPath =
         kind === 'ssh'
-          ? await this.store.get(GIT_CREDENTIAL_NAMESPACE, `${remoteName}${SUFFIX.keyPath}`)
+          ? await this.store.get(
+              GIT_CREDENTIAL_NAMESPACE,
+              `${this.prefix}${remoteName}${SUFFIX.keyPath}`,
+            )
           : null;
       bindings.push({
         remoteName,
@@ -216,7 +235,10 @@ export function buildAuthEnv(credential: GitCredential | null): AuthEnvResult {
   }
 
   const hasPassphrase = credential.passphrase !== null && credential.passphrase.length > 0;
-  const flags = [`-i "${credential.privateKeyPath}"`, '-o IdentitiesOnly=yes'];
+  const keyPath = `'${credential.privateKeyPath.replace(/'/g, `'\\''`)}'`;
+  // BatchMode 禁止一切交互提示：无口令时用它保证"绝不挂起等输入"；
+  // 带口令的私钥只能经 ssh-agent 提供，此时加 BatchMode 会让 ssh 直接失败。
+  const flags = [`-i ${keyPath}`, '-o IdentitiesOnly=yes'];
   if (!hasPassphrase) flags.push('-o BatchMode=yes');
   return {
     env: { GIT_SSH_COMMAND: `ssh ${flags.join(' ')}` },

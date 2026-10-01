@@ -137,6 +137,19 @@ describe('ts-parser (ts/tsx/js/jsx)', () => {
     const { degradation } = parser.parse({ path: 'a.ts', content: '', targets: COMPONENT });
     expect(degradation).toBeNull();
   });
+
+  it('声明之前的局部引用与第三方具名导入不参与重命名', () => {
+    const content = [
+      "import { UserLoginButton } from 'vendor-ui';",
+      'const thirdParty = UserLoginButton;',
+      'function outer() {',
+      '  use(UserLoginButton);',
+      '  const UserLoginButton = 1;',
+      '  return UserLoginButton;',
+      '}',
+    ].join('\n');
+    expect(parser.parse({ path: 'scope.ts', content, targets: COMPONENT }).hits).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

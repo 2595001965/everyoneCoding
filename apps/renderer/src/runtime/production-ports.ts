@@ -31,6 +31,7 @@ import {
   type TechChoice,
 } from '@ec/pipeline';
 import type { BudgetConfig, BudgetDecision, UsageReportRow } from '@ec/ai';
+import type { JumpOutcome, ReverseJumpResult } from '@ec/ai';
 import type { AssembledContext, ContextAssemblyRequest, ContextSources, WritePlan } from '@ec/ai';
 import type { AutoCommitPolicy, CredentialBinding, GitResult } from '@ec/git';
 import type { PipelineStage, PipelineStageSnapshot } from '@ec/pipeline';
@@ -41,6 +42,7 @@ import type { CodeViewApi } from '../features/code/code-api';
 import type { GitApi, GitProgressEvent, GitRepoInfo } from '../features/git/git-api';
 import type { MemoryApi } from '../features/memory/memory-api';
 import type { NavApi } from '../features/nav/nav-api';
+import { navigateToLocation } from './nav-location';
 import type {
   PackageApi,
   ExportJobRequest,
@@ -211,6 +213,8 @@ export function createPipelineApi(
     notifyDownstream: (projectId, stage, message) =>
       p('notifyDownstream', { projectId, stage, message }),
     generateRequirement: (input) => pa('generateRequirement', input),
+    captureDesign: (projectId) => pa('captureDesign', { projectId }),
+    getQueueState: (projectId) => p('getQueueState', { projectId }),
     getTechChoice: (projectId) => p<TechChoice | null>('getTechChoice', { projectId }),
     saveTechChoice: (projectId, choice) => pa('saveTechChoice', { projectId, choice }),
     generateTechDoc: (input) => pa('generateTechDoc', input),
@@ -235,7 +239,7 @@ export function createPipelineApi(
     generateSplit: (projectId, input) =>
       pa('generateSplit', { projectId, ...(input ?? {}) }) as Promise<SplitResult>,
     retryNode: (projectId, nodeId) => pa('retryNode', { projectId, nodeId }) as Promise<QueueState>,
-    skipNode: (projectId, nodeId) => p('skipNode', { projectId, nodeId }) as QueueState,
+    skipNode: (projectId, nodeId) => pa('skipNode', { projectId, nodeId }),
     pauseQueue: (projectId) => p('pauseQueue', { projectId }) as QueueState,
     getResumeProgress: (projectId) =>
       p('getResumeProgress', { projectId }) as {
@@ -316,39 +320,52 @@ export function createGitApi(call: DomainCaller, subscribe: DomainEventSubscribe
     stage: (paths) => gOrFail('stage', { paths: [...paths] }),
     unstage: (paths) => gOrFail('unstage', { paths: [...paths] }),
     commit: (input) => gOrFail('commit', { input }),
-    generateCommitMessage: (input) => gOrFail('generateCommitMessage', input),
-    diff: (options) => gOrFail('diff', options),
+    generateCommitMessage: async (input) => {
+      const result = await gOrFail<{ text: string }>('generateCommitMessage', input);
+      return { ...result, data: result.data?.text ?? null };
+    },
+    diff: (options) => gOrFail('diff', { options }),
     branches: () => gOrFail('branches'),
     tags: () => gOrFail('tags'),
     createBranch: (name, startPoint) =>
       gOrFail('createBranch', { name, ...(startPoint !== undefined ? { startPoint } : {}) }),
     switchBranch: (name, create) => gOrFail('switchBranch', { name, create: create === true }),
     renameBranch: (from, to) => gOrFail('renameBranch', { from, to }),
-    deleteBranch: (name, force) => gOrFail('deleteBranch', { name, force: force === true }),
-    log: (options) => gOrFail('log', options),
+    deleteBranch: (name, force) =>
+      gOrFail('deleteBranch', { name, force: force === true, confirmed: true }),
+    log: (options) => gOrFail('log', { options }),
     commitDetail: (sha) => gOrFail('commitDetail', { sha }),
     previewMerge: (source, target) => gOrFail('previewMerge', { source, target }),
-    merge: (source, options) => gOrFail('merge', { source, options }),
-    rebase: (onto, options) => gOrFail('rebase', { onto, options }),
-    abort: (kind) => gOrFail('abort', { kind }),
+    merge: (source, options) => gOrFail('merge', { source, options, confirmed: true }),
+    rebase: (onto, options) => gOrFail('rebase', { onto, options, confirmed: true }),
+    abort: (kind) => gOrFail('abort', { kind, confirmed: true }),
     conflicts: () => gOrFail('conflicts'),
-    applyResolution: (input) => gOrFail('applyResolution', { input }),
+    applyResolution: async (input) => {
+      const result = await gOrFail<{ mergeCommitSha?: string; path: string }>('applyResolution', {
+        input,
+      });
+      return {
+        ...result,
+        data: result.data === null ? null : (result.data.mergeCommitSha ?? result.data.path),
+      };
+    },
     requestAiMerge: (input) => gOrFail('requestAiMerge', { input }),
     stashList: () => gOrFail('stashList'),
     stashPush: (message) => gOrFail('stashPush', { message }),
-    stashApply: (index, drop) => gOrFail('stashApply', { index, drop: drop === true }),
-    stashDrop: (index) => gOrFail('stashDrop', { index }),
+    stashApply: (index, drop) =>
+      gOrFail('stashApply', { index, drop: drop === true, confirmed: true }),
+    stashDrop: (index) => gOrFail('stashDrop', { index, confirmed: true }),
     rollbackPlan: (input) => gOrFail('rollbackPlan', { input }),
-    rollbackExecute: (plan) => gOrFail('rollbackExecute', { plan }),
+    rollbackExecute: (plan) => gOrFail('rollbackExecute', { plan, confirmed: true }),
     snapshots: () => gOrFail('snapshots'),
     remotes: () => gOrFail('remotes'),
     addRemote: (name, url) => gOrFail('addRemote', { name, url }),
     editRemote: (name, url) => gOrFail('editRemote', { name, url }),
-    removeRemote: (name) => gOrFail('removeRemote', { name }),
+    removeRemote: (name) => gOrFail('removeRemote', { name, confirmed: true }),
     testRemote: (name) => gOrFail('testRemote', { name }),
     push: (input, onProgress) =>
       withProgress('git', 'git:progress', subscribe, forwardGitProgress(onProgress), (requestId) =>
-        call.call('git', 'push', withProject({ input }), requestId),
+        call.call('git', 'push', withProject({ input, confirmed: true }), requestId),
       ) as Promise<GitResult<{ summary: string; upToDate: boolean; forced: boolean }>>,
     pull: (input, onProgress) =>
       withProgress('git', 'git:progress', subscribe, forwardGitProgress(onProgress), (requestId) =>
@@ -359,7 +376,7 @@ export function createGitApi(call: DomainCaller, subscribe: DomainEventSubscribe
         call.call('git', 'fetch', withProject({ input }), requestId),
       ) as Promise<GitResult<{ summary: string; upToDate: boolean }>>,
     credentialBindings: () =>
-      gOrFail<CredentialBinding[]>('credentialBindings').then((r) => r.data ?? []),
+      call.call<CredentialBinding[]>('git', 'credentialBindings', withProject()),
     saveHttpsCredential: (input) =>
       call.call('git', 'saveHttpsCredential', withProject({ input })).then(() => undefined),
     saveSshCredential: (input) =>
@@ -399,6 +416,13 @@ export function createPreviewApi(call: DomainCaller, subscribe: DomainEventSubsc
       return previewFail<T>(error);
     }
   };
+  const result = async <T>(method: string): Promise<PreviewResult<T>> => {
+    try {
+      return await p<PreviewResult<T>>(method);
+    } catch (error) {
+      return previewFail<T>(error);
+    }
+  };
   return {
     ready: true,
     state: () => p<PreviewState>('state'),
@@ -418,13 +442,12 @@ export function createPreviewApi(call: DomainCaller, subscribe: DomainEventSubsc
     toCurl: (input) => p('toCurl', input),
     clearRequests: () => p('clearRequests').then(() => undefined),
     projectProfile: () => ok(() => p('projectProfile')) as ReturnType<PreviewApi['projectProfile']>,
-    installDependencies: () =>
-      ok(() => p('installDependencies')) as ReturnType<PreviewApi['installDependencies']>,
-    startBackend: () => ok(() => p('startBackend')) as ReturnType<PreviewApi['startBackend']>,
+    installDependencies: () => result('installDependencies'),
+    startBackend: () => result('startBackend'),
     stopBackend: () => ok(() => p('stopBackend').then(() => null)),
-    restartBackend: () => ok(() => p('restartBackend')) as ReturnType<PreviewApi['restartBackend']>,
+    restartBackend: () => result('restartBackend'),
     backendStatus: () => p('backendStatus'),
-    logs: (filter) => p('logs', filter),
+    logs: (filter) => p('logs', { filter }),
     /**
      * 日志流订阅（**常驻事件**，不绑定某次请求）。
      *
@@ -485,10 +508,29 @@ export function createNavApi(call: DomainCaller): NavApi {
     ready: true,
     hoverTargets: (request) => n('hoverTargets', { request }),
     resolveJump: (request) => n('resolveJump', { request }),
-    commitJump: (target) => n('commitJump', { target }),
+    commitJump: async (target) => {
+      const projectId = requireActiveProject().id;
+      const outcome = await n<JumpOutcome>('commitJump', { target });
+      if (getActiveProject()?.id === projectId && outcome.success && outcome.target?.filePath) {
+        navigateToLocation({
+          projectId,
+          filePath: outcome.target.filePath,
+          line: outcome.target.startLine ?? 1,
+        });
+      }
+      return outcome;
+    },
     jumpStats: () => n('jumpStats'),
     relationGraph: () => n('relationGraph'),
-    reverseJump: (input) => n('reverseJump', { input }),
+    reverseJump: async (input) => {
+      const projectId = requireActiveProject().id;
+      const outcome = await n<ReverseJumpResult>('reverseJump', { input });
+      const hit = outcome.hits.find((item) => item.page !== null && item.element !== null);
+      if (getActiveProject()?.id === projectId && outcome.success && hit?.page) {
+        navigateToLocation({ projectId, pageId: hit.page.pageId, elementId: hit.elementId });
+      }
+      return outcome;
+    },
     dataFlow: (elementId) => n('dataFlow', { elementId }),
   };
 }
@@ -539,7 +581,34 @@ export function createCodeApi(call: DomainCaller, subscribe: DomainEventSubscrib
       apply: (plan) => call.call('code', 'apply', withProject({ plan })),
       requestRework: (request) =>
         call.call('code', 'requestRework', withProject({ request })).then(() => undefined),
+      generate: (request) => call.call('code', 'generate', withProject({ request })),
+      abortGeneration: () => call.call('code', 'abortGeneration', withProject()),
     },
+    subscribeGeneration: (listener) =>
+      subscribe((event: DomainEvent) => {
+        if (event.domain !== 'code') return;
+        const payload = event.payload as Record<string, unknown> | null | undefined;
+        switch (payload?.['type']) {
+          case 'code:generate-started':
+            listener({
+              type: 'started',
+              target: String(payload['target'] ?? ''),
+              resumed: payload['resumed'] === true,
+            });
+            return;
+          case 'code:generate-delta':
+            listener({ type: 'delta', text: String(payload['text'] ?? '') });
+            return;
+          case 'code:generate-done':
+            listener({
+              type: 'done',
+              status: payload['status'] as 'planned' | 'aborted' | 'degraded',
+            });
+            return;
+          default:
+            return;
+        }
+      }),
     subscribeExternalChanges: (listener) =>
       subscribe((event: DomainEvent) => {
         if (event.domain !== 'code') return;
@@ -635,18 +704,10 @@ export function createPackageApi(call: DomainCaller, subscribe: DomainEventSubsc
         onProgress === undefined
           ? undefined
           : (payload) => {
-              const wire = payload as {
-                stage?: unknown;
-                processed?: unknown;
-                total?: unknown;
-                currentFile?: unknown;
-              };
+              const wire = payload as ExportProgressSnapshot;
               onProgress({
-                stage: String(wire.stage ?? 'enumerating') as ExportProgressSnapshot['stage'],
-                processed: Number(wire.processed ?? 0),
-                total: Number(wire.total ?? 0),
-                currentFile: typeof wire.currentFile === 'string' ? wire.currentFile : null,
-                counts: {
+                ...wire,
+                counts: wire.counts ?? {
                   projects: 0,
                   memoryItems: 0,
                   documents: 0,
@@ -654,13 +715,19 @@ export function createPackageApi(call: DomainCaller, subscribe: DomainEventSubsc
                   codeFiles: 0,
                   attachments: 0,
                 },
-                failures: [],
-                excludeStats: null,
-                redactionFindings: [],
-                elapsedMs: 0,
+                failures: wire.failures ?? [],
+                excludeStats: wire.excludeStats ?? null,
+                redactionFindings: wire.redactionFindings ?? [],
+                elapsedMs: wire.elapsedMs ?? 0,
               });
             },
-        (requestId) => call.call('package', 'exportPackage', { request: rest }, requestId),
+        (requestId) =>
+          call.call(
+            'package',
+            rest.incremental ? 'exportIncremental' : 'exportPackage',
+            { request: rest },
+            requestId,
+          ),
       );
     },
     listExportPresets: () => call.call('package', 'listExportPresets'),

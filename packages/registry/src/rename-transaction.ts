@@ -374,7 +374,12 @@ export function executeRename(input: ExecuteRenameInput): RenameTransactionResul
   try {
     input.deps.events?.append(event);
   } catch (error) {
-    warnings.push(`记录 rename 事件失败：${String(error)}`);
+    const steps = rollbackExecutions(executions, context);
+    input.deps.registry?.save(input.registry);
+    return {
+      ...base, segments, skipped, failures: [`记录 rename 事件失败：${String(error)}`],
+      warnings, rollback: { performed: true, steps }, elapsedMs: timer() - startedAt,
+    };
   }
 
   return {

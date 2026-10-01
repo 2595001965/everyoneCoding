@@ -112,6 +112,7 @@ export function ConflictEditor({ onApplied }: ConflictEditorProps): JSX.Element 
         path: file.path,
         content: resolved.content,
         message,
+        choices: Object.fromEntries(Object.entries(fileChoices).map(([id, choice]) => [id, choice === 'both' ? 'ai' : choice])),
       });
       if (!result.ok) {
         setNotice(result.error?.message ?? '应用解决结果失败');

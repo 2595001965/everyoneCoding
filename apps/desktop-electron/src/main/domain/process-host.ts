@@ -5,6 +5,7 @@ import {
 } from 'node:child_process';
 
 import { ShellError } from '@ec/shell-api';
+import { createProjectPaths } from './paths';
 
 /**
  * 受控进程端口（T12-04 实现要点 3：「预览后端托管必须走受控进程端口」）。
@@ -75,12 +76,12 @@ interface Entry {
   };
   settled: boolean;
   timer: NodeJS.Timeout | null;
+  kill: () => Promise<void>;
 }
 
 /** 判定 cwd 是否落在允许的根之下（`root + sep` 前缀，杜绝 /root-evil） */
 function withinRoot(root: string, cwd: string): boolean {
-  const base = root.endsWith('\\') || root.endsWith('/') ? root.slice(0, -1) : root;
-  return cwd === base || cwd.startsWith(base + '\\') || cwd.startsWith(base + '/');
+  return createProjectPaths({ projectsDir: root }).contains(root, cwd);
 }
 
 /** Windows 进程树整棵结束（`taskkill /T /F`）；失败静默，由调用方的超时兜底 */
@@ -114,8 +115,7 @@ export function createControlledProcessHost(
     await Promise.all(
       handles.map(async (entry) => {
         try {
-          entry.child.kill('SIGTERM');
-          await entry.exited;
+          await entry.kill();
         } catch {
           // 已经在退出的进程：忽略
         }
@@ -128,7 +128,7 @@ export function createControlledProcessHost(
     async spawn(command, args, spawnOptions) {
       const cmd = command.trim();
       if (cmd.length === 0) throw new ShellError('INVALID_ARGUMENT', '命令不能为空');
-      if (entries.size >= MAX_CONCURRENT) {
+      if ([...entries.values()].filter((entry) => !entry.settled).length >= MAX_CONCURRENT) {
         throw new ShellError(
           'INVALID_ARGUMENT',
           `同时运行的外部进程已达上限（${MAX_CONCURRENT}），请先停止部分预览服务`,
@@ -136,7 +136,7 @@ export function createControlledProcessHost(
       }
 
       const cwd = spawnOptions?.cwd ?? null;
-      if (cwd !== null && options.allowedRoot !== null && !withinRoot(options.allowedRoot, cwd)) {
+      if (options.allowedRoot !== null && (cwd === null || !withinRoot(options.allowedRoot, cwd))) {
         // cwd 越界意味着调用方拼错了根目录；在这里拒绝比让进程在别的目录里跑更安全
         throw new ShellError('PATH_ESCAPE', '进程工作目录越出工程根目录，已拒绝启动');
       }
@@ -177,6 +177,7 @@ export function createControlledProcessHost(
         listeners: { stdout: new Set(), stderr: new Set(), exit: new Set() },
         settled: false,
         timer: null,
+        kill: async () => undefined,
       };
       entries.set(id, entry);
 
@@ -217,7 +218,7 @@ export function createControlledProcessHost(
         settle({ code: null, signal: 'SPAWN_ERROR' });
       });
 
-      return {
+      const handle: ControlledProcessHandle = {
         id,
         pid: child.pid ?? null,
         onStdout(listener) {
@@ -275,10 +276,12 @@ export function createControlledProcessHost(
         },
         exited,
       };
+      entry.kill = () => handle.kill();
+      return handle;
     },
 
     list() {
-      return [...entries.values()].map((entry) => ({
+      return [...entries.values()].filter((entry) => !entry.settled).map((entry) => ({
         id: entry.id,
         pid: entry.pid,
         command: entry.command,

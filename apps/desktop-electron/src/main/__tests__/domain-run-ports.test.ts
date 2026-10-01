@@ -1,5 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  symlinkSync,
+  unlinkSync,
+} from 'node:fs';
+import { createServer, request as httpRequest, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -20,6 +28,64 @@ import { createControlledProcessHost } from '../domain/process-host';
 import { createDomainRuntime } from '../domain/runtime';
 import { createProductionDomains, type DomainFactoryContext } from '../domain/domain-factories';
 import { upsertRegistryEntry } from '../domain/domains/rename-domain';
+
+/**
+ * 测试专用的无连接池 HTTP 客户端。
+ *
+ * 不要换成全局 `fetch`：undici 的连接池按 origin 复用 keep-alive socket，
+ * 而"同一端口先 stop 再 start"是这些用例的常态——池里上一个（已销毁的）
+ * socket 会被立刻拿去发请求，稳定复现 `read ECONNRESET`。`agent: false`
+ * 每次新建连接，代价在测试里可以忽略。
+ */
+interface RawResponse {
+  status: number;
+  headers: Map<string, string>;
+  text: () => Promise<string>;
+  json: () => Promise<unknown>;
+}
+
+function rawFetch(
+  url: string,
+  init?: {
+    method?: string;
+    body?: string;
+    headers?: Record<string, string>;
+  },
+): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const req = httpRequest(
+      {
+        host: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method: init?.method ?? 'GET',
+        headers: init?.headers,
+        agent: false,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks);
+          const headerMap = new Map<string, string>();
+          for (const [name, value] of Object.entries(res.headers)) {
+            if (typeof value === 'string') headerMap.set(name, value);
+          }
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: headerMap,
+            text: async () => body.toString('utf8'),
+            json: async () => JSON.parse(body.toString('utf8')) as unknown,
+          });
+        });
+      },
+    );
+    req.on('error', reject);
+    if (init?.body !== undefined) req.write(init.body);
+    req.end();
+  });
+}
 
 /**
  * T12-04 生产端口集成测试：Git / 预览 / 导航 / 统一重命名。
@@ -154,6 +220,61 @@ afterAll(async () => {
 
 /* ------------------------------ 1. 路径安全 ------------------------------ */
 
+it('工程内目录链接、进程 cwd 越界和缺省 cwd 都被拒绝', async () => {
+  const outside = join(root, 'outside');
+  mkdirSync(outside, { recursive: true });
+  mkdirSync(join(projectsDir, PROJECT_ID, 'code'), { recursive: true });
+  const link = join(projectsDir, PROJECT_ID, 'code', 'escape');
+  symlinkSync(outside, link, 'junction');
+  try {
+    const paths = createProjectPaths({ projectsDir });
+    expect(() => paths.inside(paths.codeRoot(PROJECT_ID), 'escape/secret.txt')).toThrow();
+    await expect(
+      processHost.spawn('node', [], { cwd: `${projectsDir}/../outside` }),
+    ).rejects.toThrow();
+    await expect(processHost.spawn('node', [])).rejects.toThrow();
+  } finally {
+    unlinkSync(link);
+  }
+});
+
+it('静态资源保持 MIME、拒绝隐藏文件、API 重放不能跳到其它主机', async () => {
+  projectFile('code/dist/index.html', '<html><script src="/assets/app.js"></script></html>');
+  projectFile('code/dist/assets/app.js', 'window.demo = true;');
+  const started = await call<{ url: string }>({
+    domain: 'preview',
+    method: 'start',
+    params: { projectId: PROJECT_ID, mode: 'static' },
+  });
+  const asset = await rawFetch(`${started.url}/assets/app.js`);
+  expect(asset.headers.get('content-type')).toContain('javascript');
+  expect(await asset.text()).toBe('window.demo = true;');
+  expect((await rawFetch(`${started.url}/.git/config`)).status).toBe(404);
+  expect((await rawFetch(`${started.url}/%ZZ`)).status).toBe(404);
+  await rawFetch(`${started.url}/api/demo`, {
+    method: 'POST',
+    body: '{"name":"demo"}',
+    headers: { 'content-type': 'application/json' },
+  });
+  const requests = await call<Array<{ id: string }>>({
+    domain: 'preview',
+    method: 'requests',
+    params: { projectId: PROJECT_ID },
+  });
+  await expectCode(
+    {
+      domain: 'preview',
+      method: 'replayRequest',
+      params: {
+        projectId: PROJECT_ID,
+        input: { id: requests.at(-1)?.id, url: 'http://example.com/private' },
+      },
+    },
+    'INVALID_ARGUMENT',
+  );
+  await call({ domain: 'preview', method: 'stop', params: { projectId: PROJECT_ID } });
+});
+
 describe('工程根目录安全校验', () => {
   it('createProjectPaths 拒绝越界 id 与越界相对路径', () => {
     const paths = createProjectPaths({ projectsDir });
@@ -208,18 +329,18 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
     });
     expect(started.port).toBeGreaterThan(0);
 
-    const html = await fetch(`${started.url}/`).then((res) => res.text());
+    const html = await rawFetch(`${started.url}/`).then((res) => res.text());
     expect(html).toContain('预览页');
 
     // 未匹配到 OpenAPI 路由的接口：走内置兜底 spec 的 /health（Mock 数据源）
-    const health = await fetch(`${started.url}/health`);
+    const health = await rawFetch(`${started.url}/health`);
     expect(health.headers.get('x-ec-data-source')).toBe('mock');
     const payload = (await health.json()) as { status?: unknown };
     expect(typeof payload.status).toBe('string');
 
     // API 面板记录 + cURL + 重放（先清空，保证计数确定）
     await call({ domain: 'preview', method: 'clearRequests', params: { projectId: PROJECT_ID } });
-    await fetch(`${started.url}/health`);
+    await rawFetch(`${started.url}/health`);
 
     const logs = await call<Array<{ id: string; method: string; url: string; source: string }>>({
       domain: 'preview',
@@ -404,6 +525,33 @@ describe('真实后端托管（受控进程端口）', () => {
     '',
   ].join('\n');
 
+  const PY_DEMO = [
+    'import json, os',
+    'from http.server import BaseHTTPRequestHandler, HTTPServer',
+    '',
+    "port = int(os.environ.get('PORT') or 8000)",
+    '',
+    'class Handler(BaseHTTPRequestHandler):',
+    '    def do_POST(self):',
+    "        length = int(self.headers.get('content-length') or 0)",
+    "        raw = self.rfile.read(length).decode('utf8')",
+    '        payload = json.loads(raw) if raw else None',
+    "        data = json.dumps({'ok': True, 'port': port, 'method': self.command, 'path': self.path, 'echo': payload}).encode('utf8')",
+    '        self.send_response(200)',
+    "        self.send_header('content-type', 'application/json')",
+    "        self.send_header('content-length', str(len(data)))",
+    '        self.end_headers()',
+    '        self.wfile.write(data)',
+    '',
+    '    def log_message(self, fmt, *args):',
+    '        pass',
+    '',
+    "server = HTTPServer(('127.0.0.1', port), Handler)",
+    "print('py-demo listening on ' + str(port), flush=True)",
+    'server.serve_forever()',
+    '',
+  ].join('\n');
+
   it('启动 Node demo 后，表单请求打到真实后端（source=backend），日志可查', async () => {
     projectFile('code/server.js', DEMO);
     projectFile(
@@ -462,7 +610,7 @@ describe('真实后端托管（受控进程端口）', () => {
     }
     expect(ready).toBe(true);
 
-    const response = await fetch(`${preview.url}/api/login`, {
+    const response = await rawFetch(`${preview.url}/api/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ username: 'wu' }),
@@ -478,7 +626,7 @@ describe('真实后端托管（受控进程端口）', () => {
         method: 'logs',
         params: { projectId: PROJECT_ID },
       });
-      const probe = await fetch(`${preview.url}/`).then(
+      const probe = await rawFetch(`${preview.url}/`).then(
         (res) => `GET / → ${res.status}`,
         (cause: unknown) => `GET / 也失败：${cause instanceof Error ? cause.message : ''}`,
       );
@@ -539,6 +687,95 @@ describe('真实后端托管（受控进程端口）', () => {
     });
     expect(stopped.running).toBe(false);
     await call({ domain: 'preview', method: 'stop', params: { projectId: PROJECT_ID } });
+  }, 120_000);
+
+  it('启动 Python demo 后，表单请求同样打到真实后端（FR-PRV-04 两类运行时）', async (ctx) => {
+    // 探测按"证据文件数"取最优：先撤掉 Node 的 package.json，Python 才会胜出
+    rmSync(join(projectsDir, PROJECT_ID, 'code', 'package.json'), { force: true });
+    projectFile('code/requirements.txt', '# 标准库即可运行\n');
+    projectFile('code/app.py', PY_DEMO);
+    try {
+      const profile = await call<{ kind: string; startCmd: string | null }>({
+        domain: 'preview',
+        method: 'projectProfile',
+        params: { projectId: PROJECT_ID },
+      });
+      expect(profile.kind).toBe('python');
+      expect(profile.startCmd).toBe('python app.py');
+
+      const started = await call<{
+        ok: boolean;
+        data: { port: number; url: string } | null;
+        error: unknown;
+      }>({
+        domain: 'preview',
+        method: 'startBackend',
+        params: { projectId: PROJECT_ID },
+      });
+      if (!started.ok) {
+        const lines = await call<Array<{ text: string }>>({
+          domain: 'preview',
+          method: 'logs',
+          params: { projectId: PROJECT_ID },
+        });
+        const trail = lines.map((line) => line.text).join('\n');
+        // 本机没有 python 解释器时这是环境缺失，不是产品缺陷：如实跳过并给出证据
+        if (/不是内部或外部命令|not recognized|not found|No such file/i.test(trail)) {
+          ctx.skip(`本机无 python 解释器，跳过 Python 托管用例：${trail.slice(-160)}`);
+        }
+        expect(started.ok, `Python 后端启动失败：${JSON.stringify(started.error)}`).toBe(true);
+      }
+      const backendPort = started.data?.port ?? 0;
+      expect(backendPort).toBeGreaterThan(0);
+
+      const preview = await call<{ url: string }>({
+        domain: 'preview',
+        method: 'start',
+        params: { projectId: PROJECT_ID, mode: 'linked' },
+      });
+
+      const deadline = Date.now() + 20_000;
+      let ready = false;
+      while (Date.now() < deadline) {
+        const lines = await call<Array<{ text: string }>>({
+          domain: 'preview',
+          method: 'logs',
+          params: { projectId: PROJECT_ID },
+        });
+        if (lines.some((line) => line.text.includes('py-demo listening on'))) {
+          ready = true;
+          break;
+        }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 200));
+      }
+      expect(ready).toBe(true);
+
+      const response = await rawFetch(`${preview.url}/api/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'py' }),
+      });
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        ok: boolean;
+        echo: { username: string } | null;
+        port: number;
+      };
+      expect(body.ok).toBe(true);
+      expect(body.echo?.username).toBe('py');
+      expect(body.port).toBe(backendPort);
+      expect(response.headers.get('x-ec-data-source')).toBe('backend');
+
+      await call({ domain: 'preview', method: 'stopBackend', params: { projectId: PROJECT_ID } });
+    } finally {
+      projectFile(
+        'code/package.json',
+        JSON.stringify({ name: 'demo', scripts: { dev: 'node server.js' } }),
+      );
+      await call({ domain: 'preview', method: 'stop', params: { projectId: PROJECT_ID } }).catch(
+        () => undefined,
+      );
+    }
   }, 120_000);
 
   it('未装配进程端口时后端托管如实报 NOT_SUPPORTED（静态预览不受影响）', async () => {
@@ -915,6 +1152,54 @@ describe('统一重命名生产端口（事务 / 不误伤 / 可撤销）', () =
     expect(again.ok).toBe(false);
     expect(again.failures.join('')).toContain('已撤销');
   }, 120_000);
+
+  it.each(['document', 'memory_item', 'code_anchor', 'registry_entry', 'rename_event'])(
+    '%s 写入失败时数据库及代码、文档、DSL 文件整体还原',
+    async (table) => {
+      const analysis = await call<{
+        groups: Array<{ items: Array<{ id: string; selected: boolean }> }>;
+      }>({
+        domain: 'rename',
+        method: 'analyze',
+        params: { projectId: PROJECT_ID, registryId: REGISTRY_ID, newName: NEW_NAME },
+      });
+      const selection = analysis.groups
+        .flatMap((group) => group.items)
+        .filter((item) => item.selected)
+        .map((item) => item.id);
+      const tables = [
+        'document',
+        'memory_item',
+        'code_anchor',
+        'registry_entry',
+        'rename_event',
+        'element',
+      ];
+      const beforeRows = tables.map((name) =>
+        db.prepare(`SELECT * FROM ${name} ORDER BY id`).all(),
+      );
+      const beforeCode = readProjectFile('code/src/pages/Login.tsx');
+      const beforeDsl = readProjectFile('design/pages/page-login.dsl.json');
+      db.exec(
+        `CREATE TEMP TRIGGER fail_rename BEFORE ${table === 'rename_event' ? 'INSERT' : 'UPDATE'} ON ${table} BEGIN SELECT RAISE(FAIL, 'injected rename failure'); END`,
+      );
+      try {
+        const response = await invoke({
+          domain: 'rename',
+          method: 'execute',
+          params: { projectId: PROJECT_ID, registryId: REGISTRY_ID, newName: NEW_NAME, selection },
+        });
+        expect(response.ok && (response.result as { ok: boolean }).ok).toBe(false);
+      } finally {
+        db.exec('DROP TRIGGER fail_rename');
+      }
+      expect(tables.map((name) => db.prepare(`SELECT * FROM ${name} ORDER BY id`).all())).toEqual(
+        beforeRows,
+      );
+      expect(readProjectFile('code/src/pages/Login.tsx')).toBe(beforeCode);
+      expect(readProjectFile('design/pages/page-login.dsl.json')).toBe(beforeDsl);
+    },
+  );
 
   it('批量计划与规范化：diff 预览齐备，无漂移时为无操作', async () => {
     const plan = await call<{

@@ -38,12 +38,17 @@ export class RecoveryService {
     nodeLabel?: string;
   }): Promise<GitResult<RollbackPlan>> {
     const logs: GitLogEntry[] = [];
+    if (!['soft', 'revert'].includes(input.mode) || !/^[a-f0-9]{4,40}$/i.test(input.sha)) {
+      return { ok: false, data: null, logs, error: { code: 'INVALID_ARGUMENT', message: '无效的回滚目标或模式' } };
+    }
     const commits = await this.client.log({ ref: `${input.sha}..HEAD`, limit: 200 });
     logs.push(...commits.logs);
+    if (!commits.ok) return { ok: false, data: null, logs, error: commits.error };
     const head = await this.client.headSha();
     logs.push(...head.logs);
     const diff = await this.client.diff({ scope: 'range', from: input.sha, to: 'HEAD' });
     logs.push(...diff.logs);
+    if (!diff.ok) return { ok: false, data: null, logs, error: diff.error };
 
     const affected = commits.data ?? [];
     const warnings: string[] = [];
@@ -111,8 +116,8 @@ export class RecoveryService {
       logs.push(...reset.logs);
       if (!reset.ok) return { ok: false, data: null, logs, error: reset.error };
     } else {
-      // 从最老的提交开始反向提交，最后合并成一条撤销提交
-      const ordered = [...plan.affectedCommits].reverse();
+      // Undo newest first: later commits may modify lines introduced by earlier ones.
+      const ordered = [...plan.affectedCommits];
       for (const commit of ordered) {
         const reverted = await this.client.revert(commit.sha, { noCommit: true });
         logs.push(...reverted.logs);

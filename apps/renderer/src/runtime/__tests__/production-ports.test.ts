@@ -249,7 +249,7 @@ describe('真实项目 ID 由当前项目上下文注入', () => {
     openProject('P-A');
     await git.log({ limit: 5, path: 'src' });
 
-    expect(calls[0]?.params).toEqual({ projectId: 'P-A', limit: 5, path: 'src' });
+    expect(calls[0]?.params).toEqual({ projectId: 'P-A', options: { limit: 5, path: 'src' } });
   });
 
   it('未打开项目：如实抛 INVALID_ARGUMENT，且**请求根本不发出**', async () => {

@@ -63,7 +63,7 @@ export function PreviewFrame({
       data-testid="preview-frame"
       title={title ?? '预览'}
       src={src}
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-forms"
     />
   );
 }

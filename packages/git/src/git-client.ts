@@ -211,11 +211,11 @@ export class GitClient {
                     )
                   ? 'NETWORK'
                   : 'COMMAND_FAILED';
-        return fail(code, error.message, this.logsSince(mark));
+        return fail(code, this.logger.redact(error.message), this.logsSince(mark));
       }
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`${action} 失败：${message}`);
-      return fail('UNKNOWN', `${action} 失败：${message}`, this.logsSince(mark));
+      return fail('UNKNOWN', this.logger.redact(`${action} 失败：${message}`), this.logsSince(mark));
     }
   }
 
@@ -673,7 +673,9 @@ export class GitClient {
   }
 
   private releaseSecrets(secrets: readonly string[]): void {
-    for (const secret of secrets) this.logger.unregisterSecret(secret);
+    // Keep redaction entries for the client's lifetime: rejected subprocess errors
+    // are formatted by wrap() after the transfer's finally block has completed.
+    for (const secret of secrets) this.logger.registerSecret(secret);
   }
 
   /* ------------------------------------------------------------------ */

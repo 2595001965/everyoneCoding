@@ -27,6 +27,8 @@ export function ApiDebugger(): JSX.Element {
 
   React.useEffect(() => {
     reload();
+    const timer = window.setInterval(reload, 500);
+    return () => window.clearInterval(timer);
   }, [reload]);
 
   const handleReplay = (log: ApiRequestLog): void => {

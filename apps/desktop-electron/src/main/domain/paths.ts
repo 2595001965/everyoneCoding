@@ -1,4 +1,5 @@
-import { isAbsolute, join, resolve, sep } from 'node:path';
+import { lstatSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative as relativePathOf, resolve, sep } from 'node:path';
 
 import { ShellError } from '@ec/shell-api';
 
@@ -99,7 +100,21 @@ export function createProjectPaths(options: CreateProjectPathsOptions): ProjectP
   const contains = (root: string, absolutePath: string): boolean => {
     const target = resolve(absolutePath);
     const base = resolve(root);
-    return target === base || target.startsWith(base + sep);
+    const rel = relativePathOf(base, target);
+    if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return false;
+    // Check every existing component, including junctions and dangling links. A lexical
+    // prefix alone permits a project-local link to read/write outside the project.
+    let cursor = target;
+    while (cursor !== dirname(cursor)) {
+      try {
+        if (lstatSync(cursor).isSymbolicLink()) return false;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return false;
+      }
+      if (cursor === base) break;
+      cursor = dirname(cursor);
+    }
+    return true;
   };
 
   const projectRoot = (projectId: string): string => {
@@ -134,6 +149,9 @@ export function createProjectPaths(options: CreateProjectPathsOptions): ProjectP
     }
     const normalized = raw.replace(/\\/g, '/');
     if (normalized.split('/').includes('..')) throw pathEscape('拒绝向上越界（..）');
+    if (normalized.split('/').some((part) => /:|[. ]$/.test(part) && part !== '.')) {
+      throw pathEscape('拒绝设备路径或备用数据流');
+    }
     const target = resolve(base, normalized);
     if (!contains(base, target)) throw pathEscape('相对路径');
     return target;

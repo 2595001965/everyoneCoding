@@ -31,7 +31,7 @@ export function PreviewPage(): JSX.Element {
           description="预览按项目代码根（<工程目录>/code）托管，请先在工作台打开一个项目。"
         />
       ) : (
-        <PreviewApiProvider api={api}>
+        <PreviewApiProvider key={project.id} api={api}>
           <PreviewWorkspace />
         </PreviewApiProvider>
       )}

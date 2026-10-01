@@ -32,7 +32,7 @@ export function RenamePage(): JSX.Element {
           description="重命名只在项目内生效（D-07 / FR-UNI-13），请先在工作台打开一个项目。"
         />
       ) : (
-        <RenameApiProvider api={api}>
+        <RenameApiProvider key={project.id} api={api}>
           <RenameWorkspace />
         </RenameApiProvider>
       )}

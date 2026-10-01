@@ -16,13 +16,17 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { DomainRouter, DomainRouterContext } from '@ec/shell-api';
+import type { ConflictFile } from '@ec/git';
 
 import { openBusinessDb } from '../../apps/desktop-electron/src/main/domain/db';
+// 路由类型的事实源在**主进程域运行时**（`@ec/shell-api` 只留端口契约，不导出路由签名）。
+import type {
+  DomainRouter,
+  DomainRouterContext,
+} from '../../apps/desktop-electron/src/main/domain/runtime';
 import { createGitDomain } from '../../apps/desktop-electron/src/main/domain/domains/git-domain';
 import {
   createCodeDomain,
@@ -31,7 +35,9 @@ import {
 
 let root: string;
 let projectsDir: string;
-let db: Database.Database;
+// 直接用 `openBusinessDb` 的返回类型，避免 e2e 工程直引 `better-sqlite3`
+// （该类型只声明在 @ec/desktop-electron 一侧，e2e 不是 workspace 包、解析不到）。
+let db: ReturnType<typeof openBusinessDb>;
 let git: DomainRouter;
 const PROJECT_ID = 'p-e2e24-git';
 
@@ -154,7 +160,7 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
 
     const mergeResult = (await git(
       'merge',
-      { projectId: PROJECT_ID, source: 'feat/alias' },
+      { projectId: PROJECT_ID, source: 'feat/alias', confirmed: true },
       ctx,
     )) as {
       ok: boolean;
@@ -167,7 +173,7 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
     ).toBe(true);
     expect(mergeResult.data?.conflictFiles).toContain('src/login.ts');
 
-    const conflicts = await gitOk<Array<{ path: string; blocks: unknown[] }>>('conflicts');
+    const conflicts = await gitOk<ConflictFile[]>('conflicts');
     const conflicted = conflicts.data.find((file) => file.path === 'src/login.ts');
     expect(conflicted).toBeTruthy();
     expect(conflicted?.blocks.length).toBeGreaterThan(0);
@@ -254,7 +260,7 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
     const stashList = await gitOk<Array<{ message: string }>>('stashList');
     expect(stashList.data.length).toBe(1);
 
-    const restored = await gitOk<number>('stashApply', { index: 0, drop: true });
+    const restored = await gitOk<number>('stashApply', { index: 0, drop: true, confirmed: true });
     // stashApply 返回被恢复的 stash 下标（而非变更文件数），0 即 stash@{0}
     expect(restored.data).toBe(0);
     expect(
@@ -265,7 +271,7 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
 
     /* ⑧ 删除分支前自动建安全快照（T12-04 要点 4）。
      * soft 回滚后该分支不再被合并包含，删除需要 force——这正是"危险操作 + 快照兜底"的组合路径。 */
-    const deleted = await gitOk<unknown>('deleteBranch', { name: 'feat/alias', force: true });
+    const deleted = await gitOk<unknown>('deleteBranch', { name: 'feat/alias', force: true, confirmed: true });
     expect(deleted.data).toBeDefined();
     const deleteLogs = deleted.logs.map((log) => log.message).join('\n');
     expect(deleteLogs).toContain('安全快照分支');

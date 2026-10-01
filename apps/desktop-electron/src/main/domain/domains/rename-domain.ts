@@ -8,7 +8,7 @@ import {
   writeFileSync,
   type Dirent,
 } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 
 import {
@@ -19,7 +19,6 @@ import {
   buildUnifiedDiff,
   checkName,
   cleanAliases,
-  createInMemoryRenameEventStore,
   createRegistryEntry,
   createRegistryRepository,
   executeBatchRename,
@@ -69,6 +68,7 @@ import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
 import type { AiStackHandle } from '../domain-factories';
 import { createProjectPaths, PROJECT_SUBDIRS, type ProjectPaths } from '../paths';
 import type { DomainRouter } from '../runtime';
+import { createRenameAtomic } from '../rename-atomic';
 
 /**
  * rename 域生产路由（T12-04 重命名部分）。
@@ -132,6 +132,11 @@ const NAMING_PLATFORMS: readonly NamingPlatform[] = [
 export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
   const paths: ProjectPaths = createProjectPaths({ projectsDir: options.projectsDir });
   const db = options.db;
+  const atomic = createRenameAtomic(db);
+  const writeTransactional = (file: string, content: string): void => {
+    atomic.beforeWrite(file);
+    writeAtomic(file, content);
+  };
 
   /* ------------------------------ 存储适配 ------------------------------ */
 
@@ -206,11 +211,10 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
    * 自己拼 JSON 会在字段漂移时让"撤销"悄悄失效——而撤销失效通常要到用户点下按钮才发现。
    */
   const eventStore: RenameEventStore = (() => {
-    const base = createInMemoryRenameEventStore();
-    const rows = db
-      .prepare(`SELECT * FROM rename_event ORDER BY created_at DESC LIMIT 500`)
-      .all() as RenameEventRecord[];
-    for (const row of rows) base.append(fromRenameEventRecord(row));
+    const get = (id: string): RenameEvent | null => {
+      const row = db.prepare('SELECT * FROM rename_event WHERE id = ?').get(id) as RenameEventRecord | undefined;
+      return row === undefined ? null : fromRenameEventRecord(row);
+    };
 
     const persist = (event: RenameEvent): void => {
       db.prepare(
@@ -225,18 +229,19 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
 
     return {
       append(event) {
-        base.append(event);
         persist(event);
       },
-      get: (id) => base.get(id),
-      list: (projectId) => base.list(projectId),
+      get,
+      list: (projectId) => (db.prepare('SELECT * FROM rename_event WHERE project_id = ? ORDER BY created_at DESC').all(projectId) as RenameEventRecord[]).map(fromRenameEventRecord),
       markUndone(id) {
-        const next = base.markUndone(id);
+        const current = get(id);
+        const next = current === null ? null : { ...current, undone: true };
         if (next !== null) persist(next);
         return next;
       },
       setCommitSha(id, commitSha) {
-        const next = base.setCommitSha(id, commitSha);
+        const current = get(id);
+        const next = current === null ? null : { ...current, commitSha };
         if (next !== null) persist(next);
         return next;
       },
@@ -271,7 +276,16 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
   };
 
   const logicPathOf = (projectId: string, documentId: string): string =>
-    join(paths.pagesDir(projectId), `${documentId}.dsl.json`);
+    paths.inside(paths.pagesDir(projectId), `${documentId}.dsl.json`);
+
+  const resolveDocumentPath = (projectId: string, ref: string): string => {
+    const root = paths.projectRoot(projectId);
+    if (isAbsolute(ref)) {
+      if (!paths.contains(root, ref)) throw new ShellError('PATH_ESCAPE', '文档路径越出工程根目录');
+      return ref;
+    }
+    return paths.inside(root, ref);
+  };
 
   const platformOf = (projectId: string): NamingPlatform => {
     const row = db.prepare(`SELECT target_platforms FROM project WHERE id = ?`).get(projectId) as
@@ -319,7 +333,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         if (out.length >= INDEX_LIMITS.maxFiles) return;
         if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist')
           continue;
-        const full = join(dir, entry.name);
+        const full = paths.inside(dir, entry.name);
         if (entry.isDirectory()) {
           walk(full, depth + 1);
           continue;
@@ -363,7 +377,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       title: row.title,
       type: row.kind === 'requirement' || row.kind === 'tech' ? row.kind : 'related',
       content:
-        row.content_text ?? (row.content_ref !== null ? (readTextSafe(row.content_ref) ?? '') : ''),
+        row.content_text ?? (row.content_ref !== null ? (readTextSafe(resolveDocumentPath(projectId, row.content_ref)) ?? '') : ''),
     }));
 
   const collectMemories = (
@@ -373,7 +387,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       db
         .prepare(
           `SELECT id, scope, title, structured, content FROM memory_item
-           WHERE project_id = ? AND status = 'active' LIMIT ?`,
+           WHERE project_id = ? AND scope <> 'longterm' AND status = 'active' LIMIT ?`,
         )
         .all(projectId, INDEX_LIMITS.maxMemories) as Array<{
         id: string;
@@ -412,7 +426,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
     }
     for (const entry of entries) {
       if (!entry.endsWith('.dsl.json')) continue;
-      const text = readTextSafe(join(dir, entry));
+      const text = readTextSafe(paths.inside(dir, entry));
       if (text === null) continue;
       const parsed = parseJsonSafe(text) as Record<string, unknown> | null;
       if (parsed === null) continue;
@@ -516,7 +530,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       now: Date.now(),
       files: {
         read: (refPath) => readTextSafe(resolveRefPath(projectId, refPath)),
-        write: (refPath, content) => writeAtomic(resolveRefPath(projectId, refPath), content),
+        write: (refPath, content) => writeTransactional(resolveRefPath(projectId, refPath), content),
         exists: (refPath) => {
           try {
             return existsSync(resolveRefPath(projectId, refPath));
@@ -533,7 +547,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
             { content_text: string | null; content_ref: string | null } | undefined;
           if (row === undefined) return null;
           if (row.content_text !== null) return row.content_text;
-          return row.content_ref === null ? null : readTextSafe(row.content_ref);
+          return row.content_ref === null ? null : readTextSafe(resolveDocumentPath(projectId, row.content_ref));
         },
         write: (documentId, content) => {
           const row = db
@@ -545,11 +559,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
           // 正文文件同步：`content_ref` 是"人打开文件看到的那一份"，
           // 不同步就会出现"文档中心是新名字、磁盘文件还是旧名字"的分裂状态
           if (row?.content_ref != null && row.content_ref.length > 0) {
-            try {
-              writeAtomic(resolveRefPath(projectId, row.content_ref), content);
-            } catch {
-              // 文件不在工程内（历史遗留绝对路径）：只更新库内正文，不阻断事务
-            }
+            writeTransactional(resolveDocumentPath(projectId, row.content_ref), content);
           }
         },
       },
@@ -627,8 +637,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
               }
               const bindings = (node['bindings'] ?? {}) as Record<string, unknown>;
               for (const [key, value] of Object.entries(bindings)) {
-                if (typeof value === 'string' && value.includes(input.from)) {
-                  bindings[key] = value.split(input.from).join(input.to);
+                if (value === input.from) {
+                  bindings[key] = input.to;
                 }
               }
               node['bindings'] = bindings;
@@ -654,7 +664,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
             default:
               throw new Error(`未知的 DSL 承载字段：${String(input.field)}`);
           }
-          writeAtomic(cached.path, `${JSON.stringify(cached.json, null, 2)}\n`);
+          writeTransactional(cached.path, `${JSON.stringify(cached.json, null, 2)}\n`);
         },
         recalcSummary: () => {
           // 逻辑结构摘要由设计器在下次打开时按 DSL 重算（T2-06）。
@@ -662,7 +672,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         },
         restore: (documentId, snapshot) => {
           if (snapshot === null || snapshot === undefined) return;
-          writeAtomic(logicPathOf(projectId, documentId), `${JSON.stringify(snapshot, null, 2)}\n`);
+          writeTransactional(logicPathOf(projectId, documentId), `${JSON.stringify(snapshot, null, 2)}\n`);
           logicCache.delete(documentId);
         },
       },
@@ -741,7 +751,12 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
   const depsOf = (projectId: string, showRevisionMarks: boolean): RenameTransactionDeps => ({
     context: buildContext(projectId, showRevisionMarks),
     rule: ruleOf(projectId),
-    registry: { save: (entry) => void registry.save(entry) },
+    registry: { save: (entry) => {
+      registry.save(entry);
+      const table = entry.entityType === 'element' ? 'element' : entry.entityType === 'page' ? 'page' : 'feature';
+      db.prepare(`UPDATE ${table} SET name = ?, updated_at = ? WHERE id = ?`).run(entry.canonicalName, Date.now(), entry.entityId);
+      db.prepare("UPDATE occurrence SET status = 'stale' WHERE registry_id = ?").run(entry.id);
+    } },
     git: gitPort,
     events: eventStore,
   });
@@ -791,7 +806,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
           let text = '';
           for await (const chunk of gateway.chat({
             userId: options.userId,
-            purpose: 'migration',
+            purpose: 'code',
             projectId,
             messages: [{ role: 'user', content: prompt }],
           })) {
@@ -937,7 +952,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
             report.groups.flatMap((group) => group.items.map((item) => item.id)),
           );
           const matched = [...selection].filter((id) => known.has(id)).length;
-          if (matched === 0) {
+          if (matched !== selection.size) {
             throw new ShellError(
               'INVALID_ARGUMENT',
               '影响面已变化（代码或文档在此期间被改动），请重新执行影响面分析后再勾选执行',
@@ -946,13 +961,13 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         }
         pendingCommit.message = '';
         pendingCommit.paths = [];
-        const result = executeRename({
+        const result = atomic.run(() => executeRename({
           registry: entry,
           newCanonicalName: newName,
           report,
           selection,
           deps: depsOf(projectId, params['showRevisionMarks'] === true),
-        });
+        }));
 
         if (result.ok && result.changeset !== null) {
           const sha = await commitRename(
@@ -976,7 +991,7 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         if (event.projectId !== projectId) {
           throw new ShellError('INVALID_ARGUMENT', '该事件不属于当前项目');
         }
-        const undo = undoRename({ event, deps: depsOf(projectId, false) });
+        const undo = atomic.run(() => undoRename({ event, deps: depsOf(projectId, false) }));
         if (!undo.ok) return undo;
         const sha = await commitRename(
           projectId,
@@ -1148,7 +1163,9 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         }
         pendingCommit.message = '';
         pendingCommit.paths = [];
-        const result = executeBatchRename({ plan, deps: depsOf(projectId, false) });
+        if (plan.projectId !== projectId) throw new ShellError('INVALID_ARGUMENT', '批量计划不属于当前项目');
+        const result = atomic.run(() => executeBatchRename({ plan, deps: depsOf(projectId, false) }));
+        batchPlans.delete(plan.batchId);
         for (const step of result.steps) {
           if (!step.ok || step.transaction.changeset === null) continue;
           await commitRename(

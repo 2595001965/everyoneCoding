@@ -1,5 +1,4 @@
 import { existsSync, readFileSync, readdirSync, statSync, type Dirent } from 'node:fs';
-import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 
 import {
@@ -94,7 +93,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
     }
     for (const entry of entries) {
       if (!entry.endsWith('.dsl.json')) continue;
-      const text = readTextSafe(join(dir, entry));
+      const text = readTextSafe(paths.inside(dir, entry));
       if (text === null) continue;
       let parsed: Record<string, unknown> | null;
       try {
@@ -151,7 +150,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         if (out.length >= limit) return;
         if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist')
           continue;
-        const full = join(dir, entry.name);
+        const full = paths.inside(dir, entry.name);
         if (entry.isDirectory()) {
           walk(full, depth + 1);
           continue;
@@ -275,7 +274,10 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
 
   const servicesOf = (projectId: string): NavServices => {
     const cached = cache.get(projectId);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      Object.assign(cached.source, sourceOf(projectId));
+      return cached;
+    }
     const source = sourceOf(projectId);
     const built: NavServices = {
       source,
@@ -326,7 +328,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
       element = {
         elementId: elementId.length > 0 ? elementId : 'unknown',
         name: String(request['elementName'] ?? elementId),
-        type: 'Unknown',
+        type: elementId === page.pageId ? 'Page' : 'Unknown',
         pageId: page.pageId,
         pageName: page.name,
       };
@@ -478,6 +480,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         if (target === undefined || target === null) {
           throw new ShellError('INVALID_ARGUMENT', 'commitJump 需要跳转目标（target）');
         }
+        if (target.filePath !== null) paths.inside(paths.codeRoot(projectId), target.filePath);
         return services.jump.commit(target) satisfies JumpOutcome;
       }
 
@@ -499,6 +502,8 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         const input = (params['input'] ?? {}) as { filePath?: unknown; line?: unknown };
         const filePath = String(input.filePath ?? '');
         const line = Number(input.line ?? 0);
+        paths.inside(paths.codeRoot(projectId), filePath);
+        if (!Number.isInteger(line) || line < 1) throw new ShellError('INVALID_ARGUMENT', '非法代码行号');
         // ① 注释标记（精确行）
         const byMarker = services.reverse.jumpFromCode({ filePath, line });
         if (byMarker.success) return byMarker satisfies ReverseJumpResult;

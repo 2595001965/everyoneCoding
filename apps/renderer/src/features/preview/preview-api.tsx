@@ -30,6 +30,7 @@ export interface PreviewState {
   dataSource: DataSourceKind | null;
   backendAvailable: boolean;
   notice: string | null; // 端口顺延等提示
+  revision?: number | null;
 }
 
 /** 单条被预览 iframe 捕获到的接口请求（供 API 调试器展示） */

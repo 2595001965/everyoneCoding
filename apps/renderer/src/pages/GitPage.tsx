@@ -33,7 +33,7 @@ export function GitPage(): JSX.Element {
           description="Git 仓库按项目代码根（<工程目录>/code）维护，请先在工作台打开一个项目。"
         />
       ) : (
-        <GitApiProvider api={api}>
+        <GitApiProvider key={project.id} api={api}>
           <GitWorkspace />
         </GitApiProvider>
       )}

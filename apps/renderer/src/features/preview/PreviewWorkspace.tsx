@@ -17,12 +17,15 @@ export function PreviewWorkspace(): JSX.Element {
   const [mode, setMode] = React.useState<'static' | 'linked' | 'device'>('static');
   const [pages, setPages] = React.useState<readonly { route: string; name: string }[]>([]);
   const [route, setRoute] = React.useState<string>('');
+  const [revision, setRevision] = React.useState<number | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const reload = React.useCallback(() => {
     void api.state().then((s) => {
       setUrl(s.url);
       setMode(s.mode);
-    });
+      setRevision(s.revision ?? null);
+    }).catch((cause: unknown) => setError(String(cause)));
     void api.pages().then((p) => {
       setPages(p);
       setRoute((cur) => (cur === '' && p.length > 0 ? (p[0]?.route ?? '') : cur));
@@ -31,7 +34,9 @@ export function PreviewWorkspace(): JSX.Element {
 
   React.useEffect(() => {
     reload();
-  }, [reload]);
+    const timer = window.setInterval(() => { void api.state().then((state) => { setUrl(state.url); setMode(state.mode); setRevision(state.revision ?? null); }).catch((cause: unknown) => setError(String(cause))); }, 500);
+    return () => window.clearInterval(timer);
+  }, [reload, api]);
 
   const handleRequest = React.useCallback((_log: ApiRequestLog): void => {
     // 预览页经 postMessage 上报的请求由外壳聚合进 requests()；
@@ -47,6 +52,7 @@ export function PreviewWorkspace(): JSX.Element {
   return (
     <div className="ec-preview-workspace">
       <PreviewToolbar />
+      {error !== null && <p role="alert">{error}</p>}
       {pages.length > 0 && (
         <div className="ec-preview-workspace__routes" role="tablist" aria-label="页面路由">
           {pages.map((page) => (
@@ -68,7 +74,7 @@ export function PreviewWorkspace(): JSX.Element {
           {mode === 'device' ? (
             <DevicePreview />
           ) : (
-            <PreviewFrame src={src} onRequest={handleRequest} onElementClick={handleElementClick} />
+            <PreviewFrame key={`${src}:${revision}`} src={src} onRequest={handleRequest} onElementClick={handleElementClick} />
           )}
         </div>
         <aside className="ec-preview-workspace__side">

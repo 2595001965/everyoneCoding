@@ -30,6 +30,7 @@ import type {
   GitStatusSummary,
   GitTagInfo,
   MergeOutcome,
+  ConflictResolution,
   RollbackMode,
   RollbackPlan,
 } from '@ec/git';
@@ -128,6 +129,7 @@ export interface GitApi {
     path: string;
     content: string;
     message: string;
+    choices?: Record<number, ConflictResolution>;
   }): Promise<GitResult<string>>;
   /** 「两侧都要 → 交给 AI 合并」的请求载荷 */
   requestAiMerge(input: {

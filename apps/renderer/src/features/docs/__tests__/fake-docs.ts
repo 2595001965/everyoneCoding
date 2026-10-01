@@ -38,7 +38,7 @@ import {
   linkRowToSummary,
 } from '@ec/core';
 
-import type { DocsApi } from '../docs-api';
+import type { DocsApi, OcrStatus } from '../docs-api';
 
 /** 内存文档存储 */
 export class FakeDocStore implements DocStore {
@@ -175,17 +175,33 @@ export interface FakeDocsEnvironment {
   extraction: FakeExtraction;
   service: DocService;
   /** 记录 importFromFile 调用（验证"文件导入走外壳"契约） */
-  fileImports: Array<{ format: DocFormat; filePath: string }>;
+  fileImports: Array<{ format: DocFormat; filePath: string; ocrLanguage?: string | undefined }>;
 }
+
+/** 可用 OCR（本机已装简中 + 英文识别语言）的默认状态 */
+export const OCR_READY: OcrStatus = {
+  available: true,
+  reason: null,
+  languages: ['zh-Hans-CN', 'en-US'],
+  detail: 'Windows.Media.Ocr（系统内置引擎）',
+};
 
 /** 构造真实引擎 + 内存端口的文档端口 */
 export function createFakeDocsApi(
-  options: { withExtraction?: boolean; parsers?: DocParserRegistry } = {},
+  options: {
+    withExtraction?: boolean;
+    parsers?: DocParserRegistry;
+    /** 外壳 ocrStatus 的返回（默认可用） */
+    ocr?: OcrStatus;
+    /** 图片导入时"识别出"的文字（空串 = 识别零文字） */
+    imageText?: string;
+  } = {},
 ): FakeDocsEnvironment {
+  const ocr = options.ocr ?? OCR_READY;
   const store = new FakeDocStore();
   const memory = new FakeDocMemoryPort();
   const extraction = new FakeExtraction();
-  const fileImports: Array<{ format: DocFormat; filePath: string }> = [];
+  const fileImports: FakeDocsEnvironment['fileImports'] = [];
   const parsers = options.parsers ?? createBrowserParserRegistry();
 
   const withExtraction = options.withExtraction ?? true;
@@ -201,41 +217,54 @@ export function createFakeDocsApi(
     getDocument: (id) => service.getDocument(id),
     importDocument: (input: ImportDocumentInput) => service.importDocument(input),
     importFromFile: async (input) => {
-      fileImports.push({ format: input.format, filePath: input.filePath });
+      fileImports.push({
+        format: input.format,
+        filePath: input.filePath,
+        ...(input.ocrLanguage ? { ocrLanguage: input.ocrLanguage } : {}),
+      });
       if (input.filePath.includes('不存在') || input.filePath.includes('notfound')) {
         throw new Error(`文件不存在：${input.filePath}`);
       }
-      // 模拟外壳解析结果（真实装配为 core 的 docx / pdf 解析器）
+      if (input.format === 'image') {
+        // 与外壳语义一致：引擎不可用 → 如实报原因；识别零文字 → 拒绝入库
+        if (!ocr.available) throw new Error(`图片识别失败：${ocr.reason ?? 'OCR 不可用'}`);
+        if (!(options.imageText ?? '').trim()) {
+          throw new Error('图片中没有识别出文字。请确认图片清晰、识别语言与图中文字一致。');
+        }
+      }
+      // 模拟外壳解析结果（真实装配为 core 的 docx / pdf 解析器 / Windows OCR）
       const sections: DocSection[] =
-        input.format === 'pdf'
-          ? [
-              {
-                index: 0,
-                level: 1,
-                heading: 'PDF 第一章',
-                anchor: 'sec-0',
-                text: '第一章正文',
-                page: 1,
-              },
-              {
-                index: 1,
-                level: 1,
-                heading: 'PDF 第二章',
-                anchor: 'sec-1',
-                text: '第二章正文',
-                page: 3,
-              },
-            ]
-          : [
-              { index: 0, level: 1, heading: 'Word 标题一', anchor: 'sec-0', text: '正文一' },
-              { index: 1, level: 2, heading: 'Word 子标题', anchor: 'sec-1', text: '正文二' },
-            ];
+        input.format === 'image'
+          ? [{ index: 0, level: 0, heading: '', anchor: 'sec-0', text: options.imageText ?? '' }]
+          : input.format === 'pdf'
+            ? [
+                {
+                  index: 0,
+                  level: 1,
+                  heading: 'PDF 第一章',
+                  anchor: 'sec-0',
+                  text: '第一章正文',
+                  page: 1,
+                },
+                {
+                  index: 1,
+                  level: 1,
+                  heading: 'PDF 第二章',
+                  anchor: 'sec-1',
+                  text: '第二章正文',
+                  page: 3,
+                },
+              ]
+            : [
+                { index: 0, level: 1, heading: 'Word 标题一', anchor: 'sec-0', text: '正文一' },
+                { index: 1, level: 2, heading: 'Word 子标题', anchor: 'sec-1', text: '正文二' },
+              ];
       const now = Date.now();
       const row: DocumentRowSnapshot = {
         id: newDocId(),
         project_id: input.projectId,
         kind: input.kind ?? 'imported',
-        title: input.title ?? sections[0]!.heading,
+        title: input.title ?? (sections[0]!.heading || input.filePath.split(/[\\/]/).pop()!),
         content_ref: null,
         format: input.format,
         content_text: sectionsToText(sections),
@@ -286,6 +315,8 @@ export function createFakeDocsApi(
     },
     previewConvertToMemory: (input) => service.previewConvertToMemory(input),
     commitConvertToMemory: (input) => service.commitConvertToMemory(input),
+    searchDocuments: (projectId, query) => service.searchDocuments(projectId, query),
+    ocrStatus: async () => ocr,
     supportedFormats: () => parsers.supported(),
   };
 

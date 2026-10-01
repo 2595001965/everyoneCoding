@@ -3,6 +3,9 @@
  *
  * 导入分工：markdown / txt 直接在 UI 粘贴文本；docx / pdf / image 由外壳按文件路径读取
  * （渲染层无文件系统权限），端口方法为 `importFromFile`。
+ *
+ * 检索：关键词同时过滤标题，并经 `searchDocuments` 做正文全文检索（含图片 OCR 文字），
+ * 命中项带段落锚点，点击直接打开文档并定位到该段。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,9 +21,15 @@ import {
   Textarea,
   type Column,
 } from '@ec/ui';
-import { DOC_FORMAT_LABELS, DOC_FORMATS, type DocFormat, type DocSummary } from '@ec/core';
+import {
+  DOC_FORMAT_LABELS,
+  DOC_FORMATS,
+  type DocFormat,
+  type DocSearchHit,
+  type DocSummary,
+} from '@ec/core';
 
-import { useDocs } from './docs-api';
+import { useDocs, type OcrStatus } from './docs-api';
 
 const KIND_LABELS: Record<string, string> = {
   requirement: '需求文档',
@@ -35,7 +44,8 @@ const TEXT_FORMATS: DocFormat[] = ['markdown', 'txt'];
 export interface DocLibraryProps {
   projectId: string;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  /** 选中文档；从检索命中进入时带上段落锚点 */
+  onSelect: (id: string, anchor?: string) => void;
   /** 数据变更后通知外层（关联面板 / 仪表盘刷新） */
   onChanged?: () => void;
 }
@@ -55,6 +65,8 @@ export function DocLibrary({
   const [importOpen, setImportOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DocSummary | null>(null);
   const [purging, setPurging] = useState<DocSummary | null>(null);
+  const [hits, setHits] = useState<DocSearchHit[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -72,6 +84,35 @@ export function DocLibrary({
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // 正文全文检索（去抖 250ms；回收站视图不检索；文档增删后随 docs 重新检索）
+  useEffect(() => {
+    const query = keyword.trim();
+    if (!query || showRecycleBin) {
+      setHits([]);
+      setSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api.searchDocuments(projectId, query).then(
+        (result) => {
+          if (cancelled) return;
+          setHits(result);
+          setSearchError(null);
+        },
+        (cause: unknown) => {
+          if (cancelled) return;
+          setHits([]);
+          setSearchError(cause instanceof Error ? cause.message : String(cause));
+        },
+      );
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [api, keyword, projectId, showRecycleBin, docs]);
 
   const visible = useMemo(() => {
     const trimmed = keyword.trim().toLowerCase();
@@ -156,7 +197,7 @@ export function DocLibrary({
         <Input
           value={keyword}
           onChange={setKeyword}
-          placeholder="搜索文档标题"
+          placeholder="搜索标题或正文（含图片识别文字）"
           aria-label="搜索文档"
         />
         <Checkbox
@@ -170,14 +211,32 @@ export function DocLibrary({
       </header>
 
       {error ? <p className="ec-docs__error">{error}</p> : null}
+      {searchError ? <p className="ec-docs__error">{`正文检索失败：${searchError}`}</p> : null}
 
-      {visible.length === 0 && !loading ? (
+      {hits.length > 0 ? (
+        <ul className="ec-docs__hits" aria-label="正文命中">
+          {hits.map((hit) => (
+            <li key={`${hit.docId}#${hit.anchor}`}>
+              <button type="button" onClick={() => onSelect(hit.docId, hit.anchor)}>
+                <strong>{hit.title}</strong>
+                <Tag color="neutral">{DOC_FORMAT_LABELS[hit.format] ?? hit.format}</Tag>
+                {hit.page !== undefined ? <span>{`第 ${hit.page} 页`}</span> : null}
+                <span className="ec-docs__hit-snippet">{hit.snippet}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {visible.length === 0 && !loading && hits.length === 0 ? (
         <EmptyState
           title={showRecycleBin ? '回收站为空' : '还没有文档'}
           description={
             showRecycleBin
               ? '删除的文档会在这里保留，可恢复或彻底删除。'
-              : '支持导入 Markdown / Word / PDF / TXT，导入后可关联到记忆节点。'
+              : keyword.trim()
+                ? '标题与正文都没有匹配的内容。'
+                : '支持导入 Markdown / Word / PDF / TXT / 图片（OCR），导入后可关联到记忆节点。'
           }
         />
       ) : (
@@ -267,9 +326,40 @@ function ImportDocDialog({
   const [filePath, setFilePath] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ocr, setOcr] = useState<OcrStatus | null>(null);
+  const [ocrLanguage, setOcrLanguage] = useState('');
 
   const supported = api.supportedFormats();
   const isText = TEXT_FORMATS.includes(format);
+  const isImage = format === 'image';
+
+  // 选中图片格式时探测一次 OCR 引擎（可用性 + 已装识别语言 + 安装引导）
+  useEffect(() => {
+    if (!open || !isImage) return;
+    let cancelled = false;
+    setOcr(null);
+    api.ocrStatus().then(
+      (status) => {
+        if (cancelled) return;
+        setOcr(status);
+        setOcrLanguage((current) =>
+          current && status.languages.includes(current) ? current : (status.languages[0] ?? ''),
+        );
+      },
+      (cause: unknown) => {
+        if (cancelled) return;
+        setOcr({
+          available: false,
+          reason: `OCR 状态检测失败：${cause instanceof Error ? cause.message : String(cause)}`,
+          languages: [],
+          detail: '',
+        });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [api, isImage, open]);
 
   const options = DOC_FORMATS.map((value) => ({
     value,
@@ -295,6 +385,7 @@ function ImportDocDialog({
             format,
             filePath: filePath.trim(),
             ...(title.trim() ? { title: title.trim() } : {}),
+            ...(isImage && ocrLanguage ? { ocrLanguage } : {}),
           });
       setText('');
       setTitle('');
@@ -308,7 +399,8 @@ function ImportDocDialog({
     }
   };
 
-  const canSubmit = isText ? text.trim().length > 0 : filePath.trim().length > 0;
+  const ocrBlocked = isImage && ocr?.available !== true;
+  const canSubmit = isText ? text.trim().length > 0 : filePath.trim().length > 0 && !ocrBlocked;
 
   return (
     <Modal
@@ -371,10 +463,66 @@ function ImportDocDialog({
             />
           </label>
         )}
+        {isImage ? (
+          <OcrPanel status={ocr} language={ocrLanguage} onLanguage={setOcrLanguage} />
+        ) : null}
         {error ? <p className="ec-docs__error">{error}</p> : null}
       </div>
     </Modal>
   );
+}
+
+/** 图片导入的 OCR 面板：检测中 / 可用（选识别语言）/ 不可用（原因 + 安装引导） */
+function OcrPanel({
+  status,
+  language,
+  onLanguage,
+}: {
+  status: OcrStatus | null;
+  language: string;
+  onLanguage: (value: string) => void;
+}): JSX.Element {
+  if (status === null) {
+    return (
+      <p className="ec-docs__hint" role="status">
+        正在检测本机文字识别（OCR）引擎…
+      </p>
+    );
+  }
+  if (!status.available) {
+    return (
+      <div className="ec-docs__error" role="alert" aria-label="OCR 不可用">
+        <p>{`文字识别不可用：${status.reason ?? '未知原因'}`}</p>
+        <p>
+          安装方法：Windows 设置 → 时间和语言 → 语言和区域 → 添加语言（如「中文(简体)」或
+          「English」），并确认勾选“光学字符识别”组件；安装完成后重新打开本对话框即可。
+        </p>
+        {status.languages.length > 0 ? (
+          <p>{`已装识别语言：${status.languages.join(' / ')}`}</p>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <label className="ec-docs__field">
+      <span>识别语言（按图中文字选择；列表为本机已装的 OCR 语言）</span>
+      <Select
+        aria-label="识别语言"
+        value={language}
+        options={status.languages.map((tag) => ({ value: tag, label: ocrLanguageLabel(tag) }))}
+        onChange={onLanguage}
+      />
+    </label>
+  );
+}
+
+function ocrLanguageLabel(tag: string): string {
+  const lower = tag.toLowerCase();
+  if (lower.startsWith('zh-hans') || lower === 'zh-cn') return `简体中文（${tag}）`;
+  if (lower.startsWith('zh-hant') || lower === 'zh-tw') return `繁体中文（${tag}）`;
+  if (lower.startsWith('en')) return `英语（${tag}）`;
+  if (lower.startsWith('ja')) return `日语（${tag}）`;
+  return tag;
 }
 
 function formatTime(ms: number): string {

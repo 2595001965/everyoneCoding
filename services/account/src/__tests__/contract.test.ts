@@ -260,6 +260,7 @@ describe('OAuth（客户端 POST 回调 × 服务端 PKCE）', () => {
       },
     });
     expect(replay.status).toBe(400);
+    expect(JSON.stringify(replay.json)).toContain('OAUTH_STATE_EXPIRED');
 
     // 第二次授权（同 GitHub 身份）→ isNew=false，同账号
     const verifier2 = randomBytes(32).toString('base64url');
@@ -282,10 +283,11 @@ describe('OAuth（客户端 POST 回调 × 服务端 PKCE）', () => {
     expect(cb2.identity.accountId).toBe(cb1.identity.accountId);
   });
 
-  it('错误 verifier 被服务端 PKCE 校验拒绝（OAUTH_PKCE_MISMATCH）', async () => {
+  it('错误 verifier 被服务端 PKCE 校验拒绝（OAUTH_PKCE_MISMATCH），且 state 随之作废', async () => {
+    const goodVerifier = randomBytes(32).toString('base64url');
     const authorize = await raw(
       'GET',
-      `/api/auth/oauth/github/authorize?code_challenge=${encodeURIComponent(pkceChallenge(randomBytes(32).toString('base64url')))}&redirect_uri=${encodeURIComponent('everyonecoding://oauth')}`,
+      `/api/auth/oauth/github/authorize?code_challenge=${encodeURIComponent(pkceChallenge(goodVerifier))}&redirect_uri=${encodeURIComponent('everyonecoding://oauth')}`,
     );
     const authorizeBody = authorize.json as { state: string };
     const mismatch = await raw('POST', '/api/auth/oauth/github/callback', {
@@ -298,6 +300,18 @@ describe('OAuth（客户端 POST 回调 × 服务端 PKCE）', () => {
     });
     expect(mismatch.status).toBe(400);
     expect(JSON.stringify(mismatch.json)).toContain('OAUTH_PKCE_MISMATCH');
+
+    // 截获 code 的一方猜错 verifier 后，合法客户端也不能再用这个 state（一次性消费，不留重试窗口）
+    const retry = await raw('POST', '/api/auth/oauth/github/callback', {
+      body: {
+        code: 'code-x',
+        codeVerifier: goodVerifier,
+        redirectUri: 'everyonecoding://oauth',
+        state: authorizeBody.state,
+      },
+    });
+    expect(retry.status).toBe(400);
+    expect(JSON.stringify(retry.json)).toContain('OAUTH_STATE_EXPIRED');
   });
 });
 

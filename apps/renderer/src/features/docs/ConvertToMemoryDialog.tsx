@@ -24,6 +24,8 @@ export interface ConvertToMemoryDialogProps {
   documentId: string;
   documentTitle: string;
   sections: DocSection[];
+  /** 预选的段落锚点（从检索命中进入时带入） */
+  initialAnchor?: string;
   onClose: () => void;
   onConverted: (node: DocMemoryNode) => void;
 }
@@ -34,12 +36,13 @@ export function ConvertToMemoryDialog({
   documentId,
   documentTitle,
   sections,
+  initialAnchor,
   onClose,
   onConverted,
 }: ConvertToMemoryDialogProps): JSX.Element {
   const api = useDocs();
   const [scope, setScope] = useState<DocMemoryScope>('project');
-  const [anchor, setAnchor] = useState<string>('');
+  const [anchor, setAnchor] = useState<string>(initialAnchor ?? '');
   const [draft, setDraft] = useState<ConvertDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +52,10 @@ export function ConvertToMemoryDialog({
     if (!open) {
       setDraft(null);
       setError(null);
-      setAnchor('');
       setScope('project');
     }
-  }, [open]);
+    setAnchor(initialAnchor ?? '');
+  }, [open, initialAnchor]);
 
   const generate = useCallback(async () => {
     setBusy(true);
@@ -90,10 +93,14 @@ export function ConvertToMemoryDialog({
   const sectionOptions = [
     { value: '', label: '整篇文档' },
     ...sections
-      .filter((section) => section.level > 0)
+      // 标题段落按层级缩进；无标题正文段（图片 OCR 段落、前言）以正文开头作标签，否则选不到
+      .filter((section) => section.level > 0 || section.text.trim().length > 0)
       .map((section) => ({
         value: section.anchor,
-        label: `${'　'.repeat(Math.max(0, section.level - 1))}${section.heading}`,
+        label:
+          section.level > 0
+            ? `${'　'.repeat(Math.max(0, section.level - 1))}${section.heading}`
+            : `段落 ${section.index + 1}：${excerpt(section.text)}`,
       })),
   ];
 
@@ -174,4 +181,9 @@ export function ConvertToMemoryDialog({
       </div>
     </Modal>
   );
+}
+
+function excerpt(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > 24 ? `${flat.slice(0, 24)}…` : flat;
 }

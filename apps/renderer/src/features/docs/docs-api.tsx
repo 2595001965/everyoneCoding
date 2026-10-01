@@ -17,6 +17,7 @@ import type {
   DocMemoryNode,
   DocLinkType,
   DocMemoryScope,
+  DocSearchHit,
   DocSummary,
   DocUpdateStatus,
   DocVersionSummary,
@@ -39,7 +40,13 @@ export interface DocsApi {
     filePath: string;
     title?: string;
     kind?: DocSummary['kind'];
+    /** 图片 OCR 识别语言（BCP-47）；缺省用引擎默认语言 */
+    ocrLanguage?: string;
   }): Promise<DocSummary>;
+  /** 项目内全文检索（含 OCR 识别出的文字），命中带段落锚点 */
+  searchDocuments(projectId: string, query: string): Promise<DocSearchHit[]>;
+  /** 本机 OCR 引擎可用性与已装识别语言（不可用时带安装引导） */
+  ocrStatus(): Promise<OcrStatus>;
   updateDocument(input: UpdateDocumentInput): Promise<DocSummary>;
   /** 删除 → 进回收站（二次确认由 UI 负责） */
   deleteDocument(id: string): Promise<void>;
@@ -80,6 +87,17 @@ export interface DocsApi {
 
   /** 当前环境可解析的格式（浏览器端仅 markdown/txt；docx/pdf 由外壳在 Node 侧解析） */
   supportedFormats(): DocFormat[];
+}
+
+/** OCR 引擎状态（与外壳 `ocrStatus` 返回形状一致） */
+export interface OcrStatus {
+  available: boolean;
+  /** 不可用原因（含安装引导） */
+  reason: string | null;
+  /** 已装识别语言（BCP-47） */
+  languages: string[];
+  /** 引擎说明 */
+  detail: string;
 }
 
 const DocsContext = createContext<DocsApi | null>(null);

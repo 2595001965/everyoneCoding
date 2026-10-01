@@ -81,20 +81,21 @@ describe('E2E-02 第三方登录：GitHub 授权 → 回调自动建号', () => 
     });
     expect(callback.statusCode).toBe(200);
     const body = callback.json() as {
-      userId: string;
+      identity: { accountId: string };
+      tokens: { accessToken: string; refreshToken: string };
       workspaceId: string;
       planId: string;
       isNew: boolean;
-      accessToken: string;
-      refreshToken: string;
     };
     expect(body.isNew).toBe(true);
-    expect(body.userId).toBeTruthy();
+    // 契约口径同 register/login：{ identity, tokens }（见 services/account/src/routes/auth.ts 的
+    // 回调分支与 services/account/src/__tests__/contract.test.ts）
+    expect(body.identity.accountId).toBeTruthy();
     // 回调成功即自动建号并开通工作区 → 直接进入工作台
     expect(body.workspaceId).toBeTruthy();
     expect(body.planId).toBe('free');
-    expect(body.accessToken).toBeTruthy();
-    expect(body.refreshToken).toBeTruthy();
+    expect(body.tokens.accessToken).toBeTruthy();
+    expect(body.tokens.refreshToken).toBeTruthy();
   });
 
   it('同一 GitHub 身份再次登录命中已有账号（不重复建号）', async () => {

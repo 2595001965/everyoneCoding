@@ -75,6 +75,24 @@ export interface ImportDocumentInput {
   title?: string | undefined;
   kind?: DocKind | undefined;
   sourceRef?: string | null | undefined;
+  /** 原始文件名（图片 OCR 据扩展名落临时文件；缺省时引擎按内容嗅探） */
+  fileName?: string | undefined;
+  /** 图片 OCR 识别语言（BCP-47，如 zh-CN / en-US）；缺省用引擎默认语言 */
+  ocrLanguage?: string | undefined;
+}
+
+/** 文档检索命中（FR-DOC-01：导入/OCR 文本可检索；anchor 用于跳转定位到段落） */
+export interface DocSearchHit {
+  docId: string;
+  title: string;
+  format: DocFormat;
+  /** 命中段落的锚点（Markdown 标题 id / OCR 段落 sec-N）；命中标题本身时为首个段落 */
+  anchor: string;
+  heading: string;
+  /** PDF 页码（有则带上，便于"跳到第 N 页"） */
+  page?: number | undefined;
+  /** 命中片段（前后各留少量上下文） */
+  snippet: string;
 }
 
 /** 编辑文档输入 */
@@ -170,14 +188,56 @@ export class DocService {
 
   /* ----------------------------- 导入 / 编辑 ----------------------------- */
 
-  async importDocument(input: ImportDocumentInput): Promise<DocSummary> {
-    const parser = this.deps.parsers.get(input.format);
-    if (!parser)
-      throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${input.format}`);
-    const parsed = await parser.parse({ raw: input.raw, fileName: undefined });
-    if (!parsed.sections || parsed.sections.length === 0) {
-      throw new DocDomainError('empty_content', '解析结果为空，无法导入');
+  /**
+   * 解析 + 结构化失败语义（导入与编辑共用）：
+   * - 解析器自己抛的 `DocDomainError`（如 OCR 不可用）原样透传；
+   * - 其余异常（DOCX 缺中央目录、PDF 结构损坏……）统一包成 `parse_failed`，保留原因；
+   * - 解析"成功"但无任何文字（扫描件 PDF、空 Markdown、OCR 零文本）→ `empty_content`，
+   *   **不把空壳文档塞进库里**。
+   */
+  private async parseOrThrow(
+    format: DocFormat,
+    input: {
+      raw: string | Uint8Array;
+      fileName?: string | undefined;
+      language?: string | undefined;
+    },
+  ): Promise<ParsedDocument> {
+    const parser = this.deps.parsers.get(format);
+    if (!parser) throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${format}`);
+    let parsed: ParsedDocument;
+    try {
+      parsed = await parser.parse(input);
+    } catch (error) {
+      if (error instanceof DocDomainError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DocDomainError(
+        'parse_failed',
+        `${FORMAT_LABELS[format]} 解析失败：${message}。请确认文件未损坏且确为 ${FORMAT_LABELS[format]} 格式。`,
+      );
     }
+    const hasText = (parsed.sections ?? []).some(
+      (section) => section.text.trim().length > 0 || section.heading.trim().length > 0,
+    );
+    if (!hasText) {
+      throw new DocDomainError(
+        'empty_content',
+        format === 'pdf'
+          ? 'PDF 中没有可提取的文字（可能是扫描件）。可将页面导出为图片后用「图片（OCR）」导入。'
+          : format === 'image'
+            ? '图片中没有识别出文字。请确认图片清晰、识别语言与图中文字一致。'
+            : '解析结果为空，无法导入',
+      );
+    }
+    return parsed;
+  }
+
+  async importDocument(input: ImportDocumentInput): Promise<DocSummary> {
+    const parsed = await this.parseOrThrow(input.format, {
+      raw: input.raw,
+      fileName: input.fileName,
+      language: input.ocrLanguage,
+    });
     const now = this.deps.clock();
     const id = this.deps.newId();
     const { row } = await this.parseToRow(
@@ -216,11 +276,12 @@ export class DocService {
     const row = await this.deps.store.loadById(input.id);
     if (!row) throw new DocDomainError('not_found', `文档不存在：${input.id}`);
     const format: DocFormat = input.format ?? (row.format as DocFormat);
-    const parser = this.deps.parsers.get(format);
-    if (!parser) throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${format}`);
+    if (!this.deps.parsers.get(format)) {
+      throw new DocDomainError('parser_missing', `不支持的文档格式解析器：${format}`);
+    }
 
     const parsed =
-      input.raw !== undefined ? await parser.parse({ raw: input.raw, fileName: undefined }) : null;
+      input.raw !== undefined ? await this.parseOrThrow(format, { raw: input.raw }) : null;
     const now = this.deps.clock();
     const next = nextVersion(row.version);
     const patch: Partial<DocumentRowSnapshot> = { version: next, updated_at: now };
@@ -262,6 +323,55 @@ export class DocService {
       .filter((row) => (opts.includeDeleted ? true : row.deleted_at === null))
       .map((row) => this.rowToSummary(row))
       .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  /**
+   * 项目内全文检索（不区分大小写，空白归一）：逐段落匹配，一个文档可命中多段，
+   * 每段带锚点以便定位。回收站中的文档不参与检索。
+   */
+  async searchDocuments(
+    projectId: string,
+    query: string,
+    opts: { limit?: number | undefined } = {},
+  ): Promise<DocSearchHit[]> {
+    const needle = query.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!needle) return [];
+    const limit = opts.limit ?? 50;
+    const docs = await this.listDocuments(projectId);
+    const hits: DocSearchHit[] = [];
+    for (const doc of docs) {
+      const titleHit = doc.title.toLowerCase().includes(needle);
+      let matched = false;
+      for (const section of doc.sections) {
+        const text = section.text.replace(/\s+/g, ' ');
+        const pos = `${section.heading} ${text}`.toLowerCase().indexOf(needle);
+        if (pos < 0) continue;
+        matched = true;
+        hits.push({
+          docId: doc.id,
+          title: doc.title,
+          format: doc.format,
+          anchor: section.anchor,
+          heading: section.heading,
+          ...(section.page !== undefined ? { page: section.page } : {}),
+          snippet: snippetAround(`${section.heading} ${text}`.trim(), needle),
+        });
+        if (hits.length >= limit) return hits;
+      }
+      if (titleHit && !matched) {
+        const first = doc.sections[0];
+        hits.push({
+          docId: doc.id,
+          title: doc.title,
+          format: doc.format,
+          anchor: first?.anchor ?? 'doc',
+          heading: first?.heading ?? '',
+          snippet: snippetAround(doc.contentText.replace(/\s+/g, ' '), needle),
+        });
+        if (hits.length >= limit) return hits;
+      }
+    }
+    return hits;
   }
 
   /** 删除 → 进回收站（软删除） */
@@ -473,4 +583,20 @@ export function linkRowToSummary(row: MemoryDocLinkRowSnapshot): DocMemoryLink {
       : 'related',
     createdAt: row.created_at,
   };
+}
+
+const FORMAT_LABELS: Record<DocFormat, string> = {
+  markdown: 'Markdown',
+  docx: 'Word（.docx）',
+  pdf: 'PDF',
+  txt: 'TXT',
+  image: '图片',
+};
+
+/** 取命中处前后各 30 字的片段；未命中（仅标题命中）取开头 */
+function snippetAround(text: string, needle: string): string {
+  const pos = text.toLowerCase().indexOf(needle);
+  const start = pos < 0 ? 0 : Math.max(0, pos - 30);
+  const end = pos < 0 ? 80 : Math.min(text.length, pos + needle.length + 30);
+  return `${start > 0 ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`;
 }

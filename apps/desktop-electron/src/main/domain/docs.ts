@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import type Database from 'better-sqlite3';
 
 import { newUlid } from '@ec/data';
@@ -196,6 +197,8 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
             title?: string | undefined;
             kind?: DocKind | undefined;
             sourceRef?: string | null | undefined;
+            fileName?: string | undefined;
+            ocrLanguage?: string | undefined;
           };
           return await service.importDocument(input as ImportDocumentInput);
         }
@@ -228,7 +231,16 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
             kind: input.kind,
             // 记下来源文件路径，便于"文档已更新"的溯源展示
             sourceRef: input.filePath,
+            // 文件名给 OCR 定扩展名、作缺省标题；识别语言由导入面板选择
+            fileName: basename(input.filePath),
+            ocrLanguage: input.ocrLanguage,
           });
+        }
+
+        case 'searchDocuments': {
+          const query = typeof params['query'] === 'string' ? params['query'] : '';
+          const limit = typeof params['limit'] === 'number' ? params['limit'] : undefined;
+          return await service.searchDocuments(String(params['projectId']), query, { limit });
         }
 
         case 'updateDocument':
@@ -334,6 +346,7 @@ export function createDocsDomain(options: DocsDomainOptions): { router: DomainRo
         const map: Record<DocDomainError['code'], ShellErrorCode> = {
           not_found: 'NOT_FOUND',
           empty_content: 'INVALID_ARGUMENT',
+          parse_failed: 'INVALID_ARGUMENT',
           unsupported_format: 'NOT_SUPPORTED',
           parser_missing: 'NOT_SUPPORTED',
           ocr_unsupported: 'NOT_SUPPORTED',

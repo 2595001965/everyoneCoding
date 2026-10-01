@@ -204,6 +204,8 @@ export interface DocParser {
   parse(input: {
     raw: string | Uint8Array;
     fileName?: string | undefined;
+    /** 识别语言（BCP-47，仅图片 OCR 使用；缺省由引擎按默认语言识别） */
+    language?: string | undefined;
   }): ParsedDocument | Promise<ParsedDocument>;
 }
 
@@ -270,6 +272,8 @@ export interface OcrPort {
   recognize(input: {
     raw: Uint8Array;
     fileName?: string | undefined;
+    /** 识别语言（BCP-47，如 zh-CN / en-US）；缺省用端口构造时的默认语言 */
+    language?: string | undefined;
   }): Promise<{ title: string; sections: DocSection[] }>;
 }
 
@@ -288,6 +292,8 @@ export interface MemoryExtractionPort {
 export type DocDomainErrorCode =
   | 'not_found'
   | 'empty_content'
+  /** 文件损坏 / 不是声明的格式（DOCX 缺中央目录、PDF 结构不可解析等） */
+  | 'parse_failed'
   | 'unsupported_format'
   | 'parser_missing'
   | 'ocr_unsupported'

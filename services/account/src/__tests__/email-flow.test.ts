@@ -73,6 +73,57 @@ beforeEach(async () => {
 });
 
 describe('邮箱验证（FR-ACC-08）', () => {
+  it('邮件里的链接真的可点：落地页可达、不反射 token；页面脚本所调接口返回 ok 并翻转状态', async () => {
+    const created = await makeApp({ publicBaseUrl: 'https://account.example.com' });
+    app = created.app;
+    await register('link@example.com');
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/email/verify',
+      payload: { email: 'link@example.com' },
+    });
+
+    // 邮件正文里的链接：指向服务自托管落地页（渲染层是 HashRouter，裸路径路由不到）
+    const link = readOutbox()[0]!.body.match(
+      /https?:\/\/\S+verify-email\?token=[A-Za-z0-9_-]+/,
+    )?.[0];
+    expect(link).toBeDefined();
+    const url = new URL(link!);
+    expect(url.pathname).toBe('/verify-email');
+
+    // 浏览器打开链接：静态页，token 不得出现在 HTML 里（杜绝反射型 XSS）
+    const token = url.searchParams.get('token')!;
+    const page = await app.inject({ method: 'GET', url: `${url.pathname}${url.search}` });
+    expect(page.statusCode).toBe(200);
+    expect(page.headers['content-type']).toContain('text/html');
+    expect(page.body).not.toContain(token);
+    expect(page.body).toContain('/api/auth/email/verify/confirm');
+
+    // 页面脚本的请求与成功判据（body.ok）—— 与脚本保持一致
+    const confirm = await app.inject({
+      method: 'POST',
+      url: '/api/auth/email/verify/confirm',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ token }),
+    });
+    expect(confirm.statusCode).toBe(200);
+    expect(confirm.json().ok).toBe(true);
+    const status = await app.inject({
+      method: 'GET',
+      url: '/api/auth/email/status?email=link@example.com',
+    });
+    expect(status.json().emailVerified).toBe(true);
+
+    // 同一链接再点一次：页面照常返回，但接口拒绝（单次有效），页面据此展示"验证未完成"
+    const again = await app.inject({
+      method: 'POST',
+      url: '/api/auth/email/verify/confirm',
+      payload: { token },
+    });
+    expect(again.statusCode).toBeGreaterThanOrEqual(400);
+    expect(again.json().ok).not.toBe(true);
+  });
+
   it('注册 → 发验证邮件（outbox 可查）→ confirm 后状态翻转为已验证', async () => {
     await register('verify@example.com');
 

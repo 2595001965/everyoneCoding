@@ -9,11 +9,38 @@
 | POST            | `/api/auth/register`                  | 邮箱注册，自注册即开通（默认「个人工作区」+ 免费权益包 `free`）                  |
 | POST            | `/api/auth/login`                     | 邮箱 + 密码登录                                                                  |
 | GET             | `/api/auth/oauth/:provider/authorize` | 发起 OAuth（provider = `wechat` \| `google` \| `github`），返回授权 URL 与 state |
-| GET             | `/api/auth/oauth/:provider/callback`  | 回调换令牌；首次授权自动建号                                                     |
+| GET/POST        | `/api/auth/oauth/:provider/callback`  | 回调换令牌；AuthClient 使用 POST；首次授权自动建号                               |
 | POST            | `/api/auth/refresh`                   | Refresh Token 换新 Access Token（旧 refresh 轮换失效）                           |
 | GET/POST/DELETE | `/api/auth/bindings`                  | 第三方身份绑定：列出 / 绑定 / 解绑                                               |
 | POST            | `/api/usage/report`                   | 匿名用量上报（需授权）                                                           |
 | GET             | `/api/release/check`                  | 版本检查，按 `?form=tauri\|electron` 分别下发版本与增量包清单                    |
+
+### 邮箱闭环补充接口（FR-ACC-08）
+
+| 方法 | 路径                               | 说明                                                               |
+| ---- | ---------------------------------- | ------------------------------------------------------------------ |
+| POST | `/api/auth/email/verify`           | 请求验证邮件；请求体 `{ email }`，成功返回 `{ ok: true }`          |
+| POST | `/api/auth/email/verify/confirm`   | 请求体 `{ token }`；验证成功返回 `{ ok: true }`                    |
+| GET  | `/api/auth/email/status?email=...` | 返回 `{ emailVerified }`                                           |
+| POST | `/api/auth/password/reset/request` | 请求体 `{ email }`；发送 6 位验证码，返回 `{ ok: true }`           |
+| POST | `/api/auth/password/reset`         | 请求体 `{ email, code, newPassword }`；成功返回 `{ ok: true }`     |
+| GET  | `/verify-email?token=...`          | 自托管静态落地页；浏览器脚本读取 token 后调用 confirm              |
+| GET  | `/api/dev/email-outbox?limit=20`   | 开发邮件 sink，返回 `{ items }`；正文保留链接/验证码，收件地址脱敏 |
+
+### 客户端契约（2026-10-01 核对）
+
+[OpenAPI](openapi.yaml) 描述 HTTP 字段；[contract.test.ts](src/__tests__/contract.test.ts)
+通过真实 AuthClient 与 Fastify `app.inject` 联测。
+
+| 操作                              | 请求 / 响应要点                                                                                                                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| register / login / OAuth callback | 返回 `{ identity, tokens }`；注册另有 `workspaceId`/`planId`，OAuth 另有 `isNew` 等字段。身份主键是 `identity.accountId`                                                                                       |
+| refresh                           | 请求 `{ refreshToken }`，直接返回 `TokenPair`，没有外层 `identity`/`tokens`；旧 refresh 轮换失效                                                                                                               |
+| TokenPair                         | `accessToken`、`refreshToken`、`expiresAt`、`refreshExpiresAt`；到期时间为毫秒时间戳                                                                                                                           |
+| OAuth authorize                   | 查询参数 `code_challenge`、`redirect_uri`；返回 `{ authorizeUrl, state }`，客户端使用服务端签发的 state                                                                                                        |
+| OAuth callback                    | 支持 GET/POST；AuthClient 使用 POST `{ code, state, codeVerifier, redirectUri }`，GET 兼容 `code_verifier`。服务端使用 state 保存的回调地址，state 过期/重用及 PKCE 不符会被拒绝；PKCE 失败后该 state 同样作废 |
+| GET / POST bindings               | 需 Bearer Token；POST 请求 `{ provider, code, state, codeVerifier }`。返回 `{ bindings: [{ id, provider, externalId, boundAt }] }`，`externalId` 脱敏                                                          |
+| DELETE bindings                   | 需 Bearer Token；按查询参数 `bindingId`（兼容请求体）解绑；返回更新后的 `{ bindings }`，唯一登录方式不可直接解绑                                                                                               |
 
 ## 明确边界（验收要求）
 
@@ -32,7 +59,7 @@
 ## 设计要点
 
 - **统一错误结构** `{ code, message, traceId }`；未捕获异常不泄漏堆栈。
-- **分页**采用 cursor（`bindings` 列表支持 `?limit=&cursor=`）。
+- **bindings 列表**当前返回全部绑定与空 `nextCursor`，未实现 `limit`/`cursor` 分页。
 - **幂等键**：所有写接口支持 `Idempotency-Key` 头，重复提交返回首次结果（落库 `account_idempotency`）。
 - **限流**：登录/注册每 IP 每分钟 20 次（内存令牌桶，可经环境变量调整）。
 - **审计日志脱敏**：密码、令牌、邮箱等敏感字段只记前 4 位 + `***`。
@@ -98,6 +125,12 @@ pnpm typecheck
 验证链接由本服务自托管（`GET /verify-email`），**不依赖桌面端是否运行**：用户常在邮件客户端里
 点开链接，此时应用可能根本没启动。链接令牌单次有效、过期拒绝。
 
+验证使用随机 URL 安全令牌；服务端按 SHA-256 哈希查询，再检查有效期及消费状态，不是客户端验签
+JWT 链接。重置码成功使用后失效，旧 refresh 全部撤销。默认 24 小时验证有效期、10 分钟重置有效期，
+同账号同类邮件默认冷却 60 秒；这些发送限制不应描述为完整的验证码错误尝试锁定策略。
+当前未验证邮箱也可登录。注册接口本身只建号；renderer 注册表单随后调用发送验证邮件接口，
+直接使用 API 的调用方需执行同样的第二步。
+
 开发期取验证令牌 / 重置码：
 
 ```bash
@@ -105,8 +138,31 @@ curl http://localhost:3000/api/dev/email-outbox            # 最近 20 封（正
 curl 'http://localhost:3000/api/dev/email-outbox?limit=50'
 ```
 
-> 生产部署请使用 Docker（`docker compose up --build`），并将 `ACCOUNT_JWT_SECRET` 设置为强随机值。
+### 开发环境完整操作
+
+1. 仓库根执行 `pnpm --filter @ec/account-service dev`，默认 `http://localhost:3000`；
+   `ACCOUNT_MAIL_WEBHOOK_URL` 留空，邮件写入 `account_email_outbox`。
+2. 在客户端注册新邮箱。用上述 outbox 端点读取验证邮件的 `body`，在浏览器打开其中的链接；
+   页面显示“邮箱验证完成”后回客户端刷新验证状态，退出后用原密码登录，状态应保持已验证。
+3. 在登录页进入“找回密码”，输入邮箱请求验证码；outbox 中取 `kind=reset` 邮件的 6 位码，
+   提交验证码和新密码。确认新密码可登录、旧密码失败、旧 refresh 不能再换令牌。
+4. 重用验证链接或重置码应被拒绝；等待过期后使用也应被拒绝。同邮箱同类邮件在冷却期内重发应得到 429。
+   测试环境可在启动前缩短 `ACCOUNT_EMAIL_VERIFY_TTL` / `ACCOUNT_PASSWORD_RESET_TTL`，只对之后签发的令牌生效。
+
+**投递与部署边界**：配置 `ACCOUNT_MAIL_WEBHOOK_URL` 后服务 POST `{ to, subject, text, kind }`，
+由接收方完成真实投递；本服务没有内置 SMTP 配置。当前网络异常会回写 outbox，HTTP 非 2xx 响应不会
+触发这条回退，亦未实现自动重试队列。outbox 读取端点目前没有环境开关或鉴权隔离，部署时须限制
+其访问范围；开发本地自测与公网邮件投递验收须分开记录。Docker 部署另须设置强随机 `ACCOUNT_JWT_SECRET`。
+
+### 自动化与手工验收
+
+2026-09-30 服务端实测 3 文件 / 26 项通过（account 10、contract 7、email-flow 9）。
+新增证据包含邮件链接可达、静态 HTML 不反射 token、confirm 的 `{ ok: true }` 与页面成功判据一致，
+以及 PKCE 校验失败后的 state 消费。2026-10-01 仅同步文档，未据此声称重新执行测试。
+
+复跑：仓库根执行 `pnpm --filter @ec/account-service test --no-file-parallelism`。
+真实投递与第三方凭据验收见 [E2E 清单 M-01/M-02](../../docs/E2E-CHECKLIST.md)。
 
 ---
 
-Copyright 2026 EveryoneCoding. Licensed under the Apache License, Version 2.0 — 见仓库根目录 [LICENSE](../LICENSE)。
+Copyright 2026 EveryoneCoding. Licensed under the Apache License, Version 2.0 — 见仓库根目录 [LICENSE](../../LICENSE)。

@@ -109,6 +109,11 @@ export interface AuthDomainOptions {
    * 每次都失败的尝试，让授权直接走 `everyonecoding://oauth`。
    */
   forceOAuthChannel?: 'loopback' | 'protocol' | undefined;
+  /**
+   * 回环监听端口（缺省 0 = 系统随机分配）。企业防火墙只放行白名单端口、
+   * 或 OAuth 应用要求登记固定回调地址时可指定；端口被占用时回环失败 → 自动回退协议通道。
+   */
+  loopbackPort?: number | undefined;
 }
 
 export function createAuthDomain(options: AuthDomainOptions): { router: DomainRouter } {
@@ -174,7 +179,7 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
           setImmediate(() => handler(callbackUrl));
         });
         server.on('error', (error) => reject(error));
-        server.listen(0, '127.0.0.1', () => {
+        server.listen(options.loopbackPort ?? 0, '127.0.0.1', () => {
           const address = server.address();
           if (address === null || typeof address === 'string') {
             reject(new ShellError('IO_ERROR', '回环监听端口分配失败'));

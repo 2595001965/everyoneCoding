@@ -25,6 +25,8 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('content');
   const [convertOpen, setConvertOpen] = useState(false);
+  /** 从检索命中进入时要定位的段落（正文滚动到此处，转记忆默认选中此段） */
+  const [focusAnchor, setFocusAnchor] = useState<string | null>(null);
   const [selected, setSelected] = useState<{
     id: string;
     title: string;
@@ -33,8 +35,9 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
 
   /** 选中文档时同步取详情（转记忆需要 sections） */
   const handleSelect = useCallback(
-    async (id: string) => {
+    async (id: string, anchor?: string) => {
       setSelectedId(id);
+      setFocusAnchor(anchor ?? null);
       setActiveTab('content');
       if (!api) return;
       const doc = await api.getDocument(id);
@@ -65,7 +68,7 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
         <DocLibrary
           projectId={projectId}
           selectedId={selectedId}
-          onSelect={(id) => void handleSelect(id)}
+          onSelect={(id, anchor) => void handleSelect(id, anchor)}
         />
         <div className="ec-docs__detail">
           {selectedId === null ? (
@@ -81,7 +84,7 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
               // eslint-disable-next-line react/no-children-prop -- Tabs 的 children 是渲染函数
               children={(active) =>
                 active === 'content' ? (
-                  <DocViewer documentId={selectedId} />
+                  <DocViewer documentId={selectedId} focusAnchor={focusAnchor} />
                 ) : (
                   <DocMemoryLink
                     projectId={projectId}
@@ -102,6 +105,7 @@ function DocsWorkspace({ projectId }: { projectId: string }): JSX.Element {
           documentId={convertTarget.id}
           documentTitle={convertTarget.title}
           sections={convertTarget.sections}
+          {...(focusAnchor ? { initialAnchor: focusAnchor } : {})}
           onClose={() => setConvertOpen(false)}
           onConverted={() => setActiveTab('memory')}
         />

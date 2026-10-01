@@ -4,6 +4,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { DocLibrary } from '../DocLibrary';
 import { DocViewer } from '../DocViewer';
 import { DocsProvider } from '../docs-api';
+import { createBrowserParserRegistry, type DocFormat } from '@ec/core';
+
 import { createFakeDocsApi, seedDocument, type FakeDocsEnvironment } from './fake-docs';
 
 const PROJECT = 'proj-1';
@@ -129,7 +131,103 @@ describe('DocLibrary（文档库）', () => {
     expect(await screen.findByText('课程平台需求')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('搜索文档'), { target: { value: '支付' } });
     await waitFor(() => expect(screen.queryByText('课程平台需求')).toBeNull());
-    expect(screen.getByText('支付需求')).toBeTruthy();
+    expect(within(screen.getByLabelText('文档列表')).getByText('支付需求')).toBeTruthy();
+  });
+
+  it('正文全文检索：命中段落列出片段，点击以段落锚点打开文档', async () => {
+    const docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '课程平台需求',
+      markdown: MARKDOWN,
+    });
+    const { onSelect } = renderLibrary(env);
+    await screen.findByText('课程平台需求');
+
+    // 标题里没有"用户注册"，只有正文命中
+    fireEvent.change(screen.getByLabelText('搜索文档'), { target: { value: '用户注册' } });
+    const hits = await screen.findByLabelText('正文命中');
+    const hit = within(hits).getByRole('button', { name: /课程平台需求/ });
+    expect(hit.textContent).toContain('用户注册');
+
+    fireEvent.click(hit);
+    expect(onSelect).toHaveBeenCalledWith(docId, '功能需求');
+  });
+});
+
+/** 外壳侧解析器可用（docx / pdf / image 由主进程解析）：只把"支持清单"放开 */
+function shellParsers() {
+  const base = createBrowserParserRegistry();
+  return {
+    get: base.get.bind(base),
+    supported: (): DocFormat[] => [...base.supported(), 'docx', 'pdf', 'image'],
+  };
+}
+
+async function openImageImport(): Promise<void> {
+  await screen.findByText('还没有文档');
+  fireEvent.click(screen.getByRole('button', { name: '导入文档' }));
+  fireEvent.click(screen.getByLabelText('文档格式'));
+  fireEvent.click(screen.getByRole('option', { name: /图片/ }));
+}
+
+describe('图片导入（OCR）', () => {
+  it('OCR 可用：列出本机识别语言，所选语言随导入透传；导入后按识别文字搜得到', async () => {
+    const env = createFakeDocsApi({ parsers: shellParsers(), imageText: '扫码登录后进入课程首页' });
+    const { onSelect } = renderLibrary(env);
+    await openImageImport();
+
+    fireEvent.click(await screen.findByLabelText('识别语言'));
+    expect(screen.getByRole('option', { name: /简体中文（zh-Hans-CN）/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('option', { name: /英语（en-US）/ }));
+
+    fireEvent.change(screen.getByLabelText('文件路径'), {
+      target: { value: 'D:/shots/login.png' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '导入' }));
+
+    await waitFor(() => expect(env.store.docs.size).toBe(1));
+    expect(env.fileImports).toEqual([
+      { format: 'image', filePath: 'D:/shots/login.png', ocrLanguage: 'en-US' },
+    ]);
+    const docId = [...env.store.docs.keys()][0]!;
+
+    fireEvent.change(screen.getByLabelText('搜索文档'), { target: { value: '扫码登录' } });
+    const hits = await screen.findByLabelText('正文命中');
+    fireEvent.click(within(hits).getByRole('button', { name: /login.png/ }));
+    expect(onSelect).toHaveBeenLastCalledWith(docId, 'sec-0');
+  });
+
+  it('OCR 不可用：展示原因与安装引导，导入按钮禁用', async () => {
+    const env = createFakeDocsApi({
+      parsers: shellParsers(),
+      ocr: {
+        available: false,
+        reason: '未从系统语言包创建出 OCR 引擎。',
+        languages: [],
+        detail: 'Windows.Media.Ocr',
+      },
+    });
+    renderLibrary(env);
+    await openImageImport();
+
+    const alert = await screen.findByRole('alert', { name: 'OCR 不可用' });
+    expect(alert.textContent).toContain('未从系统语言包创建出 OCR 引擎');
+    expect(alert.textContent).toContain('时间和语言');
+    fireEvent.change(screen.getByLabelText('文件路径'), { target: { value: 'D:/a.png' } });
+    expect((screen.getByRole('button', { name: '导入' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(env.fileImports).toEqual([]);
+  });
+
+  it('识别零文字：如实展示失败原因，不入库', async () => {
+    const env = createFakeDocsApi({ parsers: shellParsers(), imageText: '' });
+    renderLibrary(env);
+    await openImageImport();
+    await screen.findByLabelText('识别语言');
+    fireEvent.change(screen.getByLabelText('文件路径'), { target: { value: 'D:/blank.png' } });
+    fireEvent.click(screen.getByRole('button', { name: '导入' }));
+
+    expect(await screen.findByText(/没有识别出文字/)).toBeTruthy();
+    expect(env.store.docs.size).toBe(0);
   });
 });
 
@@ -172,6 +270,22 @@ describe('DocViewer（正文与定位）', () => {
         .closest('li')
         ?.getAttribute('data-active'),
     ).toBe('true');
+  });
+
+  it('带 focusAnchor 打开时加载后自动定位到该段（检索命中 / 记忆反查入口）', async () => {
+    const docId = await seedDocument(env.store, {
+      projectId: PROJECT,
+      title: '需求',
+      markdown: MARKDOWN,
+    });
+    render(
+      <DocsProvider api={env.api}>
+        <DocViewer documentId={docId} focusAnchor="功能需求" />
+      </DocsProvider>,
+    );
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
+    const target = scrollSpy.mock.instances[0] as unknown as HTMLElement;
+    expect(target.id).toBe('功能需求');
   });
 
   it('PDF 文档在大纲标注页码（页码定位可用）', async () => {

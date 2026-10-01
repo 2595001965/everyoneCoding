@@ -38,18 +38,22 @@ describe('E2E-01 新用户注册：注册 → 自开通 → 登录 → 刷新', 
 
     expect(reg.statusCode).toBe(201);
     const body = reg.json() as {
-      userId: string;
+      identity: { accountId: string; hasPassword: boolean; emailVerified: boolean };
+      tokens: { accessToken: string; refreshToken: string; expiresAt: number };
       workspaceId: string;
       planId: string;
-      accessToken: string;
-      refreshToken: string;
     };
+    // 契约口径：register/login → { identity, tokens }（完整形状由
+    // services/account/src/__tests__/contract.test.ts 钉住；服务端 routes/auth.ts 的
+    // `identityOf()` / `toClientTokens()` 是唯一产出点）
     // 自注册即开通（FR-ACC-05）：工作区与权益包在注册响应里就绪
-    expect(body.userId).toBeTruthy();
+    expect(body.identity.accountId).toBeTruthy();
+    expect(body.identity.hasPassword).toBe(true);
     expect(body.workspaceId).toBeTruthy();
     expect(body.planId).toBe('free');
-    expect(body.accessToken).toBeTruthy();
-    expect(body.refreshToken).toBeTruthy();
+    expect(body.tokens.accessToken).toBeTruthy();
+    expect(body.tokens.refreshToken).toBeTruthy();
+    expect(body.tokens.expiresAt).toBeGreaterThan(Date.now());
     await app.close();
   });
 
@@ -104,7 +108,7 @@ describe('E2E-01 新用户注册：注册 → 自开通 → 登录 → 刷新', 
       payload: { email: 'flow@example.com', password: 'Abcd1234' },
     });
     expect(login.statusCode).toBe(200);
-    const oldRefresh = (login.json() as { refreshToken: string }).refreshToken;
+    const oldRefresh = (login.json() as { tokens: { refreshToken: string } }).tokens.refreshToken;
 
     const refreshed = await app.inject({
       method: 'POST',
@@ -112,6 +116,7 @@ describe('E2E-01 新用户注册：注册 → 自开通 → 登录 → 刷新', 
       payload: { refreshToken: oldRefresh },
     });
     expect(refreshed.statusCode).toBe(200);
+    // 刷新返回**扁平**令牌对（routes/auth.ts 的 `/api/auth/refresh` 直接回 toClientTokens）
     expect((refreshed.json() as { accessToken: string }).accessToken).toBeTruthy();
 
     // 旧 refresh 复用被拒（轮换后失效）

@@ -19,11 +19,13 @@ const VERSION_AUTHOR_LABELS: Record<string, string> = {
 
 export interface DocViewerProps {
   documentId: string;
+  /** 打开后定位到的段落锚点（来自检索命中 / 记忆反查） */
+  focusAnchor?: string | null;
   /** 数据变更后通知外层（如删除/恢复） */
   onChanged?: () => void;
 }
 
-export function DocViewer({ documentId, onChanged }: DocViewerProps): JSX.Element {
+export function DocViewer({ documentId, focusAnchor, onChanged }: DocViewerProps): JSX.Element {
   const api = useDocs();
   const [doc, setDoc] = useState<DocSummary | null>(null);
   const [versions, setVersions] = useState<DocVersionSummary[]>([]);
@@ -66,6 +68,11 @@ export function DocViewer({ documentId, onChanged }: DocViewerProps): JSX.Elemen
       target.scrollIntoView({ block: 'start' });
     }
   }, []);
+
+  // 文档加载完成后定位到指定段落
+  useEffect(() => {
+    if (doc && doc.id === documentId && focusAnchor) jumpTo(focusAnchor);
+  }, [doc, documentId, focusAnchor, jumpTo]);
 
   const ignoreUpdate = useCallback(async () => {
     if (!doc) return;

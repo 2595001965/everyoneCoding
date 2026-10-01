@@ -94,6 +94,8 @@ export interface HeadlessRuntimeOptions {
   registerProtocolHandler?: ((handler: (url: string) => void) => boolean) | undefined;
   /** 强制 OAuth 通道（缺省自动：先回环、失败回退协议） */
   oauthChannel?: 'loopback' | 'protocol' | undefined;
+  /** OAuth 回环固定端口（缺省随机；占用时自动回退协议通道） */
+  oauthLoopbackPort?: number | undefined;
   ports: HeadlessRuntimePorts;
 }
 
@@ -152,6 +154,9 @@ export async function createHeadlessRuntime(
           ? { registerProtocolHandler: options.registerProtocolHandler }
           : {}),
         ...(options.oauthChannel !== undefined ? { forceOAuthChannel: options.oauthChannel } : {}),
+        ...(options.oauthLoopbackPort !== undefined
+          ? { loopbackPort: options.oauthLoopbackPort }
+          : {}),
       });
     }
 

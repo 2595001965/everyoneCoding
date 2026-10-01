@@ -31,18 +31,28 @@ export const OCR_UNSUPPORTED_REASON = '当前版本未接入 OCR 引擎，图片
  * - 未注入 → 返回 `supported:false`，**不抛异常也不伪造文本**（调用方据 `supported` 决定展示引导）。
  */
 export function parseImageOcr(
-  input: { raw: string | Uint8Array; fileName?: string | undefined },
+  input: {
+    raw: string | Uint8Array;
+    fileName?: string | undefined;
+    language?: string | undefined;
+  },
   port?: OcrPort | null,
 ): OcrResult | Promise<OcrResult> {
   if (!port) {
     return { supported: false, reason: OCR_UNSUPPORTED_REASON };
   }
   const bytes = typeof input.raw === 'string' ? new TextEncoder().encode(input.raw) : input.raw;
-  return port.recognize({ raw: bytes, fileName: input.fileName }).then((r) => ({
-    supported: true,
-    title: r.title,
-    sections: r.sections,
-  }));
+  return port
+    .recognize({
+      raw: bytes,
+      fileName: input.fileName,
+      ...(input.language ? { language: input.language } : {}),
+    })
+    .then((r) => ({
+      supported: true,
+      title: r.title,
+      sections: r.sections,
+    }));
 }
 
 /**
@@ -56,6 +66,7 @@ export function makeImageParser(port?: OcrPort | null): {
   parse(input: {
     raw: string | Uint8Array;
     fileName?: string | undefined;
+    language?: string | undefined;
   }): Promise<ParsedDocument>;
 } {
   return {

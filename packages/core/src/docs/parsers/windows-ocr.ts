@@ -78,8 +78,16 @@ function recognitionScript(imagePath: string, language: string): string {
   const safeLang = language.replace(/'/g, "''");
   return `
 ${WINRT_HELPERS}
-$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::CreateLanguage('${safeLang}'))
-if ($null -eq $engine) { Write-Output '{"error":"lang_unavailable"}'; exit 0 }
+$engine = $null
+if ([Windows.Globalization.Language]::IsWellFormed('${safeLang}')) {
+  $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage((New-Object Windows.Globalization.Language '${safeLang}'))
+}
+if ($null -eq $engine) {
+  $langs = @()
+  foreach ($l in [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages) { $langs += $l.LanguageTag }
+  Write-Output (@{ error = 'lang_unavailable'; languages = $langs } | ConvertTo-Json -Compress)
+  exit 0
+}
 $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync('${safePath}')) ([Windows.Storage.StorageFile])
 $stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
 $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
@@ -92,6 +100,31 @@ foreach ($line in $result.Lines) {
 }
 Write-Output (@{ lines = $lines } | ConvertTo-Json -Compress -Depth 4)
 `.trim();
+}
+
+/**
+ * 把用户/缺省请求的语言标签对到本机已装的识别器语言上。
+ *
+ * 必要性：Windows 的识别器标签带书写系统（中文系统上是 `zh-Hans-CN`），而用户与缺省值
+ * 常写 `zh-CN`；`TryCreateFromLanguage('zh-CN')` 会直接返回 null。按以下顺序匹配：
+ * 1. 完全相同（不区分大小写）；
+ * 2. 中文按书写系统归并：CN/SG/Hans → Hans，TW/HK/MO/Hant → Hant（简繁不可互相顶替）；
+ * 3. 其余语言按主语言子标签（`en-GB` → `en-US`）。
+ * 都对不上返回 null（调用方给安装引导，**不**擅自换成别的语言识别）。
+ */
+export function resolveOcrLanguage(requested: string, available: string[]): string | null {
+  const want = requested.toLowerCase();
+  const exact = available.find((tag) => tag.toLowerCase() === want);
+  if (exact) return exact;
+  const [primary, ...rest] = want.split('-');
+  if (!primary) return null;
+  const candidates = available.filter((tag) => tag.toLowerCase().split('-')[0] === primary);
+  if (primary === 'zh') {
+    const traditional = rest.some((part) => ['hant', 'tw', 'hk', 'mo'].includes(part));
+    const script = traditional ? 'hant' : 'hans';
+    return candidates.find((tag) => tag.toLowerCase().split('-').includes(script)) ?? null;
+  }
+  return candidates[0] ?? null;
 }
 
 /** 受控跑 PowerShell：脚本落临时 .ps1（UTF-8 BOM），超时保护，stdout 取 JSON 行 */
@@ -156,27 +189,45 @@ function parseJsonLine<T>(stdout: string): T {
   return JSON.parse(last) as T;
 }
 
-/** 把 OCR 行聚合成段落（y 间隔 > 0.9×行高近似空行 → 分段；同段行拼接） */
+/** CJK 字符与全角标点（Windows OCR 对中日文逐字切词，词间不应有空格） */
+const CJK =
+  '\u2e80-\u2fdf\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef';
+const CJK_GAP = new RegExp(`(?<=[${CJK}])\\s+(?=[${CJK}])`, 'gu');
+
+/**
+ * 行内词拼接：识别器按"词"返回，脚本以空格连接；中文逐字成词，结果是「发 票 编 号」，
+ * 检索"发票"会落空。这里去掉**两个 CJK 字符之间**的空白，中英混排处（「编号 4821」）保留。
+ */
+export function joinOcrWords(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().replace(CJK_GAP, '');
+}
+
+/**
+ * 把 OCR 行聚合成段落：`y` 是行框**上沿**，所以相邻行的间距是
+ * `line.y - (prev.y + prev.h)`（上一行下沿到本行上沿），而不是两行上沿之差——
+ * 后者在正常行距下就已 ≥ 1 个行高，会把每一行都切成独立段落。
+ * 行间空白 > 0.8×行高（近似一个空行）才分段；同段行拼接。
+ */
 export function aggregateLinesToSections(
   lines: Array<{ text: string; y: number; h: number }>,
 ): DocSection[] {
   if (lines.length === 0) return [];
   const sorted = [...lines]
-    .map((line) => ({ ...line, text: line.text.replace(/\s+/g, ' ').trim() }))
+    .map((line) => ({ ...line, text: joinOcrWords(line.text) }))
     .filter((line) => line.text.length > 0)
     .sort((a, b) => a.y - b.y);
   const paragraphs: string[] = [];
   let buffer: string[] = [];
   let prev: { y: number; h: number } | null = null;
   for (const line of sorted) {
-    if (prev !== null && line.y - prev.y > Math.max(prev.h, line.h) * 0.9) {
-      paragraphs.push(buffer.join(' '));
+    if (prev !== null && line.y - (prev.y + prev.h) > Math.max(prev.h, line.h) * 0.8) {
+      paragraphs.push(joinOcrWords(buffer.join(' ')));
       buffer = [];
     }
     buffer.push(line.text);
     prev = { y: line.y, h: line.h };
   }
-  if (buffer.length > 0) paragraphs.push(buffer.join(' '));
+  if (buffer.length > 0) paragraphs.push(joinOcrWords(buffer.join(' ')));
 
   return paragraphs.map((text, index) => ({
     index,
@@ -231,6 +282,17 @@ export function createWindowsOcrPort(
 ): OcrPort & { availability: () => Promise<OcrAvailability> } {
   const language = options?.language ?? DEFAULT_LANGUAGE;
   const timeoutMs = options?.timeoutMs ?? 60_000;
+  /** 请求标签 → 本机识别器标签（首次不匹配时解析一次，之后直接用，免去每张图多跑一次子进程） */
+  const resolved = new Map<string, string>();
+
+  const runOnce = async (
+    imagePath: string,
+    tag: string,
+  ): Promise<{
+    error?: string;
+    languages?: string[];
+    lines?: Array<{ text: string; y: number; h: number }>;
+  }> => parseJsonLine(await runPowerShellScript(recognitionScript(imagePath, tag), timeoutMs));
 
   return {
     availability: () => probeWindowsOcr(options?.timeoutMs ?? 15_000),
@@ -246,18 +308,28 @@ export function createWindowsOcrPort(
         input.fileName && input.fileName.includes('.')
           ? input.fileName.slice(input.fileName.lastIndexOf('.'))
           : '.png';
+      const requested = input.language?.trim() || language;
+      if (!/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(requested)) {
+        throw new Error(`识别语言标签不合法：${requested}（应为 BCP-47，如 zh-CN / en-US）`);
+      }
       const dir = mkdtempSync(join(tmpdir(), 'ec-ocr-'));
       const imagePath = join(dir, `image${ext}`);
       try {
         writeFileSync(imagePath, input.raw);
-        const stdout = await runPowerShellScript(recognitionScript(imagePath, language), timeoutMs);
-        const parsed = parseJsonLine<{
-          error?: string;
-          lines?: Array<{ text: string; y: number; h: number }>;
-        }>(stdout);
+        let parsed = await runOnce(imagePath, resolved.get(requested) ?? requested);
         if (parsed.error === 'lang_unavailable') {
+          const installed = parsed.languages ?? [];
+          const match = resolveOcrLanguage(requested, installed);
+          if (match !== null && match.toLowerCase() !== requested.toLowerCase()) {
+            resolved.set(requested, match);
+            parsed = await runOnce(imagePath, match);
+          }
+        }
+        if (parsed.error === 'lang_unavailable') {
+          const installed = parsed.languages ?? [];
           throw new Error(
-            `系统未安装「${language}」语言包，无法识别该语言。请在 Windows 设置 → 时间和语言 → 语言和区域 → 添加语言（如中文简体 / English）后重试。`,
+            `系统未安装「${requested}」的 OCR 识别语言（已装：${installed.length > 0 ? installed.join(' / ') : '无'}）。` +
+              '请在 Windows 设置 → 时间和语言 → 语言和区域 → 添加语言（勾选"光学字符识别"组件）后重试，或在导入时改选已装语言。',
           );
         }
         const sections = aggregateLinesToSections(parsed.lines ?? []);

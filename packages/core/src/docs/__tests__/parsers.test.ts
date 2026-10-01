@@ -5,158 +5,16 @@
  * 不依赖任何第三方解析库。
  */
 
-import { deflateRawSync, deflateSync } from 'node:zlib';
-
 import { describe, expect, it } from 'vitest';
 
 import { parseDocx } from '../parsers/docx';
+import { aggregateLinesToSections, joinOcrWords, resolveOcrLanguage } from '../parsers/windows-ocr';
 import { parseImageOcr, makeImageParser } from '../parsers/image-ocr';
 import { parseMarkdown } from '../parsers/markdown';
 import { parsePdf } from '../parsers/pdf';
 import { parseTxt } from '../parsers/txt';
 import type { OcrPort } from '../doc-types';
-
-/* --------------------------- DOCX 构造（最小 ZIP） --------------------------- */
-
-function pushU16(buf: number[], v: number): void {
-  buf.push(v & 0xff, (v >>> 8) & 0xff);
-}
-function pushU32(buf: number[], v: number): void {
-  buf.push(v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff);
-}
-function buildDocx(documentXml: string): Uint8Array {
-  const entries: Array<{ name: string; data: Uint8Array }> = [
-    { name: '[Content_Types].xml', data: new TextEncoder().encode('<Types/>') },
-    { name: 'word/document.xml', data: new TextEncoder().encode(documentXml) },
-  ];
-  const out: number[] = [];
-  const central: number[] = [];
-  let offset = 0;
-  for (const entry of entries) {
-    const comp = deflateRawSync(entry.data);
-    const nameBytes = new TextEncoder().encode(entry.name);
-    const localStart = out.length;
-    pushU32(out, 0x04034b50);
-    pushU16(out, 20);
-    pushU16(out, 0);
-    pushU16(out, 8); // deflate
-    pushU16(out, 0);
-    pushU16(out, 0);
-    pushU32(out, 0);
-    pushU32(out, comp.length);
-    pushU32(out, entry.data.length);
-    pushU16(out, nameBytes.length);
-    pushU16(out, 0);
-    for (const b of nameBytes) out.push(b);
-    for (const b of comp) out.push(b);
-
-    const cdStart = central.length;
-    pushU32(central, 0x02014b50);
-    pushU16(central, 20);
-    pushU16(central, 20);
-    pushU16(central, 0);
-    pushU16(central, 8);
-    pushU16(central, 0);
-    pushU16(central, 0);
-    pushU32(central, 0);
-    pushU32(central, comp.length);
-    pushU32(central, entry.data.length);
-    pushU16(central, nameBytes.length);
-    pushU16(central, 0);
-    pushU16(central, 0);
-    pushU16(central, 0);
-    pushU16(central, 0);
-    pushU32(central, 0);
-    pushU32(central, localStart);
-    for (const b of nameBytes) central.push(b);
-    void cdStart;
-    offset = out.length;
-  }
-  const cdOffset = offset;
-  const cdSize = central.length;
-  for (const b of central) out.push(b);
-  pushU32(out, 0x06054b50);
-  pushU16(out, 0);
-  pushU16(out, 0);
-  pushU16(out, entries.length);
-  pushU16(out, entries.length);
-  pushU32(out, cdSize);
-  pushU32(out, cdOffset);
-  pushU16(out, 0);
-  return Uint8Array.from(out);
-}
-
-/* --------------------------- PDF 构造 --------------------------- */
-
-function buildPdf(contentStreams: string[]): Uint8Array {
-  const parts: Uint8Array[] = [];
-  const header = new TextEncoder().encode('%PDF-1.4\n');
-  parts.push(header);
-  // 对象 1: catalog, 2: pages, 3: page, 4..: content
-  const contentObjNums = contentStreams.map((_, i) => 4 + i);
-  let obj = 1;
-  const writeObj = (body: string): void => {
-    parts.push(new TextEncoder().encode(`${obj} 0 obj\n${body}\nendobj\n`));
-    obj += 1;
-  };
-  writeObj('<< /Type /Catalog /Pages 2 0 R >>');
-  writeObj('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  const contentsRef = `[${contentObjNums.map((n) => `${n} 0 R`).join(' ')}]`;
-  writeObj(`<< /Type /Page /Parent 2 0 R /Contents ${contentsRef} >>`);
-  for (const stream of contentStreams) {
-    const comp = deflateSync(new TextEncoder().encode(stream));
-    const dict = `<< /Length ${comp.length} /Filter /FlateDecode >>`;
-    parts.push(new TextEncoder().encode(`${obj} 0 obj\n${dict}\nstream\n`));
-    parts.push(comp);
-    parts.push(new TextEncoder().encode('\nendstream\nendobj\n'));
-    obj += 1;
-  }
-  const body = concatBytes(parts);
-  const trailer = new TextEncoder().encode(`trailer\n<< /Root 1 0 R >>\n%%EOF\n`);
-  return concatBytes([body, trailer]);
-}
-
-function concatBytes(parts: Uint8Array[]): Uint8Array {
-  let len = 0;
-  for (const p of parts) len += p.length;
-  const out = new Uint8Array(len);
-  let off = 0;
-  for (const p of parts) {
-    out.set(p, off);
-    off += p.length;
-  }
-  return out;
-}
-
-/** 构造双页 PDF：每页各一个内容流，用于验证跨页页码映射 */
-function buildPdf2Pages(streams: [string, string]): Uint8Array {
-  const parts: Uint8Array[] = [];
-  const header = new TextEncoder().encode('%PDF-1.4\n');
-  parts.push(header);
-  let obj = 1;
-  const writeObj = (body: string): void => {
-    parts.push(new TextEncoder().encode(`${obj} 0 obj\n${body}\nendobj\n`));
-    obj += 1;
-  };
-  const contentNums: number[] = [];
-  writeObj('<< /Type /Catalog /Pages 2 0 R >>');
-  writeObj('<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>');
-  for (let i = 0; i < 2; i += 1) {
-    contentNums.push(obj);
-    const comp = deflateSync(new TextEncoder().encode(streams[i]!));
-    const dict = `<< /Length ${comp.length} /Filter /FlateDecode >>`;
-    parts.push(new TextEncoder().encode(`${obj} 0 obj\n${dict}\nstream\n`));
-    parts.push(comp);
-    parts.push(new TextEncoder().encode('\nendstream\nendobj\n'));
-    obj += 1;
-  }
-  // 两个页面对象，各自引用一个内容流
-  writeObj(`<< /Type /Page /Parent 2 0 R /Contents ${contentNums[0]!} 0 R >>`);
-  writeObj(`<< /Type /Page /Parent 2 0 R /Contents ${contentNums[1]!} 0 R >>`);
-  const body = concatBytes(parts);
-  const trailer = new TextEncoder().encode('trailer\n<< /Root 1 0 R >>\n%%EOF\n');
-  return concatBytes([body, trailer]);
-}
+import { buildDocx, buildPdf, buildPdf2Pages } from './doc-fixtures';
 
 /* --------------------------- 测试 --------------------------- */
 
@@ -259,5 +117,103 @@ describe('图片 OCR 解析', () => {
   it('解析器在无端口时抛出可识别错误', async () => {
     const parser = makeImageParser(null);
     await expect(parser.parse({ raw: new Uint8Array([1]) })).rejects.toThrow(/OCR/);
+  });
+});
+
+describe('解析失败如实抛错（不产出伪内容）', () => {
+  it('DOCX：非 ZIP 字节报"未找到中央目录"；ZIP 内缺 word/document.xml 报缺件', () => {
+    expect(() => parseDocx({ raw: new TextEncoder().encode('not a zip at all') })).toThrow(
+      /DOCX 解析失败/,
+    );
+    // 用合法 ZIP 容器但把正文条目改名 → 缺 word/document.xml
+    const zip = buildDocx('<w:document/>');
+    const renamed = new TextDecoder('latin1')
+      .decode(zip)
+      .replaceAll('word/document.xml', 'word/documenX.xml');
+    const bytes = Uint8Array.from(renamed, (ch) => ch.charCodeAt(0));
+    expect(() => parseDocx({ raw: bytes })).toThrow(/缺少 word\/document\.xml/);
+  });
+
+  it('PDF：非 PDF 字节 / 无文字内容流 → 只剩空段落（由 DocService 判为 empty_content）', () => {
+    for (const raw of [
+      new TextEncoder().encode('%PDF-1.4\n%%EOF'),
+      buildPdf(['q 1 0 0 1 0 0 cm Q']),
+    ]) {
+      const parsed = parsePdf({ raw });
+      expect(parsed.sections.every((s) => s.text === '' && s.heading === '')).toBe(true);
+    }
+  });
+});
+
+describe('图片 OCR：语言透传与段落聚合', () => {
+  it('识别语言经解析器透传给 OCR 端口', async () => {
+    const seen: Array<string | undefined> = [];
+    const port: OcrPort = {
+      recognize: async (input) => {
+        seen.push(input.language);
+        return {
+          title: 'x',
+          sections: [{ index: 0, level: 0, heading: '', anchor: 's', text: 'hi' }],
+        };
+      },
+    };
+    const parser = makeImageParser(port);
+    await parser.parse({ raw: new Uint8Array([1]), language: 'en-US' });
+    await parser.parse({ raw: new Uint8Array([1]) });
+    expect(seen).toEqual(['en-US', undefined]);
+  });
+
+  it('端口抛错（语言包缺失）→ ocr_unsupported，原因原样保留', async () => {
+    const parser = makeImageParser({
+      recognize: async () => {
+        throw new Error('系统未安装「ja-JP」语言包');
+      },
+    });
+    await expect(parser.parse({ raw: new Uint8Array([1]) })).rejects.toMatchObject({
+      code: 'ocr_unsupported',
+      message: expect.stringContaining('ja-JP') as unknown as string,
+    });
+  });
+
+  it('正常行距的连续行并为同一段；空一行以上才分段（按行框下沿到上沿的间距）', () => {
+    // 行高 20、行距 26（间隙 6）：同段；第三行与第二行间隙 40（> 0.8×20）：分段
+    const sections = aggregateLinesToSections([
+      { text: 'Para one line one', y: 0, h: 20 },
+      { text: 'line two', y: 26, h: 20 },
+      { text: '第 二 段', y: 86, h: 20 },
+      { text: '续 行', y: 112, h: 20 },
+    ]);
+    // 英文行间以空格相接；中文跨行也不插空格（否则检索"二段续行"会落空）
+    expect(sections.map((s) => s.text)).toEqual(['Para one line one line two', '第二段续行']);
+    expect(sections.map((s) => s.anchor)).toEqual(['sec-0', 'sec-1']);
+  });
+
+  it('乱序输入按 y 排序；空白行被丢弃；零行返回空数组', () => {
+    expect(aggregateLinesToSections([])).toEqual([]);
+    const sections = aggregateLinesToSections([
+      { text: 'B', y: 24, h: 20 },
+      { text: '   ', y: 12, h: 20 },
+      { text: 'A', y: 0, h: 20 },
+    ]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]!.text).toBe('A B');
+  });
+});
+
+describe('OCR 行内拼接与语言对齐', () => {
+  it('去掉相邻 CJK 字符间的空格，中英/数字混排处保留', () => {
+    expect(joinOcrWords('发 票 编 号 4821')).toBe('发票编号 4821');
+    expect(joinOcrWords('  支 持 WeChat 登 录，  扫 码 ')).toBe('支持 WeChat 登录，扫码');
+    expect(joinOcrWords('Invoice   Number 4821')).toBe('Invoice Number 4821');
+  });
+
+  it('zh-CN 对到 zh-Hans-CN，繁体不顶替简体；主子标签兜底；无匹配返回 null', () => {
+    const installed = ['zh-Hans-CN', 'en-US'];
+    expect(resolveOcrLanguage('zh-CN', installed)).toBe('zh-Hans-CN');
+    expect(resolveOcrLanguage('ZH-HANS-CN', installed)).toBe('zh-Hans-CN');
+    expect(resolveOcrLanguage('zh-TW', installed)).toBeNull();
+    expect(resolveOcrLanguage('zh-TW', ['zh-Hant-TW'])).toBe('zh-Hant-TW');
+    expect(resolveOcrLanguage('en-GB', installed)).toBe('en-US');
+    expect(resolveOcrLanguage('ja-JP', installed)).toBeNull();
   });
 });

@@ -1,4 +1,6 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -101,6 +103,7 @@ function build(overrides: {
   fake?: ReturnType<typeof makeFakeTransport>;
   registerProtocolHandler?: ((handler: (url: string) => void) => boolean) | undefined;
   forceOAuthChannel?: 'loopback' | 'protocol' | undefined;
+  loopbackPort?: number | undefined;
 }): void {
   const domain = createAuthDomain({
     baseUrl: 'https://account.test',
@@ -115,6 +118,7 @@ function build(overrides: {
     ...(overrides.forceOAuthChannel !== undefined
       ? { forceOAuthChannel: overrides.forceOAuthChannel }
       : {}),
+    ...(overrides.loopbackPort !== undefined ? { loopbackPort: overrides.loopbackPort } : {}),
   });
   runtime = createDomainRuntime({ routers: { auth: domain.router } });
 }
@@ -563,6 +567,56 @@ describe('OAuth 双通道：回环与 everyonecoding:// 协议各跑一整遍', 
     );
     expect(result.status).toBe('completed');
     expect(result.session.tokens.accessToken).toBe('at-1');
+  });
+
+  it('自动回退：回环端口真的被占用（EADDRINUSE）→ 未强制也改走协议通道并完成登录', async () => {
+    // 先占住一个端口，再让域用同一端口起回环 —— 这是真实的 listen 失败，不是开关模拟
+    const blocker = createServer();
+    await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    const busyPort = (blocker.address() as AddressInfo).port;
+    try {
+      const bridge = createProtocolBridge();
+      const fake = makeFakeTransport(
+        oauthRoutes(
+          (redirectUri) => expect(redirectUri).toBe('everyonecoding://oauth'),
+          'code-fallback',
+        ),
+      );
+      build({
+        fake,
+        loopbackPort: busyPort,
+        registerProtocolHandler: (handler) => bridge.register(handler),
+      });
+
+      await call('beginOAuth', { provider: 'google' });
+      expect(redirectUriOf(fake)).toBe('everyonecoding://oauth');
+
+      bridge.deliver(`everyonecoding://oauth?code=code-fallback&state=${STATE}`);
+      const result = await call<{ status: string }>('pollOAuthCallback', {
+        provider: 'google',
+        timeoutMs: 2000,
+      });
+      expect(result.status).toBe('completed');
+
+      // 一次性消费：同一回调重放不会再次换令牌
+      bridge.deliver(`everyonecoding://oauth?code=code-fallback&state=${STATE}`);
+      await expect(call('pollOAuthCallback', { provider: 'google' })).rejects.toMatchObject({
+        code: 'INVALID_ARGUMENT',
+      });
+      expect(fake.requests.filter((request) => request.url.includes('/callback'))).toHaveLength(1);
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    }
+  });
+
+  it('回环可用时绝不走协议：即使协议已注册，redirect_uri 仍是 127.0.0.1', async () => {
+    const bridge = createProtocolBridge();
+    const fake = makeFakeTransport(
+      oauthRoutes((redirectUri) => expect(redirectUri).toContain('127.0.0.1'), 'unused'),
+    );
+    build({ fake, registerProtocolHandler: (handler) => bridge.register(handler) });
+    await call('beginOAuth', { provider: 'google' });
+    expect(redirectUriOf(fake)).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/oauth\/callback$/);
   });
 
   it('协议通道：state 不匹配的回调被丢弃，不会拿错误 state 去换令牌', async () => {

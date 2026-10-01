@@ -19,9 +19,11 @@ import {
   type MemoryDocLinkRowSnapshot,
   type DocumentRowSnapshot,
   type MemoryExtractionPort,
+  type OcrPort,
 } from '../doc-types';
 import { createDefaultParserRegistry } from '../parsers/node-registry';
 import { DocService } from '../doc-service';
+import { buildDocx, buildPdf } from './doc-fixtures';
 
 class FakeDocStore implements DocStore {
   readonly rows = new Map<string, DocumentRowSnapshot>();
@@ -156,7 +158,11 @@ function makeExtraction(
 const MD = '# 需求文档\n## 功能一\n这是功能一的描述。\n## 功能二\n这是功能二。';
 
 function makeService(
-  opts: { extraction?: MemoryExtractionPort | null; memory?: FakeDocMemoryPort } = {},
+  opts: {
+    extraction?: MemoryExtractionPort | null;
+    memory?: FakeDocMemoryPort;
+    ocr?: OcrPort | null;
+  } = {},
 ): {
   service: DocService;
   store: FakeDocStore;
@@ -167,7 +173,7 @@ function makeService(
     opts.memory ?? new FakeDocMemoryPort([{ id: 'm1', scope: 'project', title: '项目记忆A' }]);
   const service = new DocService({
     store,
-    parsers: createDefaultParserRegistry(),
+    parsers: createDefaultParserRegistry({ ocr: opts.ocr ?? null }),
     memory,
     extraction: opts.extraction ?? undefined,
     clock: () => 1000,
@@ -330,5 +336,155 @@ describe('回收站', () => {
     expect(
       (await service.listDocuments('p1', { includeDeleted: true })).some((d) => d.id === doc.id),
     ).toBe(false);
+  });
+});
+
+describe('四类格式导入：成功与失败各一（FR-DOC-01）', () => {
+  const DOCX_XML =
+    '<w:document><w:body>' +
+    '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>接口约定</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:t>登录接口返回 identity 与 tokens。</w:t></w:r></w:p>' +
+    '</w:body></w:document>';
+
+  it('Markdown：成功入库；空白内容 → empty_content 且不落库', async () => {
+    const { service } = makeService();
+    const ok = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
+    expect(ok.sections.length).toBeGreaterThan(0);
+    await expect(
+      service.importDocument({ projectId: 'p1', format: 'markdown', raw: '  \n\n ' }),
+    ).rejects.toMatchObject({ code: 'empty_content' });
+    expect(await service.listDocuments('p1')).toHaveLength(1);
+  });
+
+  it('Word：成功提取标题层级；损坏文件 → parse_failed（原因含"DOCX 解析失败"）', async () => {
+    const { service } = makeService();
+    const ok = await service.importDocument({
+      projectId: 'p1',
+      format: 'docx',
+      raw: buildDocx(DOCX_XML),
+    });
+    expect(ok.title).toBe('接口约定');
+    expect(ok.sections[0]!.level).toBe(1);
+    const failure = service.importDocument({
+      projectId: 'p1',
+      format: 'docx',
+      raw: new TextEncoder().encode('这不是 docx'),
+    });
+    await expect(failure).rejects.toMatchObject({ code: 'parse_failed' });
+    await expect(failure).rejects.toThrow(/DOCX 解析失败/);
+    expect(await service.listDocuments('p1')).toHaveLength(1);
+  });
+
+  it('PDF：成功带页码；无文字（扫描件/空文件）→ empty_content 并引导改用图片 OCR', async () => {
+    const { service } = makeService();
+    const ok = await service.importDocument({
+      projectId: 'p1',
+      format: 'pdf',
+      raw: buildPdf(['BT /F1 20 Tf (Design Notes) Tj ET\nBT /F1 10 Tf (Body text here.) Tj ET']),
+    });
+    expect(ok.sections.some((s) => s.page === 1)).toBe(true);
+    const failure = service.importDocument({
+      projectId: 'p1',
+      format: 'pdf',
+      raw: buildPdf(['q 1 0 0 1 0 0 cm Q']),
+    });
+    await expect(failure).rejects.toMatchObject({ code: 'empty_content' });
+    await expect(failure).rejects.toThrow(/扫描件/);
+    expect(await service.listDocuments('p1')).toHaveLength(1);
+  });
+
+  it('图片：OCR 文本入库 → searchDocuments 命中并带锚点 → 可转记忆且保留原文链接', async () => {
+    const languages: Array<string | undefined> = [];
+    const { service } = makeService({
+      extraction: makeExtraction(),
+      ocr: {
+        recognize: async (input) => {
+          languages.push(input.language);
+          return {
+            title: input.fileName ?? '图片',
+            sections: [
+              { index: 0, level: 0, heading: '', anchor: 'sec-0', text: '功能一：扫码登录' },
+              { index: 1, level: 0, heading: '', anchor: 'sec-1', text: '功能二：手机号验证码' },
+            ],
+          };
+        },
+      },
+    });
+    const doc = await service.importDocument({
+      projectId: 'p1',
+      format: 'image',
+      raw: new Uint8Array([137, 80, 78, 71]),
+      fileName: 'login.png',
+      ocrLanguage: 'zh-CN',
+    });
+    expect(languages).toEqual(['zh-CN']);
+    expect(doc.title).toBe('login.png');
+
+    const hits = await service.searchDocuments('p1', '手机号');
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ docId: doc.id, anchor: 'sec-1', format: 'image' });
+    expect(hits[0]!.snippet).toContain('手机号验证码');
+
+    const draft = await service.previewConvertToMemory({
+      docId: doc.id,
+      scope: 'feature',
+      anchor: hits[0]!.anchor,
+    });
+    expect(draft.sourceRef).toMatchObject({ docId: doc.id, anchor: 'sec-1' });
+    const node = await service.commitConvertToMemory({ projectId: 'p1', draft });
+    expect((await service.listMemoryRefs(node.id))[0]!.documentId).toBe(doc.id);
+  });
+
+  it('图片：OCR 零文本 → empty_content；OCR 不可用 → ocr_unsupported；两者都不落库', async () => {
+    const empty = makeService({
+      ocr: { recognize: async () => ({ title: 'x', sections: [] }) },
+    }).service;
+    await expect(
+      empty.importDocument({ projectId: 'p1', format: 'image', raw: new Uint8Array([1]) }),
+    ).rejects.toMatchObject({ code: 'empty_content' });
+    expect(await empty.listDocuments('p1')).toHaveLength(0);
+
+    const broken = makeService({
+      ocr: {
+        recognize: async () => {
+          throw new Error('OCR 子进程超时');
+        },
+      },
+    }).service;
+    await expect(
+      broken.importDocument({ projectId: 'p1', format: 'image', raw: new Uint8Array([1]) }),
+    ).rejects.toMatchObject({ code: 'ocr_unsupported' });
+    expect(await broken.listDocuments('p1')).toHaveLength(0);
+  });
+});
+
+describe('文档检索', () => {
+  it('跨文档、不区分大小写、空白归一；回收站文档不参与；空查询返回空', async () => {
+    const { service } = makeService();
+    const a = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
+    await service.importDocument({
+      projectId: 'p1',
+      format: 'txt',
+      raw: '第一章 Release Notes\n支持  离线模式。',
+    });
+    expect(await service.searchDocuments('p1', '   ')).toEqual([]);
+    expect((await service.searchDocuments('p1', 'release notes')).length).toBe(1);
+    expect((await service.searchDocuments('p1', '支持 离线')).length).toBe(1);
+
+    const hit = (await service.searchDocuments('p1', '功能二'))[0]!;
+    expect(hit.docId).toBe(a.id);
+    expect(hit.heading).toBe('功能二');
+
+    await service.deleteDocument(a.id);
+    expect(await service.searchDocuments('p1', '功能二')).toEqual([]);
+  });
+
+  it('编辑时新正文解析失败 → 结构化报错且不升版本', async () => {
+    const { service } = makeService();
+    const doc = await service.importDocument({ projectId: 'p1', format: 'markdown', raw: MD });
+    await expect(service.updateDocument({ id: doc.id, raw: '   ' })).rejects.toMatchObject({
+      code: 'empty_content',
+    });
+    expect((await service.getDocument(doc.id))!.version).toBe(1);
   });
 });

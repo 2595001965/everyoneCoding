@@ -209,4 +209,56 @@ describe('ConvertToMemoryDialog（一键转记忆）', () => {
     expect(env.extraction.calls[0]!.scope).toBe('feature');
     expect(env.extraction.calls[0]!.text).toContain('课程管理');
   });
+
+  it('无标题正文段（图片 OCR 段落）可选；initialAnchor 预选命中段并随摘要带上锚点', async () => {
+    const sections = [
+      { index: 0, level: 0, heading: '', anchor: 'sec-0', text: '第一段：扫码登录' },
+      { index: 1, level: 0, heading: '', anchor: 'sec-1', text: '第二段：手机号验证码登录' },
+    ];
+    const spy = vi.spyOn(env.api, 'previewConvertToMemory');
+    render(
+      <DocsProvider api={env.api}>
+        <ConvertToMemoryDialog
+          open
+          projectId={PROJECT}
+          documentId={docId}
+          documentTitle="登录截图"
+          sections={sections}
+          initialAnchor="sec-1"
+          onClose={vi.fn()}
+          onConverted={vi.fn()}
+        />
+      </DocsProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText('转换范围'));
+    expect(screen.getByRole('option', { name: /段落 1：第一段：扫码登录/ })).toBeTruthy();
+    // 重新点选预选段落（关闭下拉），确认选项值即锚点
+    fireEvent.click(screen.getByRole('option', { name: /段落 2：第二段/ }));
+
+    fireEvent.click(screen.getByRole('button', { name: '生成结构化摘要' }));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0]![0]).toMatchObject({ docId, anchor: 'sec-1' });
+  });
+
+  it('initialAnchor 不经任何操作即生效（从检索命中直接转记忆）', async () => {
+    const spy = vi.spyOn(env.api, 'previewConvertToMemory');
+    render(
+      <DocsProvider api={env.api}>
+        <ConvertToMemoryDialog
+          open
+          projectId={PROJECT}
+          documentId={docId}
+          documentTitle="需求文档"
+          sections={[{ index: 0, level: 0, heading: '', anchor: 'sec-7', text: '正文' }]}
+          initialAnchor="sec-7"
+          onClose={vi.fn()}
+          onConverted={vi.fn()}
+        />
+      </DocsProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '生成结构化摘要' }));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0]![0]).toMatchObject({ anchor: 'sec-7' });
+  });
 });

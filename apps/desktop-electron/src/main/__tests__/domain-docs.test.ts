@@ -522,3 +522,187 @@ describe('图片 OCR（注入假端口走完整导入→检索→转记忆链）
     expect((db.prepare(`SELECT COUNT(*) AS n FROM document`).get() as { n: number }).n).toBe(0);
   });
 });
+
+/* ------------------ 真实文件导入矩阵（四类格式各一成一败） ------------------ */
+
+/** 最小 DOCX：单条目、存储（不压缩）的 ZIP，足以让零依赖解析器走真实路径 */
+function buildStoredDocx(documentXml: string): Buffer {
+  const name = Buffer.from('word/document.xml', 'utf8');
+  const data = Buffer.from(documentXml, 'utf8');
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4);
+  local.writeUInt32LE(data.length, 18);
+  local.writeUInt32LE(data.length, 22);
+  local.writeUInt16LE(name.length, 26);
+  const central = Buffer.alloc(46);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt32LE(data.length, 20);
+  central.writeUInt32LE(data.length, 24);
+  central.writeUInt16LE(name.length, 28);
+  const localPart = Buffer.concat([local, name, data]);
+  const centralPart = Buffer.concat([central, name]);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(1, 8);
+  eocd.writeUInt16LE(1, 10);
+  eocd.writeUInt32LE(centralPart.length, 12);
+  eocd.writeUInt32LE(localPart.length, 16);
+  return Buffer.concat([localPart, centralPart, eocd]);
+}
+
+/** 最小单页 PDF：内容流不压缩 */
+function buildPlainPdf(stream: string): Buffer {
+  return Buffer.from(
+    [
+      '%PDF-1.4',
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj',
+      '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj',
+      '3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj',
+      `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj`,
+      'trailer\n<< /Root 1 0 R >>\n%%EOF',
+    ].join('\n'),
+    'latin1',
+  );
+}
+
+describe('真实文件导入矩阵：Markdown / Word / PDF / 图片 各一成一败', () => {
+  function countDocs(): number {
+    return (db.prepare(`SELECT COUNT(*) AS n FROM document`).get() as { n: number }).n;
+  }
+  function fileOf(name: string, content: string | Buffer): string {
+    const path = join(root, name);
+    writeFileSync(path, content);
+    return path;
+  }
+
+  it('Markdown：成功入库可检索；空文件 → INVALID_ARGUMENT，不落库', async () => {
+    const ok = await call<DocShape>('importFromFile', {
+      input: { projectId, format: 'markdown', filePath: fileOf('ok.md', MARKDOWN) },
+    });
+    expect(ok.sections.map((s) => s.heading)).toContain('校验规则');
+    await expect(
+      call('importFromFile', {
+        input: { projectId, format: 'markdown', filePath: fileOf('empty.md', '\n  \n') },
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    expect(countDocs()).toBe(1);
+
+    const hits = await call<Array<{ docId: string; anchor: string }>>('searchDocuments', {
+      projectId,
+      query: '不区分大小写',
+    });
+    expect(hits).toEqual([expect.objectContaining({ docId: ok.id, anchor: '校验规则' })]);
+  });
+
+  it('Word：.docx 成功提取标题；损坏的 .docx → INVALID_ARGUMENT 且原因可读', async () => {
+    const xml =
+      '<w:document><w:body>' +
+      '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>接口约定</w:t></w:r></w:p>' +
+      '<w:p><w:r><w:t>返回 identity 与 tokens。</w:t></w:r></w:p>' +
+      '</w:body></w:document>';
+    const ok = await call<DocShape>('importFromFile', {
+      input: { projectId, format: 'docx', filePath: fileOf('spec.docx', buildStoredDocx(xml)) },
+    });
+    expect(ok.title).toBe('接口约定');
+
+    const bad = call('importFromFile', {
+      input: { projectId, format: 'docx', filePath: fileOf('bad.docx', 'plain text, not zip') },
+    });
+    await expect(bad).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    await expect(bad).rejects.toThrow(/DOCX 解析失败/);
+    expect(countDocs()).toBe(1);
+  });
+
+  it('PDF：成功带页码；无文字层（扫描件）→ INVALID_ARGUMENT 并引导改用图片 OCR', async () => {
+    const ok = await call<{ sections: Array<{ page?: number }> }>('importFromFile', {
+      input: {
+        projectId,
+        format: 'pdf',
+        filePath: fileOf(
+          'ok.pdf',
+          buildPlainPdf('BT /F1 20 Tf (Release Plan) Tj ET\nBT /F1 10 Tf (Ship in Q4.) Tj ET'),
+        ),
+      },
+    });
+    expect(ok.sections.some((s) => s.page === 1)).toBe(true);
+
+    const scanned = call('importFromFile', {
+      input: { projectId, format: 'pdf', filePath: fileOf('scan.pdf', buildPlainPdf('q Q')) },
+    });
+    await expect(scanned).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    await expect(scanned).rejects.toThrow(/图片（OCR）/);
+    expect(countDocs()).toBe(1);
+  });
+
+  it('图片：文件名与识别语言透传 OCR → 搜到 OCR 文本 → AI 转记忆保留锚点', async () => {
+    const seen: Array<{ fileName?: string | undefined; language?: string | undefined }> = [];
+    const aiStack = {
+      gateway: {
+        async *chat() {
+          yield { type: 'delta', text: '标题：扫码登录\n\n截图说明支持扫码登录。' };
+          yield { type: 'done', finishReason: 'stop' };
+        },
+      },
+      model: 'fake-model',
+    } as unknown as AiStackHandle;
+    const domain = createDocsDomain({
+      db,
+      aiStack,
+      ocr: {
+        recognize: async (input) => {
+          seen.push({ fileName: input.fileName, language: input.language });
+          return {
+            title: input.fileName ?? '图片',
+            sections: [
+              { index: 0, level: 0, heading: '', anchor: 'sec-0', text: 'Scan QR to sign in' },
+            ],
+          };
+        },
+      },
+    });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+
+    const doc = await call<DocShape>('importFromFile', {
+      input: {
+        projectId,
+        format: 'image',
+        filePath: fileOf('login.png', Buffer.from([137, 80, 78, 71])),
+        ocrLanguage: 'en-US',
+      },
+    });
+    expect(seen).toEqual([{ fileName: 'login.png', language: 'en-US' }]);
+    expect(doc.title).toBe('login.png');
+
+    const hits = await call<Array<{ docId: string; anchor: string; snippet: string }>>(
+      'searchDocuments',
+      { projectId, query: 'qr' },
+    );
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ docId: doc.id, anchor: 'sec-0' });
+
+    const draft = await call<{ title: string; sourceRef: { docId: string; anchor: string } }>(
+      'previewConvertToMemory',
+      { input: { docId: doc.id, scope: 'feature', anchor: hits[0]!.anchor } },
+    );
+    expect(draft.title).toBe('扫码登录');
+    expect(draft.sourceRef).toMatchObject({ docId: doc.id, anchor: 'sec-0' });
+  });
+
+  it('图片：OCR 识别零文字 → INVALID_ARGUMENT（提示检查清晰度与语言），不落库', async () => {
+    const domain = createDocsDomain({
+      db,
+      aiStack: null,
+      ocr: { recognize: async () => ({ title: 'x', sections: [] }) },
+    });
+    runtime = createDomainRuntime({ routers: { docs: domain.router } });
+    const blank = call('importFromFile', {
+      input: { projectId, format: 'image', filePath: fileOf('blank.png', Buffer.from([1])) },
+    });
+    await expect(blank).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    await expect(blank).rejects.toThrow(/识别语言/);
+    expect(countDocs()).toBe(0);
+  });
+});

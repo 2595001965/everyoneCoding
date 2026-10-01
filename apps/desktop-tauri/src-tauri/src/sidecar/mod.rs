@@ -359,6 +359,14 @@ struct Inner {
     restarts: u32,
     /// 侧车最近一次报上来的终止原因（用于区分"计划内关闭"与"崩溃"）
     last_bye: Option<ByeFrame>,
+    /// 宿主已进入退出流程：此后**不得**再拉起侧车。
+    ///
+    /// 这个标志存在的唯一理由是修一个只在真机关窗时才现形的竞争：
+    /// 预热任务与 `shutdown()` 抢 `lifecycle` 锁，若 `shutdown()` 先拿到锁，
+    /// 此时的 `phase` 还是 `Idle`、`child` 还是 `None`，于是它走早退分支直接返回；
+    /// 随后预热任务把侧车拉起来 —— 而 `RunEvent::Exit` 只跑一次，
+    /// 那个新进程再没人回收，用户看到的是"关掉应用后后台还挂着一个 node"。
+    shutting_down: bool,
 }
 
 /// 侧车管理器。
@@ -395,6 +403,7 @@ impl SidecarManager {
                 ready_tx: None,
                 restarts: 0,
                 last_bye: None,
+                shutting_down: false,
             }),
             stdin: Mutex::new(None),
             lifecycle: Mutex::new(()),
@@ -454,6 +463,12 @@ impl SidecarManager {
 
     /// 不做重启计数判定的一次启动尝试（`start` / 手工重启共用）。
     async fn start(self: &Arc<Self>) -> Result<ReadyFrame, WireError> {
+        // 宿主已在退出流程里：直接拒绝，绝不 spawn 新进程（见 `Inner::shutting_down`）。
+        let shutting_down = self.inner.lock().await.shutting_down;
+        if shutting_down {
+            return Err(WireError::unsupported("宿主正在退出，已取消侧车启动"));
+        }
+
         let location = match &self.location {
             Ok(location) => location.clone(),
             Err(reason) => return Err(WireError::unsupported(reason.clone())),
@@ -510,6 +525,16 @@ impl SidecarManager {
             inner.last_bye = None;
         }
         *self.stdin.lock().await = Some(stdin);
+
+        // 竞争重检：`shutdown()` 可能正好在 spawn 的同一拍跑完早退分支（见 `Inner::shutting_down`）。
+        // 这一拍里它拿不到 child（我们刚 spawn、还没登记），所以必须由我们自己回收。
+        let reap_now = self.inner.lock().await.shutting_down;
+        if reap_now {
+            self.force_stop().await;
+            return Err(WireError::unsupported(
+                "宿主正在退出，刚启动的侧车已就地回收",
+            ));
+        }
 
         // 读循环与 stderr 泵各自一个任务：读循环必须**永远在跑**，
         // 否则侧车的 stdout 写满管道后会阻塞，表现为"侧车突然不动了"。
@@ -1034,6 +1059,12 @@ impl SidecarManager {
 
     /// 优雅收尾：协议 `shutdown` → 等 `bye` → 强杀兜底。
     pub async fn shutdown(self: &Arc<Self>) {
+        // 先立旗，再拿 `lifecycle` 锁 —— 顺序是修 bug 的关键（见 `Inner::shutting_down`）。
+        {
+            let mut inner = self.inner.lock().await;
+            inner.shutting_down = true;
+        }
+
         let _guard = self.lifecycle.lock().await;
         {
             let inner = self.inner.lock().await;
@@ -1041,10 +1072,16 @@ impl SidecarManager {
                 return;
             }
         }
-        // 先礼：让侧车自己释放（它会一并杀掉预览后端）
-        let _ = self
-            .request(op::SHUTDOWN, Value::Null, SHUTDOWN_TIMEOUT)
-            .await;
+        // 先礼：让侧车自己释放（它会一并杀掉预览后端）。
+        //
+        // **不能**用 `self.request(op::SHUTDOWN, ...)`：`request()` 第一步是 `ensure_ready()`，
+        // 而 `ensure_ready()` 要再取一次 `lifecycle` 锁；`tokio::sync::Mutex` 不可重入，
+        // 而本函数此刻正持有它 —— 于是宿主在关窗口时**永久挂死**
+        // （实测：关窗后 120 秒仍未退出，只能从任务管理器强杀）。
+        // 这里只需要"把 shutdown 帧送出去"，不需要应答，直接写帧即可。
+        let request_id = self.request_id();
+        let frame = RequestFrame::new(&request_id, op::SHUTDOWN, Value::Null);
+        let _ = self.write_frame(&frame).await;
         // 等退出；超时后兵
         let deadline = tokio::time::Instant::now() + SHUTDOWN_TIMEOUT;
         loop {

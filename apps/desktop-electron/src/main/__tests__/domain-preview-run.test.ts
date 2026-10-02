@@ -205,8 +205,7 @@ beforeAll(() => {
     userId: USER_ID,
     aiStack: null,
     process: processHost,
-    capturePage: async (url) =>
-      url.startsWith('http://127.0.0.1') ? Buffer.from(FAKE_PNG) : null,
+    capturePage: async (url) => (url.startsWith('http://127.0.0.1') ? Buffer.from(FAKE_PNG) : null),
     credentials: null,
     emit: () => undefined,
   };
@@ -249,7 +248,11 @@ async function previewUrl(): Promise<string> {
 async function confirmFixturePlan(): Promise<void> {
   const suggestion = await call<{
     plannerVersion: string;
-    subProjects: Array<{ subProjectId: string; role: string; suggestedRunPlan: Record<string, unknown> | null }>;
+    subProjects: Array<{
+      subProjectId: string;
+      role: string;
+      suggestedRunPlan: Record<string, unknown> | null;
+    }>;
     plan: { services: Array<{ serviceId: string; role: string; command: string }> } | null;
     requiresConfirmation: boolean;
     notes: string[];

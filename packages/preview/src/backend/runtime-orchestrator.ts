@@ -214,7 +214,9 @@ export class RuntimeOrchestrator {
             step.cwd,
           );
           if (!result.ok) {
-            throw new Error(`安装步骤失败（${step.serviceId}）：${result.error?.message ?? '未知错误'}`);
+            throw new Error(
+              `安装步骤失败（${step.serviceId}）：${result.error?.message ?? '未知错误'}`,
+            );
           }
         }
       }
@@ -289,7 +291,7 @@ export class RuntimeOrchestrator {
     spec: RuntimeServiceSpec,
     takenByRuntime: Set<number>,
   ): Promise<number> {
-    let start = this.startPort;
+    const start = this.startPort;
     for (let attempt = 0; attempt < 50; attempt++) {
       const port = start + attempt;
       if (takenByRuntime.has(port)) continue;
@@ -326,7 +328,11 @@ export class RuntimeOrchestrator {
         const service = rt.services.get(spec.serviceId);
         if (service !== undefined && !rt.settled && rt.status === 'ready') {
           // ready 之后服务退出：降级并如实标注，而不是继续声称就绪
-          this.setStatus(rt, 'degraded', `${spec.serviceId} 已退出（${event.detail ?? '未知原因'}）`);
+          this.setStatus(
+            rt,
+            'degraded',
+            `${spec.serviceId} 已退出（${event.detail ?? '未知原因'}）`,
+          );
         }
         this.emit({
           type: 'service-exited',
@@ -363,7 +369,12 @@ export class RuntimeOrchestrator {
       baseUrl: `http://127.0.0.1:${port}`,
       healthPath: spec.kind === 'frontend' ? '/' : null,
     };
-    this.emit({ type: 'service-ready', runtimeId: rt.spec.runtimeId, serviceId: spec.serviceId, port });
+    this.emit({
+      type: 'service-ready',
+      runtimeId: rt.spec.runtimeId,
+      serviceId: spec.serviceId,
+      port,
+    });
     return { spec, port, command, runner, endpoint };
   }
 
@@ -412,7 +423,12 @@ export class RuntimeOrchestrator {
     rt.status = status;
     rt.updatedAt = this.clock();
     rt.revision += 1;
-    this.emit({ type: 'status', runtimeId: rt.spec.runtimeId, status, ...(detail !== undefined ? { detail } : {}) });
+    this.emit({
+      type: 'status',
+      runtimeId: rt.spec.runtimeId,
+      status,
+      ...(detail !== undefined ? { detail } : {}),
+    });
   }
 
   private snapshotOf(rt: Runtime): RuntimeSnapshot {

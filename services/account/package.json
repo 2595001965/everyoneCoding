@@ -2,7 +2,7 @@
   "name": "@ec/account-service",
   "version": "0.1.0",
   "private": true,
-  "description": "云端账号服务端最小实现：账号注册/登录、OAuth、用量上报与版本检查（Apache-2.0）",
+  "description": "云端账号、平台目录与价格版本服务（Apache-2.0）",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/server.js",
@@ -14,6 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ec/core": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "fastify": "^5.12.4",
     "zod": "^3.23.8"

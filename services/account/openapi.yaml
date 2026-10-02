@@ -2,9 +2,9 @@ openapi: 3.0.3
 info:
   title: EveryoneCoding 云端账号服务端 API
   description: >
-    客户端可离线工作，服务端仅负责账号注册/登录与版本更新。
-    本服务不提供云同步、远程配置下发与分享链接。
-  version: '1.4.0'
+    服务端复用既有账号认证，并提供发布版/目录/价格与官网证据管理 API。
+    客户端可离线读取已保存目录快照；本服务不提供云同步、远程配置下发与分享链接。
+  version: '1.5.0'
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
@@ -19,6 +19,8 @@ tags:
     description: 用量上报
   - name: release
     description: 版本更新
+  - name: catalog
+    description: 平台目录与价格版本（D10）
 
 paths:
   /api/auth/register:
@@ -481,6 +483,241 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
 
+  /api/catalog:
+    get:
+      tags: [catalog]
+      summary: 读取公开平台目录与价格证据
+      operationId: getCatalog
+      security: []
+      responses:
+        '200':
+          description: ProviderModel、有效平台价格版本和精确 canonical 身份匹配的官网证据；不含上游地址或凭据
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformCatalogSnapshot' }
+  /api/catalog/snapshot:
+    get:
+      tags: [catalog]
+      summary: 下载可保存在本地离线读取的目录 JSON 快照
+      operationId: getCatalogSnapshot
+      security: []
+      responses:
+        '200':
+          description: PlatformCatalogSnapshot；通过 @ec/core 的 parsePlatformCatalogSnapshot 校验后可离线读取
+          headers:
+            cache-control:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformCatalogSnapshot' }
+  /api/admin/catalog/providers:
+    get:
+      tags: [catalog]
+      summary: 管理员读取 Provider 配置状态
+      operationId: listPlatformProviders
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Provider 清单只返回凭据存在与轮换时间，不返回凭据引用或密钥 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [catalog]
+      summary: 管理员创建平台 Provider
+      operationId: createPlatformProvider
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, protocol, baseUrl]
+              properties:
+                displayName: { type: string }
+                protocol: { type: string, enum: [openai, anthropic] }
+                baseUrl: { type: string, format: uri, description: 服务端内部上游地址，不公开 }
+                credentialRef:
+                  {
+                    type: string,
+                    nullable: true,
+                    description: env:NAME 或 secret:// 引用；不接收原始 Key,
+                  }
+                status: { type: string, enum: [active, maintenance, disabled] }
+                statusReason: { type: string, nullable: true }
+      responses:
+        '201': { description: 已创建 Provider；响应不含 credentialRef }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/providers/{providerId}:
+    patch:
+      tags: [catalog]
+      summary: 管理员更新 Provider 状态或密钥引用
+      operationId: updatePlatformProvider
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: 仅提交需要变更的字段；新密钥通过服务端引用名指定 }
+      responses:
+        '200': { description: 更新后的非敏感 Provider 管理视图 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/models:
+    get:
+      tags: [catalog]
+      summary: 管理员读取 ProviderModel 目录
+      operationId: listPlatformModels
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: ProviderModel 管理视图 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/providers/{providerId}/models:
+    post:
+      tags: [catalog]
+      summary: 管理员新增一个 ProviderModel
+      operationId: createPlatformModel
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: unknown canonicalVendor/model 留空，不按别名猜测 }
+      responses:
+        '201': { description: 已创建 ProviderModel }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/providers/{providerId}/models/{modelId}:
+    patch:
+      tags: [catalog]
+      summary: 管理员更新 ProviderModel 元数据或目录状态
+      operationId: updatePlatformModel
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string } }
+        - { name: modelId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { description: 已更新 ProviderModel }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/providers/{providerId}/models/{modelId}/prices:
+    get:
+      tags: [catalog]
+      summary: 管理员查看该路由全部不可变价格版本
+      operationId: listPlatformModelPrices
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string } }
+        - { name: modelId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: effectiveTo 从下一版本生效时间推导，旧版本不修改 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [catalog]
+      summary: 管理员发布新价格版本
+      operationId: publishPlatformPrice
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string } }
+        - { name: modelId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, rates, effectiveFrom]
+              properties:
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                rates:
+                  { type: object, description: null 为未定价、0 为免费；缓存写费率按完整费率处理 }
+                sourceUrl: { type: string, format: uri, nullable: true }
+                verifiedAt: { type: integer, nullable: true }
+                effectiveFrom: { type: integer, description: 毫秒时间戳 }
+      responses:
+        '201': { description: 已发布新版本；历史版本只读 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/providers/{providerId}/models/{modelId}/prices/preview:
+    post:
+      tags: [catalog]
+      summary: 预览费率桶变动，不写入价格版本
+      operationId: previewPlatformPrice
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string } }
+        - { name: modelId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: 与发布价格请求相同 }
+      responses:
+        '200': { description: 当前费率与拟发布费率逐桶差额 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog/official-prices:
+    get:
+      tags: [catalog]
+      summary: 管理员读取已核验官网证据版本
+      operationId: listOfficialPriceEvidence
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: 含仅管理员可见的证据文本快照与哈希 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [catalog]
+      summary: 管理员登记带官网来源的价格核验快照
+      operationId: publishOfficialPriceEvidence
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [
+                  canonicalVendor,
+                  canonicalModel,
+                  currency,
+                  rates,
+                  sourceUrl,
+                  verifiedAt,
+                  evidenceVersion,
+                  evidenceSnapshot,
+                  conditions,
+                  effectiveFrom,
+                ]
+              description: 精确 canonical 身份；上游别名未经确认时不得登记或匹配
+      responses:
+        '201': { description: 已追加不可变官网价格证据版本 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -501,6 +738,29 @@ components:
         code: { type: string }
         message: { type: string }
         traceId: { type: string }
+    PlatformCatalogSnapshot:
+      type: object
+      required: [schemaVersion, generatedAt, providers, models, platformPrices, officialPrices]
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        generatedAt: { type: integer, description: Unix 毫秒时间戳 }
+        providers:
+          type: array
+          items: { type: object, description: 仅公开显示名、协议、状态与状态原因 }
+        models:
+          type: array
+          items:
+            { type: object, description: ProviderModelInfo + upstreamModelName；baseUrl 恒为 null }
+        platformPrices:
+          type: array
+          items: { type: object, description: 不可变 PriceVersion；null 未定价，0 免费 }
+        officialPrices:
+          type: array
+          items:
+            {
+              type: object,
+              description: 官网证据 URL、版本、哈希、适用条件和费率；不含管理员证据原文,
+            }
     TokenPair:
       type: object
       properties:

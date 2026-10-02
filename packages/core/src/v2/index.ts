@@ -27,3 +27,4 @@ export * from './runtime';
 export * from './project-source';
 export * from './agent';
 export * from './billing';
+export * from './catalog';

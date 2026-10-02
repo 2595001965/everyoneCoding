@@ -30,6 +30,8 @@ export interface AppConfig {
   passwordResetTtlSec: number;
   /** 同一用户同类邮件最小发送间隔（毫秒），默认 60s */
   emailResendCooldownMs: number;
+  /** 平台目录管理员账号 ID 的服务端 allowlist；不得由公开注册接口设置 */
+  platformAdminAccountIds: string[];
   /** 邮件投递 webhook（可选；空则落 outbox 表） */
   mailWebhookUrl: string | undefined;
   /**
@@ -79,6 +81,10 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     emailVerifyTtlSec: num(process.env.ACCOUNT_EMAIL_VERIFY_TTL, 24 * 60 * 60),
     passwordResetTtlSec: num(process.env.ACCOUNT_PASSWORD_RESET_TTL, 10 * 60),
     emailResendCooldownMs: num(process.env.ACCOUNT_EMAIL_RESEND_COOLDOWN_MS, 60 * 1000),
+    platformAdminAccountIds: str(process.env.ACCOUNT_PLATFORM_ADMIN_IDS, '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
     mailWebhookUrl: str(process.env.ACCOUNT_MAIL_WEBHOOK_URL, '') || undefined,
     publicBaseUrl,
     emailVerifyBaseUrl: str(process.env.ACCOUNT_EMAIL_VERIFY_BASE_URL, publicBaseUrl),

@@ -538,6 +538,9 @@ importers:
 
   services/account:
     dependencies:
+      '@ec/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       better-sqlite3:
         specifier: ^12.11.1
         version: 12.11.1

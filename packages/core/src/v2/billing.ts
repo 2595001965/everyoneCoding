@@ -169,9 +169,13 @@ export function computeUsageCost(pv: PriceVersion, usage: NormalizedUsage): Usag
   };
   pushLine('uncachedInput', usage.uncachedInput, pv.rates.uncachedInput);
   pushLine('cacheRead', usage.cacheReadInput, pv.rates.cacheRead);
-  if (usage.cacheWriteInputByTtl !== null && pv.rates.cacheWriteByTtl !== null) {
+  if (usage.cacheWriteInputByTtl !== null) {
     for (const [ttl, tokens] of Object.entries(usage.cacheWriteInputByTtl)) {
-      pushLine(`cacheWrite:${ttl}`, tokens, pv.rates.cacheWriteByTtl[ttl] ?? null);
+      pushLine(
+        `cacheWrite:${ttl}`,
+        tokens,
+        pv.rates.cacheWriteByTtl === null ? null : (pv.rates.cacheWriteByTtl[ttl] ?? null),
+      );
     }
   }
   pushLine('output', usage.totalOutput, pv.rates.output);

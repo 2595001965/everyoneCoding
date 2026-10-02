@@ -584,8 +584,8 @@ describe('共享层纯度（renderer 可安全导入）', () => {
   it('v2 目录源码不引入 node 内置模块 / better-sqlite3 / 其他 @ec 包', () => {
     const forbidden = [/from 'node:/, /require\(/, /better-sqlite3/, /@ec\/data/, /@ec\/shell-api/];
     const files = readdirSync(v2Dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
-    // 13 个契约文件（index + 11 领域/原语 + 原语依赖拆分）；少一个说明新文件未纳入纯度检查
-    expect(files.length).toBe(13);
+    // 14 个契约文件（含目录快照）；少一个说明新文件未纳入纯度检查
+    expect(files.length).toBe(14);
     for (const file of files) {
       const content = readFileSync(join(v2Dir, file), 'utf8');
       for (const pattern of forbidden) {

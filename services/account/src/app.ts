@@ -16,6 +16,7 @@ import { authRoutes } from './routes/auth.ts';
 import { verifyPageRoutes } from './routes/verify-page.ts';
 import { usageRoutes } from './routes/usage.ts';
 import { releaseRoutes } from './routes/release.ts';
+import { catalogRoutes } from './routes/catalog.ts';
 
 export async function buildApp(config: AppConfig, db?: Database): Promise<FastifyInstance> {
   const database = db ?? openDatabase(config.dbPath);
@@ -35,6 +36,7 @@ export async function buildApp(config: AppConfig, db?: Database): Promise<Fastif
   await app.register(verifyPageRoutes);
   await app.register(usageRoutes);
   await app.register(releaseRoutes);
+  await app.register(catalogRoutes);
 
   await app.ready();
   return app;

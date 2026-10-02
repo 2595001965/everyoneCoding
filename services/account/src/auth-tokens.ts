@@ -65,3 +65,17 @@ export async function requireAuth(req: FastifyRequest, _reply: FastifyReply): Pr
   }
   req.user = { userId: verified.sub };
 }
+
+/**
+ * 平台运营权限来自服务端部署 allowlist，不接受客户端声明的 role/claim。
+ * 生产部署通过 ACCOUNT_PLATFORM_ADMIN_IDS 配置账号 ID。
+ */
+export async function requirePlatformAdmin(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  await requireAuth(req, reply);
+  if (!req.server.appConfig.platformAdminAccountIds.includes(req.user!.userId)) {
+    throw new AppError(ErrCode.FORBIDDEN, '需要平台目录管理员权限', 403);
+  }
+}

@@ -1,6 +1,6 @@
 # 云端账号服务端（EveryoneCoding · Apache-2.0）
 
-账号服务端最小实现，对应任务卡 **T9-06**。客户端可完全离线工作，服务端**仅负责账号注册/登录与版本更新**。
+账号服务端承载既有账号服务（T9-06）及平台目录/价格版本增量（V2-D10）。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
 
 ## 已实现接口（严格按 PRD §8）
 
@@ -48,13 +48,55 @@
 
 依据 PRD §2.2 决策，下列接口**已被移除且不实现**：`/api/config/remote`、`/api/sync/memory`、`/api/sync/project-meta`、`/api/share`。用户配置与同步由客户端本地处理（远程配置走用户自配 URL，数据同步走 `.ecpkg` 手动导入导出，预览仅限本地/局域网）。
 
+## V2-D10 平台目录与价格版本
+
+### 公开接口
+
+| 方法 | 路径                    | 说明                                                                                                                            |
+| ---- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| GET  | `/api/catalog`          | 公开 ProviderModel 目录、已生效平台价格历史和精确 canonical 身份匹配的官网价格证据                                              |
+| GET  | `/api/catalog/snapshot` | 可保存为本地 JSON 快照；离线读取方用 `@ec/core` 的 `parsePlatformCatalogSnapshot` 校验，再用 `resolveCatalogPrice` 读取路由价格 |
+
+公开快照不包含上游地址、Key 引用、Key、管理员证据原文或采购成本。官网价格只按完整相等的
+`canonicalVendor + canonicalModel` 身份匹配；身份未知的中转别名保持未匹配。平台价按
+`providerId/modelId` 路由键单独匹配，两个渠道的同名模型不会共用价格。
+
+### 管理接口与授权
+
+管理接口位于 `/api/admin/catalog/*`，使用既有 Bearer access token，并要求账号 ID 在
+服务端环境变量 `ACCOUNT_PLATFORM_ADMIN_IDS` 的逗号分隔 allowlist 中。公开注册、客户端 JWT
+自带 role 或普通用户请求都不能授予管理权限。未配置 allowlist 时管理端默认无人可用。
+
+- `GET/POST /api/admin/catalog/providers`、`PATCH /api/admin/catalog/providers/:providerId`
+- `GET /api/admin/catalog/models`、`POST /api/admin/catalog/providers/:providerId/models`、
+  `PATCH /api/admin/catalog/providers/:providerId/models/:modelId`
+- `GET/POST /api/admin/catalog/providers/:providerId/models/:modelId/prices`；
+  `POST .../prices/preview` 先预览逐桶变化，再提交新版本
+- `GET/POST /api/admin/catalog/official-prices` 登记与审查官网价格证据
+
+Provider 的上游地址仅能通过管理 API 读写；上游凭据只接受 `env:NAME` 或 `secret://...`
+形式的**服务端引用名**，不会接收或回传原始 Key。管理视图只返回 `credentialConfigured` 和
+`credentialRotatedAt`。D10 不负责解析引用或发送模型请求；网关执行属于后续平台调用任务。
+
+### 价格与证据语义
+
+发布价格使用 `@ec/core` 的 `PriceVersion` 契约：费率为币种微单位/百万 Token，缓存写费率是完整费率。
+`null` 表示未定价，`0` 表示免费。桶未定价时该桶费用仍未知，不会从官网快照或另一 Provider 补入。
+官网估算只使用已登记的 source URL、核验时间、版本、SHA-256 证据快照和适用条件；本服务保留
+证据原文以便管理员审计，公开快照只发送证据链接、版本和哈希。
+
+价格发布和官网证据均为 append-only；数据库触发器拒绝直接 UPDATE/DELETE。`effectiveTo` 从下一
+版本 `effectiveFrom` 推导，改价只会追加未来版本。服务不预置真实 Provider/模型售价或官网快照；
+测试里的 URL 和金额是明确标为合成夹具的值。API 校验 HTTPS 与管理员来源，但不会自动判定域名
+是否属于该厂商；管理员需在录入前人工核验来源。
+
 ## 技术栈
 
 - Node.js 24 + Fastify（HTTP 框架）
 - better-sqlite3（本地 SQLite 存储，原生模块，按 Node 24 编译）
 - zod（入参校验）
 - 认证：Node 内置 `node:crypto` 手写 HMAC-SHA256 JWT（不引入 jsonwebtoken），密码使用 `scrypt` + 随机盐
-- 仅运行期依赖：`fastify` + `better-sqlite3` + `zod`
+- 运行期依赖：`@ec/core` + `fastify` + `better-sqlite3` + `zod`
 
 ## 设计要点
 
@@ -80,12 +122,13 @@ services/account/
 │   ├── logger.ts            # 审计与脱敏
 │   ├── db.ts                # SQLite 初始化与三段式迁移
 │   ├── auth-tokens.ts       # 令牌签发 / 鉴权前置
-│   ├── models/account.ts    # 数据访问层
-│   ├── routes/              # auth / usage / release 路由
+│   ├── models/account.ts    # 账号数据访问层
+│   ├── models/platform-catalog.ts # 平台目录与不可变价格存储
+│   ├── routes/              # auth / usage / release / catalog 路由
 │   ├── oauth/               # google / github / wechat 策略 + 流程
 │   ├── middleware/          # error / idempotency / rate-limit
 │   └── __tests__/           # 集成测试
-├── migrations/0001_init.sql # 三段式迁移
+├── migrations/              # 0001～0004 三段式迁移（含平台目录/价格）
 ├── Dockerfile
 ├── docker-compose.yml
 ├── start.sh / start.cmd
@@ -110,6 +153,7 @@ pnpm typecheck
 环境变量（均带默认值，详见 `src/config.ts`）：`ACCOUNT_HOST`、`ACCOUNT_PORT`、`ACCOUNT_DB_PATH`、
 `ACCOUNT_JWT_SECRET`、`ACCOUNT_ACCESS_TTL`、`ACCOUNT_REFRESH_TTL`、
 `ACCOUNT_LOGIN_LIMIT`、`ACCOUNT_REGISTER_LIMIT`、`ACCOUNT_OAUTH_*_ID/SECRET/REDIRECT` 等。
+V2-D10 增加 `ACCOUNT_PLATFORM_ADMIN_IDS`（逗号分隔的平台运营账号 ID；为空时不启用管理权限）。
 
 ### 邮件与邮箱验证（FR-ACC-08）
 

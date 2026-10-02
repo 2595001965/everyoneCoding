@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createLoginPageDsl, serializePageDsl, type PageDsl } from '@ec/designer';
@@ -92,6 +92,11 @@ function installFakeDesignerPorts(): FakePortState {
 async function renderDesigner(): Promise<ReturnType<typeof render>> {
   const view = render(<DesignerPage />);
   await screen.findByTestId('designer-workspace');
+  // 页面装载 effect 与首次渲染间有一拍间隙：CI 慢环境下 workspace 出现时
+  // 首帧可能仍是旧的，等一个稳定帧再返回（详见 renderDesigner 调用方的轮询断言）
+  await waitFor(() => {
+    expect(screen.getByText(/元素 \d+ 个/)).toBeInTheDocument();
+  });
   return view;
 }
 
@@ -144,12 +149,18 @@ describe('设计器工作区', () => {
   it('从组件面板加入元素：进入 DSL、选中新元素、可撤销', async () => {
     const { container } = await renderDesigner();
     fireEvent.click(screen.getByTestId('palette-item-Button'));
-    expect(container.querySelectorAll('[data-element-id]')).toHaveLength(21);
+    // 点击 → immer draft 写入 → zustand 通知 → React 重渲染是异步链，
+    // fireEvent 的 act() 在慢环境下可能赶不上重渲染落地，用轮询代替同步断言
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-element-id]')).toHaveLength(21);
+    });
     expect(screen.getByText(/已选 1 个/)).toBeInTheDocument();
 
     // 工具栏与属性面板各有一个「撤销」按钮，取工具栏那个
     fireEvent.click(screen.getAllByRole('button', { name: '撤销' })[0] as HTMLElement);
-    expect(container.querySelectorAll('[data-element-id]')).toHaveLength(20);
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-element-id]')).toHaveLength(20);
+    });
   });
 
   it('三向联动：点选画布元素后属性面板同步展示', async () => {

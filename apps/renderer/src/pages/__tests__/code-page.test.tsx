@@ -234,7 +234,9 @@ async function renderPage(): Promise<void> {
       <CodeWorkspacePage />
     </MemoryRouter>,
   );
-  await screen.findByTestId('ec-code-surface');
+  // listFiles → 选中首个文件 → readFile → 渲染 surface 是四级异步链，
+  // findBy 默认 1s 超时在 CI 慢环境下偶发不够用，显式放宽到与 testTimeout 一致
+  await screen.findByTestId('ec-code-surface', {}, { timeout: 20_000 });
 }
 
 beforeEach(() => {

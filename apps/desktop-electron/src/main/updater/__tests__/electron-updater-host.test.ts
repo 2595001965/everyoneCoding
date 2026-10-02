@@ -206,6 +206,8 @@ function createHarness(
     seedInstalled?: boolean;
     feedUrl?: string;
     appVersion?: string;
+    /** 只在停滞看门狗专测里传：激进值会误伤验签等本来就无进度超 1.5s 的阶段 */
+    stallTimeoutMs?: number;
   } = {},
 ): Harness {
   const appDir = fs.mkdtempSync(path.join(root, 'app-'));
@@ -261,8 +263,14 @@ function createHarness(
     enabled: true,
     log: (line) => logs.push(line),
     installGraceMs: 200,
-    stallTimeoutMs: 1500,
-    createCancellationToken: () => new CancellationToken(),
+    // 缺省不启用看门狗（与生产缺省一致）；仅停滞专测传 1500ms 驱动它。
+    // CI 机器慢时验签（Authenticode）可能无进度超 1.5s，全局激进值会把它误判成网络停滞。
+    ...(options.stallTimeoutMs === undefined
+      ? {}
+      : {
+          stallTimeoutMs: options.stallTimeoutMs,
+          createCancellationToken: () => new CancellationToken(),
+        }),
   });
   return { host, updater, cacheDir, logs };
 }
@@ -339,7 +347,7 @@ describe('electron-updater 真实链路：检查 → 差分下载 → 校验 →
   });
 
   it('下载停滞（连接挂着但不给数据）：停滞看门狗中止并归类为 network，不拉起安装器', async () => {
-    const { host } = createHarness({ seedInstalled: false });
+    const { host } = createHarness({ seedInstalled: false, stallTimeoutMs: 1500 });
     // 服务端只发开头一小段就静默挂起：错误不会到达，只有停滞看门狗能中止下载
     server.setFault(/0\.1\.1-x64-setup\.exe$/, 'stall');
     const error = await host.download().catch((cause: unknown) => cause);

@@ -36,7 +36,8 @@
     "@ec/preview": "workspace:*",
     "@ec/registry": "workspace:*",
     "@ec/shell-api": "workspace:*",
-    "better-sqlite3": "^12.11.1"
+    "better-sqlite3": "^12.11.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

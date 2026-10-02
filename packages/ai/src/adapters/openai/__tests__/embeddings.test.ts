@@ -33,6 +33,7 @@ function provider(baseUrl: string): Provider {
     userId: 'u1',
     name: '测试 OpenAI',
     protocol: 'openai',
+    source: 'custom',
     baseUrl,
     keyRef: 'ref',
     headers: {},

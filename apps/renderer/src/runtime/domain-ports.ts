@@ -28,6 +28,7 @@ import {
   type DomainRpcError,
   type ShellErrorCode,
   type Unsubscribe,
+  type WorkspaceImportProgress,
 } from '@ec/shell-api';
 
 import type { ProjectSummary } from '@ec/core';
@@ -100,6 +101,32 @@ export function createWorkspaceApi(
 ): WorkspaceApi {
   const c = <T>(method: string, params?: unknown, requestId?: string): Promise<T> =>
     call.call<T>('workspace', method, params, requestId);
+  /**
+   * 带进度事件的导入调用（V2-D01 起文件夹/ZIP 导入与 Git 导入共用）。
+   * `onProgress` 是函数无法跨进程：剥掉后经域事件通道按 requestId 回流，
+   * 载荷形状不对就丢弃；请求定局即退订。
+   */
+  const callWithProgress = <T>(
+    method: string,
+    input: Record<string, unknown> & {
+      onProgress?: ((progress: WorkspaceImportProgress) => void) | undefined;
+    },
+  ): Promise<T> => {
+    const { onProgress, ...cloneable } = input;
+    const requestId = createDomainRequestId('workspace');
+    const pending = c<T>(method, { input: cloneable }, requestId);
+    if (onProgress === undefined) return pending;
+    const off = subscribe((event) => {
+      if (event.requestId !== requestId || event.domain !== 'workspace') return;
+      if (!isWorkspaceImportProgressEvent(event.payload)) return;
+      onProgress({
+        stage: event.payload.stage,
+        ratio: event.payload.ratio,
+        message: event.payload.message,
+      });
+    });
+    return pending.finally(off);
+  };
   return {
     listProjects: (query) => c('listProjects', { query }),
     getProject: (id) => c('getProject', { id }),
@@ -114,28 +141,13 @@ export function createWorkspaceApi(
     cleanupExpiredRecycleBin: () => c('cleanupExpiredRecycleBin'),
     duplicateProject: (id, options) => c('duplicateProject', { id, options }),
     createFromTemplate: (input) => c('createFromTemplate', { input }),
-    importFromGit: (input) => {
-      // `onProgress` 是函数，**无法跨进程**：Electron 的结构化克隆会直接抛
-      // "An object could not be cloned"。进度改走**域事件通道**：
-      // 本次调用自带 requestId，主进程把三阶段进度事件按该 id 推回来。
-      const { onProgress, ...cloneable } = input;
-      const requestId = createDomainRequestId('workspace');
-      const pending = c<ProjectSummary>('importFromGit', { input: cloneable }, requestId);
-      if (onProgress === undefined) return pending;
-
-      // 只认本次调用的 workspace 事件；载荷形状不对就丢弃（跨进程数据不信任）
-      const off = subscribe((event) => {
-        if (event.requestId !== requestId || event.domain !== 'workspace') return;
-        if (!isWorkspaceImportProgressEvent(event.payload)) return;
-        onProgress({
-          stage: event.payload.stage,
-          ratio: event.payload.ratio,
-          message: event.payload.message,
-        });
-      });
-      // 请求定局（成功或失败）即退订，不留悬空监听
-      return pending.finally(off);
-    },
+    importFromGit: (input) => callWithProgress<ProjectSummary>('importFromGit', { ...input }),
+    importFromFolder: (input) => callWithProgress<ProjectSummary>('importFromFolder', { ...input }),
+    importFromZip: (input) => callWithProgress<ProjectSummary>('importFromZip', { ...input }),
+    cancelSourceImport: (importToken) => c('cancelSourceImport', { importToken }),
+    previewSourceDetection: (path) => c('previewSourceDetection', { path }),
+    detectSource: (projectId) => c('detectSource', { projectId }),
+    getSourceDetection: (projectId) => c('getSourceDetection', { projectId }),
     createFromDigest: (input) => c('createFromDigest', { input }),
     getProjectStage: (projectId) => c('getProjectStage', { projectId }),
     getThumbnailUrl: (projectId) => c('getThumbnailUrl', { projectId }),

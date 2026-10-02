@@ -30,7 +30,7 @@ interface Frame {
   bindings: Map<string, { target: boolean }>;
 }
 
-interface Token {
+export interface PythonToken {
   type: 'name' | 'string' | 'op' | 'nl' | 'number';
   value: string;
   line: number;
@@ -40,6 +40,8 @@ interface Token {
   /** 逻辑行缩进（仅 nl 令牌） */
   indent?: number;
 }
+
+type Token = PythonToken;
 
 const ASSIGN_OPS = new Set([
   '=',
@@ -65,7 +67,7 @@ function isIdentChar(c: string): boolean {
   return /[0-9A-Za-z_$]/.test(c);
 }
 
-function tokenize(content: string): Token[] {
+export function tokenizePython(content: string): Token[] {
   const tokens: Token[] = [];
   const n = content.length;
   let i = 0;
@@ -259,7 +261,7 @@ export function createPythonParser(port?: ExternalAstParserPort): AstParser {
         }
       }
 
-      const tokens = tokenize(input.content);
+      const tokens = tokenizePython(input.content);
       const hits: RawHit[] = [];
 
       const moduleScope: Frame = { level: 0, bindings: new Map() };

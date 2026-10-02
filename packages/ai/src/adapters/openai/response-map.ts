@@ -3,6 +3,7 @@ import type { Usage } from '../../core/usage';
 import { usageOf } from '../../core/usage';
 import type { ToolCallDelta } from '../../core/tool';
 import { ProtocolError } from '../../core/error';
+import { tokenCount, type MeteringUpdate } from '../../core/metering';
 
 /**
  * OpenAI 响应 → 内部 StreamChunk 序列。
@@ -15,6 +16,8 @@ export interface OpenAiUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  prompt_tokens_details?: { cached_tokens?: number };
+  completion_tokens_details?: { reasoning_tokens?: number };
 }
 
 export interface OpenAiDelta {
@@ -45,6 +48,18 @@ export interface OpenAiResponse {
 export function usageFromOpenAi(usage: OpenAiUsage | undefined): Usage | null {
   if (!usage) return null;
   return usageOf(usage.prompt_tokens ?? 0, usage.completion_tokens ?? 0);
+}
+
+export function meteringFromOpenAi(usage: OpenAiUsage, providerRequestId?: string): MeteringUpdate {
+  return {
+    report: { inputIncludesCache: true, inputTokens: tokenCount(usage.prompt_tokens),
+      outputTokens: tokenCount(usage.completion_tokens),
+      cacheReadTokens: tokenCount(usage.prompt_tokens_details?.cached_tokens),
+      cacheWriteTokensByTtl: {}, reasoningTokensIncludedInOutput: true,
+      reasoningTokens: tokenCount(usage.completion_tokens_details?.reasoning_tokens) },
+    mode: 'snapshot', final: true, raw: usage,
+    ...(providerRequestId ? { providerRequestId } : {}),
+  };
 }
 
 export function finishReasonFromOpenAi(reason: string | null | undefined): FinishReason {
@@ -88,7 +103,7 @@ export function chunksFromOpenAiResponse(
   }
 
   const usage = usageFromOpenAi(payload.usage);
-  if (usage) chunks.push({ type: 'usage', usage });
+  if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromOpenAi(payload.usage!, payload.id) });
   // 非流式必须尊重服务端 finish_reason（length / tool_calls / content_filter …）
   chunks.push({
     type: 'done',
@@ -117,7 +132,7 @@ export function chunksFromOpenAiStreamEvent(payload: OpenAiResponse): StreamChun
   }
 
   const usage = usageFromOpenAi(payload.usage);
-  if (usage) chunks.push({ type: 'usage', usage });
+  if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromOpenAi(payload.usage!, payload.id) });
 
   if (choice?.finish_reason) {
     chunks.push({

@@ -22,6 +22,7 @@ function provider(baseUrl: string, overrides: Partial<Provider> = {}): Provider 
     userId: 'u1',
     name: '测试 Anthropic',
     protocol: 'anthropic',
+    source: 'custom',
     baseUrl,
     keyRef: 'ref',
     headers: {},

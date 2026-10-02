@@ -8,6 +8,7 @@ const paths = {
   rename: 'M4 7h16l-4-4 M20 17H4l4 4 M20 7v3 M4 17v-3',
   docs: 'M5 3h10l4 4v14H5z M14 3v5h5 M9 12h6 M9 16h6',
   code: 'M9 7l-5 5 5 5 M15 7l5 5-5 5 M13 5l-2 14',
+  apis: 'M8 3v6 M16 15v6 M4 9h8v6H4z M12 9h8v6h-8z M8 15h8',
   account: 'M16 7a4 4 0 1 1-8 0a4 4 0 1 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
   usage: 'M4 20V10 M10 20V4 M16 20v-7 M22 20H2',
   settings:

@@ -31,6 +31,16 @@ export const PURPOSE_LABELS: Record<AiPurpose, string> = {
 
 export const purposeSchema = z.enum(AI_PURPOSES);
 
+/**
+ * 计量用途 = 可绑定用途 + 不参与绑定的后台用途（V2-USG：所有用途都计量）。
+ * 连接测试是真实上游对话（可能消耗 Token），必须与生成用途分开归属，
+ * 不得伪装成免费探测或并入某个业务用途。
+ * 用途绑定 UI 仍只暴露 AI_PURPOSES；T11 统一升级 attempt 计量时在此扩展。
+ */
+export const NON_BINDING_PURPOSES = ['connection-test', 'summary', 'doc-summary', 'tool', 'background', 'api-classification', 'sub-agent'] as const;
+
+export type UsagePurpose = AiPurpose | (typeof NON_BINDING_PURPOSES)[number];
+
 export type PurposeModelMap = Partial<Record<AiPurpose, string>>;
 
 export interface PurposeBinding {
@@ -110,4 +120,12 @@ export function normalizePurpose(input: string | null | undefined): AiPurpose {
   const trimmed = input.trim();
   if ((AI_PURPOSES as readonly string[]).includes(trimmed)) return trimmed as AiPurpose;
   return PURPOSE_ALIASES[trimmed] ?? 'code';
+}
+
+/** 计量保存实际用途；模型绑定仍走 normalizePurpose，不把后台用途都压成 code。 */
+export function normalizeUsagePurpose(input: string): string {
+  const value = input.trim();
+  if (!value) return 'code';
+  if ((NON_BINDING_PURPOSES as readonly string[]).includes(value)) return value;
+  return PURPOSE_ALIASES[value] ?? value;
 }

@@ -9,6 +9,8 @@
 import type { AiError } from './error';
 import type { Usage, TokenEstimate } from './usage';
 import { mergeUsage } from './usage';
+import { UsageAccumulator, type MeteringUpdate } from './metering';
+import type { NormalizedUsage } from '@ec/core';
 import { accumulateToolCalls, type ToolCall, type ToolCallDelta } from './tool';
 
 export type FinishReason = 'stop' | 'length' | 'tool_use' | 'content_filter' | 'error' | 'aborted';
@@ -16,7 +18,7 @@ export type FinishReason = 'stop' | 'length' | 'tool_use' | 'content_filter' | '
 export type StreamChunk =
   | { type: 'delta'; text: string }
   | { type: 'tool_call'; delta: ToolCallDelta }
-  | { type: 'usage'; usage: Usage }
+  | { type: 'usage'; usage: Usage; metering?: MeteringUpdate }
   | { type: 'error'; error: AiError }
   | { type: 'done'; finishReason: FinishReason; partial: boolean };
 
@@ -28,6 +30,9 @@ export interface CollectedMessage {
   /** true 表示被中断或出错，内容不完整 */
   partial: boolean;
   error: AiError | null;
+  normalizedUsage: NormalizedUsage | null;
+  rawUsage: unknown;
+  providerRequestId: string | null;
 }
 
 /** 把 chunk 数组转成 AsyncIterable（测试与回放用） */
@@ -59,6 +64,7 @@ export async function collect(chunks: AsyncIterable<StreamChunk>): Promise<Colle
   let error: AiError | null = null;
   let finishReason: FinishReason = 'stop';
   let partial = false;
+  const metering = new UsageAccumulator();
 
   for await (const chunk of chunks) {
     switch (chunk.type) {
@@ -70,6 +76,8 @@ export async function collect(chunks: AsyncIterable<StreamChunk>): Promise<Colle
         break;
       case 'usage':
         usage = mergeUsage(usage, chunk.usage);
+        if (chunk.metering) metering.accept(chunk.metering);
+        else metering.acceptLegacy(chunk.usage);
         break;
       case 'error':
         error = chunk.error;
@@ -91,7 +99,9 @@ export async function collect(chunks: AsyncIterable<StreamChunk>): Promise<Colle
   const toolCalls = accumulateToolCalls(deltas);
   if (toolCalls.length > 0 && finishReason === 'stop') finishReason = 'tool_use';
 
-  return { text, toolCalls, usage, finishReason, partial, error };
+  return { text, toolCalls, usage, finishReason, partial, error,
+    normalizedUsage: metering.hasMeasuredUsage() ? metering.snapshot() : null,
+    rawUsage: metering.rawUsage(), providerRequestId: metering.providerRequestId };
 }
 
 /** 只取文本（丢弃工具调用与用量），用于连接测试等极简场景 */

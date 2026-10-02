@@ -10,8 +10,19 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 import type { UsageReport, UsageReportRow } from '@ec/ai';
 import type { BudgetConfig, BudgetDecision } from '@ec/ai';
+import type { AttemptFilter, AttemptGroup, AttemptAggregate, MeteredAttempt } from '@ec/ai';
+import type { V2EventEnvelope } from '@ec/core';
+
+export interface UsageMeteringApi {
+  snapshot(filter?: AttemptFilter): Promise<{ attempts: MeteredAttempt[]; cursor: number }>;
+  aggregate(filter?: AttemptFilter, group?: AttemptGroup): Promise<Array<{ key: string | null; totals: AttemptAggregate }>>;
+  events(after?: number, limit?: number): Promise<V2EventEnvelope[]>;
+  subscribe(listener: (event: V2EventEnvelope) => void): () => void;
+}
 
 export interface UsageApi {
+  /** V2-D05 真实计量端口；旧 UI 由 D14 消费此快照/事件。 */
+  metering?: UsageMeteringApi;
   /** 全部用量行（本月；外壳负责时间过滤） */
   listRows(): Promise<UsageReportRow[]>;
   /** 当前预算配置 */

@@ -7,6 +7,7 @@ import { ProviderEditor } from './provider/ProviderEditor';
 import { ModelCapabilityTable } from './provider/ModelCapabilityTable';
 import { PurposeBindingPanel } from './provider/PurposeBinding';
 import { GenerationTest } from './provider/GenerationTest';
+import { LocalModePanel } from './provider/LocalModePanel';
 import { ReliabilityPanel } from './provider/ReliabilityPanel';
 import { useProviderSettings } from './provider/useProviderSettings';
 import type { TestState } from './provider/ConnectionTest';
@@ -43,6 +44,8 @@ export function ProviderSettings(): JSX.Element {
 
   return (
     <div className="ec-ai">
+      <LocalModePanel />
+
       <ProviderList
         providers={state.providers}
         selectedId={state.editingId}
@@ -90,6 +93,7 @@ export function ProviderSettings(): JSX.Element {
       <PurposeBindingPanel
         binding={state.binding}
         models={state.allModels as Model[]}
+        providers={state.providers}
         onChange={state.setBinding}
       />
 

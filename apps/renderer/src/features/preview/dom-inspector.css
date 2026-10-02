@@ -1,0 +1,70 @@
+.ec-dom-inspector {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ec-dom-inspector .ec-preview-frame {
+  display: block;
+  width: 100%;
+  height: min(50vh, 480px);
+  border: 1px solid #d1d5db;
+  background: white;
+}
+
+.ec-dom-toolbar,
+.ec-dom-ancestors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.ec-dom-inspector button,
+.ec-dom-inspector input,
+.ec-dom-inspector select,
+.ec-dom-inspector textarea {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.ec-dom-toolbar button[aria-pressed='true'] {
+  background: #eef2ff;
+  border-color: #6366f1;
+}
+
+.ec-dom-inspector button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ec-dom-card {
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.ec-dom-card p {
+  margin: 4px 0;
+}
+
+.ec-dom-card label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px;
+}
+
+.ec-dom-card textarea {
+  min-height: 40px;
+  max-width: 100%;
+}
+
+.ec-dom-boundary {
+  color: #6b7280;
+}

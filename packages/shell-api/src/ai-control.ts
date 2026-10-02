@@ -81,6 +81,9 @@ export interface AiStreamRequest {
   temperature?: number;
   maxTokens?: number;
   tools?: unknown[];
+  logicalRequestId?: string;
+  sessionId?: string | null;
+  taskId?: string | null;
 }
 
 export type AiStreamEvent =
@@ -108,6 +111,8 @@ export interface AiControlHost {
  * 运行中的 `BudgetGuard`，否则「超限在调用模型前阻断」要等重启才生效。
  */
 export interface AiStackHandle {
+  /** Host-local execution capability; never serialized into renderer RPC. */
+  agentStore?: unknown;
   gateway: {
     chat(input: {
       userId: string;
@@ -132,6 +137,7 @@ export interface AiStackHandle {
       alertRatio?: number;
     }): void;
   };
+  usage?: { onEvent(listener: (event: unknown) => void): () => void };
 }
 
 /** 主进程实现的入口；不暴露任意反射对象 */

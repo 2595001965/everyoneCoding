@@ -19,8 +19,23 @@ const noteTargetType = z.enum(['element', 'page', 'feature']);
 const noteStatus = z.enum(['open', 'resolved']);
 const documentKind = z.enum(['requirement', 'tech', 'design', 'api', 'imported']);
 const docFormat = z.enum(['markdown', 'docx', 'pdf', 'txt', 'image']);
-/** 项目来源（T9-01 四类新建来源） */
-const projectSourceKind = z.enum(['blank', 'template', 'git_import', 'doc_import']);
+/**
+ * 项目来源（T9-01 四类 + V2-D01 接入方式）。
+ *
+ * V1 四值继续用于旧项目行；V2 与 v2 契约 `v2SourceKind` 对齐的取值
+ * （existing_folder / copied_folder / zip_extract / git_clone）由 D01 起的
+ * 文件接入路径写入。Git 导入仍写历史值 `git_import`，避免无谓改写既有数据。
+ */
+const projectSourceKind = z.enum([
+  'blank',
+  'template',
+  'git_import',
+  'doc_import',
+  'existing_folder',
+  'copied_folder',
+  'zip_extract',
+  'git_clone',
+]);
 /** 文档版本创建者：用户编辑 / 流水线产物 / 导入 */
 const docVersionCreator = z.enum(['user', 'pipeline', 'import']);
 const memoryScope = z.enum(['longterm', 'project', 'feature', 'page', 'issue']);
@@ -39,6 +54,8 @@ const renameScope = z.enum(['project', 'cross_project']);
 const packageDirection = z.enum(['export', 'import']);
 const packageStatus = z.enum(['running', 'success', 'partial', 'failed']);
 const providerProtocol = z.enum(['openai', 'anthropic']);
+/** Provider 目录来源（V2-MDL-01）：platform=远程目录/配置源创建，custom=用户手建 */
+const providerSource = z.enum(['platform', 'custom']);
 const linkType = z.enum(['supports', 'derived_from', 'related']);
 const secureKind = z.enum(['api_key', 'token', 'secret']);
 /** 记忆变更日志动作（FR-MEM-12） */
@@ -501,6 +518,8 @@ export interface ProviderRow {
   user_id: string;
   name: string;
   protocol: z.infer<typeof providerProtocol>;
+  /** 目录来源（V2-MDL-01）：创建时确定，之后不变 */
+  source: z.infer<typeof providerSource>;
   base_url: string;
   api_key_ref: string | null;
   headers_json: string | null;
@@ -524,6 +543,7 @@ export const providerSchema = z.object({
   user_id: z.string(),
   name: z.string(),
   protocol: providerProtocol,
+  source: providerSource,
   base_url: z.string(),
   api_key_ref: z.string().nullable(),
   headers_json: z.string().nullable(),
@@ -545,6 +565,12 @@ export interface ModelRow {
   id: string;
   provider_id: string;
   name: string;
+  /** 唯一复合路由键 `<providerId>:<name>`（V2-MDL-02）；历史行由 0008 回填 */
+  provider_model_id: string | null;
+  /** 官方厂商身份（T17 查能力/官方价参考）；无可靠证据时为 null，不猜 */
+  canonical_vendor: string | null;
+  /** 官方模型身份；同上，可空且不参与路由 */
+  canonical_model: string | null;
   /** 展示名；未设置时 UI 回落到 name */
   display_name: string | null;
   context_window: number | null;
@@ -560,6 +586,9 @@ export const modelSchema = z.object({
   id: z.string(),
   provider_id: z.string(),
   name: z.string(),
+  provider_model_id: z.string().nullable(),
+  canonical_vendor: z.string().nullable(),
+  canonical_model: z.string().nullable(),
   display_name: z.string().nullable(),
   context_window: z.number().int().nullable(),
   max_output: z.number().int().nullable(),
@@ -586,6 +615,7 @@ export interface UsageRecordRow {
   /** 端到端耗时（毫秒） */
   latency_ms: number | null;
   created_at: number;
+  attempt_id?: string | null;
 }
 export const usageRecordSchema = z.object({
   id: z.string(),
@@ -600,6 +630,50 @@ export const usageRecordSchema = z.object({
   purpose: z.string().nullable(),
   latency_ms: z.number().int().nullable(),
   created_at: z.number().int(),
+  attempt_id: z.string().nullable().optional(),
+});
+
+export interface UsageAttemptRow {
+  attempt_id: string;
+  user_id: string;
+  logical_request_id: string;
+  provider_id: string | null;
+  model_id: string | null;
+  project_id: string | null;
+  session_id: string | null;
+  task_id: string | null;
+  purpose: string;
+  route: string | null;
+  started_at: number;
+  ended_at: number | null;
+  status: string;
+  revision: number;
+  payload_json: string;
+}
+export const usageAttemptRowSchema = z.object({
+  attempt_id: z.string(),
+  user_id: z.string(),
+  logical_request_id: z.string(),
+  provider_id: z.string().nullable(),
+  model_id: z.string().nullable(),
+  project_id: z.string().nullable(),
+  session_id: z.string().nullable(),
+  task_id: z.string().nullable(),
+  purpose: z.string(),
+  route: z.string().nullable(),
+  started_at: z.number().int(),
+  ended_at: z.number().int().nullable(),
+  status: z.string(),
+  revision: z.number().int().positive(),
+  payload_json: z.string(),
+});
+export const usageEventRowSchema = z.object({
+  sequence: z.number().int(),
+  event_id: z.string(),
+  user_id: z.string(),
+  attempt_id: z.string(),
+  dedup_key: z.string(),
+  envelope_json: z.string(),
 });
 
 /* ------------------------ ai_model_config ----------------------- */
@@ -1059,6 +1133,7 @@ export const TABLE_COLUMNS = {
     'user_id',
     'name',
     'protocol',
+    'source',
     'base_url',
     'api_key_ref',
     'headers_json',
@@ -1077,6 +1152,9 @@ export const TABLE_COLUMNS = {
     'id',
     'provider_id',
     'name',
+    'provider_model_id',
+    'canonical_vendor',
+    'canonical_model',
     'display_name',
     'context_window',
     'max_output',
@@ -1098,7 +1176,26 @@ export const TABLE_COLUMNS = {
     'purpose',
     'latency_ms',
     'created_at',
+    'attempt_id',
   ],
+  usage_attempt: [
+    'attempt_id',
+    'user_id',
+    'logical_request_id',
+    'provider_id',
+    'model_id',
+    'project_id',
+    'session_id',
+    'task_id',
+    'purpose',
+    'route',
+    'started_at',
+    'ended_at',
+    'status',
+    'revision',
+    'payload_json',
+  ],
+  usage_event: ['sequence', 'event_id', 'user_id', 'attempt_id', 'dedup_key', 'envelope_json'],
   ai_model_config: [
     'id',
     'user_id',
@@ -1227,6 +1324,8 @@ export const TABLE_SCHEMAS = {
   provider: providerSchema,
   model: modelSchema,
   usage_record: usageRecordSchema,
+  usage_attempt: usageAttemptRowSchema,
+  usage_event: usageEventRowSchema,
   ai_model_config: aiModelConfigSchema,
   remote_config_source: remoteConfigSourceSchema,
   registry_entry: registryEntrySchema,

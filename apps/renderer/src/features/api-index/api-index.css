@@ -1,0 +1,142 @@
+.ec-api-workbench {
+  display: grid;
+  gap: 14px;
+  color: var(--ec-color-text-primary);
+}
+.ec-api-toolbar,
+.ec-api-tabs,
+.ec-api-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.ec-api-toolbar {
+  align-items: center;
+  justify-content: space-between;
+}
+.ec-api-toolbar p,
+.ec-api-meta {
+  margin: 0;
+  color: var(--ec-color-text-secondary);
+}
+.ec-api-workbench label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.ec-api-workbench input,
+.ec-api-workbench select {
+  min-height: 34px;
+  padding: 5px 9px;
+  color: inherit;
+  background: var(--ec-color-surface);
+  border: 1px solid var(--ec-color-border, #cbd5e1);
+  border-radius: 6px;
+  max-width: 100%;
+}
+.ec-api-workbench button {
+  cursor: pointer;
+  font: inherit;
+}
+.ec-api-tabs button {
+  padding: 8px 14px;
+  border: 1px solid var(--ec-color-border, #cbd5e1);
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+}
+.ec-api-tabs button[aria-pressed='true'],
+.ec-api-row[aria-pressed='true'] {
+  background: var(--ec-color-primary-soft, #e7eefc);
+  border-color: var(--ec-color-primary, #2563eb);
+}
+.ec-api-columns {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(340px, 1.3fr);
+  gap: 20px;
+  align-items: start;
+}
+.ec-api-list,
+.ec-api-detail,
+.ec-api-calls article {
+  border: 1px solid var(--ec-color-border, #cbd5e1);
+  border-radius: 10px;
+  padding: 16px;
+  min-width: 0;
+}
+.ec-api-list h2,
+.ec-api-calls h2 {
+  font-size: 15px;
+  margin: 12px 0;
+}
+.ec-api-row {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--ec-color-border, #cbd5e1);
+  overflow-wrap: anywhere;
+}
+.ec-api-row span {
+  color: var(--ec-color-text-secondary);
+  font-size: 12px;
+}
+.ec-api-detail form {
+  display: grid;
+  gap: 10px;
+}
+.ec-api-detail h3 {
+  font-size: 14px;
+  margin-top: 24px;
+}
+.ec-api-workbench pre {
+  overflow: auto;
+  max-height: 240px;
+  padding: 10px;
+  background: var(--ec-color-surface-muted, #f1f5f9);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ec-api-detail dl {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+  font-size: 13px;
+}
+.ec-api-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ec-api-refs {
+  padding-left: 18px;
+}
+.ec-api-refs button {
+  border: 0;
+  color: var(--ec-color-primary, #2563eb);
+  background: transparent;
+  padding: 3px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.ec-api-warning {
+  border-left: 3px solid #d97706;
+  padding: 10px;
+  background: var(--ec-color-surface-muted, #fff7ed);
+}
+.ec-api-calls {
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 1000px) {
+  .ec-api-columns {
+    grid-template-columns: 1fr;
+  }
+}

@@ -72,6 +72,8 @@ export class ProviderRepo {
       user_id: data.userId,
       name: data.name,
       protocol: data.protocol,
+      // 目录来源创建时确定，之后不可改（V2-MDL-01）；update() 不接受该字段
+      source: data.source,
       base_url: data.baseUrl,
       api_key_ref: keyRef,
       headers_json: JSON.stringify(filterSafeHeaders(data.headers)),

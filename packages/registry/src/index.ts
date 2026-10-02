@@ -57,3 +57,5 @@ export * from './executors';
 export * from './migration';
 export * from './alias-manager';
 export * from './batch-rename';
+export * from './api-index/types';
+export * from './api-index/scanner';

@@ -78,9 +78,19 @@ export function rowToSummary(row: ProjectRowSnapshot): ProjectSummary {
     pinned: row.pinned === 1,
     lastOpenedAt: row.last_opened_at,
     deletedAt: row.deleted_at,
-    sourceKind: (['blank', 'template', 'git_import', 'doc_import'] as const).includes(
-      row.source_kind as ProjectSummary['sourceKind'],
-    )
+    // 来源白名单覆盖 V1 四类与 V2-D01 接入方式（未知值按 blank 兜底，不让脏数据炸 UI）
+    sourceKind: (
+      [
+        'blank',
+        'template',
+        'git_import',
+        'doc_import',
+        'existing_folder',
+        'copied_folder',
+        'zip_extract',
+        'git_clone',
+      ] as const
+    ).includes(row.source_kind as ProjectSummary['sourceKind'])
       ? (row.source_kind as ProjectSummary['sourceKind'])
       : 'blank',
     sourceRef: row.source_ref,

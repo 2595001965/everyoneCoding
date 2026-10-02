@@ -38,3 +38,4 @@ export * from './gitignore-templates';
 export * from './project';
 export * from './docs';
 export * from './update';
+export * from './v2';

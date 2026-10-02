@@ -96,6 +96,11 @@ export interface HeadlessRuntimeOptions {
   oauthChannel?: 'loopback' | 'protocol' | undefined;
   /** OAuth 回环固定端口（缺省随机；占用时自动回退协议通道） */
   oauthLoopbackPort?: number | undefined;
+  /**
+   * 页面截图端口（V2-D02 缩略图）。Electron 注入离屏窗口实现；
+   * 侧车/测试形态不注入 ⇒ 预览域如实不生成缩略图。
+   */
+  capturePage?: ((url: string) => Promise<Buffer | null>) | undefined;
   ports: HeadlessRuntimePorts;
 }
 
@@ -203,7 +208,7 @@ export async function createHeadlessRuntime(
       }
     }
 
-    const aiStackHandle: AiStackHandle | null = ai?.handle ?? null;
+    const aiStackHandle = (ai?.handle ?? null) as AiStackHandle | null;
 
     // docs 域在 AI 栈装配后创建：转记忆（previewConvertToMemory）经 aiStack 走
     // memory-extract 用途生成真实摘要；AI 未装配时如实报 extraction_unavailable。
@@ -217,6 +222,7 @@ export async function createHeadlessRuntime(
       userId,
       aiStack: aiStackHandle,
       process: processHost,
+      capturePage: options.capturePage,
       credentials,
       /**
        * 非请求来源的事件发射口。请求内进度走 `ctx.emit`（runtime 补齐 requestId/domain）；

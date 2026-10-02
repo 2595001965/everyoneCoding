@@ -33,6 +33,22 @@ export interface WorkspaceFileSystem {
   /** 供冲突检测：文件大小（内容哈希由实现方决定是否提供） */
   stat(path: string): Promise<{ size: number; mtimeMs: number } | null>;
   mkdir?(path: string): Promise<void>;
+  /** 宿主可提供无 await 的前值校验+替换；false 表示有人抢先改动。 */
+  compareAndSwap?(path: string, before: string | null, after: string | null): Promise<boolean>;
+}
+
+/** 外壳统一协调器持有租约/排他队列；管线仍是唯一执行文件变更的实现。 */
+export interface WriteTransactionPort {
+  run(plan: WritePlan, apply: (guard?: WriteApplyGuard) => Promise<WriteResult>): Promise<WriteResult>;
+}
+
+export interface WriteApplyGuard {
+  assertOwner(): void;
+  /** 必须在第一份文件被修改前持久化全部快照。 */
+  prepare(entries: readonly WritePlanEntry[]): Promise<void>;
+  /** 受影响验证属于事务；失败走同一补偿路径。 */
+  validate?(): Promise<void>;
+  finish(result: WriteResult): Promise<void>;
 }
 
 export interface WritePlanEntry {
@@ -70,6 +86,8 @@ export interface WritePlan {
   removedLines: number;
   /** 被拒绝的文件数 */
   blockedCount: number;
+  /** 宿主持久化任务与计划绑定；IPC 不接受篡改后的内容。 */
+  taskId?: string;
 }
 
 export interface WriteResult {
@@ -80,6 +98,8 @@ export interface WriteResult {
   /** 出错时已回滚的路径 */
   rolledBack: string[];
   error: string | null;
+  /** 回滚时已不属于本任务的文件，保留现场交由冲突处理。 */
+  conflicts?: string[];
 }
 
 export type WriteEvent =

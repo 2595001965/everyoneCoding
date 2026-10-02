@@ -1,8 +1,10 @@
 import { collect } from './stream';
 import { ProtocolError, toAiError } from './error';
-import type { AdapterContext, ConnectionTestResult, ProviderAdapter } from './adapter';
+import type { AdapterContext, ChatRequest, ConnectionTestResult, ProviderAdapter } from './adapter';
+import type { StreamChunk } from './stream';
 import type { ModelDiscovery } from '../domain/model';
 import { DEFAULT_CAPABILITY } from '../domain/capability';
+import { providerModelIdOf } from '../domain/model-route';
 import type { Provider } from '../domain/provider';
 
 /** 模型发现失败可用手填列表，但只有最小对话完整结束才算连通。 */
@@ -10,6 +12,7 @@ export async function runConnectionTest(
   adapter: ProviderAdapter,
   provider: Provider,
   context: AdapterContext,
+  onChat?: (request: ChatRequest, discovery: ModelDiscovery) => AsyncIterable<StreamChunk>,
 ): Promise<ConnectionTestResult> {
   const started = Date.now();
   let models: ModelDiscovery;
@@ -23,6 +26,9 @@ export async function runConnectionTest(
         id: `manual:${provider.id}:${name}`,
         providerId: provider.id,
         name,
+        providerModelId: providerModelIdOf(provider.id, name),
+        canonicalVendor: null,
+        canonicalModel: null,
         displayName: null,
         capability: { ...DEFAULT_CAPABILITY },
         version: 1,
@@ -42,7 +48,7 @@ export async function runConnectionTest(
   }
   try {
     const result = await collect(
-      adapter.chat(
+      (onChat ? (request: ChatRequest) => onChat(request, models) : (request: ChatRequest) => adapter.chat(request, context))(
         {
           provider,
           model: target,
@@ -50,7 +56,6 @@ export async function runConnectionTest(
           maxTokens: 1,
           stream: false,
         },
-        context,
       ),
     );
     const error =
@@ -59,6 +64,9 @@ export async function runConnectionTest(
       ok: error === null,
       models,
       latencyMs: Date.now() - started,
+      // 失败但上游已执行时 usage 同样如实带回：真实消耗不因后续失败归零（V2-BILL-09 口径）
+      usage: result.usage,
+      modelName: target,
       ...(error ? { error } : {}),
     };
   } catch (error) {

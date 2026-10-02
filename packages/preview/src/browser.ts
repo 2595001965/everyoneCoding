@@ -15,3 +15,4 @@ export * from './binding-resolver';
 export * from './backend/project-detector';
 export * from './backend/log-stream';
 export * from './preview-server';
+export * from './dom/contracts';

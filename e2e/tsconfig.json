@@ -9,7 +9,11 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@ec/*": ["packages/*/src", "packages/*/src/index.ts"],
-      "@renderer/*": ["apps/renderer/src/*"]
+      "@renderer/*": ["apps/renderer/src/*"],
+      "esbuild": ["apps/desktop-electron/node_modules/esbuild/lib/main.d.ts"],
+      "react": ["apps/renderer/node_modules/@types/react/index.d.ts"],
+      "react/*": ["apps/renderer/node_modules/@types/react/*"],
+      "react-dom/*": ["apps/renderer/node_modules/@types/react-dom/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "./vitest.config.ts"]

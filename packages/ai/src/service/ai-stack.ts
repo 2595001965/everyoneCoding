@@ -22,6 +22,8 @@ import { AiGateway } from '../gateway/client';
 import { parseProxyUrl } from '../gateway/proxy';
 import type { RetryPolicy } from '../gateway/retry';
 import { AiControlService } from './ai-control-api';
+import { AgentStore } from '../agent/store';
+import { AgentGatewayControl } from '../agent/gateway-control';
 
 /**
  * AI 层装配。
@@ -31,6 +33,8 @@ import { AiControlService } from './ai-control-api';
  */
 
 export interface AiStackOptions {
+  agentStore?: AgentStore;
+  refreshSharedConfig?: (budget: BudgetGuard, queue: RequestQueue) => void;
   db: Database;
   secureStore: SecureStore;
   userId: string;
@@ -72,8 +76,26 @@ export function createAiStack(options: AiStackOptions): AiStack {
   const bindings = new PurposeBindingRepo(options.db);
   const usageRepo = new UsageRepo(options.db);
   const budget = new BudgetGuard(usageRepo, options.userId, options.budget ?? {});
-  const usage = new UsageTracker(usageRepo, budget, options.logger ?? null);
+  const rawUsage = new UsageTracker(usageRepo, budget, options.logger ?? null);
+  const mutations = new Set(['beginAttempt', 'updateAttempt', 'correctFinal', 'recoverInterrupted', 'record']);
+  const usage = options.agentStore ? new Proxy(rawUsage, {
+    get(target, property) {
+      const value: unknown = Reflect.get(target, property);
+      if (typeof value !== 'function') return value;
+      if (!mutations.has(String(property))) return value.bind(target);
+      return (...args: unknown[]) => options.agentStore!.write(() => value.apply(target, args));
+    },
+  }) : rawUsage;
+  if (!options.agentStore) usage.recoverInterrupted(options.userId);
   const queue = new RequestQueue();
+  let recoveredToken: number | null = null;
+  const execution = options.agentStore ? new AgentGatewayControl(options.agentStore, budget, () => {
+    options.refreshSharedConfig?.(budget, queue);
+    if (recoveredToken !== options.agentStore!.token) {
+      usage.recoverInterrupted(options.userId);
+      recoveredToken = options.agentStore!.token;
+    }
+  }) : undefined;
   const failover = new FailoverController(options.failover ?? {});
   const events = new AiEventLog(200, options.onAiEvent ?? null);
   failover.onEvent((event) => events.fromFailover(event));
@@ -105,6 +127,7 @@ export function createAiStack(options: AiStackOptions): AiStack {
       if (!adapter) throw new Error(`不支持的协议：${protocol}`);
       return adapter;
     },
+    ...(execution ? { execution } : {}),
     ...(proxy ? { proxy } : {}),
     ...(options.logger ? { logger: options.logger } : {}),
     ...(options.retry ? { retry: options.retry } : {}),
@@ -139,8 +162,10 @@ export function createAiStack(options: AiStackOptions): AiStack {
       events,
     }),
     async dispose(): Promise<void> {
+      execution?.dispose();
       queue.clear();
       await transport.close?.();
+      try { options.agentStore?.release(); } catch { /* a successor already owns the lease */ }
     },
   };
 }

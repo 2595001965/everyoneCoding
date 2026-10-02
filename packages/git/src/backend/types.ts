@@ -237,6 +237,10 @@ export interface GitBackend {
   /* 仓库 */
   init(cwd: string, options?: InitOptions): Promise<void>;
   isRepo(cwd: string): Promise<boolean>;
+  /** V2-D07 隔离任务：不动原目录的 index、stash 或分支。 */
+  repositoryRoot?(cwd: string): Promise<string>;
+  createWorktree?(cwd: string, destination: string, revision: string): Promise<void>;
+  removeWorktree?(cwd: string, destination: string): Promise<void>;
 
   /* 引用 */
   currentBranch(cwd: string): Promise<string | null>;

@@ -17,17 +17,15 @@ import type Database from 'better-sqlite3';
 
 import {
   AnchorRepository,
-  OUTPUT_CONTRACT_TEXT,
-  createGenerator,
+  AgentStore,
+  AgentCoordinator,
   createWritePipeline,
-  parseGenerationOutput,
   shouldIgnorePath,
   type AnchorPersistencePort,
   type CodeAnchorRow,
   type GenerationOutput,
   type GenerationResult,
   type GenerationTarget,
-  type StreamChunk,
   type WriteMode,
   type WritePlan,
   type WriteResult,
@@ -36,7 +34,10 @@ import {
 import { ShellError } from '@ec/shell-api';
 
 import type { DomainRouter } from '../runtime';
-import { errorOfStreamChunk, textOfStreamChunk } from '../ai-stream-text';
+import { newUlid } from '@ec/data';
+import { executeCodeTask } from '../code-agent';
+import { resolveCodeRoot } from '../code-root';
+import { createProjectPaths } from '../paths';
 import type { AiStackHandle } from '../domain-factories';
 
 /**
@@ -110,11 +111,11 @@ const CODE_TARGETS: ReadonlySet<GenerationTarget> = new Set<GenerationTarget>([
   'desktop-code',
 ]);
 
-/** 流式增量事件的合并窗口：逐 token 发 IPC 会把渲染层打满 */
-const DELTA_FLUSH_CHARS = 256;
 
 /** `code.generate` 的返回（渲染层据 status 决定展示差异 / 续写 / 原文） */
 export interface CodeGenerateResult {
+  taskId?: string;
+  sessionId?: string;
   status: 'planned' | 'aborted' | 'degraded';
   plan: WritePlan | null;
   raw: string;
@@ -133,10 +134,7 @@ export function createCodeDomain(options: CodeDomainOptions): {
 } {
   const { db } = options;
   const watchHandles = new Map<string, { close: () => void }>();
-  /** 进行中的生成（按项目）：abortGeneration 据此中断，已生成部分保留 */
-  const generations = new Map<string, AbortController>();
-  /** 最近一次被中断的生成（按项目）：「继续生成」以它为前缀续写 */
-  const interrupted = new Map<string, GenerationResult>();
+  const agentStore = options.aiStack?.agentStore ?? new AgentStore(db);
   const suppressed = new Map<string, number>();
   /** AI 自身写入的抑制窗口（毫秒）：文件监听会把刚写的文件也报成 modify */
   const SUPPRESS_WINDOW_MS = 1_500;
@@ -149,14 +147,15 @@ export function createCodeDomain(options: CodeDomainOptions): {
     return base;
   };
 
-  const listFilesRecursive = (current: string, depth = 0): string[] => {
+  const listFilesRecursive = (current: string, depth = 0, base = current): string[] => {
     if (depth > 12 || !existsSync(current)) return [];
     const out: string[] = [];
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       if (shouldIgnorePath(entry.name)) continue;
+      if (entry.isSymbolicLink()) continue;
       const full = join(current, entry.name);
-      if (entry.isDirectory()) out.push(...listFilesRecursive(full, depth + 1));
-      else out.push(full.slice(current.length + 1).replace(/\\/g, '/'));
+      if (entry.isDirectory()) out.push(...listFilesRecursive(full, depth + 1, base));
+      else out.push(full.slice(base.length + 1).replace(/\\/g, '/'));
     }
     return out;
   };
@@ -411,10 +410,30 @@ export function createCodeDomain(options: CodeDomainOptions): {
     apply: (projectId, plan) => applyPlan(projectId, plan),
   };
 
+  const coordinator = new AgentCoordinator(agentStore, options.userId, (record, execution) =>
+    executeCodeTask(record, execution, {
+      aiStack: options.aiStack, userId: options.userId,
+      plan: (projectId, output, noteIds) => pipelineOf(projectId).plan({ output, mode: 'preview', ...(noteIds ? { noteIds } : {}) }),
+    }));
+  coordinator.start();
+  const observations = new Map<string, number>();
+  const broadcast = setInterval(() => {
+    for (const [sessionId, cursor] of observations) {
+      const row = db.prepare('SELECT project_id FROM agent_session WHERE session_id=? AND user_id=?').get(sessionId, options.userId) as { project_id: string } | undefined;
+      if (!row) continue;
+      const snapshot = agentStore.snapshot(options.userId, row.project_id, sessionId, cursor);
+      for (const event of snapshot.events) {
+        const payload = event.payload as Record<string, unknown>;
+        if (typeof payload['type'] === 'string') options.emit('code', { ...payload, sessionId, taskId: event.taskId, eventId: event.eventId, sequence: event.sequence });
+      }
+      observations.set(sessionId, snapshot.cursor);
+    }
+  }, 100);
+  broadcast.unref?.();
+
   const dispose = async (): Promise<void> => {
-    for (const controller of generations.values()) controller.abort();
-    generations.clear();
-    interrupted.clear();
+    clearInterval(broadcast);
+    await coordinator.dispose();
     for (const handle of watchHandles.values()) {
       try {
         handle.close();
@@ -428,23 +447,26 @@ export function createCodeDomain(options: CodeDomainOptions): {
   const router: DomainRouter = async (method, params, ctx) => {
     const projectId = String(params['projectId'] ?? '');
     if (projectId.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 projectId');
-    const root = codeRootOf(projectId);
+    codeRootOf(projectId);
     startWatcher(projectId);
 
     switch (method) {
       case 'listFiles': {
-        if (!existsSync(root)) return [];
-        return listFilesRecursive(root)
+        const paths = createProjectPaths({ projectsDir: options.projectsDir });
+        const readRoot = resolveCodeRoot(paths.projectRoot(projectId));
+        if (!paths.contains(readRoot, readRoot))
+          throw new ShellError('PATH_ESCAPE', '源码根包含链接');
+        if (!existsSync(readRoot)) return [];
+        return listFilesRecursive(readRoot)
           .filter((rel) => LANG_BY_EXT[extname(rel)] !== undefined)
           .map((rel) => ({ path: rel, language: LANG_BY_EXT[extname(rel)] ?? 'plaintext' }));
       }
 
       case 'readFile': {
         const rel = String(params['path'] ?? '');
-        const target = join(root, rel);
-        if (!target.startsWith(root + sep)) {
-          throw new ShellError('INVALID_ARGUMENT', '路径越界，已拒绝读取');
-        }
+        const paths = createProjectPaths({ projectsDir: options.projectsDir });
+        const readRoot = resolveCodeRoot(paths.projectRoot(projectId));
+        const target = paths.inside(readRoot, rel);
         if (!existsSync(target)) throw new ShellError('NOT_FOUND', `文件不存在：${rel}`);
         return readFileSync(target, 'utf8');
       }
@@ -482,205 +504,53 @@ export function createCodeDomain(options: CodeDomainOptions): {
 
       /* --------- AI 重改：真实模型 → 输出契约 → WritePipeline.plan --------- */
 
-      case 'requestRework': {
-        const request = (params['request'] ?? {}) as {
-          instruction?: unknown;
-          context?: unknown;
-          paths?: unknown;
-        };
-        const instruction = typeof request.instruction === 'string' ? request.instruction : '';
-        if (instruction.trim().length === 0) {
-          throw new ShellError('INVALID_ARGUMENT', 'AI 重改需要重改要求（instruction）');
-        }
-        if (options.aiStack === null) {
-          throw new ShellError(
-            'NOT_SUPPORTED',
-            'AI 栈未装配：请先在设置页配置模型服务与 API Key，再使用「交给 AI 修改」。代码视图本身是只读的（D-04）。',
-          );
-        }
-        const contextText = typeof request.context === 'string' ? request.context : '';
-        let raw = '';
-        for await (const chunk of options.aiStack.gateway.chat({
-          userId: options.userId,
-          purpose: 'code',
-          projectId,
-          messages: [
-            {
-              role: 'system',
-              content: `${OUTPUT_CONTRACT_TEXT}\n\n你正在按用户要求重改已有代码。`,
-            },
-            {
-              role: 'user',
-              content: [instruction, '', '当前差异（供你定位）：', contextText].join('\n'),
-            },
-          ],
-        })) {
-          raw += textOfStreamChunk(chunk).text;
-          const streamError = errorOfStreamChunk(chunk);
-          if (streamError !== null) {
-            throw new ShellError('UNKNOWN', `重改生成失败：${streamError}`);
-          }
-        }
-
-        const output = parseGenerationOutput(extractJson(raw));
-        if (output === null) {
-          throw new ShellError(
-            'UNKNOWN',
-            '模型输出不符合输出契约，无法生成补丁（已保留原始输出供查看，请重试或调整描述）。',
-          );
-        }
-        const plan = await pipelineOf(projectId).plan({ output, mode: 'preview' });
-        options.emit('code', {
-          type: 'code:write-plan',
-          projectId,
-          plan,
-          source: 'rework',
-        });
-        return undefined;
-      }
-
-      /* --------- 代码生成：上下文 → 真实模型（流式）→ 输出契约 → WritePipeline.plan --------- */
-
+      case 'requestRework':
+      case 'startTask':
       case 'generate': {
-        const aiStack = options.aiStack;
-        if (aiStack === null) {
-          throw new ShellError(
-            'NOT_SUPPORTED',
-            'AI 栈未装配：请先在「设置 → 模型服务」新增服务、填写 API Key 并完成连接测试，再生成代码。',
-          );
+        if (options.aiStack === null) throw new ShellError('NOT_SUPPORTED', 'AI 栈未装配，请先配置模型服务');
+        const request = { ...((params['request'] ?? {}) as Record<string, unknown>) };
+        const sessionId = typeof params['sessionId'] === 'string' ? params['sessionId'] : newUlid();
+        const key = typeof params['idempotencyKey'] === 'string' ? params['idempotencyKey'] : ctx.requestId;
+        if (request['continue'] === true) {
+          const previous = agentStore.list(options.userId, projectId, sessionId).at(-1);
+          if (!previous || previous.executionState !== 'settled' || !previous.checkpoint)
+            throw new ShellError('INVALID_ARGUMENT', '没有可安全续写的已结束任务；未知上游结果需先对账');
+          request['resume'] = previous.checkpoint as GenerationResult;
+        } else if (method === 'requestRework') {
+          if (!String(request['instruction'] ?? '').trim()) throw new ShellError('INVALID_ARGUMENT', 'AI 重改需要重改要求');
+          request['kind'] = 'rework';
+        } else if (!String(request['system'] ?? '').trim() || !String(request['user'] ?? '').trim()) {
+          throw new ShellError('INVALID_ARGUMENT', '代码生成需要已组装的上下文（system / user）');
         }
-        const request = (params['request'] ?? {}) as {
-          system?: unknown;
-          user?: unknown;
-          target?: unknown;
-          noteIds?: unknown;
-          continue?: unknown;
-          temperature?: unknown;
-          maxTokens?: unknown;
-        };
-        const target: GenerationTarget =
-          typeof request.target === 'string' && CODE_TARGETS.has(request.target as GenerationTarget)
-            ? (request.target as GenerationTarget)
-            : 'backend-code';
-        const system = typeof request.system === 'string' ? request.system : '';
-        const user = typeof request.user === 'string' ? request.user : '';
-        const resume = request.continue === true ? (interrupted.get(projectId) ?? null) : null;
-        if (resume === null && (system.trim().length === 0 || user.trim().length === 0)) {
-          throw new ShellError(
-            'INVALID_ARGUMENT',
-            '代码生成需要已组装的上下文（system / user）：请先在上下文面板完成组装',
-          );
-        }
-        if (aiStack.gateway.describeModel?.(options.userId, 'code') === null) {
-          throw new ShellError(
-            'NOT_SUPPORTED',
-            '尚未配置可用模型：请打开「设置 → 模型服务」新增 OpenAI / Anthropic 兼容服务，填写 API Key 并点击「连接测试」拉取模型。',
-          );
-        }
-
-        generations.get(projectId)?.abort();
-        const controller = new AbortController();
-        generations.set(projectId, controller);
-
-        let streamError: string | null = null;
-        let answeredBy: string | null = null;
-        let pending = '';
-        const flush = (): void => {
-          if (pending.length === 0) return;
-          ctx.emit({ type: 'code:generate-delta', projectId, text: pending });
-          pending = '';
-        };
-        const generator = createGenerator({
-          run: (run) =>
-            (async function* (): AsyncIterable<StreamChunk> {
-              for await (const chunk of aiStack.gateway.chat({
-                userId: options.userId,
-                purpose: 'code',
-                projectId,
-                messages: run.messages as ReadonlyArray<{ role: string; content: string }>,
-                signal: run.signal ?? controller.signal,
-                ...(run.temperature !== undefined ? { temperature: run.temperature } : {}),
-                ...(run.maxTokens !== undefined ? { maxTokens: run.maxTokens } : {}),
-              })) {
-                const delta = textOfStreamChunk(chunk);
-                if (delta.model !== null) answeredBy = delta.model;
-                const error = errorOfStreamChunk(chunk);
-                if (error !== null) streamError = error;
-                yield chunk as unknown as StreamChunk;
-              }
-            })(),
-        });
-
-        ctx.emit({ type: 'code:generate-started', projectId, target, resumed: resume !== null });
-        let result: GenerationResult;
-        try {
-          const shared = {
-            signal: controller.signal,
-            ...(typeof request.temperature === 'number'
-              ? { temperature: request.temperature }
-              : {}),
-            ...(typeof request.maxTokens === 'number' ? { maxTokens: request.maxTokens } : {}),
-            onDelta: (text: string) => {
-              pending += text;
-              if (pending.length >= DELTA_FLUSH_CHARS) flush();
-            },
-          };
-          result =
-            resume !== null
-              ? await generator.continueGeneration(resume, shared)
-              : await generator.generate({ ...shared, target, prompt: { system, user } });
-        } finally {
-          flush();
-          if (generations.get(projectId) === controller) generations.delete(projectId);
-        }
-
-        const aborted = controller.signal.aborted;
-        if (!aborted && streamError !== null && result.raw.trim().length === 0) {
-          // 预算拒绝 / 未配置 / 全部服务不可用：网关给出的原因原样（已脱敏）交给 UI
-          throw new ShellError('UNKNOWN', `代码生成失败：${streamError}`);
-        }
-        const base = {
-          raw: result.raw,
-          partial: result.partial,
-          attempts: result.attempts,
-          model: answeredBy,
-          summary: result.output?.summary ?? null,
-          issues: result.parse.issues,
-        };
-        if (aborted || (result.partial && result.output === null)) {
-          // FR-AI-06：中断保留已生成部分，可「继续生成」
-          interrupted.set(projectId, result);
-          ctx.emit({ type: 'code:generate-done', projectId, status: 'aborted' });
-          return { ...base, status: 'aborted', plan: null } satisfies CodeGenerateResult;
-        }
-        interrupted.delete(projectId);
-        if (result.output === null) {
-          ctx.emit({ type: 'code:generate-done', projectId, status: 'degraded' });
-          return { ...base, status: 'degraded', plan: null } satisfies CodeGenerateResult;
-        }
-        if (result.output.files.length > MAX_GENERATED_FILES) {
-          throw new ShellError(
-            'INVALID_ARGUMENT',
-            `单次生成文件数超限（${result.output.files.length} > ${MAX_GENERATED_FILES}），请缩小范围后重试`,
-          );
-        }
-        const noteIds = Array.isArray(request.noteIds)
-          ? request.noteIds.filter((id): id is string => typeof id === 'string')
-          : undefined;
-        const plan = await pipelineOf(projectId).plan({
-          output: result.output,
-          mode: 'preview',
-          ...(noteIds !== undefined ? { noteIds } : {}),
-        });
-        options.emit('code', { type: 'code:write-plan', projectId, plan, source: 'generate' });
-        ctx.emit({ type: 'code:generate-done', projectId, status: 'planned' });
-        return { ...base, status: 'planned', plan } satisfies CodeGenerateResult;
+        if (typeof request['target'] !== 'string' || !CODE_TARGETS.has(request['target'] as GenerationTarget)) request['target'] = 'backend-code';
+        const record = agentStore.submit(options.userId, projectId, sessionId, key, request);
+        observations.set(sessionId, observations.get(sessionId) ?? 0);
+        if (method === 'startTask') return record;
+        const done = await coordinator.wait(options.userId, projectId, record.task.taskId);
+        if (done.executionState === 'unknown') throw new ShellError('UNKNOWN', done.error ?? '上游执行结果需对账');
+        if (method === 'requestRework') return undefined;
+        return done.result;
       }
-
+      case 'listTasks': return agentStore.list(options.userId, projectId);
+      case 'taskSnapshot': {
+        const sessionId = String(params['sessionId'] ?? '');
+        const after = typeof params['after'] === 'number' ? params['after'] : 0;
+        return agentStore.snapshot(options.userId, projectId, sessionId, after);
+      }
+      case 'cancelTask':
+      case 'pauseTask':
+      case 'resumeTask':
+      case 'reconcileTask':
       case 'abortGeneration': {
-        const controller = generations.get(projectId);
-        if (controller === undefined) return false;
-        controller.abort();
+        let taskId = typeof params['taskId'] === 'string' ? params['taskId'] : '';
+        if (!taskId && method === 'abortGeneration') {
+          const active = agentStore.list(options.userId, projectId).filter(record => record.task.status === 'running' || record.task.status === 'queued');
+          if (active.length === 0) return false;
+          if (active.length !== 1) throw new ShellError('INVALID_ARGUMENT', '多个任务运行中，取消必须指定 taskId');
+          taskId = active[0]!.task.taskId;
+        }
+        const kind = method === 'pauseTask' ? 'pause' : method === 'resumeTask' ? 'resume' : method === 'reconcileTask' ? 'reconcile' : 'cancel';
+        agentStore.command(options.userId, projectId, taskId, kind, params['evidence'] ? { evidence: params['evidence'] } : {});
         return true;
       }
 
@@ -692,22 +562,3 @@ export function createCodeDomain(options: CodeDomainOptions): {
   return { router, dispose, writePort };
 }
 
-/**
- * 从模型输出里取 JSON 对象。
- *
- * 与 `@ec/ai` 的解析器同一口径：先去掉 Markdown 围栏，再取第一个 `{` 到最后一个 `}` 的切片。
- * 需要它的原因：重改走的是"自由文本 + 输出契约"，模型偶尔仍会包一层围栏或加一句说明。
- */
-function extractJson(raw: string): unknown {
-  const trimmed = raw.trim();
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(trimmed);
-  const candidate = fenced?.[1]?.trim() ?? trimmed;
-  const start = candidate.indexOf('{');
-  const end = candidate.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  try {
-    return JSON.parse(candidate.slice(start, end + 1)) as unknown;
-  } catch {
-    return null;
-  }
-}

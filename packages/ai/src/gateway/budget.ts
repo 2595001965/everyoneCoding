@@ -65,11 +65,11 @@ export class BudgetGuard {
   }
 
   /** 请求前检查：超限返回 ok=false */
-  check(now: number = Date.now()): BudgetDecision {
+  check(now: number = Date.now(), reservedUsd = 0): BudgetDecision {
     const { dailyUsd, monthlyUsd, alertRatio } = this.config;
     const dayStart = new Date(now).setHours(0, 0, 0, 0);
-    const daily = this.usage.totals(this.userIdValue, dayStart, now).cost;
-    const monthly = this.usage.monthly(this.userIdValue, now).cost;
+    const daily = this.usage.totals(this.userIdValue, dayStart, now).cost + reservedUsd;
+    const monthly = this.usage.monthly(this.userIdValue, now).cost + reservedUsd;
 
     if (dailyUsd !== null && daily >= dailyUsd) {
       return {

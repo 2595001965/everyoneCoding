@@ -179,10 +179,14 @@ describe('差异预览与应用（本地 > 远程默认）', () => {
     expect(summarizeDiff(diffRemoteConfig([], payload))).toContain('新增');
   });
 
-  it('默认模型变更会被识别（供 UI 弹窗询问）', () => {
+  it('默认模型变更会被识别（供 UI 弹窗询问），并标记声明自哪个远程服务', () => {
     const payload = parseRemoteConfig(PAYLOAD).payload;
     const plan = planApply(payload, locals, { currentDefaultModel: 'old-model' });
-    expect(plan.defaultModelChange).toEqual({ before: 'old-model', after: 'gpt-4o' });
+    expect(plan.defaultModelChange).toEqual({
+      before: 'old-model',
+      after: 'gpt-4o',
+      providerName: '团队中转',
+    });
   });
 
   it('远程删除的服务在差异里标为移除', () => {
@@ -194,5 +198,78 @@ describe('差异预览与应用（本地 > 远程默认）', () => {
     ).payload;
     const items = diffRemoteConfig(locals, payload);
     expect(items.some((item) => item.kind === 'removed')).toBe(true);
+  });
+
+  describe('默认配置按完整路由比较（V2-D00：同名模型换渠道不漏报）', () => {
+    const bothProviders = [
+      ...locals,
+      {
+        id: 'p2',
+        name: '渠道B',
+        protocol: 'openai' as const,
+        baseUrl: 'https://b.example.com/v1',
+        models: ['same-model'],
+        headers: {},
+        timeoutMs: 30_000,
+      },
+    ];
+    const scopedPayload = parseRemoteConfig(
+      JSON.stringify({
+        revision: 'rev-ab',
+        providers: [
+          {
+            name: '渠道A',
+            protocol: 'openai',
+            baseUrl: 'https://relay.team.example.com/v1',
+            models: ['same-model'],
+          },
+          {
+            name: '渠道B',
+            protocol: 'openai',
+            baseUrl: 'https://b.example.com/v1',
+            models: ['same-model'],
+            defaultModel: 'same-model',
+          },
+        ],
+      }),
+    ).payload;
+
+    it('A/same-model → B/same-model：模型名未变也判定为默认路由变化，并标记渠道切换', () => {
+      const plan = planApply(scopedPayload, bothProviders, {
+        currentDefaultModel: 'same-model',
+        currentDefaultProviderName: '渠道A',
+      });
+      expect(plan.defaultModelChange).toEqual({
+        before: 'same-model',
+        after: 'same-model',
+        providerName: '渠道B',
+        providerSwitch: { from: '渠道A', to: '渠道B' },
+      });
+    });
+
+    it('同名且同渠道：不是路由变化，不提示', () => {
+      const plan = planApply(scopedPayload, bothProviders, {
+        currentDefaultModel: 'same-model',
+        currentDefaultProviderName: '渠道B',
+      });
+      expect(plan.defaultModelChange).toBeNull();
+    });
+
+    it('只传模型名、缺渠道身份（旧调用口径）：名字相同不猜路由变化', () => {
+      const plan = planApply(scopedPayload, bothProviders, { currentDefaultModel: 'same-model' });
+      expect(plan.defaultModelChange).toBeNull();
+    });
+
+    it('名字不同时保持原有变更形状（不夹带 providerSwitch 字段）', () => {
+      const plan = planApply(scopedPayload, bothProviders, {
+        currentDefaultModel: 'other-model',
+        currentDefaultProviderName: '渠道A',
+      });
+      expect(plan.defaultModelChange).toEqual({
+        before: 'other-model',
+        after: 'same-model',
+        providerName: '渠道B',
+      });
+    });
   });
 });

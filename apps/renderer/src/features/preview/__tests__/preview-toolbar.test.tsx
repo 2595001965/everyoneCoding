@@ -108,7 +108,7 @@ describe('PreviewFrame（T6-05）', () => {
     expect(frame).toHaveAttribute('sandbox');
   });
 
-  it('接收 preview-request 消息触发 onRequest', async () => {
+  it('拒绝未校验的 preview-request 消息（请求日志只采信宿主服务）', async () => {
     const onRequest = vi.fn();
     const onElementClick = vi.fn();
     render(
@@ -132,10 +132,11 @@ describe('PreviewFrame（T6-05）', () => {
       errorMessage: null,
     };
     window.postMessage({ type: 'preview-request', payload }, '*');
-    await waitFor(() => expect(onRequest).toHaveBeenCalledWith(payload));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onRequest).not.toHaveBeenCalled();
   });
 
-  it('接收 element-click 消息触发 onElementClick', async () => {
+  it('拒绝生成期 elementId 冒充运行页面源码映射', async () => {
     const onRequest = vi.fn();
     const onElementClick = vi.fn();
     render(
@@ -143,6 +144,7 @@ describe('PreviewFrame（T6-05）', () => {
     );
 
     window.postMessage({ type: 'element-click', payload: { elementId: 'E1' } }, '*');
-    await waitFor(() => expect(onElementClick).toHaveBeenCalledWith({ elementId: 'E1' }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onElementClick).not.toHaveBeenCalled();
   });
 });

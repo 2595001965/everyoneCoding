@@ -172,6 +172,21 @@ export class CliGitBackend implements GitBackend {
     return result.exitCode === 0 && result.stdout.trim() === 'true';
   }
 
+  async repositoryRoot(cwd: string): Promise<string> {
+    return (await this.execStdout(cwd, ['rev-parse', '--show-toplevel'])).trim();
+  }
+
+  async createWorktree(cwd: string, destination: string, revision: string): Promise<void> {
+    // 只接受已解析 SHA，拒绝 ref/选项注入；不运行仓库 post-checkout hook。
+    if (!/^[a-f0-9]{40,64}$/i.test(revision)) throw new Error('工作副本基线必须是已解析的提交');
+    await this.exec(cwd, ['-c', 'core.hooksPath=', 'worktree', 'add', '--detach', '--', destination, revision]);
+  }
+
+  async removeWorktree(cwd: string, destination: string): Promise<void> {
+    // 不 force：未提交的任务产物必须先由用户处理，不能被自动清除。
+    await this.exec(cwd, ['worktree', 'remove', '--', destination]);
+  }
+
   /* ------------------------------------------------------------------ */
   /* 引用与配置                                                          */
   /* ------------------------------------------------------------------ */

@@ -2,7 +2,8 @@ import type { Database } from 'better-sqlite3';
 import { Repository, newUlid, type Row } from '@ec/data';
 import type { UsageRecordRow } from '@ec/data';
 
-import type { AiPurpose } from '../domain/purpose-binding';
+import type { UsagePurpose } from '../domain/purpose-binding';
+import { AttemptStore } from './attempt-store';
 
 /**
  * 用量仓库（FR-AI-09 / FR-MDL-12）。
@@ -19,7 +20,7 @@ export interface UsageRecord {
   providerId: string | null;
   modelId: string | null;
   projectId: string | null;
-  purpose: AiPurpose | null;
+  purpose: UsagePurpose | null;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -33,7 +34,7 @@ export interface UsageInput {
   providerId?: string | null;
   modelId?: string | null;
   projectId?: string | null;
-  purpose?: AiPurpose | null;
+  purpose?: UsagePurpose | null;
   promptTokens: number;
   completionTokens: number;
   cost: number | null;
@@ -50,11 +51,27 @@ export interface UsageTotals {
   complete: boolean;
 }
 
+/** 兼容查询：历史行一次计入；新 attempt 的投影不再重复累加。新金额先按整数微单位求和。 */
+const USAGE_SOURCE = `(SELECT user_id, model_id, created_at, prompt_tokens, completion_tokens, total_tokens,
+  CAST(ROUND(cost * 1000000) AS INTEGER) AS cost_micros, cost IS NULL AS incomplete
+  FROM usage_record WHERE attempt_id IS NULL
+  UNION ALL SELECT user_id, model_id, started_at AS created_at,
+  json_extract(payload_json,'$.normalized.totalInput') AS prompt_tokens,
+  json_extract(payload_json,'$.normalized.totalOutput') AS completion_tokens,
+  json_extract(payload_json,'$.normalized.totalInput') + json_extract(payload_json,'$.normalized.totalOutput') AS total_tokens,
+  CASE WHEN json_extract(payload_json,'$.cost.total.currency') = 'USD'
+    THEN json_extract(payload_json,'$.cost.total.micros') ELSE NULL END AS cost_micros,
+  COALESCE(json_extract(payload_json,'$.cost.complete'),0) != 1 OR
+    COALESCE(json_extract(payload_json,'$.cost.total.currency'),'') != 'USD' AS incomplete
+  FROM usage_attempt)`;
+
 export class UsageRepo {
+  readonly attempts: AttemptStore;
   private readonly repo: Repository<UsageRecordRow & Row>;
 
   constructor(private readonly db: Database) {
     this.repo = new Repository<UsageRecordRow & Row>(db, 'usage_record');
+    this.attempts = new AttemptStore(db);
   }
 
   record(input: UsageInput): UsageRecord {
@@ -87,9 +104,9 @@ export class UsageRepo {
                 COALESCE(SUM(prompt_tokens), 0) AS prompt,
                 COALESCE(SUM(completion_tokens), 0) AS completion,
                 COALESCE(SUM(total_tokens), 0) AS total,
-                COALESCE(SUM(cost), 0) AS cost,
-                SUM(CASE WHEN cost IS NULL THEN 1 ELSE 0 END) AS missing_cost
-         FROM usage_record
+                COALESCE(SUM(cost_micros), 0) AS cost,
+                SUM(incomplete) AS missing_cost
+         FROM ${USAGE_SOURCE}
          WHERE user_id = ? AND created_at >= ? AND created_at <= ?`,
       )
       .get(userId, since, until) as
@@ -108,7 +125,7 @@ export class UsageRepo {
       promptTokens: row?.prompt ?? 0,
       completionTokens: row?.completion ?? 0,
       totalTokens: row?.total ?? 0,
-      cost: row?.cost ?? 0,
+      cost: (row?.cost ?? 0) / 1_000_000,
       complete: (row?.missing_cost ?? 0) === 0,
     };
   }
@@ -132,9 +149,9 @@ export class UsageRepo {
                 COALESCE(SUM(prompt_tokens), 0) AS prompt,
                 COALESCE(SUM(completion_tokens), 0) AS completion,
                 COALESCE(SUM(total_tokens), 0) AS total,
-                COALESCE(SUM(cost), 0) AS cost,
-                SUM(CASE WHEN cost IS NULL THEN 1 ELSE 0 END) AS missing_cost
-         FROM usage_record
+                COALESCE(SUM(cost_micros), 0) AS cost,
+                SUM(incomplete) AS missing_cost
+         FROM ${USAGE_SOURCE}
          WHERE user_id = ? AND created_at >= ? AND created_at <= ?
          GROUP BY model_id`,
       )
@@ -155,7 +172,7 @@ export class UsageRepo {
         promptTokens: row.prompt,
         completionTokens: row.completion,
         totalTokens: row.total,
-        cost: row.cost,
+        cost: row.cost / 1_000_000,
         complete: row.missing_cost === 0,
       },
     }));
@@ -184,7 +201,7 @@ function toRecord(row: UsageRecordRow): UsageRecord {
     providerId: row.provider_id,
     modelId: row.model_id,
     projectId: row.project_id,
-    purpose: (row.purpose as AiPurpose | null) ?? null,
+    purpose: (row.purpose as UsagePurpose | null) ?? null,
     promptTokens: row.prompt_tokens,
     completionTokens: row.completion_tokens,
     totalTokens: row.total_tokens,

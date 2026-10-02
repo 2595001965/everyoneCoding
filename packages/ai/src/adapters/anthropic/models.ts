@@ -1,4 +1,5 @@
 import { DEFAULT_CAPABILITY } from '../../domain/capability';
+import { providerModelIdOf } from '../../domain/model-route';
 import type { Model, ModelDiscovery } from '../../domain/model';
 import type { Provider } from '../../domain/provider';
 import type { AdapterContext } from '../../core/adapter';
@@ -76,6 +77,9 @@ export async function fetchAnthropicModels(
       id: `${provider.id}:${name}`,
       providerId: provider.id,
       name,
+      providerModelId: providerModelIdOf(provider.id, name),
+      canonicalVendor: null,
+      canonicalModel: null,
       displayName: null,
       capability: { ...DEFAULT_CAPABILITY },
       version: 1,
@@ -96,6 +100,9 @@ export function manualModelsDiscovery(provider: Provider): ModelDiscovery {
       id: `manual:${provider.id}:${name}`,
       providerId: provider.id,
       name,
+      providerModelId: providerModelIdOf(provider.id, name),
+      canonicalVendor: null,
+      canonicalModel: null,
       displayName: null,
       capability: { ...DEFAULT_CAPABILITY },
       version: 1,

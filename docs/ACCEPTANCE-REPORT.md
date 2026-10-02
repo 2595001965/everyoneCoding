@@ -949,6 +949,52 @@ package.json），`python app.py` 经受控进程端口启动，表单请求 `so
 
 ---
 
+### 2.15 V2-T03 免平台登录的本地 Provider 完整闭环（2026-10-01）
+
+**范围**：V2-MDL-04/05/07、V2-E2E-01（本地半环，源码导入归 T04）/12（路由层证据，复合身份正式验收归 T02）。全部验证使用**模拟上游**（本机 OpenAI 协议 mock，127.0.0.1），**未发生任何真实付费调用**；"平台域网络禁用"由传输层策略模拟（非回环目标一律拒绝并计数）。
+
+**现状核验（实现前）**：本仓 AI 栈已是本地架构——主进程 `createElectronAiRuntime` 固定 `local-user`、SQLite + DPAPI 密钥环（`ai-key` 命名空间）、renderer 仅持密钥引用名；路由层无登录门控（`App.tsx` 直达设置页）；`AuthClient.logout()` 只清会话。因此本任务以"核验 + 补缺口"交付，未另建第二套 Provider 系统。
+
+**改动**：
+
+| 文件                                                                                          | 变化                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/ai/src/core/adapter.ts`、`connection-test.ts`                                       | `ConnectionTestResult` 增加实测 `usage` 与 `modelName`（失败但上游已执行时同样带回）                                                                  |
+| `packages/ai/src/domain/purpose-binding.ts`、`repo/usage-repo.ts`、`gateway/usage-tracker.ts` | 新增 `UsagePurpose`（= 可绑定用途 + `connection-test`）；用量层 purpose 类型放宽，绑定 UI 不变                                                        |
+| `packages/ai/src/service/ai-control-api.ts`                                                   | `testConnection`/`testDraftConnection` 按上游实测 usage 入账（purpose=connection-test，草稿 Provider 记 null 外键），只记实测、不估算（T11 统一升级） |
+| `apps/renderer/.../provider/ConnectionTest.tsx`                                               | 连接测试前强制确认："可能消耗 Token 并产生费用、计入本月用量"（V2-MDL-07），不得一键直发                                                              |
+| `apps/renderer/.../provider/GenerationTest.tsx`                                               | 生成测试增加费用提示                                                                                                                                  |
+| `apps/renderer/.../provider/LocalModePanel.tsx`（新增）、`ProviderSettings.tsx`               | 设置页顶部明确"本地直连（BYOK）"模式：免平台账号、Key 仅本机加密存储、请求不经平台、登出/离线/零余额不影响本地；平台托管模式未接入前不提供假开关      |
+| `apps/desktop-electron/src/main/__tests__/ai-local-mode.test.ts`（新增）                      | T03 集成测试 5 项                                                                                                                                     |
+| `apps/renderer/.../__tests__/connection-test.test.tsx`（新增）、`settings.test.tsx`           | 确认流组件测试；旧"连接测试"用例按新契约补确认步                                                                                                      |
+
+**验收对照**：
+
+| 卡片验收项                                          | 结果 | 证据                                                                                                                                                                            |
+| --------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 空用户数据域不注册平台即可创建 Provider             | ✅   | `ai-local-mode.test.ts`：全新 tmp 数据域，无任何平台凭据，persistApiKey→createProvider→listProviders→testConnection→stream 全通过                                               |
+| 禁止平台域名网络访问时仍可向授权测试上游生成        | ✅   | 同文件测试 2：非回环目标零访问（`blocked=[]`），连接测试 + 流式生成照常完成；V2-E2E-01 的"导入源码"半环归 T04                                                                   |
+| 日志无 Key                                          | ✅   | 同文件测试 4：onAiEvent 事件、RPC 响应、console.warn、SQLite 全表行、密钥环文件名均不含 Key 明文；明文只进 DPAPI 密钥环（`registerSecretValue` 脱敏表兜底）                     |
+| 平台余额 0 不阻断 BYOK                              | ✅   | 同文件测试 2：伪造"已登录且余额为零"会话痕迹（oauth-token 命名空间），生成照常；当前客户端不存在平台余额查询路径（T18/T19 落地后需回归）                                        |
+| 登出不删除配置                                      | ✅   | 同文件测试 5：真实 `AuthClient.logout()` 后 oauth-token 命名空间清空、ai-key 命名空间与 Provider 原样、生成照常；登出过程零平台请求（transport 桩若被调用即抛错）               |
+| A/B Provider 同 modelId 不串路由（E2E-12 本地证据） | ✅   | 同文件测试 3：两 Provider 各持同名模型，绑定路由与显式 providerId+modelId 路由分别命中各自上游，usageByModel 分开记账；复合身份（providerModelId/canonicalModel）正式验收归 T02 |
+
+**门禁实测**（环境：F 盘仓库，Node v24.21.0，`--no-file-parallelism`）：
+
+| 命令                                                                        | 结果                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vitest run apps/desktop-electron/src/main/__tests__/ai-local-mode.test.ts` | ✅ 5/5                                                                                                                                                                                                   |
+| `vitest run packages/ai/src`                                                | ✅ 309/310（唯一失败 = `remote-config.test.ts` "默认模型变更会被识别"，属**并行 T02 会话在途改动**：其 `applier.ts` 的 `defaultModelChange` 新增 `providerName` 字段而测试未同步，非本任务引入，未代改） |
+| `vitest run apps/renderer/src/features/settings`                            | ✅ 75/75（含 2 个按 V2-MDL-07 新契约更新的连接测试用例）                                                                                                                                                 |
+| `vitest run ai-runtime / ai-mainline / domain-docs`（回归）                 | ✅ 37/37                                                                                                                                                                                                 |
+| `pnpm lint`（全仓 `--max-warnings 0`）                                      | ✅ 零告警                                                                                                                                                                                                |
+| `pnpm typecheck`                                                            | 我的写集零错误；实测时 `@ec/ai` 一度出现并行 T02 在途类型错误（其会话随后自行修复），`domain-run-ports.test.ts(724)` 存量参数错误亦属并行改动连带，均非本任务写集                                        |
+| `prettier --check`（本任务文件）                                            | ✅ 全部通过                                                                                                                                                                                              |
+
+**边界与未验证**：① 真实 Provider（真实付费上游）验证未执行——按卡片要求未获授权不发起；② "导入源码并完成一次生成"的导入半环依赖 T04；③ 平台托管模式及其与本地模式的切换是 T19/T23 的生产接线范围；④ 连接测试用量入账为现有 usage_record 接口（purpose=connection-test），attempt 级计量待 T11；⑤ 执行期间检测到并行会话正在实施 V2-T02（`domain/model.ts` 复合身份在途），本任务写集与其不重叠，合并时建议由集成人复核两份 diff。
+
+---
+
 ## 3. 未完成 / 未达标项（如实列出）
 
 | 项                                             | 现状                                      | 阻塞原因                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 下一步                                                                                                                                                                      |

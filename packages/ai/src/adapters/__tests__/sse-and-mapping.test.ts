@@ -203,6 +203,7 @@ function providerFixture() {
     userId: 'u1',
     name: '测试',
     protocol: 'openai' as const,
+    source: 'custom' as const,
     baseUrl: 'https://api.openai.com/v1',
     keyRef: null,
     headers: {},

@@ -332,3 +332,20 @@ node node_modules/vitest/vitest.mjs run -c e2e/vitest.config.ts --no-file-parall
 预分配一致。`domain-run-ports` 的 HTTP 断言改用 `agent: false` 无池客户端——全局 fetch（undici）的
 连接池在"预览同端口 stop→start 后立即请求"时会复用已销毁的 keep-alive socket，稳定复现
 `read ECONNRESET`（§5.2 时段记录的范围外红①即此因，本轮修复闭环）。
+
+### 5.5 V2-T03 免平台登录本地闭环复验（2026-10-01）
+
+针对性测试（`--no-file-parallelism`，仓库根执行）：
+
+- `apps/desktop-electron/src/main/__tests__/ai-local-mode.test.ts` **5/5**：空用户数据域免登录建
+  Provider→配 Key→连接测试入账→流式生成；平台域禁网（传输层非回环全拒）下完整生成且平台零访问；
+  事件/RPC/console/SQLite 全程无 Key 明文；`AuthClient.logout()` 只清 oauth-token 命名空间、
+  ai-key 与 Provider 原样；A/B Provider 同名模型路由与用量分离。
+- `packages/ai/src` 309/310：唯一失败 `remote-config.test.ts`「默认模型变更会被识别」为并行 T02
+  会话对 `applier.ts` 的在途改动（`defaultModelChange` 新增 `providerName`）尚未同步测试，非本轮引入。
+- `apps/renderer/src/features/settings` 75/75（连接测试按 V2-MDL-07 新增收费确认步，2 个旧用例同步）。
+- desktop-electron AI 相关回归（ai-runtime / ai-mainline / domain-docs）37/37。
+- 全仓 `pnpm lint` 零告警；T03 写集 typecheck / prettier 全绿。
+
+上游性质声明：本节全部为**模拟上游**（本机 OpenAI 协议 mock）与模拟防火墙，未发生真实付费调用；
+真实 Provider 验证须另行授权后执行（见 `docs/ACCEPTANCE-REPORT.md §2.15`）。

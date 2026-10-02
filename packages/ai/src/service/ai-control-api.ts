@@ -33,6 +33,10 @@ import {
 import { parseCreateProvider, type CreateProviderInput } from '../dto/create-provider';
 import { parseUpdateProvider, type UpdateProviderInput } from '../dto/update-provider';
 import { parseProxyUrl, testProxyConnectivity, type ProxyTestResult } from '../gateway/proxy';
+import { newUlid } from '@ec/data';
+import { AttemptRuntime } from '../gateway/attempt-runtime';
+import type { StreamChunk } from '../core/stream';
+import { toAiError } from '../core/error';
 import { isTempKeyRef, tempKeyRefOf } from '../domain/provider';
 
 /**
@@ -69,7 +73,17 @@ export interface BootRefreshItem {
   /** 本次自动应用（只新增本地没有的服务，本地优先）；未应用为 null */
   applied: { revision: string; created: string[]; skipped: string[] } | null;
   /** 远程默认模型与本地不同且该版本未被拒绝过：UI 需弹窗询问 */
-  pendingDefaultModel: { before: string | null; after: string; revision: string } | null;
+  pendingDefaultModel: {
+    before: string | null;
+    after: string;
+    revision: string;
+    /** 该默认模型声明自哪个远程 Provider（全局默认时为 null） */
+    providerName?: string | null;
+    /** 模型名未变、默认路由仅换渠道（A/x → B/x）：from=当前渠道，to=远程声明渠道 */
+    providerSwitch?: { from: string; to: string } | null;
+    /** 同名模型分布在多个 Provider：不能自动绑定，需用户手动选择路由（V2-MDL-02/03） */
+    ambiguous?: boolean;
+  } | null;
 }
 
 /** 「是否已可用」的引导清单（没有配置时 UI 据此给出可执行的下一步） */
@@ -128,7 +142,7 @@ export class AiControlService {
   private syncManualModels(providerId: string, names: readonly string[]): void {
     const wanted = new Set(names.map((name) => name.trim()).filter((name) => name.length > 0));
     for (const name of wanted) {
-      if (!this.deps.models.findByName(providerId, name)) this.deps.models.create(providerId, name);
+      this.deps.models.createIfMissing(providerId, name);
     }
     const binding = this.deps.bindings.get(this.deps.userId);
     const bound = new Set(
@@ -162,6 +176,11 @@ export class AiControlService {
   }
 
   /**
+   * 连接测试入账（V2-MDL-07「纳入用量」）：测试对话与生成走同一条用量记录。
+   * 只按上游实测 usage 记账，上游未报时不估算（T11 统一升级计量口径）。
+   */
+
+  /**
    * 用「连接测试」临时写入的草稿 Key 试连（尚未保存的 Provider）。
    *
    * @param keyRef 渲染层写入 secureStore 后拿到的引用名；为 null 时回落到已保存 Key（编辑场景）
@@ -182,6 +201,8 @@ export class AiControlService {
       userId: this.deps.userId,
       name: provider.name,
       protocol: provider.protocol,
+      // 来源不可经草稿引入：已有 Provider 保持原值，新草稿一律 custom（V2-MDL-01）
+      source: existing?.source ?? provider.source,
       baseUrl: provider.baseUrl,
       headers: provider.headers,
       timeoutMs: provider.timeoutMs,
@@ -201,11 +222,35 @@ export class AiControlService {
       draft.protocol === 'openai'
         ? new (await import('../adapters/openai/client')).OpenAiAdapter()
         : new (await import('../adapters/anthropic/client')).AnthropicAdapter();
-    return (await import('../core/connection-test')).runConnectionTest(adapter, draft, {
+    const tracker = this.deps.usage;
+    const userId = this.deps.userId;
+    const transport = this.deps.transport;
+    const result = await (
+      await import('../core/connection-test')
+    ).runConnectionTest(adapter, draft, {
       transport: this.deps.transport,
       apiKey,
       timeoutMs: draft.timeoutMs,
+    }, async function* (chat): AsyncIterable<StreamChunk> {
+      const count = adapter.countTokens(chat.messages);
+      const attempt = new AttemptRuntime(tracker, { userId, logicalRequestId: newUlid(), providerId: null,
+        model: null, upstreamModelName: chat.model, protocol: draft.protocol, purpose: 'connection-test',
+        context: { kind: 'sent_estimate', computedAt: Date.now(), estimatedNextInputTokens: count.tokens,
+          routeWindowTokens: null, reservedOutputTokens: 1, safetyMarginTokens: count.margin, measuredSentInputTokens: null } });
+      let finished = false;
+      try {
+        for await (const chunk of adapter.chat(chat, { transport, apiKey, timeoutMs: draft.timeoutMs })) {
+          if (chunk.type === 'delta') attempt.output(chunk.text);
+          if (chunk.type === 'usage') attempt.usage(chunk.metering, chunk.usage);
+          if (chunk.type === 'error') throw chunk.error;
+          if (chunk.type === 'done') { attempt.finish(chunk.finishReason, chunk.partial); finished = true; }
+          yield chunk;
+        }
+      } catch (error) {
+        attempt.finish('error', true, toAiError(error)); finished = true; throw error;
+      } finally { if (!finished) attempt.finish('stop', true); }
     });
+    return result;
   }
 
   /** 读取 Key：草稿引用优先从草稿命名空间取，已保存引用走正式命名空间 */
@@ -264,7 +309,9 @@ export class AiControlService {
   }
 
   addManualModel(providerId: string, name: string): Model {
-    return this.deps.models.create(providerId, name);
+    // V2-MDL-02：同一条路由（Provider+模型名）幂等返回既有记录，不产生重复行；
+    // 跨 Provider 的同名模型是不同路由，各自独立。
+    return this.deps.models.createIfMissing(providerId, name.trim()).model;
   }
 
   updateCapability(modelId: string, patch: CapabilityPatch): Model | null {
@@ -399,9 +446,7 @@ export class AiControlService {
     const payload = await this.payloadOf(source);
     if (!payload) return { items: [], summary: '尚未成功拉取过配置', revision: null, plan: null };
     const items = diffRemoteConfig(this.localSnapshots(), payload);
-    const plan = planApply(payload, this.localSnapshots(), {
-      currentDefaultModel: this.currentDefaultModelName(),
-    });
+    const plan = planApply(payload, this.localSnapshots(), this.defaultRouteCompareOptions());
     return { items, summary: summarizeDiff(items), revision: payload.revision, plan };
   }
 
@@ -423,7 +468,7 @@ export class AiControlService {
     options: { overwriteLocal?: boolean; ackDefaultModel?: boolean },
   ): Promise<ApplyPlan> {
     const plan = planApply(payload, this.localSnapshots(), {
-      currentDefaultModel: this.currentDefaultModelName(),
+      ...this.defaultRouteCompareOptions(),
       ...(options.overwriteLocal ? { overwriteLocal: true } : {}),
     });
 
@@ -433,6 +478,8 @@ export class AiControlService {
           userId: this.deps.userId,
           name: item.config.name,
           protocol: item.config.protocol,
+          // 远程目录/配置源创建的服务标记来源（V2-MDL-01）；同名 Provider 不与本地合并
+          source: 'platform',
           baseUrl: item.config.baseUrl,
           headers: item.config.headers,
           timeoutMs: item.config.timeoutMs,
@@ -445,7 +492,7 @@ export class AiControlService {
         });
         this.ensureModels(created.id, item.config.models);
       } else if (item.kind === 'update') {
-        // 用户显式选择「以远程覆盖本地」才会走到这里；Key 与启用状态始终保留本地值
+        // 用户显式选择「以远程覆盖本地」才会走到这里；Key、启用状态与目录来源始终保留本地值
         const local = this.deps.providers
           .list(this.deps.userId)
           .find((provider) => provider.name === item.name);
@@ -463,14 +510,29 @@ export class AiControlService {
       }
     }
 
-    // 默认模型变更：用户已确认（或无需询问）才写入
-    if (plan.defaultModelChange && options.ackDefaultModel) {
-      const binding = this.deps.bindings.get(this.deps.userId);
-      const model = this.deps.models
-        .listAll()
-        .find((item) => item.name === plan.defaultModelChange?.after);
-      if (model)
-        this.deps.bindings.save(this.deps.userId, { ...binding, defaultModelId: model.id });
+    // 默认模型变更：用户已确认（或无需询问）才写入；且只在能**唯一定位路由**时绑定——
+    // 同名模型分布在多个 Provider 时绝不按名字猜（V2-MDL-02/03），保持本地默认不变。
+    if (plan.defaultModelChange) {
+      const change = plan.defaultModelChange;
+      if (options.ackDefaultModel) {
+        const resolved = this.resolveDefaultModelRoute(change.after, change.providerName ?? null);
+        if (resolved.status === 'applied' && resolved.model) {
+          const binding = this.deps.bindings.get(this.deps.userId);
+          this.deps.bindings.save(this.deps.userId, {
+            ...binding,
+            defaultModelId: resolved.model.id,
+          });
+          plan.defaultModelChange = {
+            ...change,
+            resolution: 'applied',
+            providerModelId: resolved.model.providerModelId,
+          };
+        } else {
+          plan.defaultModelChange = { ...change, resolution: resolved.status };
+        }
+      } else {
+        plan.defaultModelChange = { ...change, resolution: 'pending' };
+      }
     }
 
     this.deps.remoteConfig.recordFetch(id, {
@@ -480,9 +542,41 @@ export class AiControlService {
     return plan;
   }
 
+  /**
+   * 远程默认模型名 → 本地路由的解析（V2-MDL-03）。
+   *
+   * - 名字只命中一个 Provider 的模型：绑定该路由；
+   * - 命中多个 Provider（同名模型）：`ambiguous`，不猜，交给用户手动选择；
+   * - 一个都命中不了：`missing`；
+   * - 远程指名了 Provider 时**只在该 Provider 内解析**：命中不了就如实 missing——
+   *   回退全局按名字绑定会把「B/same-model」悄悄绑到「A/same-model」，默认路由
+   *   被静默改渠（V2-MDL-06，V2-D00）。
+   */
+  private resolveDefaultModelRoute(
+    modelName: string,
+    providerName: string | null,
+  ): { status: 'applied' | 'ambiguous' | 'missing'; model: Model | null } {
+    const candidates = this.deps.models.listAll().filter((model) => model.name === modelName);
+    if (providerName) {
+      const scoped = candidates.filter(
+        (model) => this.deps.providers.findById(model.providerId)?.name === providerName,
+      );
+      if (scoped.length === 1) return { status: 'applied', model: scoped[0] ?? null };
+      return { status: scoped.length > 1 ? 'ambiguous' : 'missing', model: null };
+    }
+    const providerIds = new Set(candidates.map((model) => model.providerId));
+    if (providerIds.size === 1 && candidates.length === 1) {
+      return { status: 'applied', model: candidates[0] ?? null };
+    }
+    return candidates.length > 1
+      ? { status: 'ambiguous', model: null }
+      : { status: 'missing', model: null };
+  }
+
   private ensureModels(providerId: string, names: readonly string[]): void {
     for (const name of names) {
-      if (!this.deps.models.findByName(providerId, name)) this.deps.models.create(providerId, name);
+      // 幂等补齐：同路由已存在即跳过（V2-MDL-02 唯一路由）
+      this.deps.models.createIfMissing(providerId, name);
     }
   }
 
@@ -533,11 +627,19 @@ export class AiControlService {
               skipped: plan.items.filter((item) => item.kind === 'skip').map((item) => item.name),
             };
           }
-          const plan = planApply(payload, this.localSnapshots(), {
-            currentDefaultModel: this.currentDefaultModelName(),
-          });
+          const plan = planApply(payload, this.localSnapshots(), this.defaultRouteCompareOptions());
           if (plan.defaultModelChange && source.ackedRevision !== payload.revision) {
-            pendingDefaultModel = { ...plan.defaultModelChange, revision: payload.revision };
+            // 启动刷新从不自动改默认模型；同时探明该名字能否唯一定位路由，
+            // 歧义时明确告知 UI（由用户手动选择，不按名字猜，V2-MDL-02/03）。
+            const resolved = this.resolveDefaultModelRoute(
+              plan.defaultModelChange.after,
+              plan.defaultModelChange.providerName ?? null,
+            );
+            pendingDefaultModel = {
+              ...plan.defaultModelChange,
+              revision: payload.revision,
+              ambiguous: resolved.status === 'ambiguous',
+            };
           }
         } catch (error) {
           // 应用失败不影响启动；原因记在源上，设置页可见
@@ -639,10 +741,28 @@ export class AiControlService {
 
   /* ----------------------------- 内部 ----------------------------- */
 
-  /** 当前默认模型的**名字**（远程配置按名字描述模型，比较必须同一口径） */
-  private currentDefaultModelName(): string | null {
+  /**
+   * 当前默认路由的（模型名, Provider 名）。远程配置按名字描述路由，默认配置的
+   * 完整路由比较必须同一口径；只回传名字会漏检「同名模型换 Provider」的变化
+   * （V2-MDL-02/06，V2-D00）。providerName 为 null 表示默认路由不存在或其
+   * Provider 已查不到——此时只按名字比较，不猜路由变化。
+   */
+  private currentDefaultRouteName(): { modelName: string | null; providerName: string | null } {
     const id = this.deps.bindings.get(this.deps.userId).defaultModelId;
-    return id ? (this.deps.models.findById(id)?.name ?? null) : null;
+    const model = id ? this.deps.models.findById(id) : null;
+    return {
+      modelName: model?.name ?? null,
+      providerName: model ? (this.deps.providers.findById(model.providerId)?.name ?? null) : null,
+    };
+  }
+
+  /** 完整路由口径的 planApply 默认配置比较入参 */
+  private defaultRouteCompareOptions() {
+    const current = this.currentDefaultRouteName();
+    return {
+      currentDefaultModel: current.modelName,
+      currentDefaultProviderName: current.providerName,
+    };
   }
 
   private async payloadOf(source: RemoteConfigSource) {

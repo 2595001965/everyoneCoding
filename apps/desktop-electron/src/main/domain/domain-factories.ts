@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
+import type { AgentStore } from '@ec/ai';
 
 import type { DomainKind } from '@ec/shell-api';
 import type { GitCredentialStore } from '@ec/git';
@@ -52,6 +53,11 @@ export interface DomainFactoryContext {
    */
   process: ControlledProcessHost | null;
   /**
+   * 页面截图端口（V2-D02 缩略图；Electron 离屏窗口实现）。
+   * 缺省 = 不生成缩略图，getThumbnailUrl 保持 null（工作台卡片显示明确占位）。
+   */
+  capturePage?: ((url: string) => Promise<Buffer | null>) | undefined;
+  /**
    * Git 凭据存储（DPAPI）。null = 系统加密不可用，凭据类方法如实降级，绝不落明文。
    */
   credentials: GitCredentialStore | null;
@@ -59,6 +65,7 @@ export interface DomainFactoryContext {
 
 /** AI 栈最小句柄（避免本文件 import @ec/ai 全量类型） */
 export interface AiStackHandle {
+  agentStore?: AgentStore;
   gateway: {
     chat(input: {
       userId: string;
@@ -66,6 +73,10 @@ export interface AiStackHandle {
       messages: ReadonlyArray<{ role: string; content: string }>;
       projectId?: string | undefined;
       modelId?: string | undefined;
+      providerId?: string | undefined;
+      sessionId?: string | undefined;
+      taskId?: string | undefined;
+      logicalRequestId?: string | undefined;
       temperature?: number | undefined;
       maxTokens?: number | undefined;
       signal?: AbortSignal | undefined;
@@ -97,6 +108,7 @@ export interface AiStackHandle {
       alertRatio?: number;
     }): void;
   };
+  usage?: { onEvent(listener: (event: unknown) => void): () => void };
 }
 
 export interface DomainFactories {
@@ -149,6 +161,7 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     userId: ctx.userId,
     notes,
     aiStack: ctx.aiStack,
+    readDomAttachments: (projectId) => preview.readDomAttachments(projectId),
   });
   // code 域要**先建**：它导出的 `writePort` 是 git（冲突落盘）与 rename（代码栏）
   // 的唯一写入口。顺序反了就会退化成"各写各的文件"，D-04 也就名存实亡。
@@ -181,6 +194,7 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     db: ctx.db,
     userId: ctx.userId,
     process: ctx.process,
+    capturePage: ctx.capturePage,
     // 后端进程日志在请求结束后仍会持续产生：只能走常驻事件口
     emit: (domain, payload) => ctx.emit(domain, payload),
   });
@@ -204,6 +218,11 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
       ? { onBudgetChanged: (config) => ctx.aiStack?.budget?.configure(config) }
       : {}),
   });
+  const unsubscribeUsage = ctx.aiStack?.usage?.onEvent((event) => {
+    const value = event as { type?: string; event?: unknown };
+    if (value.type === 'attempt-updated') ctx.emit('usage', { type: 'usage:updated', event: value.event });
+  });
+  if (unsubscribeUsage) disposers.push(async () => unsubscribeUsage());
   const pack = createPackageDomain({
     db: ctx.db,
     projectsDir: ctx.projectsDir,

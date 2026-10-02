@@ -12,6 +12,8 @@ import type {
   WritePlanEntry,
   WriteResult,
   WorkspaceFileSystem,
+  WriteApplyGuard,
+  WriteTransactionPort,
 } from './write-types';
 
 /**
@@ -39,6 +41,7 @@ export interface WritePipelineDeps {
   clock?: (() => number) | undefined;
   idFactory?: ((sequence: number) => string) | undefined;
   logger?: { warn(message: string, detail?: unknown): void } | undefined;
+  transaction?: WriteTransactionPort;
 }
 
 export class WritePipeline {
@@ -48,12 +51,14 @@ export class WritePipeline {
   private readonly logger: { warn(message: string, detail?: unknown): void } | undefined;
   private readonly listeners = new Set<WriteEventListener>();
   private sequence = 0;
+  private readonly transaction: WriteTransactionPort | undefined;
 
   constructor(deps: WritePipelineDeps) {
     this.fs = deps.fs;
     this.clock = deps.clock ?? (() => Date.now());
     this.idFactory = deps.idFactory ?? ((sequence) => `plan-${sequence}`);
     this.logger = deps.logger;
+    this.transaction = deps.transaction;
   }
 
   onEvent(listener: WriteEventListener): () => void {
@@ -127,11 +132,20 @@ export class WritePipeline {
    * ③ 任一失败则用快照回滚（含删除本次新建的文件）→ ④ 成功后广播事件。
    */
   async apply(plan: WritePlan): Promise<WriteResult> {
+    return this.transaction !== undefined
+      ? this.transaction.run(plan, (guard) => this.applyTransaction(plan, guard))
+      : this.applyTransaction(plan);
+  }
+
+  private async applyTransaction(plan: WritePlan, guard?: WriteApplyGuard): Promise<WriteResult> {
+    guard?.assertOwner();
     const targets = plan.entries.filter((entry) => entry.selected && !entry.blocked);
     const skipped = plan.entries.filter((entry) => !entry.selected).map((entry) => entry.path);
 
     if (targets.length === 0) {
-      return { ok: true, planId: plan.id, applied: [], skipped, rolledBack: [], error: null };
+      const result: WriteResult = { ok: true, planId: plan.id, applied: [], skipped, rolledBack: [], error: null };
+      await guard?.finish(result);
+      return result;
     }
 
     // ① 冲突检测：计划生成时的 before 与当前磁盘必须一致
@@ -148,13 +162,22 @@ export class WritePipeline {
 
     // ② 逐个写入，同时记录快照
     const applied: string[] = [];
-    const snapshots: { path: string; before: string | null }[] = [];
+    const snapshots: WritePlanEntry[] = [];
 
     try {
+      await guard?.prepare(targets.filter((entry) => entry.changed));
       for (const entry of targets) {
         if (!entry.changed) continue;
-        snapshots.push({ path: entry.path, before: entry.before });
-        if (entry.action === 'delete') {
+        guard?.assertOwner();
+        // 每个写入前再次验证，避免第一轮检查之后的外部改动被覆盖。
+        const current = await this.fs.readText(entry.path);
+        if (current !== entry.before) throw new Error(`${entry.path} 写入前已被修改`);
+        snapshots.push(entry);
+        if (this.fs.compareAndSwap !== undefined) {
+          if (!(await this.fs.compareAndSwap(entry.path, entry.before, entry.after))) {
+            throw new Error(`${entry.path} 写入前已被修改`);
+          }
+        } else if (entry.action === 'delete') {
           await this.fs.remove(entry.path);
         } else {
           if (entry.after === null) throw new Error(`${entry.path} 缺少写入内容`);
@@ -169,15 +192,32 @@ export class WritePipeline {
         applied.push(entry.path);
         this.emit({ type: 'file-written', path: entry.path });
       }
+      await guard?.validate?.();
+      guard?.assertOwner();
+      await guard?.finish({ ok: true, planId: plan.id, applied, skipped, rolledBack: [], error: null });
     } catch (cause) {
       // ③ 回滚
       const rolledBack: string[] = [];
+      const conflicts: string[] = [];
       for (const snapshot of [...snapshots].reverse()) {
         try {
-          if (snapshot.before === null) await this.fs.remove(snapshot.path);
+          guard?.assertOwner();
+          const current = await this.fs.readText(snapshot.path);
+          if (current === snapshot.before) continue;
+          if (current !== snapshot.after) {
+            conflicts.push(snapshot.path);
+            continue;
+          }
+          if (this.fs.compareAndSwap !== undefined) {
+            if (!(await this.fs.compareAndSwap(snapshot.path, snapshot.after, snapshot.before))) {
+              conflicts.push(snapshot.path);
+              continue;
+            }
+          } else if (snapshot.before === null) await this.fs.remove(snapshot.path);
           else await this.fs.writeAtomic(snapshot.path, snapshot.before);
           rolledBack.push(snapshot.path);
         } catch (rollbackError) {
+          conflicts.push(snapshot.path);
           this.logger?.warn('[write-pipeline] 回滚失败', {
             path: snapshot.path,
             error: rollbackError,
@@ -186,7 +226,10 @@ export class WritePipeline {
       }
       const reason = cause instanceof Error ? cause.message : String(cause);
       this.emit({ type: 'rolled-back', planId: plan.id, paths: rolledBack, reason });
-      return { ok: false, planId: plan.id, applied: [], skipped, rolledBack, error: reason };
+      const result: WriteResult = { ok: false, planId: plan.id, applied: [], skipped, rolledBack, error: reason, conflicts };
+      // owner 已失效时不能再写日志；恢复者依据 prepared 快照处理。
+      try { guard?.assertOwner(); await guard?.finish(result); } catch { /* 留给恢复者 */ }
+      return result;
     }
 
     // ④ 事件：Git 变更视图刷新 / 预览热更新 / Code Anchor 写回

@@ -30,3 +30,4 @@ export * from './gitignore-templates';
 export * from './project';
 export * from './docs/browser';
 export * from './update';
+export * from './v2';

@@ -12,3 +12,5 @@ export * from './project-service';
 export * from './project-templates';
 export * from './git-import';
 export * from './doc-import';
+export * from './source-detection';
+export * from './zip-safety';

@@ -56,6 +56,7 @@ beforeAll(async () => {
       '@ec/ui/styles.css': join(root, 'packages/ui/src/styles.css'),
       '@ec/core': join(root, 'packages/core/src/browser.ts'),
       '@ec/ai': join(root, 'packages/ai/src/browser.ts'),
+      '@ec/preview': join(root, 'packages/preview/src/browser.ts'),
       '@ec/pipeline': join(root, 'packages/pipeline/src/browser.ts'),
       '@ec/data': join(root, 'packages/data/src/browser.ts'),
     },

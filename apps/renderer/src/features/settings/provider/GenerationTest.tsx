@@ -57,6 +57,9 @@ export function GenerationTest(): JSX.Element {
     <section className="ec-ai__section" aria-label="生成测试">
       <h2 className="ec-ai__section-title">生成测试</h2>
       <p className="ec-ai__hint">用当前默认模型发一次真实请求，验证「连通之后确实能生成」。</p>
+      <p className="ec-ai__hint">
+        开始生成将向上游发送真实请求并消耗 Token，可能产生费用；用量计入本月统计。
+      </p>
 
       <label className="ec-ai__field ec-ai__field--wide">
         <span>提示词</span>

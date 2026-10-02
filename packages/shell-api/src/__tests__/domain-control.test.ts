@@ -239,8 +239,8 @@ describe('导入进度事件载荷守卫', () => {
     message: 'Receiving objects:  42%',
   };
 
-  it('三阶段常量与事件名稳定（跨进程判别依据）', () => {
-    expect(WORKSPACE_IMPORT_STAGES).toEqual(['clone', 'inspect', 'finalize']);
+  it('导入阶段常量与事件名稳定（跨进程判别依据；V2-D01 增补 copy/extract）', () => {
+    expect(WORKSPACE_IMPORT_STAGES).toEqual(['clone', 'copy', 'extract', 'inspect', 'finalize']);
     expect(WORKSPACE_IMPORT_PROGRESS_EVENT).toBe('workspace:import-progress');
   });
 

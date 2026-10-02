@@ -1191,3 +1191,48 @@
     padding: 12px 0;
   }
 }
+
+/* ---- V2-D01 文件接入（打开文件夹 / ZIP） ---- */
+
+.ec-ws__picker-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ec-ws__picker-row > input {
+  flex: 1;
+}
+
+.ec-ws__radio {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.ec-ws__subproject {
+  border-top: 1px dashed var(--ec-color-border, #e5e7eb);
+  padding: 8px 0;
+}
+
+.ec-ws__subproject:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.ec-ws__subproject-title {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 4px;
+  flex-wrap: wrap;
+}
+
+.ec-ws__plan {
+  margin: 6px 0;
+  padding-left: 18px;
+  font-family: var(--ec-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}

@@ -7,6 +7,7 @@ import type { Model } from '../../domain/model';
 import { resolveEndpoint, type Provider } from '../../domain/provider';
 import { mapHttpError } from '../shared/error-map';
 import { openAiHeaders } from './request-map';
+import { tokenCount, type MeteringUpdate } from '../../core/metering';
 
 /**
  * OpenAI 兼容协议的 `/embeddings` 调用（T2-03 的向量来源）。
@@ -79,6 +80,7 @@ export async function embedWithOpenAi(input: {
   context: AdapterContext;
   dimensions?: number | null;
   modelName?: string;
+  onUsage?: (update: MeteringUpdate) => void;
 }): Promise<EmbeddingSuccess | EmbeddingUnavailable> {
   const { provider, model, inputs, context } = input;
   if (inputs.length === 0) {
@@ -130,6 +132,10 @@ export async function embedWithOpenAi(input: {
   }
 
   const vectors = vectorsFromEmbeddingResponse(payload, inputs.length);
+  if (payload.usage) input.onUsage?.({ mode: 'snapshot', final: true, raw: payload.usage,
+    report: { inputIncludesCache: true, inputTokens: tokenCount(payload.usage.prompt_tokens ?? payload.usage.total_tokens),
+      outputTokens: 0, cacheReadTokens: 0, cacheWriteTokensByTtl: {}, reasoningTokens: null,
+      reasoningTokensIncludedInOutput: true } });
   if (!vectors) {
     return embeddingUnavailable('failed', '向量化响应条数与输入不一致，已忽略本次结果');
   }

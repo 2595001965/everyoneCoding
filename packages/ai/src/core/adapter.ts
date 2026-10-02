@@ -3,7 +3,7 @@ import type { HttpTransport, ProxyConfig } from './http';
 import type { ChatMessage } from './message';
 import type { StreamChunk } from './stream';
 import type { ToolDefinition } from './tool';
-import type { TokenEstimate } from './usage';
+import type { TokenEstimate, Usage } from './usage';
 import type { ModelDiscovery, Model } from '../domain/model';
 import type { Provider, Protocol } from '../domain/provider';
 
@@ -53,6 +53,10 @@ export interface ConnectionTestResult {
   models: ModelDiscovery;
   latencyMs: number;
   error?: AiError;
+  /** 测试对话的上游实测 usage（上游未报时为 null）；入账依据，不估算（V2-MDL-07） */
+  usage?: Usage | null;
+  /** 实际发起对话的目标模型名 */
+  modelName?: string | null;
 }
 
 /** 适配器工厂：按协议返回实现 */

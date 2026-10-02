@@ -9,6 +9,7 @@ import {
   type CapabilityPatch,
   type ModelCapability,
 } from '../domain/capability';
+import { providerModelIdOf } from '../domain/model-route';
 import { modelFromRow, type Model, type ModelDiscovery, type ModelSource } from '../domain/model';
 
 /**
@@ -17,12 +18,16 @@ import { modelFromRow, type Model, type ModelDiscovery, type ModelSource } from 
  * 关键点：
  * - 远程拉取（/models）写入时，已人工修正（manualOverride）的模型**不被覆盖**
  * - 单价缺失时 capability 里保留 null，费用统计显示「—」而不是 0
+ * - 复合路由身份（V2-MDL-02）：每行带唯一 providerModelId；同一 Provider 内同名模型
+ *   是同一条路由（唯一索引把关），跨 Provider 同名模型是不同路由，绝不合并
  */
 
 export class ModelRepo {
   private readonly repo: Repository<ModelRow & Row>;
+  private readonly db: Database;
 
-  constructor(private readonly db: Database) {
+  constructor(db: Database) {
+    this.db = db;
     this.repo = new Repository<ModelRow & Row>(db, 'model');
   }
 
@@ -41,6 +46,13 @@ export class ModelRepo {
     return row ? modelFromRow(row) : null;
   }
 
+  /** 按复合路由键取模型（V2-MDL-02 的规范查询入口） */
+  findByRoute(providerModelId: string): Model | null {
+    const rows = this.repo.findWhere({ provider_model_id: providerModelId }, { limit: 1 });
+    const first = rows[0];
+    return first ? modelFromRow(first) : null;
+  }
+
   findByName(providerId: string, name: string): Model | null {
     const rows = this.repo.findWhere({ provider_id: providerId, name }, { limit: 1 });
     const first = rows[0];
@@ -53,6 +65,9 @@ export class ModelRepo {
       id: newUlid(),
       provider_id: providerId,
       name,
+      provider_model_id: providerModelIdOf(providerId, name),
+      canonical_vendor: null,
+      canonical_model: null,
       display_name: null,
       context_window: capability.contextWindow ?? null,
       max_output: capability.maxOutput ?? null,
@@ -63,6 +78,32 @@ export class ModelRepo {
     };
     this.repo.insert(row as ModelRow & Row);
     return modelFromRow(row);
+  }
+
+  /**
+   * 幂等创建：同一条路由（Provider+模型名）已存在时原样返回，不产生重复行。
+   * 手工添加、远程目录补齐共用这一入口；重复路由由数据库唯一索引最终把关。
+   */
+  createIfMissing(
+    providerId: string,
+    name: string,
+    capability: Partial<ModelCapability> = {},
+  ): { model: Model; created: boolean } {
+    const existing = this.findByName(providerId, name);
+    if (existing) return { model: existing, created: false };
+    return { model: this.create(providerId, name, capability), created: true };
+  }
+
+  /** 登记模型官方身份（T17 目录核验后写入）；只作查询参考，不参与路由 */
+  setCanonicalIdentity(
+    id: string,
+    identity: { canonicalVendor: string | null; canonicalModel: string | null },
+  ): Model | null {
+    const updated = this.repo.update(id, {
+      canonical_vendor: identity.canonicalVendor,
+      canonical_model: identity.canonicalModel,
+    });
+    return updated ? modelFromRow(updated) : null;
   }
 
   /**

@@ -18,6 +18,7 @@ import { Migrator } from '@ec/data';
 import type { SecureNamespace } from '@ec/shell-api';
 import {
   createAiStack,
+  AgentStore,
   DEFAULT_BUDGET,
   normalizeFailoverPolicy,
   type AiEventRecord,
@@ -66,6 +67,8 @@ export async function createElectronAiRuntime(
   await fsp.mkdir(options.dataDir, { recursive: true });
   await fsp.mkdir(options.secureDir, { recursive: true });
   const db = new Database(join(options.dataDir, 'everyonecoding.sqlite'));
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
   const migrationsDir = resolveMigrations(options.migrationsDir);
   Migrator.fromDirectory(db, migrationsDir).up();
   const userId = options.userId ?? 'local-user';
@@ -92,8 +95,14 @@ export async function createElectronAiRuntime(
    * 限流与容灾同理：设置页改完必须落库，重启后由同一份配置装回网关。
    * 此前 `setLimits` 只改内存队列，重启即回到「不限」。
    */
+  const agentStore = new AgentStore(db);
   const stack = createAiStack({
     db,
+    agentStore,
+    refreshSharedConfig: (budget, queue) => {
+      budget.configure(readPersistedBudget(settingsStore));
+      for (const [providerId, limits] of Object.entries(readPersistedLimits(settingsStore))) queue.configure(providerId, limits);
+    },
     secureStore: secure,
     userId,
     budget: persistedBudget,
@@ -142,8 +151,12 @@ export async function createElectronAiRuntime(
         const messages = request.messages as Parameters<typeof stack.gateway.chat>[0]['messages'];
         for await (const chunk of stack.gateway.chat({
           userId,
+          logicalRequestId: request.logicalRequestId ?? request.requestId,
+          sessionId: request.sessionId ?? null,
+          taskId: request.taskId ?? null,
           purpose,
           messages,
+          ...(request.tools ? { tools: request.tools as NonNullable<Parameters<typeof stack.gateway.chat>[0]['tools']> } : {}),
           ...(request.projectId !== undefined ? { projectId: request.projectId } : {}),
           ...(request.modelId !== undefined ? { modelId: request.modelId } : {}),
           ...(request.providerId !== undefined ? { providerId: request.providerId } : {}),
@@ -174,6 +187,8 @@ export async function createElectronAiRuntime(
     stream,
     /** 供域工厂使用的最小句柄（预算回灌依赖 budget.configure） */
     handle: {
+      usage: { onEvent: (listener) => stack.usage.onEvent(listener) },
+      agentStore,
       gateway: {
         chat: (input: {
           userId: string;
@@ -181,6 +196,10 @@ export async function createElectronAiRuntime(
           messages: ReadonlyArray<{ role: string; content: string }>;
           projectId?: string | undefined;
           modelId?: string | undefined;
+          providerId?: string | undefined;
+          sessionId?: string | undefined;
+          taskId?: string | undefined;
+          logicalRequestId?: string | undefined;
           temperature?: number | undefined;
           maxTokens?: number | undefined;
           signal?: AbortSignal | undefined;

@@ -1,68 +1,92 @@
 import * as React from 'react';
-
+import { readDomEvent, type DomEvent, type DomSession } from '@ec/preview';
 import type { ApiRequestLog } from './preview-api';
 
-/**
- * T6-05 预览帧：把选中的页面路由嵌进 iframe，并接收来自预览页的宿主消息。
- *
- * 两类消息：
- * - `{ type: 'preview-request', payload: ApiRequestLog }` → 触发 `onRequest`（供 API 调试器聚合）
- * - `{ type: 'element-click', payload: { elementId } }` → 触发 `onElementClick`（联动导航跳转）
- *
- * iframe 采用受限 sandbox（仅允许脚本执行，不授予同源等危险权限），
- * 预览页通过 postMessage 与宿主通信。
- */
 export interface PreviewFrameProps {
   src: string;
   title?: string | undefined;
+  session?: DomSession | null | undefined;
+  selecting?: boolean | undefined;
+  pickNodeId?: string | null | undefined;
+  onEvent?: ((event: DomEvent) => void) | undefined;
   onRequest?: ((log: ApiRequestLog) => void) | undefined;
   onElementClick?: ((payload: { elementId: string }) => void) | undefined;
 }
 
-type IncomingMessage =
-  | { type: 'preview-request'; payload: ApiRequestLog }
-  | { type: 'element-click'; payload: { elementId: string } };
-
-function isIncoming(data: unknown): data is IncomingMessage {
-  if (typeof data !== 'object' || data === null) return false;
-  const t = (data as { type?: unknown }).type;
-  return t === 'preview-request' || t === 'element-click';
-}
-
+/** Preview content has an opaque origin and no host privileges. Legacy unvalidated events are rejected. */
 export function PreviewFrame({
   src,
   title,
-  onRequest,
+  session,
+  selecting = false,
+  pickNodeId,
+  onEvent,
   onElementClick,
 }: PreviewFrameProps): JSX.Element {
-  // 用 ref 持有最新回调，避免每次渲染重建监听器
-  const onRequestRef = React.useRef(onRequest);
-  const onElementClickRef = React.useRef(onElementClick);
+  const frame = React.useRef<HTMLIFrameElement>(null);
+  const callbacks = React.useRef({ onEvent, onElementClick });
+  callbacks.current = { onEvent, onElementClick };
+  const [documentId, setDocumentId] = React.useState<string | null>(null);
+  const active = React.useRef<{ documentId: string | null; seq: number; retired: Set<string> }>({
+    documentId: null,
+    seq: 0,
+    retired: new Set(),
+  });
+  const hello = React.useCallback((): void => {
+    if (session) frame.current?.contentWindow?.postMessage({ ...session, channel: 'ec-dom-v1', type: 'hello', payload: null }, '*');
+  }, [session]);
   React.useEffect(() => {
-    onRequestRef.current = onRequest;
-    onElementClickRef.current = onElementClick;
-  }, [onRequest, onElementClick]);
-
-  React.useEffect(() => {
+    active.current = { documentId: null, seq: 0, retired: new Set() };
+    setDocumentId(null);
+    if (!session) return;
     const handler = (event: MessageEvent): void => {
-      const data = event.data;
-      if (!isIncoming(data)) return;
-      if (data.type === 'preview-request') {
-        onRequestRef.current?.(data.payload);
-      } else if (data.type === 'element-click') {
-        onElementClickRef.current?.(data.payload);
+      const message = readDomEvent(event, frame.current?.contentWindow ?? null, session);
+      if (!message) return;
+      const state = active.current;
+      if (message.type === 'ready') {
+        if (
+          message.seq !== 1 ||
+          state.retired.has(message.documentId) ||
+          state.documentId === message.documentId
+        )
+          return;
+        if (state.documentId) state.retired.add(state.documentId);
+        state.documentId = message.documentId;
+        state.seq = 0;
+        setDocumentId(message.documentId);
       }
+      if (message.documentId !== state.documentId || message.seq <= state.seq) return;
+      state.seq = message.seq;
+      callbacks.current.onEvent?.(message);
+      if (message.type === 'selection')
+        callbacks.current.onElementClick?.({ elementId: message.payload.node.nodeId });
     };
     window.addEventListener('message', handler);
+    hello();
     return () => window.removeEventListener('message', handler);
-  }, []);
-
+  }, [src, session, hello]);
+  React.useEffect(() => {
+    if (!session || !documentId) return;
+    frame.current?.contentWindow?.postMessage(
+      { ...session, channel: 'ec-dom-v1', documentId, type: 'mode', payload: selecting },
+      '*',
+    );
+  }, [session, documentId, selecting]);
+  React.useEffect(() => {
+    if (!session || !documentId || !pickNodeId) return;
+    frame.current?.contentWindow?.postMessage(
+      { ...session, channel: 'ec-dom-v1', documentId, type: 'pick', payload: pickNodeId },
+      '*',
+    );
+  }, [session, documentId, pickNodeId]);
   return (
     <iframe
+      ref={frame}
       className="ec-preview-frame"
       data-testid="preview-frame"
       title={title ?? '预览'}
       src={src}
+      onLoad={hello}
       sandbox="allow-scripts allow-forms"
     />
   );

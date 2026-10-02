@@ -75,6 +75,13 @@ export const DOMAIN_RPC_METHODS = {
     'duplicateProject',
     'createFromTemplate',
     'importFromGit',
+    // V2-D01 文件接入：打开文件夹（关联/复制）、普通 ZIP、统一识别与取消
+    'importFromFolder',
+    'importFromZip',
+    'cancelSourceImport',
+    'previewSourceDetection',
+    'detectSource',
+    'getSourceDetection',
     'createFromDigest',
     'getProjectStage',
     'getThumbnailUrl',
@@ -268,6 +275,21 @@ export const DOMAIN_RPC_METHODS = {
     'setLanSharing',
     'mockSettings',
     'setMockSettings',
+    'dataMode',
+    'setDataMode',
+    'runPlan',
+    'confirmRunPlan',
+    'confirmedRunPlan',
+    'startRun',
+    'runStatus',
+    'stopRuntime',
+    'restartService',
+    'captureThumbnail',
+    'inspectionSession',
+    'resolveDom',
+    'saveDomNote',
+    'attachDomContext',
+    'domNotes',
   ],
   rename: [
     'openProject',
@@ -309,10 +331,41 @@ export const DOMAIN_RPC_METHODS = {
     'listSnapshots',
     'restoreFromSnapshot',
   ],
-  usage: ['listRows', 'getBudget', 'setBudget', 'budgetDecision'],
+  usage: [
+    'listRows',
+    'getBudget',
+    'setBudget',
+    'budgetDecision',
+    'listAttempts',
+    'getSnapshot',
+    'readEvents',
+    'aggregate',
+  ],
   'ai-context': ['assemble'],
-  code: ['listFiles', 'readFile', 'plan', 'apply', 'requestRework', 'generate', 'abortGeneration'],
+  code: [
+    'listFiles',
+    'readFile',
+    'plan',
+    'apply',
+    'requestRework',
+    'generate',
+    'abortGeneration',
+    'startTask',
+    'listTasks',
+    'taskSnapshot',
+    'cancelTask',
+    'pauseTask',
+    'resumeTask',
+    'reconcileTask',
+  ],
   nav: [
+    'apiList',
+    'apiRescan',
+    'apiDetail',
+    'apiClassify',
+    'apiConfirmCall',
+    'apiReverse',
+    'apiNavigate',
     'openProject',
     'hoverTargets',
     'resolveJump',
@@ -571,7 +624,14 @@ export interface DomainControlServiceHost extends DomainControlHost {
  * 落库并生成项目记忆。只报克隆进度的话，扫描与落库期间界面会退回"转圈"，
  * 所以通道一次铺到三个阶段，`ratio` 在不可知时为 `null`。
  */
-export const WORKSPACE_IMPORT_STAGES = ['clone', 'inspect', 'finalize'] as const;
+/**
+ * 源码导入的执行阶段（V2-D01 起）。
+ *
+ * `clone`（Git）、`copy`（复制导入）、`extract`（ZIP 解压）是各接入路径的
+ * 搬运阶段；`inspect` / `finalize` 对所有路径一致：扫描识别、落库并生成项目记忆。
+ * 搬运阶段的 `ratio` 均可知（文件数 / 字节数），UI 可展示真实比例。
+ */
+export const WORKSPACE_IMPORT_STAGES = ['clone', 'copy', 'extract', 'inspect', 'finalize'] as const;
 export type WorkspaceImportStage = (typeof WORKSPACE_IMPORT_STAGES)[number];
 
 /** 导入进度（渲染层消费的形状） */

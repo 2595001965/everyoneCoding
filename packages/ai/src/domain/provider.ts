@@ -1,12 +1,15 @@
 import { z } from 'zod';
 import type { ProviderRow } from '@ec/data';
 
+import { PROVIDER_SOURCES, type ProviderSource } from './model-route';
+
 /**
- * Provider（FR-MDL-01）。
+ * Provider（FR-MDL-01，V2-MDL-01）。
  *
  * 安全约定（NFR-S-01）：
  * - `keyRef` 只是密钥环里的引用名，DB 永不明文落 Key
  * - 明文 Key 只在内存中存在（编辑界面 → 密钥环），不进日志、不进错误信息
+ * - `source` 是目录来源（platform/custom），创建时确定；同名 Provider 不因显示名合并
  */
 
 export type Protocol = 'openai' | 'anthropic';
@@ -23,6 +26,8 @@ export interface Provider {
   userId: string;
   name: string;
   protocol: Protocol;
+  /** 目录来源（V2-MDL-01）：platform=目录/配置源创建，custom=用户手建；创建后不变 */
+  source: ProviderSource;
   baseUrl: string;
   /** 密钥环引用（命名空间 ai-key）；null 表示未配置 Key */
   keyRef: string | null;
@@ -180,6 +185,9 @@ export function providerFromRow(row: ProviderRow): Provider {
     userId: row.user_id,
     name: row.name,
     protocol: row.protocol,
+    source: PROVIDER_SOURCES.includes(row.source as ProviderSource)
+      ? (row.source as ProviderSource)
+      : 'custom',
     baseUrl: row.base_url,
     keyRef: row.api_key_ref,
     headers: filterSafeHeaders(parseHeaders(row.headers_json)),

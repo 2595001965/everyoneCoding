@@ -314,7 +314,7 @@ describe('工程根目录安全校验', () => {
 /* ------------------------------ 2. 预览：静态 + Mock + API 面板 ------------------------------ */
 
 describe('预览生产端口（静态 / Mock / API 调试）', () => {
-  it('静态预览可访问；未匹配接口走 Mock；端口顺延有提示', async () => {
+  it('静态预览可访问；默认 real 模式如实报错，显式切 Mock 才出模拟数据；端口顺延有提示', async () => {
     // 静态产物目录（优先托管 dist）
     projectFile('code/dist/index.html', '<!doctype html><title>预览页</title><h1>demo</h1>');
     projectFile(
@@ -332,7 +332,18 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
     const html = await rawFetch(`${started.url}/`).then((res) => res.text());
     expect(html).toContain('预览页');
 
-    // 未匹配到 OpenAPI 路由的接口：走内置兜底 spec 的 /health（Mock 数据源）
+    // V2 FR-PRV-02 修改点：默认 real 模式下后端不可用 → 如实 502，不再自动回退 Mock
+    const unavailable = await rawFetch(`${started.url}/health`);
+    expect(unavailable.status).toBe(502);
+    expect(unavailable.headers.get('x-ec-data-source')).toBe('backend');
+    expect(await unavailable.text()).toContain('真实后端不可用');
+
+    // 用户显式切换到 Mock 后：走内置兜底 spec 的 /health（模拟数据，始终带标记）
+    await call({
+      domain: 'preview',
+      method: 'setDataMode',
+      params: { projectId: PROJECT_ID, mode: 'mock' },
+    });
     const health = await rawFetch(`${started.url}/health`);
     expect(health.headers.get('x-ec-data-source')).toBe('mock');
     const payload = (await health.json()) as { status?: unknown };
@@ -384,6 +395,13 @@ describe('预览生产端口（静态 / Mock / API 调试）', () => {
         params: { projectId: PROJECT_ID },
       }),
     ).toEqual([]);
+
+    // 还原真实模式：后续"真实后端托管"用例依赖 backend 数据源优先
+    await call({
+      domain: 'preview',
+      method: 'setDataMode',
+      params: { projectId: PROJECT_ID, mode: 'real' },
+    });
   });
 
   it('默认端口被占用时自动顺延，并在 notice 里说清原因', async () => {

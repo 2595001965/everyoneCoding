@@ -18,6 +18,8 @@ import {
   type DuplicateOptions,
   type ProjectDuplicatePort,
   type RequirementDigest,
+  type SourceDetection,
+  type SourceDetectionDraft,
   RECYCLE_BIN_RETENTION_MS,
 } from '@ec/core';
 import type { TargetPlatform } from '@ec/pipeline';
@@ -32,6 +34,16 @@ import type {
 } from '../workspace-api';
 
 const NOW = 1_700_000_000_000;
+
+/** 文件接入（V2-D01）的调用记录（供测试断言"取消选择时不发起调用"等） */
+export interface SourceImportLog {
+  folders: Array<{ path: string; mode: 'link' | 'copy'; token: string | null }>;
+  zips: Array<{ zipPath: string; targetDir: string; token: string | null }>;
+  cancelled: string[];
+  previews: string[];
+  /** 手动注入：下一次 importFromFolder 抛错（模拟取消补偿等域行为） */
+  nextFolderError: Error | null;
+}
 
 export class MemoryProjectStore implements ProjectStore {
   readonly rows = new Map<string, ProjectRowSnapshot>();
@@ -84,6 +96,8 @@ export interface FakeWorkspaceEnvironment {
   }>;
   /** 由文档导入落库的功能与页面 */
   digestArtifacts: Array<{ projectId: string; features: number; pages: number }>;
+  /** V2-D01 文件接入调用记录 */
+  sourceImports: SourceImportLog;
   setNow(ms: number): void;
 }
 
@@ -92,12 +106,50 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
   const gitClones: string[] = [];
   const templateArtifacts: FakeWorkspaceEnvironment['templateArtifacts'] = [];
   const digestArtifacts: FakeWorkspaceEnvironment['digestArtifacts'] = [];
+  const sourceImports: SourceImportLog = {
+    folders: [],
+    zips: [],
+    cancelled: [],
+    previews: [],
+    nextFolderError: null,
+  };
   let now = NOW;
   let idCounter = 0;
   const newId = (): string => {
     idCounter += 1;
     return `p-${String(idCounter).padStart(3, '0')}`;
   };
+
+  const buildFakeDraft = (): SourceDetectionDraft => ({
+    scannerVersion: 'ec-source-detect/1',
+    subProjects: [
+      {
+        subProjectId: 'sp-0001',
+        role: 'frontend',
+        language: 'typescript-or-javascript',
+        framework: 'react-vite',
+        packageManager: 'npm',
+        entryHints: ['.'],
+        supportLevel: 'supported',
+        confidence: 0.8,
+        evidence: [{ kind: 'config_file', path: 'package.json', detail: '依赖含 react + vite' }],
+        suggestedRunPlan: null,
+      },
+    ],
+    requiresConfirmation: false,
+    notes: [],
+  });
+
+  const buildFakeDetection = (projectId: string): SourceDetection => ({
+    detectionId: `d-${projectId}`,
+    projectId,
+    scannerVersion: 'ec-source-detect/1',
+    scannedAt: now,
+    subProjects: buildFakeDraft().subProjects,
+    requiresConfirmation: false,
+    notes: null,
+    revision: 1,
+  });
 
   const duplicatePort: ProjectDuplicatePort = {
     copyResources: (_sourceId, _targetId, options: DuplicateOptions) =>
@@ -308,6 +360,58 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
       return project;
     },
 
+    importFromFolder: async (input) => {
+      sourceImports.folders.push({
+        path: input.path,
+        mode: input.mode ?? 'link',
+        token: input.importToken ?? null,
+      });
+      if (sourceImports.nextFolderError !== null) {
+        const failure = sourceImports.nextFolderError;
+        sourceImports.nextFolderError = null;
+        throw failure;
+      }
+      input.onProgress?.({ stage: 'inspect', ratio: null, message: '正在扫描源码目录…' });
+      const dirName = input.path.split(/[\\/]/).filter(Boolean).pop() ?? '导入项目';
+      return service.createProject({
+        name: input.projectName ?? dirName,
+        sourceKind: input.mode === 'copy' ? 'copied_folder' : 'existing_folder',
+        sourceRef: input.path,
+      });
+    },
+
+    importFromZip: async (input) => {
+      sourceImports.zips.push({
+        zipPath: input.zipPath,
+        targetDir: input.targetDir,
+        token: input.importToken ?? null,
+      });
+      const base =
+        input.zipPath
+          .split(/[\\/]/)
+          .pop()
+          ?.replace(/\.zip$/i, '') ?? '导入项目';
+      return service.createProject({
+        name: input.projectName ?? base,
+        sourceKind: 'zip_extract',
+        sourceRef: input.zipPath,
+      });
+    },
+
+    cancelSourceImport: async (importToken) => {
+      sourceImports.cancelled.push(importToken);
+    },
+
+    previewSourceDetection: async (path) => {
+      sourceImports.previews.push(path);
+      return { codeRoot: path, detection: buildFakeDraft() };
+    },
+
+    detectSource: async (projectId) => buildFakeDetection(projectId),
+
+    getSourceDetection: async (projectId) =>
+      store.rows.has(projectId) ? buildFakeDetection(projectId) : null,
+
     createFromDigest: async (input: { digest: RequirementDigest; name: string }) => {
       const project = await service.createProject({ name: input.name, sourceKind: 'doc_import' });
       source.features.push(
@@ -356,6 +460,7 @@ export function createFakeWorkspace(): FakeWorkspaceEnvironment {
     gitClones,
     templateArtifacts,
     digestArtifacts,
+    sourceImports,
     setNow: (ms: number) => {
       now = ms;
     },

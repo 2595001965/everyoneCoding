@@ -16,6 +16,7 @@ export const enUS = {
   'nav.workspace': 'Workspace',
   'nav.designer': 'Designer',
   'nav.code': 'Code & Context',
+  'nav.apis': 'APIs',
   'nav.memory': 'Memory',
   'nav.pipeline': 'Pipeline',
   'nav.git': 'Version Control',

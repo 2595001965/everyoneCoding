@@ -80,6 +80,19 @@ function readManifestText(file: string): string {
     : readFileSync(file, 'utf8').slice(0, MANIFEST_BYTES);
 }
 
+/**
+ * 统一扫描入口（V2-D01）：收集相对路径清单（带上限）与关键清单文件内容。
+ *
+ * Git inspect 与「打开文件夹 / 复制导入 / ZIP 解压」共用同一份实现与规模限制，
+ * 保证四路接入的识别输入一致（不出现第二套扫描口径）。
+ */
+export function scanSourceSnapshot(dir: string): {
+  files: string[];
+  manifests: Record<string, string>;
+} {
+  return scan(dir);
+}
+
 /** 递归扫描：收集相对路径清单（带上限）与关键清单文件内容 */
 function scan(dir: string): { files: string[]; manifests: Record<string, string> } {
   const files: string[] = [];

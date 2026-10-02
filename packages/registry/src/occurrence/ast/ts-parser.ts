@@ -20,6 +20,21 @@ import { IDENTIFIER_PROJECTIONS, STRING_PROJECTIONS } from '../types';
 import type { ProjectionKind } from '../../naming/presets';
 import { extractContext, positionOf, splitLines } from '../text-utils';
 
+/** Shared, non-executing source parser for occurrence and HTTP indexing. */
+export function parseTsSource(path: string, content: string): ts.SourceFile {
+  return ts.createSourceFile(
+    path,
+    content,
+    ts.ScriptTarget.ES2022,
+    true,
+    /\.[jt]sx$/.test(path)
+      ? ts.ScriptKind.TSX
+      : /\.[cm]?js$/.test(path)
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS,
+  );
+}
+
 /** 单个作用域帧：可沿 `parent` 向上回溯查找绑定 */
 interface Frame {
   parent: Frame | null;
@@ -31,15 +46,7 @@ export function createTsParser(language: SourceLanguage = 'ts'): AstParser {
   return { language, parse };
 
   function parse(input: AstParseInput): AstParseResult {
-    const source = ts.createSourceFile(
-      input.path,
-      input.content,
-      ts.ScriptTarget.ES2022,
-      true,
-      input.path.endsWith('.tsx') || input.path.endsWith('.jsx')
-        ? ts.ScriptKind.TSX
-        : ts.ScriptKind.TS,
-    );
+    const source = parseTsSource(input.path, input.content);
 
     const lines = splitLines(input.content);
     const radius = input.contextRadius ?? 3;

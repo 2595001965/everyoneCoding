@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { defaultPresetFor, canvasSizeOf } from '@ec/designer';
 import { RECYCLE_BIN_RETENTION_MS } from '@ec/core';
@@ -287,6 +287,150 @@ describe('新建项目四类来源（FR-WSP-02）', () => {
     renderDialog();
     fireEvent.click(screen.getByRole('tab', { name: '从需求文档' }));
     expect(screen.getByRole('button', { name: '创建项目' })).toBeDisabled();
+  });
+});
+
+describe('文件接入（V2-D01：打开文件夹 / ZIP）', () => {
+  let openDirectory: ReturnType<typeof vi.fn>;
+  let openFile: ReturnType<typeof vi.fn>;
+
+  const renderNewProjectDialog = (onCreated = vi.fn()) => {
+    render(
+      <WorkspaceApiProvider api={env.api}>
+        <NewProjectDialog open onClose={vi.fn()} onCreated={onCreated} />
+      </WorkspaceApiProvider>,
+    );
+    return { onCreated };
+  };
+
+  beforeEach(() => {
+    // 外壳 dialog 能力（生产经 __EC_SHELL__ 注入）：选择器由测试驱动
+    openDirectory = vi.fn<(options?: unknown) => Promise<string | null>>(async () => null);
+    openFile = vi.fn<(options?: unknown) => Promise<string[] | null>>(async () => null);
+    const dialog = {
+      openDirectory,
+      openFile,
+      saveFile: async () => null,
+      showMessage: async () => 0,
+      confirm: async () => false,
+    };
+    (globalThis as Record<string, unknown>).__EC_SHELL__ = { dialog };
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).__EC_SHELL__;
+  });
+
+  it('取消文件夹选择不发起任何导入调用、不写库', async () => {
+    openDirectory.mockResolvedValue(null); // 用户在原生选择器里点了取消
+    renderNewProjectDialog();
+    fireEvent.click(screen.getByRole('tab', { name: '打开文件夹' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择目录…' }));
+
+    await waitFor(() => expect(openDirectory).toHaveBeenCalled());
+    // 路径仍为空：创建按钮不可用，也没有任何调用落库
+    expect(screen.getByRole('button', { name: '创建项目' })).toBeDisabled();
+    expect(env.sourceImports.folders).toHaveLength(0);
+    expect(env.sourceImports.previews).toHaveLength(0);
+    expect(env.store.rows.size).toBe(0);
+  });
+
+  it('打开文件夹：选择后预览识别结论，默认直接关联原目录导入', async () => {
+    openDirectory.mockResolvedValue('D:/projects/我的 应用');
+    const { onCreated } = renderNewProjectDialog();
+    fireEvent.click(screen.getByRole('tab', { name: '打开文件夹' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择目录…' }));
+
+    // 识别结论出现在导入前（用户可确认：框架/包管理器/支持边界）
+    const digest = await screen.findByLabelText('识别结果');
+    expect(within(digest).getByText('react-vite')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(env.sourceImports.folders[0]).toMatchObject({
+      path: 'D:/projects/我的 应用',
+      mode: 'link',
+    });
+    const project = onCreated.mock.calls[0]![0] as { id: string };
+    expect(env.store.rows.get(project.id)?.source_kind).toBe('existing_folder');
+  });
+
+  it('复制模式：明确选择后按 copied_folder 落库', async () => {
+    openDirectory.mockResolvedValue('D:/projects/legacy');
+    const { onCreated } = renderNewProjectDialog();
+    fireEvent.click(screen.getByRole('tab', { name: '打开文件夹' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择目录…' }));
+    await screen.findByLabelText('识别结果');
+    fireEvent.click(screen.getByRole('radio', { name: /复制到工作区/ }));
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(env.sourceImports.folders[0]).toMatchObject({ mode: 'copy' });
+    const project = onCreated.mock.calls[0]![0] as { id: string };
+    expect(env.store.rows.get(project.id)?.source_kind).toBe('copied_folder');
+  });
+
+  it('ZIP 导入：选择文件与空目标目录后按 zip_extract 落库', async () => {
+    openFile.mockResolvedValue(['D:/downloads/my-app.zip']);
+    openDirectory.mockResolvedValue('D:/projects/unpacked');
+    const { onCreated } = renderNewProjectDialog();
+    fireEvent.click(screen.getByRole('tab', { name: '从 ZIP 导入' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择文件…' }));
+    await waitFor(() => expect(env.sourceImports.previews).toContain('D:/downloads/my-app.zip'));
+    fireEvent.click(screen.getAllByRole('button', { name: '选择目录…' })[0]!);
+    // 选择器 promise 是异步的：等目标目录进入输入框后再创建（否则按钮仍禁用）
+    await waitFor(() =>
+      expect((screen.getByLabelText('解压目标目录') as HTMLInputElement).value).toBe(
+        'D:/projects/unpacked',
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(env.sourceImports.zips[0]).toMatchObject({
+      zipPath: 'D:/downloads/my-app.zip',
+      targetDir: 'D:/projects/unpacked',
+    });
+    const project = onCreated.mock.calls[0]![0] as { id: string };
+    expect(env.store.rows.get(project.id)?.source_kind).toBe('zip_extract');
+  });
+
+  it('导入进行中可点「取消导入」：cancelSourceImport 携带同一令牌', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const api: WorkspaceApi = {
+      ...env.api,
+      importFromFolder: async (input) => {
+        await gate; // 挂起导入，模拟复制进行中
+        return env.api.importFromFolder({
+          path: input.path,
+          ...(input.mode !== undefined ? { mode: input.mode } : {}),
+          ...(input.importToken !== undefined ? { importToken: input.importToken } : {}),
+        });
+      },
+    };
+    openDirectory.mockResolvedValue('D:/projects/my-app');
+    const onCreated = vi.fn();
+    render(
+      <WorkspaceApiProvider api={api}>
+        <NewProjectDialog open onClose={vi.fn()} onCreated={onCreated} />
+      </WorkspaceApiProvider>,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: '打开文件夹' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择目录…' }));
+    await screen.findByLabelText('识别结果');
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+
+    const cancelButton = await screen.findByRole('button', { name: '取消导入' });
+    fireEvent.click(cancelButton);
+    await waitFor(() => expect(env.sourceImports.cancelled).toHaveLength(1));
+
+    release();
+    // 内层导入在 gate 释放后才记录：令牌一致性此刻才可断言
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(env.sourceImports.folders[0]?.token).toBe(env.sourceImports.cancelled[0]);
   });
 });
 

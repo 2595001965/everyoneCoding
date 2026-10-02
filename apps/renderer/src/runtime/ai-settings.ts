@@ -107,7 +107,9 @@ export async function createRendererAiSettings(host: AiControlHost): Promise<AiS
     refreshModels: (providerId: string) => after(invoke<Model[]>('refreshModels', { providerId })),
     addManualModel: (providerId: string, name: string) => {
       void after(invoke<Model>('addManualModel', { providerId, name }));
-      const cached = models.find((model) => model.name === name) ?? models[0];
+      // V2-MDL-02：同名模型可存在于多个 Provider，回读必须按完整路由匹配
+      const cached =
+        models.find((model) => model.providerId === providerId && model.name === name) ?? null;
       if (!cached) throw new Error('模型列表尚未就绪，请稍后重试');
       return cached;
     },

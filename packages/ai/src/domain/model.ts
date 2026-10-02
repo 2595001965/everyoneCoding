@@ -2,11 +2,15 @@ import { z } from 'zod';
 import type { ModelRow } from '@ec/data';
 
 import { DEFAULT_CAPABILITY, capabilitySchema, type ModelCapability } from './capability';
+import { providerModelIdOf } from './model-route';
 
 /**
  * 模型（内部模型，屏蔽 provider 差异）。
  *
  * `id` 为本地 ULID；`name` 是发给服务端的模型标识（如 `gpt-4o`、`claude-3-5-sonnet`）。
+ * 同一 `name` 允许出现在多个 Provider 下——它们是不同的路由（V2-MDL-02），
+ * 各自独立能力、单价与用量；`providerModelId` 是唯一复合路由键。
+ * `canonicalVendor/canonicalModel` 是官方身份，仅用于查能力/官方价（T17），不参与路由。
  * `source` 记录该模型的来源，UI 需据实展示（远程拉取 / 手动填写 / 本地缓存）。
  */
 
@@ -17,6 +21,12 @@ export interface Model {
   providerId: string;
   /** 服务端模型标识 */
   name: string;
+  /** 唯一复合路由键 `<providerId>:<name>`（V2-MDL-02） */
+  providerModelId: string | null;
+  /** 官方厂商身份（可空：无证据不猜，T17 使用） */
+  canonicalVendor: string | null;
+  /** 官方模型身份（可空，不参与路由） */
+  canonicalModel: string | null;
   displayName: string | null;
   capability: ModelCapability;
   /** 乐观锁版本 */
@@ -49,6 +59,9 @@ export function modelFromRow(row: ModelRow): Model {
     id: row.id,
     providerId: row.provider_id,
     name: row.name,
+    providerModelId: row.provider_model_id ?? providerModelIdOf(row.provider_id, row.name),
+    canonicalVendor: row.canonical_vendor,
+    canonicalModel: row.canonical_model,
     displayName: row.display_name,
     capability: parseOr(row.capabilities_json),
     version: row.version,

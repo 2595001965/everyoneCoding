@@ -23,6 +23,8 @@ import { ShellError } from '@ec/shell-api';
 
 import { createProjectPaths, type ProjectPaths } from '../paths';
 import type { DomainRouter } from '../runtime';
+import { createApiIndex } from '../api-index';
+import type { SourceRef } from '@ec/core';
 
 /**
  * nav 域生产路由（T12-04 导航部分）。
@@ -73,6 +75,7 @@ export interface NavDomainOptions {
 export function createNavDomain(options: NavDomainOptions): DomainRouter {
   const paths: ProjectPaths = createProjectPaths({ projectsDir: options.projectsDir });
   const db = options.db;
+  const apiIndex = createApiIndex({ db, paths });
 
   /* ------------------------------ 数据源 ------------------------------ */
 
@@ -135,7 +138,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
   };
 
   const codeFilesOf = (projectId: string, limit = 600): string[] => {
-    const root = paths.codeRoot(projectId);
+    const root = apiIndex.codeRoot(projectId);
     const out: string[] = [];
     if (!existsSync(root)) return out;
     const walk = (dir: string, depth: number): void => {
@@ -209,29 +212,17 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
     return {
       listAnchors: () => anchorsOf(projectId),
       listPages: () => pages,
-      // 接口清单没有独立台账：从 DSL 的 apiDeps 里解析 `METHOD /path` 形态的依赖，
-      // 解析不出来的（只有接口 id）如实跳过，不编造路由
-      listApis: () => {
-        const apis = [];
-        const seen = new Set<string>();
-        for (const page of pages) {
-          for (const dep of page.apiDeps) {
-            const matched = /^(GET|POST|PUT|PATCH|DELETE)\s+(\/\S+)/i.exec(dep.trim());
-            if (matched === null) continue;
-            const key = `${matched[1]}:${matched[2]}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            apis.push({
-              id: `api:${key}`,
-              name: dep.trim(),
-              method: (matched[1] ?? 'GET').toUpperCase(),
-              path: matched[2] ?? '/',
-              module: page.featureId,
-            });
-          }
-        }
-        return apis;
-      },
+      listApis: () =>
+        apiIndex
+          .snapshot(projectId)
+          .endpoints.filter((e) => e.status === 'active')
+          .map((e) => ({
+            id: e.endpointId,
+            name: e.title,
+            method: e.method,
+            path: e.normalizedPath,
+            module: e.featureIds[0] ?? null,
+          })),
       // 无数据库 schema 台账：返回空数组而不是伪造表名
       listTables: () => [],
       listTests: () =>
@@ -254,7 +245,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         })),
       readFile: (path) => {
         try {
-          return readTextSafe(paths.inside(paths.codeRoot(projectId), path));
+          return readTextSafe(paths.inside(apiIndex.codeRoot(projectId), path));
         } catch {
           return null;
         }
@@ -443,6 +434,31 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
     const projectId = requireProject(params);
 
     switch (method) {
+      case 'apiList':
+        return apiIndex.snapshot(projectId);
+      case 'apiRescan': {
+        const result = await apiIndex.rescan(projectId);
+        return result;
+      }
+      case 'apiDetail':
+        return apiIndex.detail(projectId, String(params['endpointId'] ?? ''));
+      case 'apiClassify':
+        return apiIndex.classify(projectId, params);
+      case 'apiConfirmCall':
+        return apiIndex.confirmCall(projectId, params);
+      case 'apiReverse':
+        return apiIndex.reverse(
+          projectId,
+          String(params['filePath'] ?? ''),
+          Number(params['line']),
+        );
+      case 'apiNavigate': {
+        const ref = params['sourceRef'] as SourceRef;
+        if (!ref || typeof ref.filePath !== 'string')
+          throw new ShellError('INVALID_ARGUMENT', '缺少源码位置');
+        apiIndex.validateSource(projectId, ref);
+        return ref;
+      }
       case 'openProject': {
         const counts = db
           .prepare(`SELECT COUNT(*) AS n FROM code_anchor WHERE project_id = ?`)
@@ -480,7 +496,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         if (target === undefined || target === null) {
           throw new ShellError('INVALID_ARGUMENT', 'commitJump 需要跳转目标（target）');
         }
-        if (target.filePath !== null) paths.inside(paths.codeRoot(projectId), target.filePath);
+        if (target.filePath !== null) paths.inside(apiIndex.codeRoot(projectId), target.filePath);
         return services.jump.commit(target) satisfies JumpOutcome;
       }
 
@@ -502,7 +518,7 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         const input = (params['input'] ?? {}) as { filePath?: unknown; line?: unknown };
         const filePath = String(input.filePath ?? '');
         const line = Number(input.line ?? 0);
-        paths.inside(paths.codeRoot(projectId), filePath);
+        paths.inside(apiIndex.codeRoot(projectId), filePath);
         if (!Number.isInteger(line) || line < 1)
           throw new ShellError('INVALID_ARGUMENT', '非法代码行号');
         // ① 注释标记（精确行）

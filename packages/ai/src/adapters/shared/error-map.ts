@@ -28,6 +28,7 @@ export function mapHttpError(
   bodyText: string,
   options: ErrorMapOptions = {},
 ): AiError {
+  options = { ...options, status };
   const snippet = bodyText.slice(0, 500);
   const lowered = bodyText.toLowerCase();
   const retryAfterMs = parseRetryAfter(options.headers);

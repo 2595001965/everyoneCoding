@@ -34,6 +34,9 @@ export interface OpenApiRoute {
   requestSchema: JsonSchemaLike | null;
   responseSchema: JsonSchemaLike | null;
   tags: string[];
+  parameters?: unknown[];
+  authentication?: unknown;
+  servers?: string[];
 }
 
 export interface LoadedOpenApi {
@@ -41,11 +44,12 @@ export interface LoadedOpenApi {
   version: string;
   routes: OpenApiRoute[];
   warnings: string[];
+  servers?: string[];
 }
 
 export class OpenApiParseError extends Error {}
 
-const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
+const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'] as const;
 
 /* ----------------------------- YAML 子集解析 ----------------------------- */
 
@@ -417,6 +421,9 @@ function buildRoute(
     requestSchema: extractRequestSchema(op, root),
     responseSchema: extractResponseSchema(op, root),
     tags,
+    parameters: Array.isArray(op['parameters']) ? op['parameters'] : [],
+    authentication: op['security'] ?? root['security'] ?? null,
+    servers: serverUrls(op['servers'] ?? root['servers']),
   };
 }
 
@@ -437,11 +444,35 @@ function buildOpenApi(doc: Record<string, unknown>): LoadedOpenApi {
       for (const method of HTTP_METHODS) {
         const op = asObj(item[method]);
         if (!op) continue;
-        routes.push(buildRoute(method.toUpperCase() as HttpMethodName, pathKey, op, doc));
+        routes.push(
+          buildRoute(
+            method.toUpperCase() as HttpMethodName,
+            pathKey,
+            {
+              ...op,
+              servers: op['servers'] ?? item['servers'] ?? doc['servers'],
+              parameters: [
+                ...(Array.isArray(item['parameters']) ? item['parameters'] : []),
+                ...(Array.isArray(op['parameters']) ? op['parameters'] : []),
+              ],
+            },
+            doc,
+          ),
+        );
       }
     }
   }
-  return { title, version, routes, warnings };
+  const servers = serverUrls(doc['servers']);
+  return { title, version, routes, warnings, servers };
+}
+
+function serverUrls(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.flatMap((s) => {
+        const value = asObj(s)?.['url'];
+        return typeof value === 'string' ? [value] : [];
+      })
+    : [];
 }
 
 export function parseOpenApiDocument(text: string): LoadedOpenApi {

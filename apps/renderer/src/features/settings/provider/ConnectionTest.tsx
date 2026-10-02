@@ -34,6 +34,7 @@ export function ConnectionTest({
   disabled = false,
 }: ConnectionTestProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const models = result?.models.models ?? [];
 
   return (
@@ -42,7 +43,7 @@ export function ConnectionTest({
         <Button
           variant="secondary"
           size="sm"
-          onClick={onTest}
+          onClick={() => setConfirming(true)}
           disabled={disabled || state === 'running'}
           loading={state === 'running'}
         >
@@ -53,6 +54,33 @@ export function ConnectionTest({
         </Tag>
         {result ? <span className="ec-ai__hint">耗时 {result.latencyMs} ms</span> : null}
       </div>
+
+      {/* V2-MDL-07：连接测试是真实上游对话（列模型 + 一次最小对话），可能消耗 Token 并产生费用，
+          必须先取得确认；该对话计入用量（用途：连接测试），不伪装成免费探测。 */}
+      {confirming ? (
+        <div className="ec-ai__notice" role="alertdialog" aria-label="确认连接测试">
+          <strong>连接测试会向上游发送真实请求</strong>
+          <p className="ec-ai__hint">
+            将请求模型列表，并发送一次最小对话（内容「hi」，输出上限 1 Token）。这可能消耗 Token
+            并产生费用，会计入本月用量（用途：连接测试）。是否继续？
+          </p>
+          <span className="ec-ai__row-actions">
+            <button
+              type="button"
+              className="ec-ai__btn-danger"
+              onClick={() => {
+                setConfirming(false);
+                onTest();
+              }}
+            >
+              确认测试
+            </button>
+            <button type="button" className="ec-ai__btn-ghost" onClick={() => setConfirming(false)}>
+              取消
+            </button>
+          </span>
+        </div>
+      ) : null}
 
       {error ? <p className="ec-ai__error">{error}</p> : null}
 

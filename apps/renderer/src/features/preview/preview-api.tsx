@@ -11,6 +11,10 @@ import type {
   ProjectProfile,
   ResolvedResponse,
   StreamedLogLine,
+  DomSession,
+  DomSelection,
+  DomMapping,
+  DomAttachment,
 } from '@ec/preview';
 
 /**
@@ -31,6 +35,59 @@ export interface PreviewState {
   backendAvailable: boolean;
   notice: string | null; // 端口顺延等提示
   revision?: number | null;
+  runtimeId?: string | null;
+  /** V2-D02 显式数据模式：real = 后端不可用如实报错；mock = 用户显式选择的模拟数据 */
+  dataMode?: 'real' | 'mock';
+  /** V2-D02 运行实例快照（runtimeId 区分；null = 尚无运行实例） */
+  runtime?: RuntimeStateSnapshot | null;
+}
+
+/** 运行实例快照（与主进程 RuntimeSnapshot 同形状；渲染层不依赖 Node 侧类型） */
+export interface RuntimeStateSnapshot {
+  runtimeId: string;
+  projectId: string;
+  cwd: string;
+  status: 'preparing' | 'starting' | 'ready' | 'degraded' | 'stopping' | 'stopped' | 'failed';
+  services: readonly {
+    serviceId: string;
+    kind: 'frontend' | 'backend';
+    port: number | null;
+    baseUrl: string | null;
+    healthPath: string | null;
+  }[];
+  startedAt: number | null;
+  updatedAt: number;
+}
+
+/** 运行计划建议（识别结果 + 可确认的 RunPlan，V2-D02） */
+export interface RunPlanSuggestion {
+  plannerVersion: string;
+  subProjects: readonly {
+    subProjectId: string;
+    role: string;
+    language: string | null;
+    framework: string | null;
+    packageManager: string | null;
+    entryHints: readonly string[];
+    supportLevel: 'supported' | 'partial' | 'unsupported' | 'unknown';
+    confidence: number | null;
+    evidence: readonly { kind: string; path: string; detail: string | null }[];
+    suggestedRunPlan: unknown;
+  }[];
+  plan: {
+    cwd: string;
+    services: readonly {
+      serviceId: string;
+      role: 'install' | 'frontend' | 'backend';
+      command: string;
+      args: readonly string[];
+      portHint: number | null;
+    }[];
+    startupOrder: readonly string[];
+    envVarNames: readonly string[];
+  } | null;
+  requiresConfirmation: boolean;
+  notes: readonly string[];
 }
 
 /** 单条被预览 iframe 捕获到的接口请求（供 API 调试器展示） */
@@ -75,6 +132,13 @@ export interface ManagedProcess {
 export interface PreviewApi {
   readonly ready: boolean;
   readonly reason?: string | undefined;
+  inspection?: {
+    session(parentOrigin: string): Promise<DomSession>;
+    resolve(session: DomSession, selection: DomSelection): Promise<DomMapping>;
+    save(input: DomNoteInput, attach: boolean): Promise<DomAttachment>;
+    notes(): Promise<readonly DomAttachment[]>;
+    locate(session: DomSession, selection: DomSelection): Promise<DomMapping>;
+  };
 
   /* ------------------------------ 模式与运行 ------------------------------ */
   state(): Promise<PreviewState>;
@@ -118,6 +182,25 @@ export interface PreviewApi {
   }): Promise<readonly StreamedLogLine[]>;
   subscribeLogs(listener: (line: StreamedLogLine) => void): () => void;
 
+  /* --------------------- V2-D02 运行计划 / 实例 / 数据模式 --------------------- */
+  /** 识别运行计划建议（只读扫描，不执行任何脚本；执行前必须 confirmRunPlan） */
+  runPlan(): Promise<RunPlanSuggestion>;
+  /** 确认运行计划（V2-SRC-05 信任确认；确认内容持久化，之后 startRun 不再二次询问） */
+  confirmRunPlan(plans: readonly unknown[], plannerVersion?: string): Promise<unknown>;
+  /** 按已确认计划启动运行实例（安装 → 前端/后端；端口/代理由主进程编排） */
+  startRun(): Promise<PreviewResult<RuntimeStateSnapshot>>;
+  /** 运行实例状态（不传 runtimeId = 最近一次） */
+  runStatus(runtimeId?: string | undefined): Promise<RuntimeStateSnapshot | null>;
+  /** 精准停止：只停 runtimeId 对应实例自己 spawn 的服务 */
+  stopRuntime(runtimeId?: string | undefined): Promise<PreviewResult<RuntimeStateSnapshot | null>>;
+  /** 重启运行实例中的单个服务 */
+  restartService(
+    runtimeId: string,
+    serviceId: string,
+  ): Promise<PreviewResult<RuntimeStateSnapshot>>;
+  /** 生成/刷新项目缩略图（真实预览页截图） */
+  captureThumbnail(): Promise<PreviewResult<string>>;
+
   /* ------------------------------ 多端预览 ------------------------------ */
   devices(): Promise<readonly DeviceChannel[]>;
   deviceQr(channelId: string): Promise<PreviewResult<{ url: string; qrText: string }>>;
@@ -127,6 +210,18 @@ export interface PreviewApi {
   /* ------------------------------ Mock 设置 ------------------------------ */
   mockSettings(): Promise<MockSettings>;
   setMockSettings(patch: Partial<MockSettings>): Promise<void>;
+  /** 当前显式数据模式（real 为默认；mock 必须用户显式切换，V2 FR-PRV-02） */
+  dataMode(): Promise<'real' | 'mock'>;
+  setDataMode(mode: 'real' | 'mock'): Promise<void>;
+}
+
+export interface DomNoteInput {
+  session: DomSession;
+  selection: DomSelection;
+  note: string;
+  placement: DomAttachment['placement'];
+  targetPage: string;
+  sharedConfirmed: boolean;
 }
 
 const PreviewContext = createContext<PreviewApi | null>(null);

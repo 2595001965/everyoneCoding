@@ -2,6 +2,7 @@ import type { FinishReason, StreamChunk } from '../../core/stream';
 import { usageOf, type Usage } from '../../core/usage';
 import type { ToolCallDelta } from '../../core/tool';
 import { ProtocolError } from '../../core/error';
+import { tokenCount, type MeteringUpdate } from '../../core/metering';
 
 /**
  * Anthropic 响应 → 内部 StreamChunk。
@@ -15,6 +16,7 @@ export interface AnthropicUsage {
   output_tokens?: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  cache_creation?: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number };
 }
 
 export interface AnthropicTextBlock {
@@ -50,6 +52,32 @@ export function usageFromAnthropic(usage: AnthropicUsage | undefined): Usage | n
     (usage.cache_creation_input_tokens ?? 0) +
     (usage.cache_read_input_tokens ?? 0);
   return usageOf(input, usage.output_tokens ?? 0);
+}
+
+export function meteringFromAnthropic(
+  usage: AnthropicUsage, final: boolean, providerRequestId?: string,
+): MeteringUpdate {
+  const report: MeteringUpdate['report'] = {
+    inputIncludesCache: false, reasoningTokensIncludedInOutput: true,
+  };
+  if ('input_tokens' in usage) report.inputTokens = tokenCount(usage.input_tokens);
+  if ('output_tokens' in usage) report.outputTokens = tokenCount(usage.output_tokens);
+  if ('cache_read_input_tokens' in usage) report.cacheReadTokens = tokenCount(usage.cache_read_input_tokens);
+  if ('cache_creation_input_tokens' in usage || 'cache_creation' in usage) {
+    const total = tokenCount(usage.cache_creation_input_tokens);
+    const five = tokenCount(usage.cache_creation?.ephemeral_5m_input_tokens);
+    const hour = tokenCount(usage.cache_creation?.ephemeral_1h_input_tokens);
+    // TTL 缺失时保留 unknown 桶；不能擅自按默认 5m 计价。
+    const buckets: Record<string, number> = {};
+    if (five !== null) buckets['5m'] = five;
+    if (hour !== null) buckets['1h'] = hour;
+    const known = (five ?? 0) + (hour ?? 0);
+    if (total !== null && total > known) buckets['unknown'] = total - known;
+    report.cacheWriteTokensByTtl = total !== null && total < known ? null
+      : total !== null || five !== null || hour !== null ? buckets : null;
+  }
+  return { report, mode: 'snapshot', final, raw: usage,
+    ...(providerRequestId ? { providerRequestId } : {}) };
 }
 
 export function finishReasonFromAnthropic(reason: string | null | undefined): FinishReason {
@@ -95,7 +123,7 @@ export function chunksFromAnthropicResponse(
   });
 
   const usage = usageFromAnthropic(payload.usage);
-  if (usage) chunks.push({ type: 'usage', usage });
+  if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromAnthropic(payload.usage!, true, payload.id) });
   chunks.push({
     type: 'done',
     finishReason: finishReasonFromAnthropic(payload.stop_reason),
@@ -128,7 +156,7 @@ export function chunksFromAnthropicStreamEvent(
   switch (event.type) {
     case 'message_start': {
       const usage = usageFromAnthropic(event.message?.usage);
-      return usage ? [{ type: 'usage', usage }] : [];
+      return usage ? [{ type: 'usage', usage, metering: meteringFromAnthropic(event.message!.usage!, false, event.message?.id) }] : [];
     }
     case 'content_block_start': {
       const block = event.content_block;
@@ -174,7 +202,7 @@ export function chunksFromAnthropicStreamEvent(
     case 'message_delta': {
       const chunks: StreamChunk[] = [];
       const usage = usageFromAnthropic(event.usage);
-      if (usage) chunks.push({ type: 'usage', usage });
+      if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromAnthropic(event.usage!, event.delta?.stop_reason != null) });
       if (event.delta?.stop_reason !== undefined) {
         chunks.push({
           type: 'done',

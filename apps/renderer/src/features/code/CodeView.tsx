@@ -11,7 +11,8 @@ import {
 import { AiFixEntry } from './AiFixEntry';
 import { useCodeViewApi, type CodeFileEntry } from './code-api';
 import { readInjectedNavApi } from '../nav/nav-api';
-import { useNavLocation } from '../../runtime/nav-location';
+import { navigateToLocation, useNavLocation } from '../../runtime/nav-location';
+import { readInjectedApiIndex } from '../../runtime/api-index-port';
 import { useProjectStore } from '../../store/useProjectStore';
 
 /**
@@ -222,9 +223,15 @@ export function CodeView({
                 style={target?.line === index + 1 ? { background: '#fff3bf' } : undefined}
                 onClick={(event) => {
                   if ((event.ctrlKey || event.metaKey) && effectivePath !== null) {
-                    void readInjectedNavApi()
-                      ?.reverseJump({ filePath: effectivePath, line: index + 1 })
-                      .catch((cause: unknown) => setError(String(cause)));
+                    const input = { filePath: effectivePath, line: index + 1 };
+                    void (async () => {
+                      const result = await readInjectedNavApi()?.reverseJump(input);
+                      if (!result?.success) {
+                        const ids = await readInjectedApiIndex()?.reverse(input);
+                        if (ids?.length && projectId)
+                          navigateToLocation({ projectId, endpointIds: ids });
+                      }
+                    })().catch((cause: unknown) => setError(String(cause)));
                   }
                 }}
               >

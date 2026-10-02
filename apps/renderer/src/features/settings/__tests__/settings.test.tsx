@@ -42,6 +42,7 @@ function provider(overrides: Partial<Provider> = {}): Provider {
     userId: USER,
     name: '我的中转',
     protocol: 'openai',
+    source: 'custom',
     baseUrl: 'https://relay.example.com/v1',
     keyRef: 'ref-1',
     headers: {},
@@ -64,6 +65,9 @@ function model(overrides: Partial<Model> = {}): Model {
     id: 'M1',
     providerId: 'P1',
     name: 'gpt-4o',
+    providerModelId: 'P1:gpt-4o',
+    canonicalVendor: null,
+    canonicalModel: null,
     displayName: null,
     capability: {
       contextWindow: 128_000,
@@ -284,7 +288,7 @@ describe('Provider 设置页', () => {
     });
   });
 
-  it('连接测试：展示耗时与可用模型数量', async () => {
+  it('连接测试：确认可能计费后展示耗时与可用模型数量（V2-MDL-07）', async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
     render(wrap(<ProviderSettings />, api));
@@ -292,6 +296,8 @@ describe('Provider 设置页', () => {
     // 选中列表里的服务进入编辑态
     await user.click(screen.getByText('我的中转'));
     await user.click(screen.getByRole('button', { name: '连接测试' }));
+    // 测试是真实上游对话（可能消耗 Token）：先确认再执行
+    await user.click(screen.getByRole('button', { name: '确认测试' }));
 
     await waitFor(() => {
       expect(screen.getByText('连接成功')).toBeInTheDocument();
@@ -317,6 +323,7 @@ describe('Provider 设置页', () => {
 
     await user.click(screen.getByText('我的中转'));
     await user.click(screen.getByRole('button', { name: '连接测试' }));
+    await user.click(screen.getByRole('button', { name: '确认测试' }));
 
     await waitFor(() => {
       expect(screen.getByText('连接失败')).toBeInTheDocument();

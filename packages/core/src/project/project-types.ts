@@ -27,8 +27,22 @@ export const TARGET_PLATFORM_KEYS = [
 ] as const;
 export type TargetPlatform = (typeof TARGET_PLATFORM_KEYS)[number];
 
-/** 项目来源（四类新建来源） */
-export type ProjectSourceKind = 'blank' | 'template' | 'git_import' | 'doc_import';
+/**
+ * 项目来源。
+ *
+ * V1 四类（blank/template/git_import/doc_import）继续用于旧项目行；
+ * V2-D01 起的四类接入方式与 v2 契约 `v2SourceKind` 对齐（并列集合，不合并旧值）：
+ * 直接打开文件夹 / 复制导入 / ZIP 解压写入新值，Git 导入仍写历史值 `git_import`。
+ */
+export type ProjectSourceKind =
+  | 'blank'
+  | 'template'
+  | 'git_import'
+  | 'doc_import'
+  | 'existing_folder'
+  | 'copied_folder'
+  | 'zip_extract'
+  | 'git_clone';
 
 /** 项目业务状态：active 正常 / archived 归档（归档 ≠ 删除，删除走回收站） */
 export type ProjectStatus = 'active' | 'archived';

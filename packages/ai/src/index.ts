@@ -19,6 +19,9 @@
 export * from './core/message';
 export * from './core/tool';
 export * from './core/usage';
+export * from './core/metering';
+export type * from './gateway/metering-record';
+export type * from './repo/attempt-store';
 export * from './core/stream';
 export * from './core/error';
 export * from './core/adapter';
@@ -31,6 +34,7 @@ export * from './core/embedding';
 /* ------------------------------ domain ------------------------------ */
 export * from './domain/provider';
 export * from './domain/model';
+export * from './domain/model-route';
 export * from './domain/capability';
 export * from './domain/purpose-binding';
 
@@ -131,3 +135,6 @@ export * from './service/ai-stack';
 /* ------------------------------ secure ------------------------------ */
 export * from './secure/api-key-store';
 export * from './service/ai-control-api';
+export { AgentStore, StaleAgentOwnerError, type TaskRecord } from './agent/store';
+export { AgentCoordinator, type AgentExecution, type AgentExecutor } from './agent/coordinator';
+export { AgentGatewayControl, type GatewayExecutionControl, type GatewayPermit } from './agent/gateway-control';

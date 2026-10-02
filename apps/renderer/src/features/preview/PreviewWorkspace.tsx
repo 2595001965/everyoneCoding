@@ -1,9 +1,10 @@
 import * as React from 'react';
 
-import { usePreviewApi, type ApiRequestLog } from './preview-api';
+import { usePreviewApi } from './preview-api';
 import { PreviewToolbar } from './PreviewToolbar';
-import { PreviewFrame } from './PreviewFrame';
+import { DomInspector } from './DomInspector';
 import { BackendPanel } from './BackendPanel';
+import { RunPlanPanel } from './RunPlanPanel';
 import { ApiDebugger } from './ApiDebugger';
 import { DevicePreview } from './DevicePreview';
 
@@ -18,6 +19,7 @@ export function PreviewWorkspace(): JSX.Element {
   const [pages, setPages] = React.useState<readonly { route: string; name: string }[]>([]);
   const [route, setRoute] = React.useState<string>('');
   const [revision, setRevision] = React.useState<number | null>(null);
+  const [runtimeId, setRuntimeId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const reload = React.useCallback(() => {
@@ -27,6 +29,7 @@ export function PreviewWorkspace(): JSX.Element {
         setUrl(s.url);
         setMode(s.mode);
         setRevision(s.revision ?? null);
+        setRuntimeId(s.runtimeId ?? null);
       })
       .catch((cause: unknown) => setError(String(cause)));
     void api.pages().then((p) => {
@@ -44,20 +47,12 @@ export function PreviewWorkspace(): JSX.Element {
           setUrl(state.url);
           setMode(state.mode);
           setRevision(state.revision ?? null);
+          setRuntimeId(state.runtimeId ?? null);
         })
         .catch((cause: unknown) => setError(String(cause)));
     }, 500);
     return () => window.clearInterval(timer);
   }, [reload, api]);
-
-  const handleRequest = React.useCallback((_log: ApiRequestLog): void => {
-    // 预览页经 postMessage 上报的请求由外壳聚合进 requests()；
-    // 这里仅做占位（真实环境外壳统一写入端口，不再重复维护本地状态）
-  }, []);
-
-  const handleElementClick = React.useCallback((_payload: { elementId: string }): void => {
-    // 元素点击联动导航跳转由 NavWorkspace 消费；此处占位
-  }, []);
 
   const src = url === null ? 'about:blank' : `${url}${route}`;
 
@@ -86,15 +81,11 @@ export function PreviewWorkspace(): JSX.Element {
           {mode === 'device' ? (
             <DevicePreview />
           ) : (
-            <PreviewFrame
-              key={`${src}:${revision}`}
-              src={src}
-              onRequest={handleRequest}
-              onElementClick={handleElementClick}
-            />
+            <DomInspector key={`${src}:${revision}`} src={src} runtimeId={runtimeId} />
           )}
         </div>
         <aside className="ec-preview-workspace__side">
+          <RunPlanPanel />
           <BackendPanel />
           <ApiDebugger />
         </aside>

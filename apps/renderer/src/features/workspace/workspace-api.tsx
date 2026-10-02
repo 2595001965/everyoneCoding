@@ -23,6 +23,8 @@ import type {
   ProjectStageInfo,
   ProjectSummary,
   RequirementDigest,
+  SourceDetection,
+  SourceDetectionDraft,
   UpdateProjectPatch,
 } from '@ec/core';
 
@@ -49,6 +51,12 @@ export type {
  * 声明在 `@ec/shell-api` 的域事件契约里；这里再导出让特性内沿用同一入口。
  */
 export type { WorkspaceImportProgress };
+
+/** 只读预扫描结果（V2-D01：导入前向用户展示识别结论与运行计划，不建项目不写文件） */
+export interface SourcePreview {
+  codeRoot: string;
+  detection: SourceDetectionDraft;
+}
 
 export interface WorkspaceApi {
   listProjects(query?: ProjectQuery): Promise<ProjectSummary[]>;
@@ -82,6 +90,37 @@ export interface WorkspaceApi {
      */
     onProgress?: (progress: WorkspaceImportProgress) => void;
   }): Promise<ProjectSummary>;
+  /**
+   * 文件夹导入（V2-D01 / V2-SRC-01）：`mode: 'link'`（默认）直接关联原目录——
+   * 不复制不转换，源目录只读（未提交改动不受损）；`mode: 'copy'` 复制到工程 code 目录。
+   */
+  importFromFolder(input: {
+    path: string;
+    projectName?: string;
+    mode?: 'link' | 'copy';
+    /** 取消令牌：可先调用 cancelSourceImport(importToken) 中止复制循环 */
+    importToken?: string;
+    onProgress?: (progress: WorkspaceImportProgress) => void;
+  }): Promise<ProjectSummary>;
+  /**
+   * ZIP 导入（V2-D01）：解压到新的空目录（不覆盖已有内容），安全校验
+   * （穿越/盘符/UNC/ADS/大小写碰撞/解压炸弹）任一命中即整体拒绝。
+   */
+  importFromZip(input: {
+    zipPath: string;
+    targetDir: string;
+    projectName?: string;
+    importToken?: string;
+    onProgress?: (progress: WorkspaceImportProgress) => void;
+  }): Promise<ProjectSummary>;
+  /** 中止一次进行中的文件夹复制 / ZIP 解压（只清理本次创建的临时内容） */
+  cancelSourceImport(importToken: string): Promise<void>;
+  /** 只读预扫描（V2-SRC-03/05）：不建项目不写文件，返回识别结论与建议运行计划 */
+  previewSourceDetection(path: string): Promise<SourcePreview>;
+  /** 重扫（V2-SRC-09）：只读扫描 + revision 递增；不改源码 */
+  detectSource(projectId: string): Promise<SourceDetection>;
+  /** 读取上次识别结果；无（旧项目/未识别）返回 null */
+  getSourceDetection(projectId: string): Promise<SourceDetection | null>;
   /** 文档导入：把解析出的功能清单落成功能/页面 + 项目记忆 */
   createFromDigest(input: { digest: RequirementDigest; name: string }): Promise<ProjectSummary>;
 

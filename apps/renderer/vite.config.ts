@@ -18,6 +18,7 @@ export default defineConfig({
       '@ec/ui/styles.css': resolve(__dirname, '../../packages/ui/src/styles.css'),
       '@ec/shell-api': resolve(__dirname, '../../packages/shell-api/src/index.ts'),
       '@ec/ai': resolve(__dirname, '../../packages/ai/src/browser.ts'),
+      '@ec/preview': resolve(__dirname, '../../packages/preview/src/browser.ts'),
       // core 走浏览器条件入口：排除 docs 的 docx / pdf / image-ocr 解析器（node:zlib）
       '@ec/core': resolve(__dirname, '../../packages/core/src/browser.ts'),
       '@ec/ui': resolve(__dirname, '../../packages/ui/src/index.ts'),

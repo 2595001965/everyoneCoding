@@ -1,5 +1,5 @@
 import { Button, EmptyState, Switch, Tag } from '@ec/ui';
-import { PROTOCOL_LABELS, type Provider } from '@ec/ai';
+import { PROVIDER_SOURCE_LABELS, PROTOCOL_LABELS, type Provider } from '@ec/ai';
 
 /**
  * Provider 列表：启用开关、排序、编辑与删除。
@@ -67,6 +67,10 @@ export function ProviderList({
                 <span className="ec-ai__name">
                   {row.name}
                   <Tag color="neutral">{PROTOCOL_LABELS[row.protocol]}</Tag>
+                  {/* 目录来源（V2-MDL-01）：同名服务可能是不同渠道，来源必须可见 */}
+                  <Tag color={row.source === 'platform' ? 'info' : 'neutral'}>
+                    {PROVIDER_SOURCE_LABELS[row.source]}
+                  </Tag>
                   {row.keyRef ? (
                     <Tag color="neutral">已配置 Key</Tag>
                   ) : (

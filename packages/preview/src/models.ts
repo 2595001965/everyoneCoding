@@ -82,7 +82,7 @@ export class PreviewLogCollector {
   }
 }
 
-export type HttpMethodName = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type HttpMethodName = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
 export type DataSourceKind = 'backend' | 'mock' | 'static';
 

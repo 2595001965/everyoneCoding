@@ -1,5 +1,6 @@
 import { resolveEndpoint } from '../../domain/provider';
 import type { Provider } from '../../domain/provider';
+import { providerModelIdOf } from '../../domain/model-route';
 import type { Model, ModelDiscovery } from '../../domain/model';
 import type { AdapterContext } from '../../core/adapter';
 import { ProtocolError } from '../../core/error';
@@ -81,6 +82,9 @@ export function manualModelsDiscovery(provider: Provider): ModelDiscovery {
     id: `manual:${provider.id}:${name}`,
     providerId: provider.id,
     name,
+    providerModelId: providerModelIdOf(provider.id, name),
+    canonicalVendor: null,
+    canonicalModel: null,
     displayName: null,
     capability: { ...DEFAULT_CAPABILITY },
     version: 1,
@@ -114,6 +118,9 @@ function toModel(providerId: string, entry: OpenAiModelEntry): Model | null {
     id: `${providerId}:${name}`,
     providerId,
     name,
+    providerModelId: providerModelIdOf(providerId, name),
+    canonicalVendor: null,
+    canonicalModel: null,
     displayName: typeof entry.display_name === 'string' ? entry.display_name : null,
     capability: {
       ...DEFAULT_CAPABILITY,

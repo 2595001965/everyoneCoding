@@ -22,9 +22,15 @@
   },
   "dependencies": {
     "@ec/core": "workspace:*",
-    "@ec/shell-api": "workspace:*"
+    "@ec/shell-api": "workspace:*",
+    "@vue/compiler-dom": "^3.5.0",
+    "parse5": "^7.3.0",
+    "typescript": "^5.6.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "vue": "^3.5.0",
     "vitest": "^2.1.4"
   }
 }

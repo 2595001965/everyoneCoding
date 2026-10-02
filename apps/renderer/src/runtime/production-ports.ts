@@ -35,13 +35,15 @@ import type { JumpOutcome, ReverseJumpResult } from '@ec/ai';
 import type { AssembledContext, ContextAssemblyRequest, ContextSources, WritePlan } from '@ec/ai';
 import type { AutoCommitPolicy, CredentialBinding, GitResult } from '@ec/git';
 import type { PipelineStage, PipelineStageSnapshot } from '@ec/pipeline';
-import type { PreviewResult, StreamedLogLine } from '@ec/preview';
+import type { DomMapping, PreviewResult, StreamedLogLine } from '@ec/preview';
 
 import type { ContextPanelApi } from '../features/ai/context-api';
 import type { CodeViewApi } from '../features/code/code-api';
 import type { GitApi, GitProgressEvent, GitRepoInfo } from '../features/git/git-api';
 import type { MemoryApi } from '../features/memory/memory-api';
 import type { NavApi } from '../features/nav/nav-api';
+import type { ApiIndexPort } from '@ec/registry';
+import type { SourceRef } from '@ec/core';
 import { navigateToLocation } from './nav-location';
 import type {
   PackageApi,
@@ -426,6 +428,24 @@ export function createPreviewApi(call: DomainCaller, subscribe: DomainEventSubsc
   return {
     ready: true,
     state: () => p<PreviewState>('state'),
+    inspection: {
+      session: (parentOrigin) => p('inspectionSession', { parentOrigin }),
+      resolve: (session, selection) => p('resolveDom', { session, selection }),
+      save: (input, attach) => p(attach ? 'attachDomContext' : 'saveDomNote', input),
+      notes: () => p('domNotes'),
+      locate: async (session, selection) => {
+        const mapping = await p<DomMapping>('resolveDom', { session, selection });
+        if (mapping.anchor.confidence === 'exact' && mapping.anchor.sourceRef !== null) {
+          const source = mapping.anchor.sourceRef;
+          navigateToLocation({
+            projectId: session.projectId,
+            filePath: source.filePath,
+            ...(source.startLine !== null ? { line: source.startLine } : {}),
+          });
+        }
+        return mapping;
+      },
+    },
     setMode: (mode) => void p('setMode', { mode }),
     start: (mode) =>
       ok(async () => {
@@ -549,6 +569,28 @@ export function createNavApi(call: DomainCaller): NavApi {
       return outcome;
     },
     dataFlow: (elementId) => n('dataFlow', { elementId }),
+  };
+}
+
+export function createApiIndexApi(call: DomainCaller): ApiIndexPort {
+  const n = <T>(method: string, params?: unknown): Promise<T> =>
+    call.call<T>('nav', method, withProject(params));
+  return {
+    ready: true,
+    list: () => n('apiList'),
+    rescan: () => n('apiRescan'),
+    detail: (endpointId) => n('apiDetail', { endpointId }),
+    classify: (input) => n('apiClassify', input),
+    confirmCall: (input) => n('apiConfirmCall', input),
+    reverse: (input) => n('apiReverse', input),
+    navigate: async (sourceRef) => {
+      const projectId = requireActiveProject().id;
+      const target = await n<SourceRef>('apiNavigate', { sourceRef });
+      if (getActiveProject()?.id === projectId)
+        navigateToLocation({ projectId, filePath: target.filePath, line: target.startLine ?? 1 });
+    },
+    navigateElement: (input) =>
+      navigateToLocation({ projectId: requireActiveProject().id, ...input }),
   };
 }
 
@@ -694,8 +736,26 @@ export function createAiContextApi(call: DomainCaller): ContextPanelApi {
 
 /* ------------------------------- 用量 ------------------------------- */
 
-export function createUsageApi(call: DomainCaller): UsageApi {
+export function createUsageApi(call: DomainCaller, subscribe?: DomainEventSubscriber): UsageApi {
   return {
+    metering: {
+      snapshot: (filter) => call.call('usage', 'getSnapshot', { filter }),
+      aggregate: (filter, group) => call.call('usage', 'aggregate', { filter, group }),
+      events: (after, limit) => call.call('usage', 'readEvents', { after, limit }),
+      subscribe: (listener) => {
+        if (!subscribe) throw new ShellError('NOT_SUPPORTED', '用量事件订阅未装配');
+        const seen = new Set<string>();
+        return subscribe((event) => {
+          if (event.domain !== 'usage') return;
+          const payload = event.payload as { type?: string; event?: { eventId?: string } };
+          if (payload?.type !== 'usage:updated' || typeof payload.event?.eventId !== 'string') return;
+          if (seen.has(payload.event.eventId)) return;
+          if (seen.size >= 4096) seen.delete(seen.values().next().value!);
+          seen.add(payload.event.eventId);
+          listener(payload.event as import('@ec/core').V2EventEnvelope);
+        });
+      },
+    },
     // usage_record 行结构与 @ec/ai 的 UsageReportRow 完全同形（域层原样透传），不做二次加工
     listRows: () => call.call<UsageReportRow[]>('usage', 'listRows'),
     getBudget: () => call.call<BudgetConfig>('usage', 'getBudget'),
@@ -844,6 +904,7 @@ export interface ProductionPortGlobals {
   __EC_AI_CONTEXT__?: unknown;
   __EC_CODE__?: unknown;
   __EC_NAV__?: unknown;
+  __EC_API_INDEX__?: unknown;
   __EC_DESIGNER__?: unknown;
   [key: string]: unknown;
 }
@@ -891,12 +952,15 @@ export async function installProductionPorts(
   if (available.has('preview')) globals['__EC_PREVIEW__'] = createPreviewApi(call, subscribe);
   if (available.has('rename')) globals['__EC_RENAME__'] = createRenameApi(call, subscribe);
   if (available.has('package')) globals['__EC_PACKAGE__'] = createPackageApi(call, subscribe);
-  if (available.has('usage')) globals['__EC_USAGE__'] = createUsageApi(call);
+  if (available.has('usage')) globals['__EC_USAGE__'] = createUsageApi(call, subscribe);
   if (available.has('ai-context')) {
     globals['__EC_AI_CONTEXT__'] = createAiContextApi(call);
   }
   if (available.has('code')) globals['__EC_CODE__'] = createCodeApi(call, subscribe);
-  if (available.has('nav')) globals['__EC_NAV__'] = createNavApi(call);
+  if (available.has('nav')) {
+    globals['__EC_NAV__'] = createNavApi(call);
+    globals['__EC_API_INDEX__'] = createApiIndexApi(call);
+  }
   if (available.has('designer')) globals['__EC_DESIGNER__'] = createDesignerApi(call);
 
   const installed: DomainKind[] = [];
@@ -911,10 +975,12 @@ export async function installProductionPorts(
     ['ai-context', '__EC_AI_CONTEXT__'],
     ['code', '__EC_CODE__'],
     ['nav', '__EC_NAV__'],
+    ['nav', '__EC_API_INDEX__'],
     ['designer', '__EC_DESIGNER__'],
   ];
   for (const [kind, key] of slots) {
-    if (globals[key] !== undefined && globals[key] !== null) installed.push(kind);
+    if (globals[key] !== undefined && globals[key] !== null && !installed.includes(kind))
+      installed.push(kind);
   }
   return { installed, unavailable };
 }

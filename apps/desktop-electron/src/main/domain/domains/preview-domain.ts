@@ -1,10 +1,22 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { existsSync, readFileSync, readdirSync, statSync, watch, type Dirent } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  watch,
+  writeFileSync,
+  type Dirent,
+} from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { connect } from 'node:net';
 import { extname, join, relative } from 'node:path';
 import type Database from 'better-sqlite3';
+
+import { newUlid } from '@ec/data';
+import { runPlanSchema, type RunPlan } from '@ec/core';
 
 import {
   BackendRunner,
@@ -15,19 +27,26 @@ import {
   LogStream,
   MockResponseGenerator,
   OpenApiParseError,
+  RuntimeOrchestrator,
   allocatePort,
   createFallbackOpenApi,
   detectProjectType,
+  injectDomSelector,
   matchRoute,
   parseOpenApiDocument,
-  type DataBinding,
+  suggestRunPlan,
+  type DomAttachment,
   type HttpMethodName,
   type LoadedOpenApi,
   type ManagedProcess,
   type MockSettings,
+  type ParsedPackage,
   type PreviewResult,
   type ProjectProfile,
   type ResolvedResponse,
+  type RuntimeSnapshot,
+  type RuntimeServiceSpec,
+  type RuntimeSpec,
   type StreamedLogLine,
 } from '@ec/preview';
 import { ShellError } from '@ec/shell-api';
@@ -36,9 +55,11 @@ import type { ControlledProcessHost } from '../process-host';
 import { createProjectPaths, PROJECT_SUBDIRS, type ProjectPaths } from '../paths';
 import type { DomainRouter } from '../runtime';
 import { createSettingStore, type SettingStore } from '../setting-store';
+import { DomInspection } from '../dom-inspection';
+import { DOM_COMPILE_PATH, DomViteBridge } from '../dom-vite-bridge';
 
 /**
- * preview 域生产路由（T12-04 预览部分）。
+ * preview 域生产路由（T12-04 预览部分；V2-D02 补真实前端与多服务运行实例）。
  *
  * 交付的五件事：
  * 1. **静态预览**：Node http 服务托管构建产物（优先 `dist` / `build` / `public`，回退代码根），
@@ -52,8 +73,17 @@ import { createSettingStore, type SettingStore } from '../setting-store';
  * 5. **多端**：探测 adb / hdc，给局域网地址与二维码；**局域网开关默认关闭**，
  *    开启时明确提示风险（D-09：不生成任何云端链接）。
  *
- * 数据来源优先级由 `BindingResolver` 保证（后端 > Mock > 静态假数据，FR-PRV-02），
- * 本域只负责把三条来源的真实能力注入进去。
+ * V2-D02 在同一预览服务上补三类增量（不重写既有静态/进程系统）：
+ * - **运行实例（runtimeId）**：确认后的运行计划由 `RuntimeOrchestrator` 编排
+ *   （安装 → Vite 前端 / Node 后端多服务），端口真实探测分配、就绪看"端口可连+页面可加载"，
+ *   停止按 runtimeId 精准执行；预览服务反向代理前端 dev server（含 HMR 的 WebSocket 升级）。
+ * - **显式 Mock**：默认 `real` 模式——真实后端不可用时如实报 502 诊断，不再自动回退
+ *   Mock（V2 FR-PRV-02 修改）；用户显式切换到 `mock` 才用模拟数据，响应始终带
+ *   `X-EC-Data-Source: mock` 标记。
+ * - **项目缩略图**：从真实预览页截图并持久化到 `meta/thumbnail.png`（无渲染页面时保持
+ *   null，由工作台卡片显示明确占位），workspace 域 `getThumbnailUrl` 据此返回可读地址。
+ *
+ * 数据来源优先级由 `BindingResolver` 保证；显式 Mock 开关在 resolver 之前由本域门控。
  */
 
 const PREVIEW_MODE_KEYS = ['static', 'linked', 'device'] as const;
@@ -116,13 +146,36 @@ export interface PreviewDomainOptions {
    */
   process: ControlledProcessHost | null;
   /**
+   * 页面截图端口（V2-D02 缩略图，Electron 离屏窗口实现）。缺省 = 不生成缩略图，
+   * getThumbnailUrl 保持 null（工作台卡片显示明确占位）。
+   */
+  capturePage?: ((url: string) => Promise<Buffer | null>) | undefined;
+  /**
    * 非请求来源事件（后端进程的后续日志行）。日志在 `startBackend` 返回之后仍会持续产生，
    * 那时没有"在飞的请求"可以附着，必须走这条常驻事件口。
    */
   emit: (domain: 'preview', payload: unknown) => void;
 }
 
+/** 显式数据模式：real = 只用真实后端（不可用如实报错）；mock = 用户显式选择的模拟数据 */
+type DataMode = 'real' | 'mock';
+
+const DATA_MODES: readonly DataMode[] = ['real', 'mock'];
+
+/** 运行计划按项目持久化（用户确认过的 RunPlan 清单，每个子工程一份） */
+interface ConfirmedRunPlan {
+  plannerVersion: string;
+  confirmedAt: number;
+  plans: RunPlan[];
+}
+
+const dataModeKey = (projectId: string): string => `preview_data_mode:${projectId}`;
+const runPlanKey = (projectId: string): string => `preview_run_plan:${projectId}`;
+const THUMBNAIL_FILE = 'thumbnail.png';
+
 interface PreviewInstance {
+  readonly inspection: DomInspection;
+  readonly domCompiler: DomViteBridge;
   readonly projectId: string;
   readonly codeRoot: string;
   staticRoot: string;
@@ -141,6 +194,12 @@ interface PreviewInstance {
   openapiSource: string | null;
   resolver: BindingResolver;
   backendUrl: string | null;
+  /** 显式数据模式（持久化；real 为默认——不再自动回退 Mock） */
+  dataMode: DataMode;
+  /** V2-D02 运行实例编排器（受控进程存在时才创建） */
+  orchestrator: RuntimeOrchestrator | null;
+  /** 当前反代目标：最近一次就绪的前端 dev 服务（null = 页面走静态托管） */
+  proxyTarget: { runtimeId: string; serviceId: string; baseUrl: string } | null;
   /**
    * 预分配的后端端口。
    *
@@ -170,6 +229,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
    * 所以由预览域暴露一份只读投影，而不是让 nav 去猜。
    */
   readRequestLogs: (projectId: string) => readonly ApiRequestLog[];
+  readDomAttachments: (projectId: string) => readonly DomAttachment[];
 } {
   const paths: ProjectPaths = createProjectPaths({ projectsDir: options.projectsDir });
   const settings: SettingStore = createSettingStore({ db: options.db, userId: options.userId });
@@ -308,10 +368,16 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const backendPort: { available: boolean } = { available: false };
     const pendingPort: { value: number | null } = { value: null };
 
-    // 后端请求能力：只有"受控进程托管的真实后端"才算可用（FR-PRV-02 的第一优先级）
+    // 后端请求能力：只有"受控进程托管的真实后端"才算可用（FR-PRV-02 的第一优先级）。
+    // 显式 Mock 模式下对 resolver 隐去后端：数据来源固定走 Mock（V2 FR-PRV-02 修改点）。
     const backendRequester = {
       get available(): boolean {
-        return instance.mode !== 'static' && backendPort.available && backendUrl !== null;
+        return (
+          instance.mode !== 'static' &&
+          backendPort.available &&
+          backendUrl !== null &&
+          instance.dataMode !== 'mock'
+        );
       },
       async request(input: {
         url: string;
@@ -333,7 +399,10 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       fixture,
     });
 
+    const inspection = new DomInspection(projectId, paths, settings);
     const instance: PreviewInstance = {
+      inspection,
+      domCompiler: new DomViteBridge(projectId, paths, inspection),
       projectId,
       codeRoot,
       staticRoot,
@@ -358,6 +427,20 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       openapiSource: source,
       resolver,
       backendUrl: null,
+      dataMode: settings.read<DataMode>(dataModeKey(projectId)) === 'mock' ? 'mock' : 'real',
+      orchestrator:
+        options.process === null
+          ? null
+          : new RuntimeOrchestrator({
+              process: options.process,
+              logs,
+              probe: probePort,
+              tcpProbe: probeTcpPort,
+              pageReady: probePageReady,
+              newId: () => newUlid(),
+              readyTimeoutMs: 30_000,
+            }),
+      proxyTarget: null,
       pendingPort,
       setBackend(url: string | null): void {
         backendUrl = url;
@@ -405,13 +488,61 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       if (!existsSync(target)) return null;
     }
     const type = MIME[extname(target)] ?? 'application/octet-stream';
-    return { status: 200, body: readFileSync(target), type };
+    let body = readFileSync(target);
+    if (type.startsWith('text/html') && instance.inspection.session !== null) {
+      const mapped = instance.inspection.registry.instrument(
+        body.toString('utf8'),
+        paths.relative(instance.codeRoot, target),
+        'static_html',
+      );
+      body = Buffer.from(injectDomSelector(mapped, instance.inspection.session));
+    }
+    return { status: 200, body, type };
   };
 
   const isApiRequest = (instance: PreviewInstance, method: string, urlPath: string): boolean => {
     if (urlPath.startsWith('/api/') || urlPath === '/api') return true;
     if (method !== 'GET' && method !== 'HEAD') return true;
     return matchRoute(instance.openapi.routes, method, urlPath.split('?')[0] ?? urlPath) !== null;
+  };
+
+  /**
+   * 按显式数据模式解析（V2 FR-PRV-02 修改点）：
+   * - `mock`：用户显式切换的模拟数据。resolver 看到的后端已被隐去（见 backendRequester），
+   *   来源固定标记 mock；
+   * - `real` 且后端不可用：**如实报 502 诊断，不再自动回退 Mock**——Mock 回答会掩盖
+   *   "真实后端挂了/没启动"的事实，被误读成联调通过；
+   * - `real` 且后端可用：resolver 正常走后端。
+   */
+  const resolveWithMode = async (
+    instance: PreviewInstance,
+    input: {
+      url: string;
+      method: HttpMethodName;
+      headers?: Record<string, string>;
+      body?: unknown;
+    },
+  ): Promise<ResolvedResponse> => {
+    const backendReachable = instance.mode !== 'static' && instance.backendUrl !== null;
+    if (instance.dataMode === 'real' && !backendReachable) {
+      return {
+        status: 502,
+        data: {
+          error: '真实后端不可用',
+          detail: instance.backendUrl === null ? '后端未运行（或已退出）' : '后端地址未就绪',
+          hint: '已按 V2 规则不再自动回退 Mock；如需演示数据，请在预览工具栏显式切换到模拟数据。',
+        },
+        source: 'backend',
+        latencyMs: 0,
+        url: input.url,
+        method: input.method,
+        errorMessage: '真实后端不可用（未运行或已退出），已拒绝自动回退 Mock',
+      };
+    }
+    if (instance.dataMode === 'mock') {
+      instance.logs.info(`模拟数据（显式 Mock 模式）：${input.method} ${input.url}`);
+    }
+    return instance.resolver.resolve(input);
   };
 
   const recordRequest = (
@@ -461,15 +592,13 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       )
         headers[key] = value;
     }
-    const binding: DataBinding | null = null;
     let response: ResolvedResponse;
     try {
-      response = await instance.resolver.resolve({
+      response = await resolveWithMode(instance, {
         url: urlPath,
         method,
         headers,
         ...(body.length > 0 ? { body: parseMaybeJson(body) } : {}),
-        binding,
       });
     } catch (error) {
       response = {
@@ -502,6 +631,8 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
   const startServer = async (instance: PreviewInstance, mode: PreviewMode): Promise<void> => {
     if (instance.server !== null) await stopServer(instance);
+    instance.domCompiler.clear();
+    instance.inspection.reset();
     const lanSharing = readLanSharing(instance.projectId);
     const allocation = await allocatePort({
       start: DEFAULT_PREVIEW_PORT,
@@ -514,6 +645,11 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
     const host = lanSharing ? '0.0.0.0' : '127.0.0.1';
     const server = createServer((req, res) => {
+      // Private compiler RPC is handled before public preflight/API/static/proxy routing.
+      if (req.url?.split('?')[0] === DOM_COMPILE_PATH) {
+        void instance.domCompiler.handle(req, res);
+        return;
+      }
       const method = (req.method ?? 'GET').toUpperCase();
       if (method === 'OPTIONS') {
         res.writeHead(204, {
@@ -540,6 +676,12 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         });
         return;
       }
+      // V2-D02：运行实例的前端 dev server（React/Vue Vite 等）就绪后，页面请求反代到
+      // dev server（HMR 资源由它出），/api 仍由本域数据源门控处理
+      if (instance.proxyTarget !== null) {
+        proxyPage(instance, req, res);
+        return;
+      }
       const file = serveStatic(instance, urlPath);
       if (file === null) {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -552,6 +694,15 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         'Access-Control-Allow-Origin': '*',
       });
       res.end(file.body);
+    });
+    // HMR / dev server 的 WebSocket 升级请求：原样转发到当前反代目标
+    server.on('upgrade', (req, socket, head) => {
+      const target = instance.proxyTarget;
+      if (target === null) {
+        socket.destroy();
+        return;
+      }
+      proxyUpgrade(instance, req, socket, head, target.baseUrl);
     });
     await new Promise<void>((resolveListen, rejectListen) => {
       server.once('error', rejectListen);
@@ -573,6 +724,8 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         lanSharing ? '已开启局域网访问' : '仅本机可访问'
       }）`,
     );
+    // 静态页面就绪即尝试更新项目缩略图（异步，不阻塞启动返回；无截图端口时静默跳过）
+    void captureThumbnailFor(instance);
   };
 
   const stopServer = async (instance: PreviewInstance): Promise<void> => {
@@ -584,6 +737,9 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     instance.server = null;
     instance.port = null;
     instance.url = null;
+    instance.proxyTarget = null;
+    instance.domCompiler.clear();
+    instance.inspection.reset();
     instance.logs.info('预览已停止');
   };
 
@@ -726,6 +882,9 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           backendAvailable: instance.runner?.status().running ?? false,
           notice: instance.notice,
           revision: instance.lastChangeAt,
+          runtimeId: instance.server === null ? null : instance.inspection.runtimeId,
+          dataMode: instance.dataMode,
+          runtime: instance.orchestrator?.status(null) ?? null,
         };
       }
 
@@ -737,6 +896,185 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         instanceOf(projectId).mode = mode;
         return undefined;
       }
+
+      /* ---------------------- V2-D02 运行计划与实例 ---------------------- */
+      case 'runPlan': {
+        const instance = instanceOf(projectId);
+        const suggestion = suggestRunPlan(collectPlanningEvidence(instance));
+        if (suggestion.plan !== null) {
+          instance.logs.info(
+            `已生成运行计划建议（${suggestion.subProjects.length} 个子工程，${suggestion.plan.services.length} 个服务步骤）；执行前需确认`,
+          );
+        }
+        return suggestion;
+      }
+
+      case 'confirmRunPlan': {
+        const instance = instanceOf(projectId);
+        const rawPlans = params['plans'];
+        if (!Array.isArray(rawPlans) || rawPlans.length === 0) {
+          throw new ShellError('INVALID_ARGUMENT', '确认的运行计划不能为空');
+        }
+        // 契约校验：strict 拒绝夹带环境变量值/密钥；计划内容即用户确认过的边界
+        const plans = rawPlans.map((raw) => {
+          const parsed = runPlanSchema.safeParse(raw);
+          if (!parsed.success) {
+            throw new ShellError(
+              'INVALID_ARGUMENT',
+              `运行计划不合法：${parsed.error.issues[0]?.message ?? 'schema 校验失败'}`,
+            );
+          }
+          return parsed.data;
+        });
+        const confirmed: ConfirmedRunPlan = {
+          plannerVersion: String(params['plannerVersion'] ?? ''),
+          confirmedAt: Date.now(),
+          plans,
+        };
+        settings.write(runPlanKey(projectId), confirmed);
+        instance.logs.info(
+          `运行计划已确认：${plans.length} 份计划 / ${plans.reduce((n, p) => n + p.services.length, 0)} 个服务步骤（安装/启动前不再二次确认）`,
+        );
+        return confirmed;
+      }
+
+      case 'startRun': {
+        const instance = requireProcess(projectId, '运行实例');
+        if (instance.orchestrator === null) {
+          throw new ShellError('NOT_SUPPORTED', '运行实例需要受控进程端口，当前未装配。');
+        }
+        const confirmed = settings.read<ConfirmedRunPlan>(runPlanKey(projectId));
+        if (confirmed === null || confirmed.plans.length === 0) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            '尚未确认运行计划：请先 runPlan 预览建议并 confirmRunPlan 确认（首次安装/运行前必须显式确认）',
+          );
+        }
+        // 预览服务必须在线：页面反代与 /api 门控都挂在它上面
+        if (instance.server === null) {
+          await startServer(instance, instance.mode === 'device' ? 'device' : 'linked');
+        }
+        const spec = buildRuntimeSpec(projectId, instance, confirmed);
+        instance.domCompiler.clear();
+        instance.inspection.reset(spec.runtimeId);
+        for (const service of spec.services) {
+          if (service.kind !== 'frontend') continue;
+          const args = instance.domCompiler.prepare(
+            service.command,
+            service.args,
+            service.cwd,
+            instance.url!,
+          );
+          if (args) service.args = args;
+          else
+            instance.logs.warn(
+              `DOM 源码映射未接入 ${service.serviceId}：仅支持标准 Vite 开发命令，未知节点禁止猜位置`,
+            );
+        }
+        const snapshot = await instance.orchestrator.start(spec);
+        applyRuntimeEndpoints(instance, snapshot);
+        // 服务崩溃后同步摘除数据源/反代：后续请求如实报"真实后端不可用"（富诊断），
+        // 而不是拿着死端口 502 空响应，更不是悄悄回退 Mock
+        instance.orchestrator.onEvent((event) => {
+          if (event.type !== 'service-exited') return;
+          const service = snapshot.services.find((s) => s.serviceId === event.serviceId);
+          if (service === undefined) return;
+          if (service.kind === 'backend' && instance.backendUrl === service.baseUrl) {
+            instance.setBackend(null);
+            instance.logs.warn(
+              `后端服务 ${service.serviceId} 已退出（${event.detail}）：数据源已摘除，接口将如实报真实后端不可用`,
+            );
+          }
+          if (service.kind === 'frontend' && instance.proxyTarget?.serviceId === service.serviceId) {
+            instance.proxyTarget = null;
+            instance.logs.warn(`前端 dev server ${service.serviceId} 已退出：页面回退静态托管`);
+          }
+        });
+        void captureThumbnailFor(instance);
+        return snapshot;
+      }
+
+      case 'runStatus': {
+        const instance = instanceOf(projectId);
+        const runtimeId =
+          typeof params['runtimeId'] === 'string' && params['runtimeId'].length > 0
+            ? String(params['runtimeId'])
+            : null;
+        return instance.orchestrator?.status(runtimeId) ?? null;
+      }
+
+      case 'stopRuntime': {
+        const instance = instanceOf(projectId);
+        const requested =
+          typeof params['runtimeId'] === 'string' && params['runtimeId'].length > 0
+            ? String(params['runtimeId'])
+            : null;
+        const snapshot = instance.orchestrator?.status(requested) ?? null;
+        if (instance.orchestrator === null || snapshot === null) {
+          throw new ShellError('NOT_FOUND', '没有可停止的运行实例');
+        }
+        await instance.orchestrator.stop(snapshot.runtimeId);
+        // 被停实例占用的数据源/反代同步摘除，避免"进程没了 URL 还指过去"
+        if (instance.proxyTarget?.runtimeId === snapshot.runtimeId) instance.proxyTarget = null;
+        if (instance.inspection.runtimeId === snapshot.runtimeId) {
+          instance.domCompiler.clear();
+          instance.inspection.reset();
+          instance.lastChangeAt = Date.now();
+        }
+        const backendIsOurs = snapshot.services.some(
+          (svc) => svc.kind === 'backend' && instance.backendUrl === svc.baseUrl,
+        );
+        if (backendIsOurs) instance.setBackend(null);
+        instance.logs.info(`运行实例已停止：${snapshot.runtimeId}（精准停止，不影响其它工程）`);
+        return instance.orchestrator.status(null);
+      }
+
+      case 'restartService': {
+        const instance = requireProcess(projectId, '服务重启');
+        if (instance.orchestrator === null) {
+          throw new ShellError('NOT_SUPPORTED', '运行实例需要受控进程端口，当前未装配。');
+        }
+        const runtimeId = String(params['runtimeId'] ?? '');
+        const serviceId = String(params['serviceId'] ?? '');
+        if (runtimeId.length === 0 || serviceId.length === 0) {
+          throw new ShellError('INVALID_ARGUMENT', 'restartService 需要 runtimeId 与 serviceId');
+        }
+        const frontend = instance.orchestrator
+          .status(runtimeId)
+          ?.services.some((s) => s.serviceId === serviceId && s.kind === 'frontend');
+        if (frontend) instance.inspection.reset(runtimeId);
+        const snapshot = await instance.orchestrator.restartService(runtimeId, serviceId);
+        applyRuntimeEndpoints(instance, snapshot);
+        if (frontend) instance.lastChangeAt = Date.now();
+        return snapshot;
+      }
+
+      case 'captureThumbnail': {
+        const instance = instanceOf(projectId);
+        if (instance.url === null) {
+          throw new ShellError('INVALID_ARGUMENT', '预览尚未启动，没有可截取的页面');
+        }
+        const saved = await captureThumbnailFor(instance);
+        if (!saved) {
+          throw new ShellError('NOT_SUPPORTED', '缩略图生成器未装配或截图失败，请查看预览日志');
+        }
+        return thumbnailPathOf(projectId);
+      }
+
+      case 'inspectionSession': {
+        const instance = instanceOf(projectId);
+        if (!instance.server) throw new ShellError('INVALID_ARGUMENT', '请先启动本地预览');
+        return instance.inspection.open(params['parentOrigin']);
+      }
+      case 'resolveDom': {
+        const inspection = instanceOf(projectId).inspection;
+        return inspection.resolve(inspection.validate(params));
+      }
+      case 'saveDomNote':
+      case 'attachDomContext':
+        return instanceOf(projectId).inspection.save(params, method === 'attachDomContext');
+      case 'domNotes':
+        return settings.read<DomAttachment[]>(`preview_dom_notes:${projectId}`) ?? [];
 
       case 'start': {
         const mode = String(params['mode'] ?? 'static') as PreviewMode;
@@ -757,6 +1095,13 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         const instance = instanceOf(projectId);
         await stopServer(instance);
         if (instance.runner !== null) await instance.runner.stop();
+        // 该工程的全部运行实例一并精准停止（避免预览停止后留下孤儿 dev server）
+        if (instance.orchestrator !== null) {
+          for (const snapshot of instance.orchestrator.list()) {
+            await instance.orchestrator.stop(snapshot.runtimeId).catch(() => undefined);
+          }
+        }
+        instance.setBackend(null);
         return null;
       }
 
@@ -834,7 +1179,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
             : source.method;
         const body =
           input.body !== undefined ? input.body : parseMaybeJson(source.requestBody ?? '');
-        const response = await instance.resolver.resolve({
+        const response = await resolveWithMode(instance, {
           url,
           method,
           headers: source.requestHeaders ?? {},
@@ -1016,6 +1361,26 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         return undefined;
       }
 
+      /* ---------------------- V2-D02 显式数据模式 ---------------------- */
+      case 'dataMode':
+        return instanceOf(projectId).dataMode;
+
+      case 'setDataMode': {
+        const instance = instanceOf(projectId);
+        const mode = String(params['mode'] ?? 'real') as DataMode;
+        if (!DATA_MODES.includes(mode)) {
+          throw new ShellError('INVALID_ARGUMENT', `未知数据模式：${String(params['mode'] ?? '')}`);
+        }
+        instance.dataMode = mode;
+        settings.write(dataModeKey(projectId), mode);
+        instance.logs.info(
+          mode === 'mock'
+            ? '数据来源已显式切换为模拟数据（Mock）：接口响应始终带 X-EC-Data-Source: mock 标记，不代表真实联调通过'
+            : '数据来源已切回真实模式：后端不可用时接口如实报错，不再自动回退 Mock',
+        );
+        return undefined;
+      }
+
       default:
         throw new ShellError('INVALID_ARGUMENT', `preview 域未知方法：${method}`);
     }
@@ -1064,11 +1429,344 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     return profile;
   };
 
+  /* --------------------- V2-D02：运行计划 / 运行实例 / 缩略图 --------------------- */
+
+  /** 只列一层文件名；子目录统一记为 `<dir>/` 形态由调用方决定要不要下钻 */
+  const listDirNames = (dir: string): string[] => {
+    try {
+      return readdirSync(dir, { withFileTypes: true }).map((entry) => entry.name);
+    } catch {
+      return [];
+    }
+  };
+
+  const readJsonFile = (file: string): ParsedPackage | null => {
+    const text = readSafely(file);
+    if (text === null) return null;
+    try {
+      return JSON.parse(text) as ParsedPackage;
+    } catch {
+      return null;
+    }
+  };
+
+  /** 收集运行计划证据：根 + workspace 子目录（apps/packages/services 一层）。只读，不执行任何脚本 */
+  const collectPlanningEvidence = (instance: PreviewInstance) => {
+    const rootFiles = listDirNames(instance.codeRoot);
+    const files: Record<string, string[]> = { '': rootFiles };
+    const packages: Record<string, ParsedPackage> = {};
+    const envNames: Record<string, string[]> = {};
+
+    const rootPkg = readJsonFile(paths.inside(instance.codeRoot, 'package.json'));
+    if (rootPkg !== null) packages[''] = rootPkg;
+    for (const envFile of ['.env.example', '.env.local']) {
+      const text = readSafely(paths.inside(instance.codeRoot, envFile));
+      if (text === null) continue;
+      const names = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(line))
+        .map((line) => line.split('=')[0] ?? '');
+      envNames[''] = [...(envNames[''] ?? []), ...names];
+    }
+
+    const isWorkspace =
+      rootFiles.includes('pnpm-workspace.yaml') || rootPkg?.workspaces !== undefined;
+    if (isWorkspace) {
+      for (const group of ['apps', 'packages', 'services']) {
+        const groupDir = paths.inside(instance.codeRoot, group);
+        if (!existsSync(groupDir)) continue;
+        for (const name of listDirNames(groupDir)) {
+          if (name.startsWith('.')) continue;
+          const dir = `${group}/${name}`;
+          const full = paths.inside(groupDir, name);
+          if (!statSyncSafe(full)?.isDirectory()) continue;
+          files[dir] = listDirNames(full);
+          const pkg = readJsonFile(paths.inside(full, 'package.json'));
+          if (pkg !== null) packages[dir] = pkg;
+          const envText = readSafely(paths.inside(full, '.env.example'));
+          if (envText !== null) {
+            envNames[dir] = envText
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter((line) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(line))
+              .map((line) => line.split('=')[0] ?? '');
+          }
+        }
+      }
+    }
+    return { files, packages, envNames };
+  };
+
+  const statSyncSafe = (file: string): { isDirectory: () => boolean } | null => {
+    try {
+      return statSync(file);
+    } catch {
+      return null;
+    }
+  };
+
+  /** 把确认过的多份 RunPlan（每份可指向不同子工程 cwd）编排成一个运行实例规格 */
+  const buildRuntimeSpec = (
+    projectId: string,
+    instance: PreviewInstance,
+    confirmed: ConfirmedRunPlan,
+  ): RuntimeSpec => {
+    const installs: { serviceId: string; command: string; cwd: string }[] = [];
+    const services: RuntimeServiceSpec[] = [];
+    for (const plan of confirmed.plans) {
+      // 计划 cwd 是代码根内的相对路径（'.' = 根）；paths.inside 负责越界拒绝
+      const cwd = plan.cwd === '.' ? instance.codeRoot : paths.inside(instance.codeRoot, plan.cwd);
+      for (const serviceId of plan.startupOrder) {
+        const svc = plan.services.find((s) => s.serviceId === serviceId);
+        if (svc === undefined) continue; // startupOrder 与 services 不一致按契约应被 schema 拒绝，这里兜底
+        if (svc.role === 'install') {
+          installs.push({ serviceId, command: svc.command, cwd });
+          continue;
+        }
+        services.push({
+          serviceId,
+          kind: svc.role === 'frontend' ? 'frontend' : 'backend',
+          command: svc.command,
+          args: svc.args,
+          cwd,
+          env: {},
+        });
+      }
+    }
+    if (services.length === 0 && installs.length === 0) {
+      throw new ShellError('INVALID_ARGUMENT', '运行计划里没有任何可执行步骤');
+    }
+    return {
+      runtimeId: newUlid(),
+      projectId,
+      cwd: instance.codeRoot,
+      installs,
+      services,
+    };
+  };
+
+  /** 运行实例端点 → 数据源/反代接线：后端接管 /api，前端接管页面 */
+  const applyRuntimeEndpoints = (instance: PreviewInstance, snapshot: RuntimeSnapshot): void => {
+    let hasBackend = false;
+    for (const endpoint of snapshot.services) {
+      if (endpoint.port === null || endpoint.baseUrl === null) continue;
+      if (endpoint.kind === 'backend') {
+        instance.setBackend(endpoint.baseUrl);
+        hasBackend = true;
+        instance.logs.info(`后端服务已接入数据源：${endpoint.serviceId} → ${endpoint.baseUrl}`);
+      } else {
+        instance.proxyTarget = {
+          runtimeId: snapshot.runtimeId,
+          serviceId: endpoint.serviceId,
+          baseUrl: endpoint.baseUrl,
+        };
+        instance.logs.info(
+          `前端 dev server 已接入预览（页面反代）：${endpoint.serviceId} → ${endpoint.baseUrl}；/api 仍由预览服务数据源门控`,
+        );
+      }
+    }
+    // 联动模式：真实后端接管数据源（'static' 的语义是"只有静态数据"，会把
+    // backendAvailable 门死，表现为"实例就绪但 /api 一直 502"）
+    if (hasBackend) instance.mode = 'linked';
+  };
+
+  const thumbnailPathOf = (projectId: string): string =>
+    paths.projectDir(projectId, PROJECT_SUBDIRS.meta, THUMBNAIL_FILE);
+
+  /** 真实预览页截图 → 持久化 meta/thumbnail.png。失败只记日志，不影响预览本身 */
+  const captureThumbnailFor = async (instance: PreviewInstance): Promise<boolean> => {
+    const capture = options.capturePage;
+    if (capture === undefined || capture === null) return false;
+    if (instance.url === null) return false;
+    const url = instance.url;
+    try {
+      const png = await capture(url);
+      if (png === null || png.length === 0) return false;
+      const metaDir = paths.projectDir(instance.projectId, PROJECT_SUBDIRS.meta);
+      mkdirSync(metaDir, { recursive: true });
+      writeFileSync(join(metaDir, THUMBNAIL_FILE), png);
+      instance.logs.info(`项目缩略图已更新（真实预览截图，${png.length} 字节）`);
+      return true;
+    } catch (error) {
+      instance.logs.warn(
+        `缩略图生成失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  };
+
+  /** 页面请求反代到前端 dev server：流式转发（HMR/资源流不缓冲），失败如实 502 */
+  const proxyPage = (
+    instance: PreviewInstance,
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): void => {
+    const target = instance.proxyTarget;
+    if (target === null) {
+      res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('前端开发服务器不在运行中');
+      return;
+    }
+    forwardHttpRequest(instance, req, res, target.baseUrl).catch((error: unknown) => {
+      instance.logs.error(
+        `前端页面代理失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+      if (!res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+      }
+      if (!res.writableEnded) res.end('前端开发服务器代理失败');
+    });
+  };
+
+  const forwardHttpRequest = async (
+    instance: PreviewInstance,
+    req: IncomingMessage,
+    res: ServerResponse,
+    baseUrl: string,
+  ): Promise<void> => {
+    const upstream = new URL(baseUrl);
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (typeof value === 'string' && !['host', 'connection', 'content-length'].includes(key)) {
+        headers[key] = value;
+      }
+    }
+    headers['host'] = upstream.host;
+    if (instance.inspection.session) headers['accept-encoding'] = 'identity';
+    await new Promise<void>((resolveForward) => {
+      const preq = httpRequest(
+        {
+          hostname: '127.0.0.1',
+          port: Number(upstream.port),
+          path: req.url ?? '/',
+          method: req.method ?? 'GET',
+          headers,
+          agent: false,
+        },
+        (pres) => {
+          if (res.headersSent) {
+            pres.resume();
+            return;
+          }
+          const responseHeaders = { ...pres.headers };
+          const path = req.url?.split('?')[0] ?? '';
+          // Narrow CORS for sandbox module imports; APIs keep their existing data-source policy.
+          if (
+            req.method === 'GET' &&
+            req.headers.origin === 'null' &&
+            (path === '/@vite/client' ||
+              path === '/@react-refresh' ||
+              path === '/@id/__x00__plugin-vue:export-helper' ||
+              /\.(?:[cm]?[jt]sx?|vue|css)$/.test(path))
+          )
+            responseHeaders['access-control-allow-origin'] = 'null';
+          const session = instance.inspection.session;
+          if (
+            session &&
+            req.method === 'GET' &&
+            pres.statusCode === 200 &&
+            String(pres.headers['content-type']).includes('text/html') &&
+            !pres.headers['content-encoding']
+          ) {
+            const chunks: Buffer[] = [];
+            let size = 0;
+            pres.on('data', (chunk: Buffer) => {
+              size += chunk.length;
+              if (size <= MAX_BODY_BYTES) chunks.push(chunk);
+              else pres.destroy(new Error('选取 HTML 超出 1MB 上限'));
+            });
+            pres.on('error', () => {
+              if (!res.headersSent) res.writeHead(502);
+              res.end('预览 HTML 无法读取');
+              resolveForward();
+            });
+            pres.on('end', () => {
+              let html = Buffer.concat(chunks).toString('utf8');
+              // Supported Vite adapters already injected before business scripts. Other dev servers
+              // still permit selection, but proxy output is never guessed into source mappings.
+              if (!html.includes('ec-dom-v1')) html = injectDomSelector(html, session);
+              delete responseHeaders['content-length'];
+              delete responseHeaders['etag'];
+              responseHeaders['cache-control'] = 'no-store';
+              res.writeHead(pres.statusCode ?? 502, responseHeaders);
+              res.end(html);
+              resolveForward();
+            });
+          } else {
+            res.writeHead(pres.statusCode ?? 502, responseHeaders);
+            pres.pipe(res);
+            pres.on('end', () => resolveForward());
+          }
+        },
+      );
+      preq.on('error', (error: Error) => {
+        instance.logs.error(
+          `代理上游请求失败（${req.method ?? 'GET'} ${req.url ?? '/'} → ${baseUrl}）：${error.message}`,
+        );
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+        }
+        if (!res.writableEnded) res.end('前端开发服务器不可达（可能已退出）');
+        resolveForward();
+      });
+      req.on('error', () => {
+        preq.destroy();
+        resolveForward();
+      });
+      req.pipe(preq);
+    });
+  };
+
+  /**
+   * WebSocket 升级转发（HMR）：TCP 层原样转发握手与后续帧。
+   * host/origin 改写为目标 dev server 自身——Vite 等会对升级请求做同源检查，
+   * 预览面板的页面 origin（预览端口）与 dev server 端口必然不同，这里由受控代理
+   * 统一改写，而不是关闭 webSecurity / 全局放宽 CSP。
+   */
+  const proxyUpgrade = (
+    instance: PreviewInstance,
+    req: IncomingMessage,
+    socket: import('node:stream').Duplex,
+    head: Buffer,
+    baseUrl: string,
+  ): void => {
+    const upstream = new URL(baseUrl);
+    const port = Number(upstream.port);
+    const upstreamSocket = connect({ host: '127.0.0.1', port }, () => {
+      const lines = [`${req.method} ${req.url ?? '/'} HTTP/1.1`];
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value !== 'string') continue;
+        if (key === 'host' || key === 'origin' || key === 'connection') continue;
+        lines.push(`${key}: ${value}`);
+      }
+      lines.push(`host: ${upstream.host}`);
+      lines.push(`origin: ${upstream.origin}`);
+      lines.push('connection: upgrade');
+      upstreamSocket.write(`${lines.join('\r\n')}\r\n\r\n`);
+      if (head.length > 0) upstreamSocket.write(head);
+      upstreamSocket.pipe(socket);
+      socket.pipe(upstreamSocket);
+    });
+    const teardown = (): void => {
+      upstreamSocket.destroy();
+      socket.destroy();
+    };
+    upstreamSocket.on('error', () => {
+      instance.logs.warn(`HMR WebSocket 代理连接失败（127.0.0.1:${port}），热更新可能不可用`);
+      teardown();
+    });
+    socket.on('error', teardown);
+    socket.on('close', teardown);
+    upstreamSocket.on('close', teardown);
+  };
+
   const dispose = async (): Promise<void> => {
     for (const instance of instances.values()) {
       instance.dispose();
       await stopServer(instance).catch(() => undefined);
       await instance.runner?.stop().catch(() => undefined);
+      await instance.orchestrator?.dispose().catch(() => undefined);
     }
     instances.clear();
   };
@@ -1091,7 +1789,12 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       .catch(() => undefined);
     return next;
   };
-  return { router: serialized, dispose, readRequestLogs };
+  return {
+    router: serialized,
+    dispose,
+    readRequestLogs,
+    readDomAttachments: (projectId) => instanceOf(projectId).inspection.readAttachments(),
+  };
 }
 
 /* ------------------------------ 纯工具 ------------------------------ */
@@ -1114,6 +1817,43 @@ function probePort(port: number): Promise<boolean> {
     probe.once('error', () => resolveProbe(false));
     probe.once('listening', () => probe.close(() => resolveProbe(true)));
     probe.listen(port, '127.0.0.1');
+  });
+}
+
+/** 端口可连性探测（运行实例的后端就绪判定；连接即认为服务已接受请求） */
+function probeTcpPort(port: number): Promise<boolean> {
+  return new Promise<boolean>((resolveProbe) => {
+    const socket = connect({ port, host: '127.0.0.1' });
+    const finish = (ok: boolean): void => {
+      socket.destroy();
+      resolveProbe(ok);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+    socket.setTimeout(300, () => finish(false));
+  });
+}
+
+/**
+ * 页面可加载探测（前端 dev server 就绪的第二条件，V2-SRC-06：
+ * 就绪条件是健康检查和页面可加载，不是仅看到"启动成功"字样）。
+ * HTTP GET /，状态码 < 500 即认为页面可加载（dev server 的 4xx 也说明 HTTP 栈已工作）。
+ */
+async function probePageReady(port: number): Promise<boolean> {
+  return new Promise<boolean>((resolveProbe) => {
+    const req = httpRequest(
+      { hostname: '127.0.0.1', port, path: '/', method: 'GET', timeout: 1_500, agent: false },
+      (res) => {
+        res.resume();
+        resolveProbe((res.statusCode ?? 500) < 500);
+      },
+    );
+    req.once('timeout', () => {
+      req.destroy();
+      resolveProbe(false);
+    });
+    req.once('error', () => resolveProbe(false));
+    req.end();
   });
 }
 

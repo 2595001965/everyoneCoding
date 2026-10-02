@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3';
 
 import { ShellError } from '@ec/shell-api';
+import { UsageRepo, type AttemptFilter, type AttemptGroup } from '@ec/ai';
+import { z } from 'zod';
 
 import type { DomainRouter } from '../runtime';
 import { createSettingStore, type SettingStore } from '../setting-store';
@@ -59,6 +61,16 @@ function monthRange(now: number): [number, number] {
 }
 
 export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
+  const repo = new UsageRepo(options.db);
+  const filterSchema = z.object({ since: z.number().int().nonnegative().optional(), until: z.number().int().nonnegative().optional(),
+    projectId: z.string().min(1).optional(), sessionId: z.string().min(1).optional(), taskId: z.string().min(1).optional(),
+    logicalRequestId: z.string().min(1).optional(), providerId: z.string().min(1).optional(), modelRowId: z.string().min(1).optional(),
+    route: z.string().min(1).optional(), purpose: z.string().min(1).optional() }).strict();
+  const readFilter = (input: unknown): AttemptFilter => {
+    const result = filterSchema.safeParse(input ?? {});
+    if (!result.success) throw new ShellError('INVALID_ARGUMENT', '用量筛选条件无效');
+    return result.data;
+  };
   const settings: SettingStore =
     options.settings ?? createSettingStore({ db: options.db, userId: options.userId });
 
@@ -109,12 +121,7 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
     const dayStart = new Date(now).setHours(0, 0, 0, 0);
     const [monthStart, monthEnd] = monthRange(now);
     const sumSince = (since: number, until: number): number => {
-      const row = options.db
-        .prepare(
-          `SELECT COALESCE(SUM(cost), 0) AS total FROM usage_record WHERE user_id = ? AND created_at >= ? AND created_at <= ?`,
-        )
-        .get(options.userId, since, until) as { total: number };
-      return row.total;
+      return repo.totals(options.userId, since, until).cost;
     };
     const daily = sumSince(dayStart, now);
     const monthly = sumSince(monthStart, monthEnd);
@@ -162,6 +169,21 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
 
   const router: DomainRouter = async (method, params) => {
     switch (method) {
+      case 'listAttempts': return repo.attempts.list(options.userId, readFilter(params['filter']));
+      case 'getSnapshot': return repo.attempts.snapshot(options.userId, readFilter(params['filter']));
+      case 'readEvents': {
+        const parsed = z.object({ after: z.number().int().nonnegative().default(0), limit: z.number().int().min(1).max(1000).default(200) })
+          .safeParse({ after: params['after'], limit: params['limit'] });
+        if (!parsed.success) throw new ShellError('INVALID_ARGUMENT', '用量事件游标无效');
+        return repo.attempts.events(options.userId, parsed.data.after, parsed.data.limit);
+      }
+      case 'aggregate': {
+        const group = params['group'];
+        if (group !== undefined && !['projectId','sessionId','taskId','providerId','modelRowId','route','purpose','date'].includes(String(group))) {
+          throw new ShellError('INVALID_ARGUMENT', '用量分组无效');
+        }
+        return repo.attempts.aggregate(options.userId, readFilter(params['filter']), group as AttemptGroup | undefined);
+      }
       case 'listRows': {
         const [since, until] = monthRange(Date.now());
         const rows = options.db

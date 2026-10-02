@@ -19,3 +19,4 @@ export * from './backend/runner';
 export * from './backend/dependency-installer';
 export * from './backend/run-planner';
 export * from './backend/runtime-orchestrator';
+export * from './dom/source-mapping';

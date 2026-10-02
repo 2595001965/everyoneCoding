@@ -81,8 +81,26 @@ export function DiffPreview({
 
       {plan?.defaultModelChange ? (
         <div className="ec-ai__notice" role="alert">
-          <strong>远程配置更新了默认模型：{plan.defaultModelChange.after}</strong>
-          <p className="ec-ai__hint">原默认模型：{plan.defaultModelChange.before ?? '未设置'}</p>
+          {plan.defaultModelChange.providerSwitch ? (
+            <>
+              {/* 模型名未变、默认路由仅换渠道（A/x → B/x）：文案必须点明渠道，不能只报模型名 */}
+              <strong>
+                远程配置将默认模型切换到「{plan.defaultModelChange.providerSwitch.to}」渠道的{' '}
+                {plan.defaultModelChange.after}
+              </strong>
+              <p className="ec-ai__hint">
+                当前默认：「{plan.defaultModelChange.providerSwitch.from}」渠道的{' '}
+                {plan.defaultModelChange.before ?? '未设置'}
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>远程配置更新了默认模型：{plan.defaultModelChange.after}</strong>
+              <p className="ec-ai__hint">
+                原默认模型：{plan.defaultModelChange.before ?? '未设置'}
+              </p>
+            </>
+          )}
           <span className="ec-ai__row-actions">
             <Button
               size="sm"

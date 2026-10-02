@@ -6,6 +6,7 @@ export interface NavLocation {
   line?: number;
   pageId?: string;
   elementId?: string;
+  endpointIds?: string[];
 }
 
 export const useNavLocation = create<{ target: NavLocation | null }>(() => ({ target: null }));
@@ -13,5 +14,9 @@ export const useNavLocation = create<{ target: NavLocation | null }>(() => ({ ta
 export function navigateToLocation(target: NavLocation): void {
   useNavLocation.setState({ target });
   if (typeof window !== 'undefined')
-    window.location.hash = target.filePath ? '#/code' : '#/designer';
+    window.location.hash = target.endpointIds
+      ? '#/apis'
+      : target.filePath
+        ? '#/code'
+        : '#/designer';
 }

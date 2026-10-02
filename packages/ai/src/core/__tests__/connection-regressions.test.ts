@@ -9,6 +9,7 @@ const provider: Provider = {
   userId: 'local',
   name: '测试',
   protocol: 'openai',
+  source: 'custom',
   baseUrl: 'http://127.0.0.1',
   headers: {},
   keyRef: null,

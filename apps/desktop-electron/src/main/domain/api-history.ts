@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { realpath } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { apiRouteKeyOf } from '@ec/core';
@@ -10,6 +11,19 @@ import {
 } from '@ec/registry';
 
 const runFile = promisify(execFile);
+// Windows 上 TEMP 常是 8.3 短路径（如 RUNNER~1），而 git 返回规范长路径；字符串比较会误判成不同目录
+const realpathNative = promisify(realpath.native);
+const sameLocation = async (a: string, b: string): Promise<boolean> => {
+  if (resolve(a).toLowerCase() === resolve(b).toLowerCase()) return true;
+  try {
+    return (
+      (await realpathNative(resolve(a))).toLowerCase() ===
+      (await realpathNative(resolve(b))).toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+};
 export interface ApiCreationTime {
   createdAt: number | null;
   createdAtSource: 'git_inferred' | 'unknown';
@@ -42,7 +56,7 @@ export function createApiHistoryReader(
     (state ??= (async () => {
       try {
         const top = (await git(['rev-parse', '--show-toplevel'])).trim();
-        if (resolve(top).toLowerCase() !== resolve(root).toLowerCase())
+        if (!(await sameLocation(top, root)))
           return '代码根不是独立 Git 仓库；不采用父目录的历史，创建时间未知';
         if ((await git(['rev-parse', '--is-shallow-repository'])).trim() === 'true')
           return '浅克隆历史不完整，创建时间未知；未自动补全历史';

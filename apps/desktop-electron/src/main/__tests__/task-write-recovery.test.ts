@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { build } from 'esbuild';
 import { AgentStore } from '@ec/ai';
@@ -14,12 +15,14 @@ let bundleDir: string;
 let worker: string;
 const processes = new Set<ChildProcess>();
 const directories: string[] = [];
+// 仓库根从本文件推导（文件 → 上 5 级到根）：包配置（CI 路径）的 cwd 在 apps/desktop-electron，不能再用根相对路径
+const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
 beforeAll(async () => {
   bundleDir = mkdtempSync(join(tmpdir(), 'ec-d07-worker-'));
   worker = join(bundleDir, 'worker.cjs');
   await build({
     entryPoints: [
-      resolve('apps/desktop-electron/src/main/__tests__/fixtures/task-write-worker.ts'),
+      resolve(REPO_ROOT, 'apps/desktop-electron/src/main/__tests__/fixtures/task-write-worker.ts'),
     ],
     outfile: worker,
     bundle: true,
@@ -27,7 +30,7 @@ beforeAll(async () => {
     format: 'cjs',
     external: ['better-sqlite3'],
     banner: {
-      js: `require=require('node:module').createRequire(${JSON.stringify(resolve('apps/desktop-electron/package.json'))});`,
+      js: `require=require('node:module').createRequire(${JSON.stringify(resolve(REPO_ROOT, 'apps/desktop-electron/package.json'))});`,
     },
   });
 });

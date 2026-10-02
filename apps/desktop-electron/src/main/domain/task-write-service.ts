@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -243,8 +244,19 @@ export class TaskWriteService {
           ? resolve(await this.options.git.repositoryRoot(root))
           : null;
       const worktreeRoot = repositoryRoot !== null ? join(directory, 'worktree') : null;
-      if (repositoryRoot !== null && worktreeRoot !== null)
-        copyRoot = join(worktreeRoot, relative(repositoryRoot, root));
+      if (repositoryRoot !== null && worktreeRoot !== null) {
+        // Windows TEMP 可能是 8.3 短路径（RUNNER~1），git 返回的是规范长路径：
+        // 先取真实路径再求相对，否则 relative() 会算出穿越管理目录的 bogus 相对路径。
+        let realRoot = root;
+        let realRepository = repositoryRoot;
+        try {
+          realRoot = realpathSync(root);
+          realRepository = realpathSync(repositoryRoot);
+        } catch {
+          /* 路径不存在时退回原形态，后续 containment 会如实报错 */
+        }
+        copyRoot = join(worktreeRoot, relative(realRepository, realRoot));
+      }
       const task: TaskWriteRecord = {
         taskId,
         projectId: spec.projectId,

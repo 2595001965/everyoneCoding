@@ -11,11 +11,7 @@
  * envVarNames 只收集变量**名称**（契约 strict 拒绝值）；候选入口用目录相对路径。
  */
 
-import type {
-  DetectionEvidence,
-  RunPlan,
-  SubProjectDetection,
-} from '@ec/core';
+import type { DetectionEvidence, RunPlan, SubProjectDetection } from '@ec/core';
 
 /** 识别器版本：识别口径演进后旧确认计划可据此判过期 */
 export const RUN_PLANNER_VERSION = 'v2-d02.1';
@@ -86,7 +82,11 @@ function scriptOf(pkg: ParsedPackage, names: readonly string[]): string | null {
   return null;
 }
 
-function evidenceOf(kind: DetectionEvidence['kind'], path: string, detail: string | null): DetectionEvidence {
+function evidenceOf(
+  kind: DetectionEvidence['kind'],
+  path: string,
+  detail: string | null,
+): DetectionEvidence {
   return { kind, path, detail };
 }
 
@@ -145,7 +145,9 @@ function detectOne(
         language: 'python',
         framework: null,
         packageManager: null,
-        entryHints: files.filter((f) => /^(app|main|server|wsgi|asgi)\.(py|py)$/.test(f)).map(relative),
+        entryHints: files
+          .filter((f) => /^(app|main|server|wsgi|asgi)\.(py|py)$/.test(f))
+          .map(relative),
         supportLevel: 'partial',
         confidence: 0.5,
         evidence: BACKEND_PYTHON_HINTS.filter((f) => files.includes(f)).map((f) =>
@@ -178,8 +180,16 @@ function detectOne(
       supportLevel: 'supported',
       confidence: 0.9,
       evidence: [
-        evidenceOf('config_file', relative('package.json'), `vite 依赖${frameworkName !== null ? `（${frameworkName}）` : ''}`),
-        evidenceOf('script_field', relative('package.json'), `scripts.${devScript ?? 'dev'} 可启动开发服务`),
+        evidenceOf(
+          'config_file',
+          relative('package.json'),
+          `vite 依赖${frameworkName !== null ? `（${frameworkName}）` : ''}`,
+        ),
+        evidenceOf(
+          'script_field',
+          relative('package.json'),
+          `scripts.${devScript ?? 'dev'} 可启动开发服务`,
+        ),
       ],
       suggestedRunPlan: null,
     };
@@ -212,7 +222,8 @@ function detectOne(
   // Node 后端 / 全栈：server 依赖或 server.js / start 脚本
   const nodeEntry = ['server.js', 'app.js', 'index.js'].find((f) => files.includes(f)) ?? null;
   if (hasBackendDep || nodeEntry !== null || startScript !== null) {
-    const role: SubProjectDetection['role'] = hasBackendDep || nodeEntry !== null ? 'backend' : 'fullstack';
+    const role: SubProjectDetection['role'] =
+      hasBackendDep || nodeEntry !== null ? 'backend' : 'fullstack';
     const command =
       startScript !== null
         ? pm === null
@@ -237,7 +248,9 @@ function detectOne(
         ...(hasBackendDep
           ? [evidenceOf('config_file', relative('package.json'), '声明了服务端框架依赖')]
           : []),
-        ...(nodeEntry !== null ? [evidenceOf('directory_layout', relative(nodeEntry), '服务入口文件')] : []),
+        ...(nodeEntry !== null
+          ? [evidenceOf('directory_layout', relative(nodeEntry), '服务入口文件')]
+          : []),
         ...(startScript !== null
           ? [evidenceOf('script_field', relative('package.json'), `scripts.${startScript}`)]
           : []),
@@ -289,11 +302,17 @@ export function suggestRunPlan(ev: PlanningEvidence): PlanSuggestion {
   const pm = packageManagerOf(rootFiles);
 
   // workspace：子工程逐个识别；根 package.json 仅在含服务端证据时参与
-  const isWorkspace = rootFiles.includes('pnpm-workspace.yaml') || rootPkg?.workspaces !== undefined;
+  const isWorkspace =
+    rootFiles.includes('pnpm-workspace.yaml') || rootPkg?.workspaces !== undefined;
 
   if (isWorkspace) {
     const dirs = Object.keys(ev.files)
-      .filter((d) => d !== '' && /^(apps|packages|services)\//.test(d) && (ev.packages[d] !== undefined || (ev.files[d] ?? []).includes('package.json')))
+      .filter(
+        (d) =>
+          d !== '' &&
+          /^(apps|packages|services)\//.test(d) &&
+          (ev.packages[d] !== undefined || (ev.files[d] ?? []).includes('package.json')),
+      )
       .sort();
     for (const dir of dirs) {
       const sub = detectOne(dir, ev, pm);
@@ -315,7 +334,9 @@ export function suggestRunPlan(ev: PlanningEvidence): PlanSuggestion {
   const runnable = subProjects.filter((s) => s.suggestedRunPlan !== null);
   for (const sub of subProjects) {
     if (sub.suggestedRunPlan === null) {
-      notes.push(`${sub.subProjectId}：识别到工程证据但无法给出自动启动命令，需要人工确认后手动运行。`);
+      notes.push(
+        `${sub.subProjectId}：识别到工程证据但无法给出自动启动命令，需要人工确认后手动运行。`,
+      );
     }
   }
 

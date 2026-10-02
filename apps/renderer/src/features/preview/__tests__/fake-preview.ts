@@ -311,17 +311,27 @@ export function createFakePreviewApi(options?: FakePreviewOptions): FakePreviewA
             entryHints: ['package.json#scripts.dev'],
             supportLevel: 'supported',
             confidence: 0.9,
-            evidence: [
-              { kind: 'config_file', path: 'package.json', detail: 'vite 依赖（react）' },
-            ],
+            evidence: [{ kind: 'config_file', path: 'package.json', detail: 'vite 依赖（react）' }],
             suggestedRunPlan: null,
           },
         ],
         plan: {
           cwd: '.',
           services: [
-            { serviceId: 'install-root', role: 'install', command: 'npm install', args: [], portHint: null },
-            { serviceId: 'frontend-root', role: 'frontend', command: 'npm run dev', args: ['--', '--strictPort'], portHint: 5173 },
+            {
+              serviceId: 'install-root',
+              role: 'install',
+              command: 'npm install',
+              args: [],
+              portHint: null,
+            },
+            {
+              serviceId: 'frontend-root',
+              role: 'frontend',
+              command: 'npm run dev',
+              args: ['--', '--strictPort'],
+              portHint: 5173,
+            },
           ],
           startupOrder: ['install-root', 'frontend-root'],
           envVarNames: ['VITE_API_BASE'],

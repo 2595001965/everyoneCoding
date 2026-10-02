@@ -127,10 +127,18 @@ export class AgentCoordinator {
           .get(command.task_id) as { project_id: string };
         const record = this.store.get(this.userId, row.project_id, command.task_id);
         if (command.kind === 'cancel') {
-          if (
-            record.task.status === 'queued' ||
-            record.task.status === 'running' ||
-            (record.task.status === 'awaiting_confirmation' && record.executionState === 'paused')
+          if (record.task.status === 'queued') {
+            // 从未派发：没有执行器会回来收尾，这里直接落终态
+            record.executionState = 'settled';
+            this.store.update(record, 'cancelled');
+          } else if (record.task.status === 'running') {
+            // 只中断并标记状态；执行器完成时经 run() 落 settled 并带回部分结果，
+            // 不能在这里抢先把 settled 写下去——wait() 会抢跑拿到 null result。
+            this.running.get(command.task_id)?.controller.abort();
+            this.store.update(record, 'cancelled');
+          } else if (
+            record.task.status === 'awaiting_confirmation' &&
+            record.executionState === 'paused'
           ) {
             this.running.get(command.task_id)?.controller.abort();
             record.executionState = 'settled';

@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -65,6 +73,8 @@ const child = async (script: string, args: string[] = []): Promise<number | null
 
 beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), 'ec-d07-'));
+  // CI 的 TEMP 是 8.3 短路径（RUNNER~1）而 git 返回规范长路径：入口即归一，全链路单一形态
+  directory = realpathSync.native(directory);
   root = join(directory, 'source');
   mkdirSync(root);
   git = createCliGitBackend({ runner: createNodeGitRunner() });

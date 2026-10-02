@@ -18,6 +18,8 @@ import type {
   ManagedProcess,
   PreviewApi,
   PreviewState,
+  RunPlanSuggestion,
+  RuntimeStateSnapshot,
 } from '../preview-api';
 
 /**
@@ -141,6 +143,8 @@ export function createFakePreviewApi(options?: FakePreviewOptions): FakePreviewA
   ];
   let backendRunning = false;
   let process: ManagedProcess | null = null;
+  let dataMode: 'real' | 'mock' = 'real';
+  let runtime: RuntimeStateSnapshot | null = null;
 
   const state = async (): Promise<PreviewState> => ({
     mode: internal.mode,
@@ -150,6 +154,8 @@ export function createFakePreviewApi(options?: FakePreviewOptions): FakePreviewA
     dataSource: internal.running ? dataSource : null,
     backendAvailable: backendRunning,
     notice,
+    dataMode,
+    runtime,
   });
 
   const api: PreviewApi = {
@@ -290,6 +296,82 @@ export function createFakePreviewApi(options?: FakePreviewOptions): FakePreviewA
     },
     async setMockSettings(): Promise<void> {
       return;
+    },
+    /* ---------------- V2-D02：运行计划 / 运行实例 / 显式数据模式 ---------------- */
+    async runPlan(): Promise<RunPlanSuggestion> {
+      return {
+        plannerVersion: 'v2-d02.1',
+        subProjects: [
+          {
+            subProjectId: 'sub-root-vite',
+            role: 'frontend',
+            language: 'typescript',
+            framework: 'react-vite',
+            packageManager: 'npm',
+            entryHints: ['package.json#scripts.dev'],
+            supportLevel: 'supported',
+            confidence: 0.9,
+            evidence: [
+              { kind: 'config_file', path: 'package.json', detail: 'vite 依赖（react）' },
+            ],
+            suggestedRunPlan: null,
+          },
+        ],
+        plan: {
+          cwd: '.',
+          services: [
+            { serviceId: 'install-root', role: 'install', command: 'npm install', args: [], portHint: null },
+            { serviceId: 'frontend-root', role: 'frontend', command: 'npm run dev', args: ['--', '--strictPort'], portHint: 5173 },
+          ],
+          startupOrder: ['install-root', 'frontend-root'],
+          envVarNames: ['VITE_API_BASE'],
+        },
+        requiresConfirmation: true,
+        notes: ['首次运行将执行依赖安装命令；已保留锁文件，不会升级包管理器或依赖版本。'],
+      };
+    },
+    async confirmRunPlan(plans) {
+      return { plannerVersion: 'v2-d02.1', confirmedAt: 1, plans };
+    },
+    async startRun() {
+      runtime = {
+        runtimeId: '01RUNTIMEFAKE0000000000',
+        projectId: 'p-fake',
+        cwd: '/code',
+        status: 'ready',
+        services: [
+          {
+            serviceId: 'frontend-root',
+            kind: 'frontend',
+            port: 5180,
+            baseUrl: 'http://127.0.0.1:5180',
+            healthPath: '/',
+          },
+        ],
+        startedAt: 1,
+        updatedAt: 2,
+      };
+      return ok(runtime);
+    },
+    async runStatus() {
+      return runtime;
+    },
+    async stopRuntime() {
+      if (runtime !== null) runtime = { ...runtime, status: 'stopped', services: [] };
+      return ok(runtime);
+    },
+    async restartService() {
+      if (runtime === null) throw new Error('fake: no runtime');
+      return ok(runtime);
+    },
+    async captureThumbnail() {
+      return ok('/meta/thumbnail.png');
+    },
+    async dataMode() {
+      return dataMode;
+    },
+    async setDataMode(mode) {
+      dataMode = mode;
     },
   };
 

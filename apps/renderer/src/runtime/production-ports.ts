@@ -496,6 +496,23 @@ export function createPreviewApi(call: DomainCaller, subscribe: DomainEventSubsc
     setLanSharing: (enabled) => p('setLanSharing', { enabled }).then(() => undefined),
     mockSettings: () => p('mockSettings'),
     setMockSettings: (patch) => p('setMockSettings', { patch }).then(() => undefined),
+    // V2-D02 运行计划 / 运行实例 / 显式数据模式
+    runPlan: () => p('runPlan'),
+    confirmRunPlan: (plans, plannerVersion) =>
+      p('confirmRunPlan', { plans, ...(plannerVersion !== undefined ? { plannerVersion } : {}) }),
+    startRun: () => ok(() => p('startRun', {})) as ReturnType<PreviewApi['startRun']>,
+    runStatus: (runtimeId) => p('runStatus', { ...(runtimeId !== undefined ? { runtimeId } : {}) }),
+    stopRuntime: (runtimeId) =>
+      ok(() =>
+        p('stopRuntime', { ...(runtimeId !== undefined ? { runtimeId } : {}) }),
+      ) as ReturnType<PreviewApi['stopRuntime']>,
+    restartService: (runtimeId, serviceId) =>
+      ok(() => p('restartService', { runtimeId, serviceId })) as ReturnType<
+        PreviewApi['restartService']
+      >,
+    captureThumbnail: () => ok(() => p('captureThumbnail', {})),
+    dataMode: () => p('dataMode'),
+    setDataMode: (mode) => p('setDataMode', { mode }).then(() => undefined),
   };
 }
 

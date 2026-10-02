@@ -19,3 +19,4 @@ export { BackendPanel } from './BackendPanel';
 export { ApiDebugger } from './ApiDebugger';
 export { DevicePreview } from './DevicePreview';
 export { PreviewWorkspace } from './PreviewWorkspace';
+export { RunPlanPanel } from './RunPlanPanel';

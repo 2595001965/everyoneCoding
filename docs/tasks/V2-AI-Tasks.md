@@ -106,7 +106,7 @@ pnpm exec prettier --check <本次变更文件列表>
 | V2-T03 | 无平台本地 Provider 闭环   | T02                                    | 待办 |
 | V2-T04 | 普通源码安全导入           | T01                                    | 待办 |
 | V2-T05 | 工程识别与运行计划         | T04                                    | 待办 |
-| V2-T06 | 真实前后端预览托管         | T05                                    | 待办 |
+| V2-T06 | 真实前后端预览托管（V2-D02） | T05                                  | 已实现待验收 |
 | V2-T07 | 安全 DOM 元素选取          | T06                                    | 待办 |
 | V2-T08 | 运行元素到源码映射         | T07                                    | 待办 |
 | V2-T09 | 前后端接口索引             | T05                                    | 待办 |
@@ -544,3 +544,17 @@ P1 扩展（V2-DOM-08、V2-API-12、V2-MDL-08、V2-WEB-08 及额外框架）不�
 - Electron 能用就称 Tauri 也完成，或把缺失环境当测试通过。
 
 上述任一情况都不能标记对应任务“已验收”。
+
+---
+
+## 附：V2-T06（新编号 V2-D02）实现记录（2026-10-02，待验收）
+
+对应新任务卡见并行重排后的 V2-AI-Tasks §4 V2-D02；本增量已实现并在真实浏览器验收：
+
+- **运行计划**：`packages/preview/src/backend/run-planner.ts`（纯函数，输出 V2 契约 SubProjectDetection/RunPlan，识别 React/Vue Vite、静态站、前后端分离 workspace、Node/Python 后端证据；env 只收集变量名）；preview 域新增 `runPlan → confirmRunPlan → startRun` 确认链（`runPlanSchema.safeParse` strict 校验，确认持久化在 `preview_run_plan:*`；未经确认 startRun 报 INVALID_ARGUMENT，V2-SRC-05）。
+- **运行实例（runtimeId）**：`packages/preview/src/backend/runtime-orchestrator.ts`——每服务复用一个 `BackendRunner`（新增可选 `label`/start env 增量参数），安装步骤顺序执行、失败即 failed 且不启动服务；端口 spawn 前真实探测、实例内互斥；前端命令追加 `--port <分配端口> --host 127.0.0.1`（配 `--strictPort`：被抢占可见失败，不静默漂移；显式绑 IPv4 回环，因 vite 默认绑 `localhost`→::1 会让就绪判定永超时）；后端注入 PORT env；就绪=端口可连（后端）/页面可加载 HTTP<500（前端，V2-SRC-06）；`stopRuntime` 精准停止，服务崩溃后实例 degraded、数据源/反代同步摘除。
+- **预览代理**：预览服务反向代理前端 dev server（流式转发 + HMR WebSocket upgrade 原样转发，host/origin 由受控代理改写为目标 dev server，不关 webSecurity）；`/api` 仍走域内数据源门控。
+- **显式 Mock**：默认 `real` 模式——真实后端不可用如实 502 富诊断（`真实后端不可用`+hint），不再自动回退 Mock（V2 FR-PRV-02 修改）；`setDataMode mock` 显式切换才用模拟数据（持久化 `preview_data_mode:*`，始终带 `X-EC-Data-Source: mock`）；mock 压过运行中的后端；工具栏新增显式开关（`datamode-toggle`）。
+- **缩略图（V1-L3）**：`apps/desktop-electron/src/main/thumbnail.ts` 离屏窗口截图端口（仅 127.0.0.1、无 preload、超时兜底、即截即毁），经 `capturePage` 注入 preview 域（缺省如实不生成），持久化 `meta/thumbnail.png`；workspace `getThumbnailUrl` 返回 data URL（缺失/超限/读失败保持 null 占位）。
+- **验证**：单测 14/14（run-planner+runtime-orchestrator）；域集成 9/9（`domain-preview-run.test.ts`，真实进程/SQLite/HTTP）；既有 `domain-run-ports.test.ts` 24/24（Mock 期望按新规则更新）、preview 包 103/103、渲染层 preview 29/29、workspace 25/25。真实浏览器（Chrome headless+CDP）实测 7/7：真实 Vite 页面可见、页面表单 POST 打到真实后端（source=backend）、改 `src/label.js` 后 HMR 经 WS 代理生效且不整页刷新、后端 taskkill 后请求如实 502 富诊断不回退、显式 Mock 后 `/health` 200+mock 标记、精准停止后双服务端口释放且页面回退静态兜底。
+- **边界**：真实 Electron 外壳（离屏截图）与 Tauri 页面等价归 D16 复验；D01（文件夹/ZIP 接入）由并行会话在途，本增量只复用其确认计划契约（RunPlan）；D03（DOM 选取）并行会话与本文作在同一批混合文件在途，本提交只含纯 D02 文件。

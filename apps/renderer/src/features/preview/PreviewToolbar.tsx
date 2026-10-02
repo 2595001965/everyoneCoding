@@ -15,6 +15,7 @@ export function PreviewToolbar(): JSX.Element {
   const [elapsed, setElapsed] = React.useState<number | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [dataMode, setDataMode] = React.useState<'real' | 'mock'>('real');
 
   // 稳定指纹：仅依赖 api 引用（不变），避免 useEffect 每帧重建对象导致死循环
   const apiKey = api.ready ? 'ready' : 'pending';
@@ -22,6 +23,13 @@ export function PreviewToolbar(): JSX.Element {
   const reload = React.useCallback(() => {
     void api.state().then(setState);
     void api.devices().then(setDevices);
+    // 显式数据模式（V2-D02）；旧外壳未实现时保持 real 默认
+    if (typeof api.dataMode === 'function') {
+      void api
+        .dataMode()
+        .then(setDataMode)
+        .catch(() => undefined);
+    }
   }, [api]);
 
   React.useEffect(() => {
@@ -58,6 +66,16 @@ export function PreviewToolbar(): JSX.Element {
   const sourceLabel =
     state !== null && state.dataSource !== null ? DATA_SOURCE_LABELS[state.dataSource] : null;
   const notice = state !== null ? state.notice : null;
+
+  const handleDataMode = (): void => {
+    if (busy || typeof api.setDataMode !== 'function') return;
+    const next = dataMode === 'real' ? 'mock' : 'real';
+    setBusy(true);
+    void api
+      .setDataMode(next)
+      .then(() => reload())
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="ec-preview-toolbar" role="toolbar" aria-label="预览工具栏">
@@ -104,6 +122,24 @@ export function PreviewToolbar(): JSX.Element {
           <span className="ec-preview-toolbar__source" data-source={state?.dataSource ?? undefined}>
             数据来源：{sourceLabel}
           </span>
+        )}
+        {typeof api.setDataMode === 'function' && (
+          <button
+            type="button"
+            className="ec-preview-toolbar__datamode"
+            data-mode={dataMode}
+            aria-pressed={dataMode === 'mock'}
+            data-testid="datamode-toggle"
+            title={
+              dataMode === 'real'
+                ? '当前只用真实后端，后端不可用时接口如实报错；点击显式切换到模拟数据'
+                : '当前为模拟数据（显式 Mock），响应带 X-EC-Data-Source: mock 标记；点击切回真实模式'
+            }
+            disabled={busy}
+            onClick={handleDataMode}
+          >
+            {dataMode === 'real' ? '真实数据' : '模拟数据（显式 Mock）'}
+          </button>
         )}
       </div>
 

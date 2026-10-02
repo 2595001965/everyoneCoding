@@ -5,6 +5,7 @@ import { registerAllIpc, type RegisteredIpc } from './ipc';
 import { installOAuthProtocol, type ProtocolAppLike, type ProtocolBridge } from './protocol';
 import type { IpcDependencies } from './types';
 import { createHeadlessRuntime, type HeadlessRuntime } from './runtime/bootstrap';
+import { createPageCapturePort } from './thumbnail';
 import { refreshRemoteConfigOnBoot } from './ai/boot-refresh';
 import {
   createElectronUpdaterHost,
@@ -227,6 +228,8 @@ async function buildRuntime(): Promise<HeadlessRuntime> {
         path.join(__dirname, '..', '..', '..', '..', 'packages', 'data', 'migrations')
       : path.join(__dirname, '..', 'migrations'),
     userId: 'local-user',
+    // V2-D02 缩略图：离屏窗口截图端口，预览页就绪后生成项目缩略图（见 thumbnail.ts）
+    capturePage: createPageCapturePort(),
     // OAuth 辅通道：协议回调由 `installOAuthProtocol()` 的桥投递进 auth 域。
     // 未拿到单实例锁时为 undefined ⇒ 域内 `registerProtocol` 如实返回 false。
     ...(oauthBridge !== null

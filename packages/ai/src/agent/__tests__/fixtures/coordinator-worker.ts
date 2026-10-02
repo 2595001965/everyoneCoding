@@ -23,7 +23,11 @@ async function main(): Promise<void> {
   const db = new Database(join(directory, 'agent.sqlite'));
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
-  Migrator.fromDirectory(db, resolve('packages/data/migrations')).up();
+  // 子进程 cwd 不一定在仓库根：父进程经 EC_MIGRATIONS_DIR 传入；缺省回退旧的根相对路径
+  Migrator.fromDirectory(
+    db,
+    process.env.EC_MIGRATIONS_DIR ?? resolve('packages/data/migrations'),
+  ).up();
   const store = new AgentStore(db, DOMAIN, 1200);
 
   if (mode === 'submit') {

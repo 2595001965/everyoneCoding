@@ -4,12 +4,16 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { Migrator } from '@ec/data';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AgentStore } from '../store';
 
 const USER = 'd06-user';
+// 仓库根从本文件推导（src/agent/__tests__ → 上 5 级）：包配置与根配置的 cwd 不同，不能用相对路径
+const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
+const MIGRATIONS_DIR = join(REPO_ROOT, 'packages', 'data', 'migrations');
 const PROJECT = 'd06-project';
 const DOMAIN = 'd06-process-test';
 let bundleDir = '';
@@ -17,8 +21,9 @@ let worker = '';
 const children = new Set<ChildProcess>();
 const directories: string[] = [];
 const databases = new Set<Database.Database>();
-const buildWorker = createRequire(resolve('apps/desktop-electron/package.json'))('esbuild')
-  .build as (options: {
+const buildWorker = createRequire(resolve(REPO_ROOT, 'apps/desktop-electron/package.json'))(
+  'esbuild',
+).build as (options: {
   entryPoints: string[];
   outfile: string;
   bundle: true;
@@ -32,7 +37,9 @@ beforeAll(async () => {
   bundleDir = mkdtempSync(join(tmpdir(), 'ec-d06-worker-'));
   worker = join(bundleDir, 'coordinator-worker.cjs');
   await buildWorker({
-    entryPoints: [resolve('packages/ai/src/agent/__tests__/fixtures/coordinator-worker.ts')],
+    entryPoints: [
+      resolve(REPO_ROOT, 'packages/ai/src/agent/__tests__/fixtures/coordinator-worker.ts'),
+    ],
     outfile: worker,
     bundle: true,
     platform: 'node',
@@ -68,7 +75,7 @@ function scenario(): { directory: string; db: Database.Database; store: AgentSto
   const db = new Database(join(directory, 'agent.sqlite'));
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
-  Migrator.fromDirectory(db, resolve('packages/data/migrations')).up();
+  Migrator.fromDirectory(db, MIGRATIONS_DIR).up();
   databases.add(db);
   return { directory, db, store: new AgentStore(db, DOMAIN, 1200) };
 }
@@ -85,7 +92,11 @@ function startCoordinator(
   const child = spawn(
     process.execPath,
     [worker, 'coordinator', directory, dailyUsd === null ? 'none' : String(dailyUsd), String(qps)],
-    { windowsHide: true, stdio: 'pipe' },
+    {
+      windowsHide: true,
+      stdio: 'pipe',
+      env: { ...process.env, EC_MIGRATIONS_DIR: MIGRATIONS_DIR },
+    },
   );
   children.add(child);
   child.on('exit', () => children.delete(child));
@@ -102,7 +113,11 @@ function startSubmitter(
   const child = spawn(
     process.execPath,
     [worker, 'submit', directory, outputPath, sessionId, key, JSON.stringify(request)],
-    { windowsHide: true, stdio: 'pipe' },
+    {
+      windowsHide: true,
+      stdio: 'pipe',
+      env: { ...process.env, EC_MIGRATIONS_DIR: MIGRATIONS_DIR },
+    },
   );
   children.add(child);
   child.on('exit', () => children.delete(child));

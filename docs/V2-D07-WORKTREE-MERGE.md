@@ -19,7 +19,7 @@
 ## 验证
 
 测试命令：
-node ./node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__/task-write.test.ts apps/desktop-electron/src/main/__tests__/task-write-recovery.test.ts packages/ai/src/write/__tests__/write-pipeline.test.ts --reporter=dot
+node ./node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/**tests**/task-write.test.ts apps/desktop-electron/src/main/**tests**/task-write-recovery.test.ts packages/ai/src/write/**tests**/write-pipeline.test.ts --reporter=dot
 node ./node_modules/typescript/bin/tsc -p apps/desktop-electron/tsconfig.json --noEmit
 node ./node_modules/typescript/bin/tsc -p packages/ai/tsconfig.json --noEmit
 node ./node_modules/typescript/bin/tsc -p packages/git/tsconfig.json --noEmit

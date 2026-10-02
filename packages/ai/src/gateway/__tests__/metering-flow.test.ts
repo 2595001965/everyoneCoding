@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Migrator, newUlid } from '@ec/data';
 import {
@@ -58,7 +59,9 @@ class FixtureTransport implements HttpTransport {
 
 function openPersistentDb(path: string): Database.Database {
   const db = new Database(path);
-  Migrator.fromDirectory(db, join(process.cwd(), 'packages', 'data', 'migrations')).up();
+  // 仓库根从本文件推导（src/gateway/__tests__ → 上 5 级），包配置与根配置的 cwd 不同也能找到迁移
+  const repoRoot = fileURLToPath(new URL('../../../../../', import.meta.url));
+  Migrator.fromDirectory(db, join(repoRoot, 'packages', 'data', 'migrations')).up();
   return db;
 }
 

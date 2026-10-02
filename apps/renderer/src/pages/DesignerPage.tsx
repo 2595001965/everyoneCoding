@@ -123,10 +123,13 @@ function DesignerSession({ api, projectId }: DesignerSessionProps): JSX.Element 
         if (loaded.length === 0) throw new Error('项目内没有可用的页面 DSL，请重新创建页面');
         setPages(loaded);
         const target = useNavLocation.getState().target;
-        const active = loaded.find((page) => target?.projectId === projectId && page.id === target.pageId) ?? loaded[0] as PageDsl;
+        const active =
+          loaded.find((page) => target?.projectId === projectId && page.id === target.pageId) ??
+          (loaded[0] as PageDsl);
         setPageStore(new MultiPageStore({ pages: loaded, activePageId: active.id }));
         const editor = createEditorStore({ dsl: active });
-        if (target?.projectId === projectId && target.elementId) editor.getState().select([target.elementId]);
+        if (target?.projectId === projectId && target.elementId)
+          editor.getState().select([target.elementId]);
         setEditorStore(editor);
         setStatus('ready');
       } catch (cause) {
@@ -297,7 +300,9 @@ function DesignerSession({ api, projectId }: DesignerSessionProps): JSX.Element 
   return (
     <DesignerProvider store={editorStore} ports={ports}>
       <MultiPageProvider store={pageStore}>
-        <NavApiProvider api={readInjectedNavApi()}><DesignerWorkspace /></NavApiProvider>
+        <NavApiProvider api={readInjectedNavApi()}>
+          <DesignerWorkspace />
+        </NavApiProvider>
       </MultiPageProvider>
     </DesignerProvider>
   );

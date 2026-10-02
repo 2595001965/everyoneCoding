@@ -212,7 +212,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
    */
   const eventStore: RenameEventStore = (() => {
     const get = (id: string): RenameEvent | null => {
-      const row = db.prepare('SELECT * FROM rename_event WHERE id = ?').get(id) as RenameEventRecord | undefined;
+      const row = db.prepare('SELECT * FROM rename_event WHERE id = ?').get(id) as
+        RenameEventRecord | undefined;
       return row === undefined ? null : fromRenameEventRecord(row);
     };
 
@@ -232,7 +233,12 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         persist(event);
       },
       get,
-      list: (projectId) => (db.prepare('SELECT * FROM rename_event WHERE project_id = ? ORDER BY created_at DESC').all(projectId) as RenameEventRecord[]).map(fromRenameEventRecord),
+      list: (projectId) =>
+        (
+          db
+            .prepare('SELECT * FROM rename_event WHERE project_id = ? ORDER BY created_at DESC')
+            .all(projectId) as RenameEventRecord[]
+        ).map(fromRenameEventRecord),
       markUndone(id) {
         const current = get(id);
         const next = current === null ? null : { ...current, undone: true };
@@ -377,7 +383,10 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       title: row.title,
       type: row.kind === 'requirement' || row.kind === 'tech' ? row.kind : 'related',
       content:
-        row.content_text ?? (row.content_ref !== null ? (readTextSafe(resolveDocumentPath(projectId, row.content_ref)) ?? '') : ''),
+        row.content_text ??
+        (row.content_ref !== null
+          ? (readTextSafe(resolveDocumentPath(projectId, row.content_ref)) ?? '')
+          : ''),
     }));
 
   const collectMemories = (
@@ -530,7 +539,8 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
       now: Date.now(),
       files: {
         read: (refPath) => readTextSafe(resolveRefPath(projectId, refPath)),
-        write: (refPath, content) => writeTransactional(resolveRefPath(projectId, refPath), content),
+        write: (refPath, content) =>
+          writeTransactional(resolveRefPath(projectId, refPath), content),
         exists: (refPath) => {
           try {
             return existsSync(resolveRefPath(projectId, refPath));
@@ -547,7 +557,9 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
             { content_text: string | null; content_ref: string | null } | undefined;
           if (row === undefined) return null;
           if (row.content_text !== null) return row.content_text;
-          return row.content_ref === null ? null : readTextSafe(resolveDocumentPath(projectId, row.content_ref));
+          return row.content_ref === null
+            ? null
+            : readTextSafe(resolveDocumentPath(projectId, row.content_ref));
         },
         write: (documentId, content) => {
           const row = db
@@ -672,7 +684,10 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         },
         restore: (documentId, snapshot) => {
           if (snapshot === null || snapshot === undefined) return;
-          writeTransactional(logicPathOf(projectId, documentId), `${JSON.stringify(snapshot, null, 2)}\n`);
+          writeTransactional(
+            logicPathOf(projectId, documentId),
+            `${JSON.stringify(snapshot, null, 2)}\n`,
+          );
           logicCache.delete(documentId);
         },
       },
@@ -751,12 +766,23 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
   const depsOf = (projectId: string, showRevisionMarks: boolean): RenameTransactionDeps => ({
     context: buildContext(projectId, showRevisionMarks),
     rule: ruleOf(projectId),
-    registry: { save: (entry) => {
-      registry.save(entry);
-      const table = entry.entityType === 'element' ? 'element' : entry.entityType === 'page' ? 'page' : 'feature';
-      db.prepare(`UPDATE ${table} SET name = ?, updated_at = ? WHERE id = ?`).run(entry.canonicalName, Date.now(), entry.entityId);
-      db.prepare("UPDATE occurrence SET status = 'stale' WHERE registry_id = ?").run(entry.id);
-    } },
+    registry: {
+      save: (entry) => {
+        registry.save(entry);
+        const table =
+          entry.entityType === 'element'
+            ? 'element'
+            : entry.entityType === 'page'
+              ? 'page'
+              : 'feature';
+        db.prepare(`UPDATE ${table} SET name = ?, updated_at = ? WHERE id = ?`).run(
+          entry.canonicalName,
+          Date.now(),
+          entry.entityId,
+        );
+        db.prepare("UPDATE occurrence SET status = 'stale' WHERE registry_id = ?").run(entry.id);
+      },
+    },
     git: gitPort,
     events: eventStore,
   });
@@ -961,13 +987,15 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         }
         pendingCommit.message = '';
         pendingCommit.paths = [];
-        const result = atomic.run(() => executeRename({
-          registry: entry,
-          newCanonicalName: newName,
-          report,
-          selection,
-          deps: depsOf(projectId, params['showRevisionMarks'] === true),
-        }));
+        const result = atomic.run(() =>
+          executeRename({
+            registry: entry,
+            newCanonicalName: newName,
+            report,
+            selection,
+            deps: depsOf(projectId, params['showRevisionMarks'] === true),
+          }),
+        );
 
         if (result.ok && result.changeset !== null) {
           const sha = await commitRename(
@@ -1163,8 +1191,11 @@ export function createRenameDomain(options: RenameDomainOptions): DomainRouter {
         }
         pendingCommit.message = '';
         pendingCommit.paths = [];
-        if (plan.projectId !== projectId) throw new ShellError('INVALID_ARGUMENT', '批量计划不属于当前项目');
-        const result = atomic.run(() => executeBatchRename({ plan, deps: depsOf(projectId, false) }));
+        if (plan.projectId !== projectId)
+          throw new ShellError('INVALID_ARGUMENT', '批量计划不属于当前项目');
+        const result = atomic.run(() =>
+          executeBatchRename({ plan, deps: depsOf(projectId, false) }),
+        );
         batchPlans.delete(plan.batchId);
         for (const step of result.steps) {
           if (!step.ok || step.transaction.changeset === null) continue;

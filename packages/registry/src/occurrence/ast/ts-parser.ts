@@ -341,9 +341,14 @@ export function createTsParser(language: SourceLanguage = 'ts'): AstParser {
 
     // Let the compiler resolve bindings before accepting a hit. A traversal-order
     // scope stack alone misses hoisted declarations and uses before local `let`.
-    const compilerOptions: ts.CompilerOptions = { noLib: true, noResolve: true, allowJs: true, jsx: ts.JsxEmit.Preserve };
+    const compilerOptions: ts.CompilerOptions = {
+      noLib: true,
+      noResolve: true,
+      allowJs: true,
+      jsx: ts.JsxEmit.Preserve,
+    };
     const host = ts.createCompilerHost(compilerOptions);
-    host.getSourceFile = (path) => path === input.path ? source : undefined;
+    host.getSourceFile = (path) => (path === input.path ? source : undefined);
     const checker = ts.createProgram([input.path], compilerOptions, host).getTypeChecker();
     const identifiers = new Map<number, ts.Identifier>();
     const collect = (node: ts.Node): void => {
@@ -360,10 +365,15 @@ export function createTsParser(language: SourceLanguage = 'ts'): AstParser {
         let parent: ts.Node | undefined = declaration;
         while (parent !== undefined && !ts.isSourceFile(parent)) {
           if (ts.isImportDeclaration(parent)) {
-            return ts.isStringLiteral(parent.moduleSpecifier) && parent.moduleSpecifier.text.startsWith('.');
+            return (
+              ts.isStringLiteral(parent.moduleSpecifier) &&
+              parent.moduleSpecifier.text.startsWith('.')
+            );
           }
-          if (ts.isParameter(parent) || ts.isBindingElement(parent) || ts.isCatchClause(parent)) return false;
-          if (parent !== declaration && (ts.isFunctionLike(parent) || ts.isBlock(parent))) return false;
+          if (ts.isParameter(parent) || ts.isBindingElement(parent) || ts.isCatchClause(parent))
+            return false;
+          if (parent !== declaration && (ts.isFunctionLike(parent) || ts.isBlock(parent)))
+            return false;
           parent = parent.parent;
         }
         return true;

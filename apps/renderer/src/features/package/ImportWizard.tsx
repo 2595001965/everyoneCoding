@@ -153,7 +153,13 @@ export function ImportWizard(): JSX.Element {
     setError(null);
     try {
       setBusy(true);
-      const r = await api.importPackage({ packagePath, mode, ...(password ? { password } : {}), decisions: decisionList(), onProgress: (stage, n, total) => setProgress(`${stage} ${n}/${total}`) });
+      const r = await api.importPackage({
+        packagePath,
+        mode,
+        ...(password ? { password } : {}),
+        decisions: decisionList(),
+        onProgress: (stage, n, total) => setProgress(`${stage} ${n}/${total}`),
+      });
       setReport(r);
       setStep('report');
       setBusy(false);
@@ -165,12 +171,29 @@ export function ImportWizard(): JSX.Element {
 
   return (
     <div className="import-wizard">
-      <Input type="password" aria-label="导入口令" placeholder="加密包口令（未加密可留空）" value={password} onChange={setPassword} />
+      <Input
+        type="password"
+        aria-label="导入口令"
+        placeholder="加密包口令（未加密可留空）"
+        value={password}
+        onChange={setPassword}
+      />
       {progress && <p role="status">{progress}</p>}
-      {report?.healing && <HealingReportView report={report.healing} onExport={() => {
-        const url = URL.createObjectURL(new Blob([JSON.stringify(report.healing, null, 2)], { type: 'application/json' }));
-        const link = document.createElement('a'); link.href = url; link.download = 'healing-report.json'; link.click(); URL.revokeObjectURL(url);
-      }} />}
+      {report?.healing && (
+        <HealingReportView
+          report={report.healing}
+          onExport={() => {
+            const url = URL.createObjectURL(
+              new Blob([JSON.stringify(report.healing, null, 2)], { type: 'application/json' }),
+            );
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'healing-report.json';
+            link.click();
+            URL.revokeObjectURL(url);
+          }}
+        />
+      )}
 
       {step === 'select' && (
         <section className="import-wizard__select">

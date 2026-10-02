@@ -271,7 +271,11 @@ describe('E2E-24 Git 生产端口全流程（无命令行）', () => {
 
     /* ⑧ 删除分支前自动建安全快照（T12-04 要点 4）。
      * soft 回滚后该分支不再被合并包含，删除需要 force——这正是"危险操作 + 快照兜底"的组合路径。 */
-    const deleted = await gitOk<unknown>('deleteBranch', { name: 'feat/alias', force: true, confirmed: true });
+    const deleted = await gitOk<unknown>('deleteBranch', {
+      name: 'feat/alias',
+      force: true,
+      confirmed: true,
+    });
     expect(deleted.data).toBeDefined();
     const deleteLogs = deleted.logs.map((log) => log.message).join('\n');
     expect(deleteLogs).toContain('安全快照分支');

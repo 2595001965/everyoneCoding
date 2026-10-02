@@ -215,7 +215,11 @@ export class GitClient {
       }
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`${action} 失败：${message}`);
-      return fail('UNKNOWN', this.logger.redact(`${action} 失败：${message}`), this.logsSince(mark));
+      return fail(
+        'UNKNOWN',
+        this.logger.redact(`${action} 失败：${message}`),
+        this.logsSince(mark),
+      );
     }
   }
 

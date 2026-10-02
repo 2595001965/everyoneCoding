@@ -503,7 +503,8 @@ export function createNavDomain(options: NavDomainOptions): DomainRouter {
         const filePath = String(input.filePath ?? '');
         const line = Number(input.line ?? 0);
         paths.inside(paths.codeRoot(projectId), filePath);
-        if (!Number.isInteger(line) || line < 1) throw new ShellError('INVALID_ARGUMENT', '非法代码行号');
+        if (!Number.isInteger(line) || line < 1)
+          throw new ShellError('INVALID_ARGUMENT', '非法代码行号');
         // ① 注释标记（精确行）
         const byMarker = services.reverse.jumpFromCode({ filePath, line });
         if (byMarker.success) return byMarker satisfies ReverseJumpResult;

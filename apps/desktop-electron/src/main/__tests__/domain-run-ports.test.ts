@@ -719,9 +719,11 @@ describe('真实后端托管（受控进程端口）', () => {
           params: { projectId: PROJECT_ID },
         });
         const trail = lines.map((line) => line.text).join('\n');
-        // 本机没有 python 解释器时这是环境缺失，不是产品缺陷：如实跳过并给出证据
+        // 本机没有 python 解释器时这是环境缺失，不是产品缺陷：如实跳过并给出证据。
+        // vitest 的 ctx.skip() 不收参数（传了也会被忽略），原因打到日志里留证据。
         if (/不是内部或外部命令|not recognized|not found|No such file/i.test(trail)) {
-          ctx.skip(`本机无 python 解释器，跳过 Python 托管用例：${trail.slice(-160)}`);
+          console.warn(`[skip] 本机无 python 解释器，跳过 Python 托管用例：${trail.slice(-160)}`);
+          ctx.skip();
         }
         expect(started.ok, `Python 后端启动失败：${JSON.stringify(started.error)}`).toBe(true);
       }

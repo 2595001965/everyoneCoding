@@ -197,7 +197,10 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
         if (daily !== null && (typeof daily !== 'number' || !Number.isFinite(daily) || daily < 0)) {
           throw new ShellError('INVALID_ARGUMENT', 'dailyUsd 必须为数字或 null');
         }
-        if (monthly !== null && (typeof monthly !== 'number' || !Number.isFinite(monthly) || monthly < 0)) {
+        if (
+          monthly !== null &&
+          (typeof monthly !== 'number' || !Number.isFinite(monthly) || monthly < 0)
+        ) {
           throw new ShellError('INVALID_ARGUMENT', 'monthlyUsd 必须为数字或 null');
         }
         if (typeof alert !== 'number' || !Number.isFinite(alert) || alert <= 0 || alert > 1) {

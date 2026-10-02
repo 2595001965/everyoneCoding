@@ -109,10 +109,16 @@ export function assertEventPayloadSafe(payload: TelemetryEventPayload): void {
   if (!payload || Object.keys(payload).some((key) => !topKeys.has(key))) {
     throw new Error('遥测字段白名单违规：禁止顶层内容字段');
   }
-  if (!isKeyEventName(payload.name) || !['success', 'failure', 'cancelled', 'skipped'].includes(payload.result)) {
+  if (
+    !isKeyEventName(payload.name) ||
+    !['success', 'failure', 'cancelled', 'skipped'].includes(payload.result)
+  ) {
     throw new Error('遥测事件或结果不在白名单内');
   }
-  if (payload.durationMs !== undefined && (!Number.isFinite(payload.durationMs) || payload.durationMs < 0)) {
+  if (
+    payload.durationMs !== undefined &&
+    (!Number.isFinite(payload.durationMs) || payload.durationMs < 0)
+  ) {
     throw new Error('遥测耗时必须为有限非负数');
   }
   if (payload.errorKind !== undefined && !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(payload.errorKind)) {
@@ -127,13 +133,20 @@ export function assertEventPayloadSafe(payload: TelemetryEventPayload): void {
       );
     }
     const value = dims[key];
-    if (!['string', 'number', 'boolean'].includes(typeof value) || (typeof value === 'number' && !Number.isFinite(value))) {
+    if (
+      !['string', 'number', 'boolean'].includes(typeof value) ||
+      (typeof value === 'number' && !Number.isFinite(value))
+    ) {
       throw new Error('遥测维度禁止嵌套内容');
     }
     if (typeof value === 'string' && value.length > 200) {
       throw new Error(`遥测维度值过长（${key}，${value.length} 字符）：疑似夹带内容字段`);
     }
-    if (typeof value === 'string' && (!/^[A-Za-z0-9_.:/-]{1,200}$/.test(value) || /(?:sk-|bearer|password|secret|token|api[_-]?key)/i.test(value))) {
+    if (
+      typeof value === 'string' &&
+      (!/^[A-Za-z0-9_.:/-]{1,200}$/.test(value) ||
+        /(?:sk-|bearer|password|secret|token|api[_-]?key)/i.test(value))
+    ) {
       throw new Error('遥测维度仅允许标识符或枚举，禁止正文与凭据');
     }
   }

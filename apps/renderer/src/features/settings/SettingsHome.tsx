@@ -81,7 +81,14 @@ function SettingsBody({
 }: SettingsBodyProps): JSX.Element {
   const api = useSettingsOptional();
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
-  useEffect(() => { const workspace = readInjectedWorkspaceApi(); if (workspace) void workspace.listProjects().then(setProjects).catch(() => {}); }, []);
+  useEffect(() => {
+    const workspace = readInjectedWorkspaceApi();
+    if (workspace)
+      void workspace
+        .listProjects()
+        .then(setProjects)
+        .catch(() => {});
+  }, []);
   const usage = useUsageOptional();
   const [category, setCategory] = useState<SettingsCategory>(api ? 'general' : 'ai');
 
@@ -105,7 +112,13 @@ function SettingsBody({
         {!api ? <SettingsUnavailable /> : null}
         {category === 'general' && api ? <GeneralSettings /> : null}
         {category === 'data' && api ? <DataLocation /> : null}
-        {category === 'backup' ? (readInjectedPackageApi() ? <ArchiveSettings projects={projects} /> : api ? <BackupPanel projectId={projectId} /> : null) : null}
+        {category === 'backup' ? (
+          readInjectedPackageApi() ? (
+            <ArchiveSettings projects={projects} />
+          ) : api ? (
+            <BackupPanel projectId={projectId} />
+          ) : null
+        ) : null}
         {category === 'privacy' && api ? <PrivacyPanel /> : null}
         {category === 'shortcuts' && api ? <ShortcutSettings /> : null}
         {category === 'ai' ? (

@@ -281,11 +281,13 @@ export function createControlledProcessHost(
     },
 
     list() {
-      return [...entries.values()].filter((entry) => !entry.settled).map((entry) => ({
-        id: entry.id,
-        pid: entry.pid,
-        command: entry.command,
-      }));
+      return [...entries.values()]
+        .filter((entry) => !entry.settled)
+        .map((entry) => ({
+          id: entry.id,
+          pid: entry.pid,
+          command: entry.command,
+        }));
     },
 
     dispose,

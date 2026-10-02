@@ -84,7 +84,8 @@ export class BackendRunner {
     if (alloc.log) this.logs.info(alloc.log);
 
     const handle = await this.process.spawn(profile.startCmd, [], {
-      cwd, shell: true,
+      cwd,
+      shell: true,
       env: { PORT: String(alloc.port), HOST: '127.0.0.1', PYTHONUNBUFFERED: '1' },
     });
 

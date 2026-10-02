@@ -39,7 +39,12 @@ export class RecoveryService {
   }): Promise<GitResult<RollbackPlan>> {
     const logs: GitLogEntry[] = [];
     if (!['soft', 'revert'].includes(input.mode) || !/^[a-f0-9]{4,40}$/i.test(input.sha)) {
-      return { ok: false, data: null, logs, error: { code: 'INVALID_ARGUMENT', message: '无效的回滚目标或模式' } };
+      return {
+        ok: false,
+        data: null,
+        logs,
+        error: { code: 'INVALID_ARGUMENT', message: '无效的回滚目标或模式' },
+      };
     }
     const commits = await this.client.log({ ref: `${input.sha}..HEAD`, limit: 200 });
     logs.push(...commits.logs);

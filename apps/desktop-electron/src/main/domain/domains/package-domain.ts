@@ -185,13 +185,22 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
     switch (method) {
       case 'pickExportPath': {
         const { dialog } = await import('electron');
-        const picked = await dialog.showSaveDialog({ defaultPath: join(readBackupDir(), String(params['defaultName'] ?? 'everyonecoding.ecpkg')), filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }] });
-        return picked.canceled ? null : picked.filePath ?? null;
+        const picked = await dialog.showSaveDialog({
+          defaultPath: join(
+            readBackupDir(),
+            String(params['defaultName'] ?? 'everyonecoding.ecpkg'),
+          ),
+          filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }],
+        });
+        return picked.canceled ? null : (picked.filePath ?? null);
       }
       case 'pickPackagePath': {
         const { dialog } = await import('electron');
-        const picked = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }] });
-        return picked.canceled ? null : picked.filePaths[0] ?? null;
+        const picked = await dialog.showOpenDialog({
+          properties: ['openFile'],
+          filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }],
+        });
+        return picked.canceled ? null : (picked.filePaths[0] ?? null);
       }
 
       case 'exportPackage': {
@@ -200,10 +209,14 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         if (outputPath.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 outputPath');
         const password = typeof request['password'] === 'string' ? request['password'] : undefined;
         mkdirSync(dirname(outputPath), { recursive: true });
-        const result = await runExport({
-          ...(request as unknown as ExportJobRequest), outputPath,
-          onProgress: (snapshot) => ctx.emit({ type: 'package:progress', ...snapshot }),
-        }, createExportSourcePort(options));
+        const result = await runExport(
+          {
+            ...(request as unknown as ExportJobRequest),
+            outputPath,
+            onProgress: (snapshot) => ctx.emit({ type: 'package:progress', ...snapshot }),
+          },
+          createExportSourcePort(options),
+        );
         return {
           outputPath: result.outputPath,
           archiveSizeBytes: result.archiveSizeBytes,
@@ -224,7 +237,11 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
         if (!existsSync(packagePath))
           throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
-        const report = verifyPackage(packagePath, { password, signaturePublicKeyPem: typeof params['publicKeyPem'] === 'string' ? params['publicKeyPem'] : undefined });
+        const report = verifyPackage(packagePath, {
+          password,
+          signaturePublicKeyPem:
+            typeof params['publicKeyPem'] === 'string' ? params['publicKeyPem'] : undefined,
+        });
         return report;
       }
 
@@ -293,9 +310,14 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
 
       case 'importPackage': {
         const request = params['request'] as ImportJobRequest;
-        const report = await runImport({ ...request,
-          onProgress: (stage, processed, total, currentFile) => ctx.emit({ type: 'package:progress', stage, processed, total, currentFile }),
-        }, { local: createImportLocalStatePort(options), target: createImportTargetPort(options) });
+        const report = await runImport(
+          {
+            ...request,
+            onProgress: (stage, processed, total, currentFile) =>
+              ctx.emit({ type: 'package:progress', stage, processed, total, currentFile }),
+          },
+          { local: createImportLocalStatePort(options), target: createImportTargetPort(options) },
+        );
         const healing = await router('runHealing', { projectId: null }, ctx);
         return { ...report, healing };
       }
@@ -357,9 +379,20 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           }));
           const relocations = relocateAnchors(relocatable, pid, codePort);
           anchorsAll.push(...relocations);
-          for (const located of relocations) if (located.status === 'relocated') {
-            options.db.prepare('UPDATE code_anchor SET file_path = ?, start_line = ?, end_line = ?, updated_at = ? WHERE id = ?').run(located.newFilePath, located.newStartLine, located.newEndLine, Date.now(), located.anchorId);
-          }
+          for (const located of relocations)
+            if (located.status === 'relocated') {
+              options.db
+                .prepare(
+                  'UPDATE code_anchor SET file_path = ?, start_line = ?, end_line = ?, updated_at = ? WHERE id = ?',
+                )
+                .run(
+                  located.newFilePath,
+                  located.newStartLine,
+                  located.newEndLine,
+                  Date.now(),
+                  located.anchorId,
+                );
+            }
 
           // ② 失效链接修复（目标 id 变化时按名称/相似度重建）
           const linkRows = options.db
@@ -403,7 +436,11 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           }));
           const fixed = fixLinks(healingLinks, { memory: memoryIndex, document: docIndex });
           linksAll.push(...fixed);
-          for (const link of fixed) if (link.status === 'fixed') options.db.prepare('UPDATE memory_doc_link SET document_id = ? WHERE id = ?').run(link.newTargetId, link.linkId);
+          for (const link of fixed)
+            if (link.status === 'fixed')
+              options.db
+                .prepare('UPDATE memory_doc_link SET document_id = ? WHERE id = ?')
+                .run(link.newTargetId, link.linkId);
 
           // ③ 附件清点（内容寻址：<sha256>.<ext>）
           const attachmentPort: AttachmentContentPort = {
@@ -619,7 +656,12 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
                 resolution: 'takeNew' as ConflictResolution,
               }));
             return runImport(
-              { packagePath: snapshotAbsolutePath, mode: 'full-restore', decisions, replaceWorkspace: true },
+              {
+                packagePath: snapshotAbsolutePath,
+                mode: 'full-restore',
+                decisions,
+                replaceWorkspace: true,
+              },
               {
                 local: localPort,
                 target: createImportTargetPort({

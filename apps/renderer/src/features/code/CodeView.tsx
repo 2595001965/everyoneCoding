@@ -57,7 +57,9 @@ export function CodeView({
 
   const fileList = files ?? loadedFiles;
   const effectivePath = path ?? target?.filePath ?? activePath;
-  useEffect(() => { highlightedRef.current?.scrollIntoView?.({ block: 'center' }); }, [content, target]);
+  useEffect(() => {
+    highlightedRef.current?.scrollIntoView?.({ block: 'center' });
+  }, [content, target]);
 
   useEffect(() => {
     if (files !== undefined) return;
@@ -210,17 +212,27 @@ export function CodeView({
             whiteSpace: 'pre',
           }}
         >
-          <code>{lines.map((line, index) => (
-            <span key={index} ref={target?.line === index + 1 ? highlightedRef : undefined}
-              data-line={index + 1} data-highlighted={target?.line === index + 1 || undefined}
-              style={target?.line === index + 1 ? { background: '#fff3bf' } : undefined}
-              onClick={(event) => {
-                if ((event.ctrlKey || event.metaKey) && effectivePath !== null) {
-                  void readInjectedNavApi()?.reverseJump({ filePath: effectivePath, line: index + 1 }).catch((cause: unknown) => setError(String(cause)));
-                }
-              }}
-            >{line}{index < lines.length - 1 ? '\n' : ''}</span>
-          ))}</code>
+          <code>
+            {lines.map((line, index) => (
+              <span
+                key={index}
+                ref={target?.line === index + 1 ? highlightedRef : undefined}
+                data-line={index + 1}
+                data-highlighted={target?.line === index + 1 || undefined}
+                style={target?.line === index + 1 ? { background: '#fff3bf' } : undefined}
+                onClick={(event) => {
+                  if ((event.ctrlKey || event.metaKey) && effectivePath !== null) {
+                    void readInjectedNavApi()
+                      ?.reverseJump({ filePath: effectivePath, line: index + 1 })
+                      .catch((cause: unknown) => setError(String(cause)));
+                  }
+                }}
+              >
+                {line}
+                {index < lines.length - 1 ? '\n' : ''}
+              </span>
+            ))}
+          </code>
         </pre>
       )}
 

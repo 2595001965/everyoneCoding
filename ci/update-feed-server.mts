@@ -23,11 +23,13 @@ import { fileURLToPath } from 'node:url';
 /**
  * - `truncate`：内容只给一半、但 Content-Length 如实写一半（服务器上就是半包 → 校验失败）
  * - `drop`：Content-Length 写全量，发一半后掐断连接（下载中断）
+ * - `stall`：Content-Length 写全量，发开头一小段后**不再给数据也不掐断**（连接静默挂着，
+ *   只能靠客户端的停滞看门狗自救——`drop` 的错误会立即到达，看门狗来不及触发）
  * - `corrupt`：长度不变，整包响应翻转中间一个字节、区间响应翻转**每个区间**的首字节
  *   （差分下载只拉变化的块，只翻整包中间一个字节时那个块可能根本不会被下载——真实演练踩到）
  * - `500`：直接回 500
  */
-export type FeedFault = 'truncate' | 'drop' | 'corrupt' | '500';
+export type FeedFault = 'truncate' | 'drop' | 'stall' | 'corrupt' | '500';
 
 export interface FeedRequestRecord {
   method: string;
@@ -149,6 +151,13 @@ export async function startFeedServer(options: FeedServerOptions): Promise<FeedS
       }
       if (fault === 'drop') {
         res.write(data.subarray(0, Math.floor(size / 2)), () => req.socket.destroy());
+        return;
+      }
+      if (fault === 'stall') {
+        res.write(data.subarray(0, Math.min(size, 64 * 1024)));
+        // 故意不 end、不 destroy：让连接挂着，停滞看门狗（而非服务端错误）来中止下载。
+        // 客户端取消后销毁的 socket 会在服务端触发 ECONNRESET，吞掉避免砸掉进程。
+        req.socket.on('error', () => undefined);
         return;
       }
       res.end(slice(0, size - 1, Math.floor(size / 2)));

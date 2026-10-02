@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import type Database from 'better-sqlite3';
 
@@ -215,15 +223,26 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
 
   return {
     listProjects(): ExportProjectMeta[] {
-      const rows = db.prepare('SELECT * FROM project WHERE user_id = ? AND deleted_at IS NULL').all(options.userId) as Array<Record<string, unknown> & { id: string; name: string }>;
+      const rows = db
+        .prepare('SELECT * FROM project WHERE user_id = ? AND deleted_at IS NULL')
+        .all(options.userId) as Array<Record<string, unknown> & { id: string; name: string }>;
       return rows.map((row) => ({
-        id: row.id, name: row.name,
-        metaJson: JSON.stringify({ ...row, updatedAt: row['updated_at'], storage: {
-          feature: db.prepare('SELECT * FROM feature WHERE project_id = ?').all(row.id),
-          page: db.prepare('SELECT * FROM page WHERE project_id = ?').all(row.id),
-          note: db.prepare('SELECT * FROM note WHERE project_id = ?').all(row.id),
-          element: db.prepare('SELECT e.* FROM element e JOIN page p ON p.id = e.page_id WHERE p.project_id = ?').all(row.id),
-        } }),
+        id: row.id,
+        name: row.name,
+        metaJson: JSON.stringify({
+          ...row,
+          updatedAt: row['updated_at'],
+          storage: {
+            feature: db.prepare('SELECT * FROM feature WHERE project_id = ?').all(row.id),
+            page: db.prepare('SELECT * FROM page WHERE project_id = ?').all(row.id),
+            note: db.prepare('SELECT * FROM note WHERE project_id = ?').all(row.id),
+            element: db
+              .prepare(
+                'SELECT e.* FROM element e JOIN page p ON p.id = e.page_id WHERE p.project_id = ?',
+              )
+              .all(row.id),
+          },
+        }),
       }));
     },
 
@@ -310,21 +329,30 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
         name: `${row.title.replace(/[\\/:*?"<>|]/g, '_')}.${docExtension(row.format)}`,
         projectId: row.project_id,
         updatedAt: row.updated_at,
-        metadata: { title: row.title, format: row.format, contentText: row.content_text, sectionsJson: row.sections_json, kind: row.kind, version: row.version },
+        metadata: {
+          title: row.title,
+          format: row.format,
+          contentText: row.content_text,
+          sectionsJson: row.sections_json,
+          kind: row.kind,
+          version: row.version,
+        },
       }));
     },
 
     readDocument(docId, _fileName): { content: Buffer } | null {
       const row = db
         .prepare(`SELECT content_text, content_ref, format FROM document WHERE id = ?`)
-        .get(docId) as { content_text: string | null; content_ref: string | null; format: string } | undefined;
+        .get(docId) as
+        { content_text: string | null; content_ref: string | null; format: string } | undefined;
       if (!row) return null;
       // 优先取原始文件（docx/pdf 的二进制才是"原文"），没有则用提取正文
       if (row.content_ref) {
         const bytes = readBytesOrNull(row.content_ref);
         if (bytes) return { content: bytes };
       }
-      if (['pdf', 'docx', 'image'].includes(row.format)) throw new Error(`原始文档缺失：${docId}。请在文档中心重新导入原文件后导出。`);
+      if (['pdf', 'docx', 'image'].includes(row.format))
+        throw new Error(`原始文档缺失：${docId}。请在文档中心重新导入原文件后导出。`);
       if (row.content_text === null) return null;
       return { content: Buffer.from(row.content_text, 'utf8') };
     },
@@ -339,8 +367,12 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
     },
 
     readAnchors(projectId): string | null {
-      const rows = db.prepare('SELECT * FROM code_anchor WHERE project_id = ? ORDER BY id').all(projectId);
-      return rows.length ? JSON.stringify(rows) : readTextOrNull(join(projectDir(projectId), 'meta', 'anchors.json'));
+      const rows = db
+        .prepare('SELECT * FROM code_anchor WHERE project_id = ? ORDER BY id')
+        .all(projectId);
+      return rows.length
+        ? JSON.stringify(rows)
+        : readTextOrNull(join(projectDir(projectId), 'meta', 'anchors.json'));
     },
 
     listPipelineFiles(projectId): string[] {
@@ -352,8 +384,12 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
     },
 
     readRegistry(projectId): string | null {
-      const rows = db.prepare('SELECT * FROM registry_entry WHERE project_id = ? ORDER BY id').all(projectId);
-      return rows.length ? JSON.stringify(rows) : readTextOrNull(join(projectDir(projectId), 'meta', 'registry.json'));
+      const rows = db
+        .prepare('SELECT * FROM registry_entry WHERE project_id = ? ORDER BY id')
+        .all(projectId);
+      return rows.length
+        ? JSON.stringify(rows)
+        : readTextOrNull(join(projectDir(projectId), 'meta', 'registry.json'));
     },
 
     listDesignPages(projectId): string[] {
@@ -376,14 +412,21 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
       return readTextOrNull(join(projectDir(projectId), 'design', 'components', fileName));
     },
 
-    listAttachments(selected = null): Array<{ hashName: string; sourcePath: string; projectIds: string[] }> {
+    listAttachments(
+      selected = null,
+    ): Array<{ hashName: string; sourcePath: string; projectIds: string[] }> {
       const out: Array<{ hashName: string; sourcePath: string; projectIds: string[] }> = [];
-      const projects = db.prepare('SELECT id FROM project WHERE user_id = ? AND deleted_at IS NULL').all(options.userId) as Array<{ id: string }>;
+      const projects = db
+        .prepare('SELECT id FROM project WHERE user_id = ? AND deleted_at IS NULL')
+        .all(options.userId) as Array<{ id: string }>;
       for (const { id } of projects) {
         if (selected !== null && !selected.includes(id)) continue;
         const dir = join(projectDir(id), 'attachments');
         for (const name of listFiles(dir)) {
-          if (name.includes('/')) throw new Error(`附件目录含子目录：${dir}。请将资源按 SHA-256 命名放入附件目录并更新引用。`);
+          if (name.includes('/'))
+            throw new Error(
+              `附件目录含子目录：${dir}。请将资源按 SHA-256 命名放入附件目录并更新引用。`,
+            );
           out.push({ hashName: name, sourcePath: join(dir, name), projectIds: [id] });
         }
       }
@@ -397,10 +440,19 @@ export function createExportSourcePort(options: PackagePortsOptions): ExportSour
       const relative = match[2]!;
       if (relative === 'anchors.json' || relative === 'registry.json') {
         const table = relative === 'anchors.json' ? 'code_anchor' : 'registry_entry';
-        const row = db.prepare(`SELECT MAX(updated_at) AS n FROM ${table} WHERE project_id = ?`).get(pid) as { n: number | null };
+        const row = db
+          .prepare(`SELECT MAX(updated_at) AS n FROM ${table} WHERE project_id = ?`)
+          .get(pid) as { n: number | null };
         if (row.n !== null) return row.n;
       }
-      const file = relative.startsWith('code/') ? join(resolveCodeRoot(projectDir(pid)), relative.slice(5)) : join(projectDir(pid), relative === 'anchors.json' || relative === 'registry.json' ? 'meta/' + relative : relative);
+      const file = relative.startsWith('code/')
+        ? join(resolveCodeRoot(projectDir(pid)), relative.slice(5))
+        : join(
+            projectDir(pid),
+            relative === 'anchors.json' || relative === 'registry.json'
+              ? 'meta/' + relative
+              : relative,
+          );
       return existsSync(file) ? statSync(file).mtimeMs : 0;
     },
 
@@ -471,9 +523,16 @@ export function createImportLocalStatePort(options: PackagePortsOptions): Import
           }));
         }
         case 'document': {
-          return createExportSourcePort(options).listDocuments(projectId === null ? null : [projectId]).map((doc) => ({
-            id: doc.id, type: 'document', projectId: doc.projectId, name: doc.name.slice(0, 20), updatedAt: doc.updatedAt, payload: JSON.stringify(doc),
-          }));
+          return createExportSourcePort(options)
+            .listDocuments(projectId === null ? null : [projectId])
+            .map((doc) => ({
+              id: doc.id,
+              type: 'document',
+              projectId: doc.projectId,
+              name: doc.name.slice(0, 20),
+              updatedAt: doc.updatedAt,
+              payload: JSON.stringify(doc),
+            }));
         }
         case 'code':
           return projectIds.flatMap((pid) =>
@@ -483,7 +542,9 @@ export function createImportLocalStatePort(options: PackagePortsOptions): Import
               projectId: pid,
               name: rel,
               updatedAt: 0,
-              payload: readFileSync(join(resolveCodeRoot(join(projectsDir, pid)), rel)).toString(isTextEntry(rel) ? 'utf8' : 'base64'),
+              payload: readFileSync(join(resolveCodeRoot(join(projectsDir, pid)), rel)).toString(
+                isTextEntry(rel) ? 'utf8' : 'base64',
+              ),
               ...(!isTextEntry(rel) ? { encoding: 'base64' as const } : {}),
             })),
           );
@@ -533,7 +594,11 @@ export function createImportLocalStatePort(options: PackagePortsOptions): Import
                   type: 'design' as const,
                   projectId: pid,
                   name: rel.split('/').pop() ?? rel,
-                  updatedAt: parseJsonOr<{ updatedAt?: number }>(readTextOrNull(join(projectsDir, pid, 'design', kind, rel)), {}).updatedAt ?? 0,
+                  updatedAt:
+                    parseJsonOr<{ updatedAt?: number }>(
+                      readTextOrNull(join(projectsDir, pid, 'design', kind, rel)),
+                      {},
+                    ).updatedAt ?? 0,
                   payload: readTextOrNull(join(projectsDir, pid, 'design', kind, rel)) ?? '',
                 })),
             ),
@@ -548,7 +613,9 @@ export function createImportLocalStatePort(options: PackagePortsOptions): Import
               projectId: pid,
               name: rel.split('/').pop() ?? rel,
               updatedAt: 0,
-              payload: readFileSync(join(projectsDir, pid, 'pipeline', rel)).toString(isTextEntry(rel) ? 'utf8' : 'base64'),
+              payload: readFileSync(join(projectsDir, pid, 'pipeline', rel)).toString(
+                isTextEntry(rel) ? 'utf8' : 'base64',
+              ),
               ...(!isTextEntry(rel) ? { encoding: 'base64' as const } : {}),
             })),
           );
@@ -607,10 +674,22 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
     return existed ? 'updated' : 'created';
   };
 
-  const saveRow = (table: 'project' | 'feature' | 'page' | 'note' | 'element' | 'code_anchor' | 'registry_entry', row: Record<string, unknown>): void => {
-    const allowed = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name));
+  const saveRow = (
+    table: 'project' | 'feature' | 'page' | 'note' | 'element' | 'code_anchor' | 'registry_entry',
+    row: Record<string, unknown>,
+  ): void => {
+    const allowed = new Set(
+      (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+        (c) => c.name,
+      ),
+    );
     const keys = Object.keys(row).filter((key) => allowed.has(key));
-    db.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')}) ON CONFLICT(id) DO UPDATE SET ${keys.filter((k) => k !== 'id').map((k) => `${k}=excluded.${k}`).join(',')}`).run(...keys.map((key) => row[key] ?? null));
+    db.prepare(
+      `INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')}) ON CONFLICT(id) DO UPDATE SET ${keys
+        .filter((k) => k !== 'id')
+        .map((k) => `${k}=excluded.${k}`)
+        .join(',')}`,
+    ).run(...keys.map((key) => row[key] ?? null));
   };
 
   return {
@@ -618,19 +697,45 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
     commit: () => transaction.commit(),
     rollback: () => transaction.rollback(),
     resetWorkspace() {
-      const ids = db.prepare('SELECT id FROM project WHERE user_id = ?').all(userId) as Array<{ id: string }>;
+      const ids = db.prepare('SELECT id FROM project WHERE user_id = ?').all(userId) as Array<{
+        id: string;
+      }>;
       for (const { id } of ids) {
         transaction.touch(id);
         rmSync(transaction.pathFor(id), { recursive: true, force: true });
       }
       const projects = 'SELECT id FROM project WHERE user_id = ?';
-      db.prepare(`DELETE FROM occurrence WHERE registry_id IN (SELECT id FROM registry_entry WHERE project_id IN (${projects}))`).run(userId);
-      db.prepare(`DELETE FROM doc_version WHERE document_id IN (SELECT id FROM document WHERE project_id IN (${projects}))`).run(userId);
-      db.prepare('DELETE FROM memory_doc_link WHERE memory_id IN (SELECT id FROM memory_item WHERE user_id = ?)').run(userId);
-      db.prepare('DELETE FROM memory_struct_revision WHERE memory_id IN (SELECT id FROM memory_item WHERE user_id = ?)').run(userId);
-      db.prepare(`DELETE FROM element WHERE page_id IN (SELECT id FROM page WHERE project_id IN (${projects}))`).run(userId);
-      db.prepare(`UPDATE usage_record SET project_id = NULL WHERE project_id IN (${projects})`).run(userId);
-      for (const table of ['code_anchor', 'stage_artifact', 'pipeline_checkpoint', 'pipeline_commit_receipt', 'pipeline_run', 'rename_event', 'registry_entry', 'note', 'page', 'feature', 'document']) {
+      db.prepare(
+        `DELETE FROM occurrence WHERE registry_id IN (SELECT id FROM registry_entry WHERE project_id IN (${projects}))`,
+      ).run(userId);
+      db.prepare(
+        `DELETE FROM doc_version WHERE document_id IN (SELECT id FROM document WHERE project_id IN (${projects}))`,
+      ).run(userId);
+      db.prepare(
+        'DELETE FROM memory_doc_link WHERE memory_id IN (SELECT id FROM memory_item WHERE user_id = ?)',
+      ).run(userId);
+      db.prepare(
+        'DELETE FROM memory_struct_revision WHERE memory_id IN (SELECT id FROM memory_item WHERE user_id = ?)',
+      ).run(userId);
+      db.prepare(
+        `DELETE FROM element WHERE page_id IN (SELECT id FROM page WHERE project_id IN (${projects}))`,
+      ).run(userId);
+      db.prepare(`UPDATE usage_record SET project_id = NULL WHERE project_id IN (${projects})`).run(
+        userId,
+      );
+      for (const table of [
+        'code_anchor',
+        'stage_artifact',
+        'pipeline_checkpoint',
+        'pipeline_commit_receipt',
+        'pipeline_run',
+        'rename_event',
+        'registry_entry',
+        'note',
+        'page',
+        'feature',
+        'document',
+      ]) {
         db.prepare(`DELETE FROM ${table} WHERE project_id IN (${projects})`).run(userId);
       }
       db.prepare('DELETE FROM memory_item WHERE user_id = ?').run(userId);
@@ -640,10 +745,22 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
       const existed = db.prepare('SELECT 1 FROM project WHERE id = ?').get(meta.id) !== undefined;
       const parsed = JSON.parse(meta.metaJson) as Record<string, unknown>;
       const now = Date.now();
-      saveRow('project', { ...parsed, id: meta.id, user_id: userId, workspace_id: null, name: meta.name, status: parsed['status'] ?? 'active', created_at: parsed['created_at'] ?? now, updated_at: parsed['updated_at'] ?? parsed['updatedAt'] ?? now, deleted_at: null });
-      const storage = parsed['storage'] as Record<string, Array<Record<string, unknown>>> | undefined;
+      saveRow('project', {
+        ...parsed,
+        id: meta.id,
+        user_id: userId,
+        workspace_id: null,
+        name: meta.name,
+        status: parsed['status'] ?? 'active',
+        created_at: parsed['created_at'] ?? now,
+        updated_at: parsed['updated_at'] ?? parsed['updatedAt'] ?? now,
+        deleted_at: null,
+      });
+      const storage = parsed['storage'] as
+        Record<string, Array<Record<string, unknown>>> | undefined;
       for (const table of ['feature', 'page', 'note', 'element'] as const) {
-        for (const row of storage?.[table] ?? []) saveRow(table, table === 'element' ? row : { ...row, project_id: meta.id });
+        for (const row of storage?.[table] ?? [])
+          saveRow(table, table === 'element' ? row : { ...row, project_id: meta.id });
       }
       importedProjects.add(meta.id);
       ensureDirs(meta.id);
@@ -676,13 +793,15 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
         }
 
         case 'document': {
-          const meta = parseJsonOr<{ id: string; name: string; updatedAt?: number; metadata?: Record<string, unknown> }>(
-            object.payload,
-            {
-              id: object.id,
-              name: object.name,
-            },
-          );
+          const meta = parseJsonOr<{
+            id: string;
+            name: string;
+            updatedAt?: number;
+            metadata?: Record<string, unknown>;
+          }>(object.payload, {
+            id: object.id,
+            name: object.name,
+          });
           if (projectId === null) return 'skipped';
           const existed =
             db.prepare(`SELECT 1 AS x FROM document WHERE id = ?`).get(meta.id) !== undefined;
@@ -700,7 +819,17 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
           }
           if (meta.metadata) {
             const m = meta.metadata;
-            db.prepare('UPDATE document SET title = ?, format = ?, content_text = ?, sections_json = ?, kind = ?, version = ? WHERE id = ?').run(m['title'] ?? meta.name, m['format'] ?? 'markdown', m['contentText'] ?? null, m['sectionsJson'] ?? null, m['kind'] ?? 'imported', m['version'] ?? 1, meta.id);
+            db.prepare(
+              'UPDATE document SET title = ?, format = ?, content_text = ?, sections_json = ?, kind = ?, version = ? WHERE id = ?',
+            ).run(
+              m['title'] ?? meta.name,
+              m['format'] ?? 'markdown',
+              m['contentText'] ?? null,
+              m['sectionsJson'] ?? null,
+              m['kind'] ?? 'imported',
+              m['version'] ?? 1,
+              meta.id,
+            );
           }
           ensureDirs(projectId);
           return existed ? 'updated' : 'created';
@@ -708,25 +837,51 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
 
         case 'code':
           if (projectId === null) return 'skipped';
-          return writeUnder(projectId, 'code', object.name, object.encoding === 'base64' ? Buffer.from(object.payload, 'base64') : object.payload);
+          return writeUnder(
+            projectId,
+            'code',
+            object.name,
+            object.encoding === 'base64' ? Buffer.from(object.payload, 'base64') : object.payload,
+          );
 
         case 'design':
           if (projectId === null) return 'skipped';
-          return writeUnder(projectId, 'design', object.packagePath?.split('/design/')[1] ?? `pages/${object.name}`, object.payload);
+          return writeUnder(
+            projectId,
+            'design',
+            object.packagePath?.split('/design/')[1] ?? `pages/${object.name}`,
+            object.payload,
+          );
 
         case 'pipeline':
           if (projectId === null) return 'skipped';
-          return writeUnder(projectId, 'pipeline', object.packagePath?.split('/pipeline/')[1] ?? object.name, object.encoding === 'base64' ? Buffer.from(object.payload, 'base64') : object.payload);
+          return writeUnder(
+            projectId,
+            'pipeline',
+            object.packagePath?.split('/pipeline/')[1] ?? object.name,
+            object.encoding === 'base64' ? Buffer.from(object.payload, 'base64') : object.payload,
+          );
 
         case 'registry':
         case 'anchor': {
           if (projectId === null) return 'skipped';
           const table = object.type === 'anchor' ? 'code_anchor' : 'registry_entry';
           const rows = JSON.parse(object.payload) as unknown;
-          if (Array.isArray(rows)) for (const row of rows as Array<Record<string, unknown>>) {
-            if (object.type === 'anchor' ? typeof row['file_path'] === 'string' : typeof row['canonical_name'] === 'string') saveRow(table, { ...row, project_id: projectId });
-          }
-          return writeUnder(projectId, 'meta', object.type === 'anchor' ? 'anchors.json' : 'registry.json', object.payload);
+          if (Array.isArray(rows))
+            for (const row of rows as Array<Record<string, unknown>>) {
+              if (
+                object.type === 'anchor'
+                  ? typeof row['file_path'] === 'string'
+                  : typeof row['canonical_name'] === 'string'
+              )
+                saveRow(table, { ...row, project_id: projectId });
+            }
+          return writeUnder(
+            projectId,
+            'meta',
+            object.type === 'anchor' ? 'anchors.json' : 'registry.json',
+            object.payload,
+          );
         }
 
         default:
@@ -736,13 +891,29 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
 
     putFile(packagePath: string, content: Buffer): 'created' | 'updated' | 'skipped' {
       if (packagePath === 'attachments/index.json') {
-        for (const row of JSON.parse(content.toString('utf8')) as Array<{ hashName: string; projectIds: string[] }>) attachmentOwners.set(row.hashName, row.projectIds);
+        for (const row of JSON.parse(content.toString('utf8')) as Array<{
+          hashName: string;
+          projectIds: string[];
+        }>)
+          attachmentOwners.set(row.hashName, row.projectIds);
         return 'created';
       }
       const link = /^memory\/projects\/([^/]+)\/links.json$/.exec(packagePath);
       if (link) {
-        for (const row of JSON.parse(content.toString('utf8')) as Array<{ id: string; memoryId: string; documentId: string; linkType: string; createdAt: number }>) {
-          if (db.prepare('SELECT 1 FROM memory_item WHERE id = ?').get(row.memoryId) && db.prepare('SELECT 1 FROM document WHERE id = ?').get(row.documentId)) db.prepare('INSERT OR IGNORE INTO memory_doc_link (id, memory_id, document_id, link_type, created_at) VALUES (?, ?, ?, ?, ?)').run(row.id, row.memoryId, row.documentId, row.linkType, row.createdAt);
+        for (const row of JSON.parse(content.toString('utf8')) as Array<{
+          id: string;
+          memoryId: string;
+          documentId: string;
+          linkType: string;
+          createdAt: number;
+        }>) {
+          if (
+            db.prepare('SELECT 1 FROM memory_item WHERE id = ?').get(row.memoryId) &&
+            db.prepare('SELECT 1 FROM document WHERE id = ?').get(row.documentId)
+          )
+            db.prepare(
+              'INSERT OR IGNORE INTO memory_doc_link (id, memory_id, document_id, link_type, created_at) VALUES (?, ?, ?, ?, ?)',
+            ).run(row.id, row.memoryId, row.documentId, row.linkType, row.createdAt);
         }
         return 'created';
       }
@@ -750,7 +921,8 @@ export function createImportTargetPort(options: PackagePortsOptions): ImportTarg
       if (attachment) {
         const hashName = attachment[1]!;
         const owners = attachmentOwners.get(hashName) ?? [...importedProjects];
-        if (owners.length === 0) throw new Error(`附件缺少项目归属：${hashName}，请重新导出包含项目元信息的完整包。`);
+        if (owners.length === 0)
+          throw new Error(`附件缺少项目归属：${hashName}，请重新导出包含项目元信息的完整包。`);
         for (const pid of owners) {
           ensureDirs(pid);
           const target = safeJoin(join(projectDir(pid), 'attachments'), hashName);

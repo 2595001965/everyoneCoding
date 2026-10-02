@@ -12,5 +12,6 @@ export const useNavLocation = create<{ target: NavLocation | null }>(() => ({ ta
 
 export function navigateToLocation(target: NavLocation): void {
   useNavLocation.setState({ target });
-  if (typeof window !== 'undefined') window.location.hash = target.filePath ? '#/code' : '#/designer';
+  if (typeof window !== 'undefined')
+    window.location.hash = target.filePath ? '#/code' : '#/designer';
 }

@@ -21,11 +21,14 @@ export function PreviewWorkspace(): JSX.Element {
   const [error, setError] = React.useState<string | null>(null);
 
   const reload = React.useCallback(() => {
-    void api.state().then((s) => {
-      setUrl(s.url);
-      setMode(s.mode);
-      setRevision(s.revision ?? null);
-    }).catch((cause: unknown) => setError(String(cause)));
+    void api
+      .state()
+      .then((s) => {
+        setUrl(s.url);
+        setMode(s.mode);
+        setRevision(s.revision ?? null);
+      })
+      .catch((cause: unknown) => setError(String(cause)));
     void api.pages().then((p) => {
       setPages(p);
       setRoute((cur) => (cur === '' && p.length > 0 ? (p[0]?.route ?? '') : cur));
@@ -34,7 +37,16 @@ export function PreviewWorkspace(): JSX.Element {
 
   React.useEffect(() => {
     reload();
-    const timer = window.setInterval(() => { void api.state().then((state) => { setUrl(state.url); setMode(state.mode); setRevision(state.revision ?? null); }).catch((cause: unknown) => setError(String(cause))); }, 500);
+    const timer = window.setInterval(() => {
+      void api
+        .state()
+        .then((state) => {
+          setUrl(state.url);
+          setMode(state.mode);
+          setRevision(state.revision ?? null);
+        })
+        .catch((cause: unknown) => setError(String(cause)));
+    }, 500);
     return () => window.clearInterval(timer);
   }, [reload, api]);
 
@@ -74,7 +86,12 @@ export function PreviewWorkspace(): JSX.Element {
           {mode === 'device' ? (
             <DevicePreview />
           ) : (
-            <PreviewFrame key={`${src}:${revision}`} src={src} onRequest={handleRequest} onElementClick={handleElementClick} />
+            <PreviewFrame
+              key={`${src}:${revision}`}
+              src={src}
+              onRequest={handleRequest}
+              onElementClick={handleElementClick}
+            />
           )}
         </div>
         <aside className="ec-preview-workspace__side">

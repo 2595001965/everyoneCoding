@@ -28,11 +28,15 @@ export function createRenameAtomic(db: Database.Database) {
         const failures: unknown[] = [];
         for (const [path, bytes] of [...files].reverse()) {
           try {
-            if (bytes === null) { if (existsSync(path)) unlinkSync(path); }
-            else writeFileSync(path, bytes);
-          } catch (failure) { failures.push(failure); }
+            if (bytes === null) {
+              if (existsSync(path)) unlinkSync(path);
+            } else writeFileSync(path, bytes);
+          } catch (failure) {
+            failures.push(failure);
+          }
         }
-        if (failures.length > 0) throw new AggregateError(failures, '重命名文件回滚失败，保留备份供恢复');
+        if (failures.length > 0)
+          throw new AggregateError(failures, '重命名文件回滚失败，保留备份供恢复');
         if (error === rejected && result !== undefined) return result;
         throw error;
       } finally {

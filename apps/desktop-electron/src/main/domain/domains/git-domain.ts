@@ -84,7 +84,8 @@ const AUTO_COMMIT_KEY = 'git_auto_commit_policy';
 
 function stashIndex(value: unknown): number {
   const index = Number(value);
-  if (!Number.isInteger(index) || index < 0) throw new ShellError('INVALID_ARGUMENT', '非法 Stash 序号');
+  if (!Number.isInteger(index) || index < 0)
+    throw new ShellError('INVALID_ARGUMENT', '非法 Stash 序号');
   return index;
 }
 
@@ -311,7 +312,8 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
       choices[index] = strategy;
     }
     for (const block of file.blocks) {
-      if (choices[block.index] === undefined) throw new ShellError('INVALID_ARGUMENT', '请为每一处冲突明确选择处理方式');
+      if (choices[block.index] === undefined)
+        throw new ShellError('INVALID_ARGUMENT', '请为每一处冲突明确选择处理方式');
     }
 
     let content: string;
@@ -422,7 +424,13 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
         const committed = await services.client.commit({
           subject: 'merge: 解决冲突后完成合并',
         });
-        if (!committed.ok) return { ok: false, data: null, logs: [...staged.logs, ...committed.logs], error: committed.error };
+        if (!committed.ok)
+          return {
+            ok: false,
+            data: null,
+            logs: [...staged.logs, ...committed.logs],
+            error: committed.error,
+          };
         mergeCommitSha = committed.data ?? null;
       }
     }
@@ -453,11 +461,18 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
     const projectId = requireProject(params);
     const services = await servicesOf(projectId);
     const { client } = services;
-    const destructive = ['deleteBranch', 'merge', 'rebase', 'abort', 'stashDrop', 'removeRemote'].includes(method)
-      || (method === 'stashApply' && params['drop'] === true)
-      || (method === 'push' && ((params['input'] as Record<string, unknown> | undefined)?.['force'] === true || (params['input'] as Record<string, unknown> | undefined)?.['forceWithLease'] === true));
-    if (destructive && params['confirmed'] !== true) throw new ShellError('INVALID_ARGUMENT', '破坏性操作需要二次确认');
-    const checkedPath = (path: string): string => { paths.inside(services.root, path); return path; };
+    const destructive =
+      ['deleteBranch', 'merge', 'rebase', 'abort', 'stashDrop', 'removeRemote'].includes(method) ||
+      (method === 'stashApply' && params['drop'] === true) ||
+      (method === 'push' &&
+        ((params['input'] as Record<string, unknown> | undefined)?.['force'] === true ||
+          (params['input'] as Record<string, unknown> | undefined)?.['forceWithLease'] === true));
+    if (destructive && params['confirmed'] !== true)
+      throw new ShellError('INVALID_ARGUMENT', '破坏性操作需要二次确认');
+    const checkedPath = (path: string): string => {
+      paths.inside(services.root, path);
+      return path;
+    };
     const snapshot = async (label: string, ref?: string): Promise<void> => {
       const saved = await createSafetySnapshot(services, label, ref);
       if (!saved.ok) throw new ShellError('IO_ERROR', saved.message);
@@ -512,9 +527,13 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
       case 'status':
         return client.status();
       case 'stage':
-        return client.stage(((params['paths'] as readonly string[] | undefined) ?? []).map(checkedPath));
+        return client.stage(
+          ((params['paths'] as readonly string[] | undefined) ?? []).map(checkedPath),
+        );
       case 'unstage':
-        return client.unstage(((params['paths'] as readonly string[] | undefined) ?? []).map(checkedPath));
+        return client.unstage(
+          ((params['paths'] as readonly string[] | undefined) ?? []).map(checkedPath),
+        );
       case 'commit': {
         const input = (params['input'] ?? {}) as { subject?: unknown; body?: unknown };
         return client.commit({
@@ -562,7 +581,10 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
         const name = String(params['name'] ?? '');
         const branches = await client.branches();
         const victim = branches.data?.find((branch) => branch.name === name) ?? null;
-        const snapshot = victim?.lastCommitSha != null ? await createSafetySnapshot(services, name, victim.lastCommitSha) : null;
+        const snapshot =
+          victim?.lastCommitSha != null
+            ? await createSafetySnapshot(services, name, victim.lastCommitSha)
+            : null;
         if (snapshot !== null && !snapshot.ok) throw new ShellError('IO_ERROR', snapshot.message);
         const deleted = await client.deleteBranch(name, { force: params['force'] === true });
         if (snapshot !== null) {
@@ -656,7 +678,8 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
           typeof params['message'] === 'string' ? params['message'] : undefined,
         );
       case 'stashApply':
-        if (params['drop'] === true) await snapshot('stash-pop', `stash@{${stashIndex(params['index'])}}`);
+        if (params['drop'] === true)
+          await snapshot('stash-pop', `stash@{${stashIndex(params['index'])}}`);
         return client.stashApply(Number(params['index']), { drop: params['drop'] === true });
       case 'stashDrop':
         await snapshot('stash-drop', `stash@{${stashIndex(params['index'])}}`);
@@ -679,7 +702,13 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
         }
         // RecoveryService.execute 自带 backup 分支创建，两处叠加是刻意的：
         // 回滚是唯一会改写 HEAD 的操作，安全网少一层都不划算。
-        if (params['confirmed'] !== true) return { ok: false, data: null, logs: [], error: { code: 'INVALID_ARGUMENT', message: '回滚需要二次确认' } };
+        if (params['confirmed'] !== true)
+          return {
+            ok: false,
+            data: null,
+            logs: [],
+            error: { code: 'INVALID_ARGUMENT', message: '回滚需要二次确认' },
+          };
         const verified = await services.recovery.plan({ sha: plan.targetSha, mode: plan.mode });
         if (!verified.ok || verified.data === null) return verified;
         return services.recovery.execute(verified.data, { confirmed: true });
@@ -697,7 +726,10 @@ export function createGitDomain(options: GitDomainOptions): DomainRouter {
         return services.remote.edit(String(params['name'] ?? ''), String(params['url'] ?? ''));
       case 'removeRemote':
         await snapshot('remove-remote');
-        settings.write(`git_remote_snapshot:${projectId}:${String(params['name'])}`, (await client.remotes()).data);
+        settings.write(
+          `git_remote_snapshot:${projectId}:${String(params['name'])}`,
+          (await client.remotes()).data,
+        );
         return services.remote.remove(String(params['name'] ?? ''));
       case 'testRemote':
         return services.remote.test(String(params['name'] ?? ''));

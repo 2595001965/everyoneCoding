@@ -29,7 +29,7 @@ import { classifyUpdateError } from '@ec/core';
 interface FeedServer {
   url: string;
   requests: Array<{ path: string; range: string | null }>;
-  setFault(pattern: RegExp, fault: 'truncate' | 'drop' | 'corrupt' | '500' | null): void;
+  setFault(pattern: RegExp, fault: 'truncate' | 'drop' | 'stall' | 'corrupt' | '500' | null): void;
   clearFaults(): void;
   close(): Promise<void>;
 }
@@ -338,11 +338,22 @@ describe('electron-updater 真实链路：检查 → 差分下载 → 校验 →
     expect(spawned).toEqual([]);
   });
 
-  it('下载中途连接被掐断：停滞看门狗中止并归类为 network，不拉起安装器', async () => {
+  it('下载停滞（连接挂着但不给数据）：停滞看门狗中止并归类为 network，不拉起安装器', async () => {
+    const { host } = createHarness({ seedInstalled: false });
+    // 服务端只发开头一小段就静默挂起：错误不会到达，只有停滞看门狗能中止下载
+    server.setFault(/0\.1\.1-x64-setup\.exe$/, 'stall');
+    const error = await host.download().catch((cause: unknown) => cause);
+    expect(String(error)).toMatch(/UPDATE_NETWORK: 下载停滞/);
+    expect(classifyUpdateError(error).kind).toBe('network');
+    expect(spawned).toEqual([]);
+  }, 20_000);
+
+  it('下载中途连接被掐断（服务端主动断开，错误先于看门狗到达）：归类为 network，不拉起安装器', async () => {
     const { host } = createHarness({ seedInstalled: false });
     server.setFault(/0\.1\.1-x64-setup\.exe$/, 'drop');
     const error = await host.download().catch((cause: unknown) => cause);
-    expect(String(error)).toMatch(/UPDATE_NETWORK: 下载停滞/);
+    // 服务端 destroy 后错误立即到达，文案取决于底层报文（aborted / socket hang up 等），不断言具体字样
+    expect(String(error)).toMatch(/UPDATE_NETWORK:/);
     expect(classifyUpdateError(error).kind).toBe('network');
     expect(spawned).toEqual([]);
   });

@@ -46,7 +46,8 @@ export class ReverseJumpService {
   scanFile(filePath: string): ReverseJumpHit[] {
     this.elementIndex.clear();
     for (const page of this.source.listPages()) {
-      for (const element of page.elements) this.elementIndex.set(element.elementId, { element, page });
+      for (const element of page.elements)
+        this.elementIndex.set(element.elementId, { element, page });
     }
     const content = this.source.readFile(filePath);
     if (content === null) return [];

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -201,6 +201,78 @@ describe('V2-D07 真实工作副本与合入', () => {
     expect(readFileSync(join(root, 'a.ts'), 'utf8')).toBe('external\n');
   });
 
+  it('事务准备后外部进程改文件时标记冲突并保留外部内容', async () => {
+    fixture({ 'a.ts': 'old\n' });
+    let taskId = '';
+    let injectExternalWrite = false;
+    service = new TaskWriteService({
+      ...options(),
+      owner: {
+        assertOwner: () => undefined,
+        fencingToken: () => 1,
+        write: (action) => {
+          const result = action();
+          const recordPath = join(directory, 'tasks', taskId, 'task.json');
+          if (
+            injectExternalWrite &&
+            taskId.length > 0 &&
+            existsSync(recordPath) &&
+            (JSON.parse(readFileSync(recordPath, 'utf8')) as { state: string }).state === 'applying'
+          ) {
+            execFileSync(process.execPath, [
+              '-e',
+              "require('node:fs').writeFileSync(process.argv[1], 'external-race\\n')",
+              join(root, 'a.ts'),
+            ]);
+            injectExternalWrite = false;
+          }
+          return result;
+        },
+      },
+    });
+    const candidate = await plan('a.ts', 'old', 'new');
+    taskId = candidate.taskId!;
+    injectExternalWrite = true;
+
+    const result = await service.merge(candidate);
+    expect(result.ok).toBe(false);
+    expect(result.conflicts).toContain('a.ts');
+    expect(service.get(taskId)).toMatchObject({
+      state: 'conflicted',
+      conflicts: [
+        {
+          path: 'a.ts',
+          base: 'old\n',
+          ours: 'new\n',
+          theirs: 'external-race\n',
+        },
+      ],
+    });
+    expect(readFileSync(join(root, 'a.ts'), 'utf8')).toBe('external-race\n');
+  });
+
+  it('被阻止的计划不能进入 queued，确认拒绝后原文件保持不变', async () => {
+    fixture({ 'a.ts': 'old\n' });
+    const task = await service.create({
+      projectId: 'p',
+      objective: 'blocked create',
+      writeSet: ['a.ts'],
+      readSet: [],
+    });
+    const candidate = await service.plan(task.taskId, {
+      files: [{ path: 'a.ts', language: 'typescript', action: 'create', content: 'overwrite\n' }],
+      anchors: [],
+      summary: 'blocked create',
+      notes: '',
+      decision: { referencedMemory: [], rationale: 'test', risks: [], uncovered: [] },
+    });
+    expect(candidate.entries[0]?.blocked).toBe(true);
+
+    await expect(service.merge(candidate)).rejects.toThrow('被拒绝的变更');
+    expect(service.get(task.taskId).state).toBe('awaiting_confirmation');
+    expect(readFileSync(join(root, 'a.ts'), 'utf8')).toBe('old\n');
+  });
+
   it('验证失败整体补偿，但外部进程的新成果不可回滚覆盖', async () => {
     fixture({ 'a.ts': 'old\n' });
     service = new TaskWriteService({
@@ -212,9 +284,18 @@ describe('V2-D07 真实工作副本与合入', () => {
         return [{ name: 'test', ok: false, detail: '受影响测试失败' }];
       },
     });
-    const result = await service.merge(await plan('a.ts', 'old', 'new'));
+    const candidate = await plan('a.ts', 'old', 'new');
+    const result = await service.merge(candidate);
     expect(result.ok).toBe(false);
     expect(result.conflicts).toEqual(['a.ts']);
+    expect(service.get(candidate.taskId!).conflicts).toMatchObject([
+      {
+        path: 'a.ts',
+        base: 'old\n',
+        ours: 'new\n',
+        theirs: 'external-after\n',
+      },
+    ]);
     expect(readFileSync(join(root, 'a.ts'), 'utf8')).toBe('external-after\n');
   });
 

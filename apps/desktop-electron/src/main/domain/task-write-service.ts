@@ -171,7 +171,10 @@ export class TaskWriteService {
     if (task.taskId !== id || resolve(task.root) !== resolve(this.options.codeRoot(task.projectId)))
       throw new Error('任务持久化源码根与授权项目不一致');
     const directory = resolve(this.taskDir(id));
-    if (![task.copyRoot, task.dataDir].every((path) => resolve(path).startsWith(directory + sep)))
+    const ownedPaths = [task.copyRoot, task.dataDir, task.worktreeRoot].filter(
+      (path): path is string => path !== null,
+    );
+    if (!ownedPaths.every((path) => resolve(path).startsWith(directory + sep)))
       throw new Error('任务副本越出管理目录');
     return task;
   }
@@ -330,7 +333,12 @@ export class TaskWriteService {
     });
   }
 
-  plan(taskId: string, output: GenerationOutput, mode: WriteMode = 'preview'): Promise<WritePlan> {
+  plan(
+    taskId: string,
+    output: GenerationOutput,
+    mode: WriteMode = 'preview',
+    noteIds: readonly string[] = [],
+  ): Promise<WritePlan> {
     return this.serial(async () => {
       const task = this.get(taskId);
       if (task.state !== 'running') throw new Error('任务已生成计划或不在运行中');
@@ -338,7 +346,11 @@ export class TaskWriteService {
         if (!task.writeSet.includes(file.path)) throw new Error(`超出任务允许写集：${file.path}`);
       }
       const pipeline = createWritePipeline({ fs: taskFileSystem(task.copyRoot) });
-      const plan = await pipeline.plan({ output, mode });
+      const plan = await pipeline.plan({
+        output,
+        mode,
+        ...(noteIds.length > 0 ? { noteIds } : {}),
+      });
       plan.id = randomUUID();
       plan.taskId = taskId;
       task.plan = plan;
@@ -354,6 +366,7 @@ export class TaskWriteService {
     output: GenerationOutput,
     mode: WriteMode = 'preview',
     spec: Partial<TaskWriteSpec> = {},
+    noteIds: readonly string[] = [],
   ): Promise<WritePlan> {
     const task = await this.create({
       ...spec,
@@ -361,7 +374,7 @@ export class TaskWriteService {
       objective: spec.objective ?? output.summary,
       writeSet: spec.writeSet ?? output.files.map((file) => file.path),
     });
-    return this.plan(task.taskId, output, mode);
+    return this.plan(task.taskId, output, mode, noteIds);
   }
 
   merge(plan: WritePlan): Promise<WriteResult> {
@@ -386,6 +399,8 @@ export class TaskWriteService {
         ...entry,
         selected: plan.entries[index]?.selected === true,
       }));
+      if (selected.some((entry) => entry.selected && entry.blocked))
+        throw new Error('计划包含被拒绝的变更，请重新生成');
       const proposed = { ...stored, entries: selected };
       task.state = 'queued';
       this.save(task, 'merge-confirmed');
@@ -430,14 +445,22 @@ export class TaskWriteService {
         this.save(task, 'merge-conflicted');
         return result;
       }
-      if (selected.some((entry) => entry.selected && entry.blocked))
-        throw new Error('计划包含被拒绝的变更，请重新生成');
       const draft = await createWritePipeline({ fs: taskFileSystem(task.copyRoot) }).apply(
         proposed,
       );
       if (!draft.ok) {
         task.state = 'conflicted';
         task.result = draft;
+        for (const path of draft.conflicts ?? []) {
+          const entry = proposed.entries.find((candidate) => candidate.path === path);
+          task.conflicts.push({
+            path,
+            reason: '任务工作副本在确认后已变化，保留副本现场',
+            base: entry?.before ?? null,
+            ours: entry?.after ?? null,
+            theirs: await taskFileSystem(task.copyRoot).readText(path),
+          });
+        }
         this.save(task, 'copy-conflicted');
         return draft;
       }
@@ -462,6 +485,17 @@ export class TaskWriteService {
               throw new Error(`${entry.path} 验证期间已被修改`);
         },
         finish: async (result) => {
+          for (const path of result.conflicts ?? []) {
+            if (task.conflicts.some((conflict) => conflict.path === path)) continue;
+            const entry = task.journal.find((candidate) => candidate.path === path);
+            task.conflicts.push({
+              path,
+              reason: '文件在写入或补偿期间发生并发变化，保留当前内容',
+              base: entry?.before ?? null,
+              ours: entry?.after ?? null,
+              theirs: await original.readText(path),
+            });
+          }
           task.result = result;
           task.state = result.ok
             ? 'merged'
@@ -475,7 +509,26 @@ export class TaskWriteService {
         fs: original,
         transaction: { run: (_plan, apply) => apply(guard) },
       });
-      return pipeline.apply(proposed);
+      const result = await pipeline.apply(proposed);
+      // WritePipeline's first disk scan returns before prepare(). Persist that rejection
+      // here as well, otherwise the durable D06 task would remain queued until a restart.
+      if (task.state === 'queued') {
+        const conflictingPaths = new Set(result.conflicts ?? []);
+        for (const entry of selected) {
+          if (!entry.selected || !conflictingPaths.has(entry.path)) continue;
+          task.conflicts.push({
+            path: entry.path,
+            reason: '文件基线在合入校验期间已变化，保留外部修改',
+            base: entry.before,
+            ours: entry.after,
+            theirs: await original.readText(entry.path),
+          });
+        }
+        task.result = result;
+        task.state = task.conflicts.length > 0 ? 'conflicted' : 'failed';
+        this.save(task, task.conflicts.length > 0 ? 'merge-conflicted' : 'merge-failed');
+      }
+      return result;
     });
   }
 

@@ -39,6 +39,7 @@ import { executeCodeTask } from '../code-agent';
 import { resolveCodeRoot } from '../code-root';
 import { createProjectPaths } from '../paths';
 import type { AiStackHandle } from '../domain-factories';
+import type { TaskWriteService } from '../task-write-service';
 
 /**
  * code 域生产路由（T12-02 代码视图 + WritePipeline）。
@@ -83,6 +84,10 @@ export interface CodeDomainOptions {
   emit: (domain: 'code', payload: unknown) => void;
   aiStack: AiStackHandle | null;
   userId: string;
+  /** D07 任务工作副本适配器；缺省时保留非任务调用的既有 WritePipeline。 */
+  taskWrites?: TaskWriteService;
+  /** 与 D06 共享同一份 AgentStore；测试和生产装配均可显式注入。 */
+  agentStore?: AgentStore;
 }
 
 const LANG_BY_EXT: Record<string, string> = {
@@ -133,7 +138,8 @@ export function createCodeDomain(options: CodeDomainOptions): {
 } {
   const { db } = options;
   const watchHandles = new Map<string, { close: () => void }>();
-  const agentStore = options.aiStack?.agentStore ?? new AgentStore(db);
+  const agentStore = options.agentStore ?? options.aiStack?.agentStore ?? new AgentStore(db);
+  const taskWrites = options.taskWrites;
   const suppressed = new Map<string, number>();
   /** AI 自身写入的抑制窗口（毫秒）：文件监听会把刚写的文件也报成 modify */
   const SUPPRESS_WINDOW_MS = 1_500;
@@ -386,7 +392,14 @@ export function createCodeDomain(options: CodeDomainOptions): {
    */
   const applyPlan = async (projectId: string, plan: WritePlan): Promise<WriteResult> => {
     const root = codeRootOf(projectId);
-    const result = await pipelineOf(projectId).apply(plan);
+    const result =
+      plan.taskId !== undefined
+        ? taskWrites === undefined
+          ? (() => {
+              throw new ShellError('NOT_SUPPORTED', '任务写入协调器未装配，拒绝直接写共享目录');
+            })()
+          : await taskWrites.merge(plan)
+        : await pipelineOf(projectId).apply(plan);
     if (result.ok && plan.anchors.length > 0) {
       // T4-05 要点 6：写入后 Code Anchor 写回（AST 校验 + 注释标记校验都在仓库里）
       anchorRepoOf(projectId).register({
@@ -413,11 +426,32 @@ export function createCodeDomain(options: CodeDomainOptions): {
     executeCodeTask(record, execution, {
       aiStack: options.aiStack,
       userId: options.userId,
-      plan: (projectId, output, noteIds) =>
-        pipelineOf(projectId).plan({ output, mode: 'preview', ...(noteIds ? { noteIds } : {}) }),
+      plan: (taskId, projectId, output, noteIds, spec) =>
+        taskWrites !== undefined
+          ? taskWrites.planOutput(projectId, output, 'preview', { taskId, ...spec }, noteIds)
+          : pipelineOf(projectId).plan({
+              output,
+              mode: 'preview',
+              ...(noteIds ? { noteIds } : {}),
+            }),
     }),
   );
   coordinator.start();
+  // D07 崩溃恢复与 D06 owner 同步：只有当前进程持有 fencing token 才能补偿，
+  // 其它进程持有租约时等待下一次 coordinator tick，不自动重放用户确认。
+  const taskRecoveryTimer =
+    taskWrites === undefined
+      ? null
+      : setInterval(
+          () => {
+            if (agentStore.token === null) return;
+            void taskWrites.recover().catch(() => undefined);
+          },
+          Math.max(500, Math.floor(agentStore.leaseMs / 3)),
+        );
+  taskRecoveryTimer?.unref?.();
+  if (taskWrites !== undefined && agentStore.token !== null)
+    void taskWrites.recover().catch(() => undefined);
   const observations = new Map<string, number>();
   const broadcast = setInterval(() => {
     for (const [sessionId, cursor] of observations) {
@@ -444,6 +478,7 @@ export function createCodeDomain(options: CodeDomainOptions): {
 
   const dispose = async (): Promise<void> => {
     clearInterval(broadcast);
+    if (taskRecoveryTimer !== null) clearInterval(taskRecoveryTimer);
     await coordinator.dispose();
     for (const handle of watchHandles.values()) {
       try {

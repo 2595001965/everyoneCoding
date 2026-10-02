@@ -130,8 +130,8 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 | V2-D02 | 真实前端、多服务预览与项目缩略图      | 预览增量 + V1-L3 | D01                        | 已实现待验收 |
 | V2-D03 | 运行 DOM 选取与可验证源码映射         | 新场景           | D02                        | 已实现待验收 |
 | V2-D04 | 接口索引、分类、时间与浏览工作台      | 新场景           | D01                        | 已实现待验收 |
-| V2-D05 | attempt、缓存分桶与上下文计量接线     | 计量增量         | D00                        | 已实现待验收 |
-| V2-D06 | 持久化 Session/Task 与共享协调器      | 并发增量         | D05                        | 已实现待验收 |
+| V2-D05 | attempt、缓存分桶与上下文计量接线     | 计量增量         | D00                        | 已验收       |
+| V2-D06 | 持久化 Session/Task 与共享协调器      | 并发增量         | D05                        | 已验收       |
 | V2-D07 | Agent 工作副本与受控合入              | 写入增量         | D06                        | 已实现待验收 |
 | V2-D08 | 原生多窗口及 Tauri 页面等价收口       | 并发增量 + V1-L1 | D06、D07；旧页面子项可先做 | 待办         |
 | V2-D09 | 指定位置增删接口、依接口新增功能/元素 | 定点开发增量     | D00、D03、D04、D07         | 待办         |
@@ -276,7 +276,9 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 用流夹具和持久化测试覆盖取消/重复/重试/缺usage，不再造公式或钱包，也不把现有三字段统计当新需求全部完成。
 ```
 
-**2026-10-02 执行记录（待验收）**：复用 core/v2 usage 与金额纯函数接入 OpenAI/Anthropic usage、网关 attempt、SQLite 持久化/事件更正、UsageRepo 聚合和上下文预览；19 个测试文件 / 193 项通过，覆盖缓存 TTL 桶、推理子集、重试、取消/缺 usage、重复更正及重开数据库恢复。core/ai/data/shell-api/renderer TypeScript 检查通过；D07 修复测试中的 Git CommitInput 字段后，Electron 全量 strict 检查已在 2026-10-02 复核通过。详见 [D05 验收记录](../V2-D05-METERING.md)。
+**2026-10-02 执行记录**：复用 core/v2 usage 与金额纯函数接入 OpenAI/Anthropic usage、网关 attempt、SQLite 持久化/事件更正、UsageRepo 聚合和上下文预览；19 个测试文件 / 193 项通过。详见 [D05 验收记录](../V2-D05-METERING.md)。
+
+**2026-10-03 验收复核**：23 个定向测试文件 / 226 项通过，包含此前记录的计量流失败项；core、ai、data、shell-api、renderer、desktop-electron、git 七个 TypeScript 工程检查通过。D05 已验收。
 
 ### V2-D06 — 在现有网关上增加持久化会话与协调器
 
@@ -294,7 +296,9 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 必须真实多进程验证单owner、共享预算、取消隔离与不重复调用，不能只用一个Map的单元测试证明并发安全。
 ```
 
-**2026-10-02 执行记录**：D06 已接入持久化 Session/Task、fencing 租约、共享网关队列/预算 permit、事件 cursor 与 task 命令；4 个定向文件 / 18 项测试通过，其中 5 项通过真实 Node 子进程和共享 SQLite 验证 owner 竞争、预算、QPS、取消/暂停隔离、owner 崩溃接管与不重复派发。Electron 业务接线通过；完整 Electron TypeScript 检查仍受既有 D07/usage-domain 错误阻断。D05 定向计量测试 5 项有 3 项失败，前置未确认，故 D06 保持“已实现待验收”。细节见 [D06 验收记录](../V2-D06-COORDINATOR.md)。
+**2026-10-02 执行记录**：D06 已接入持久化 Session/Task、fencing 租约、共享网关队列/预算 permit、事件 cursor 与 task 命令；初始定向回归 4 个文件 / 18 项通过，其中 5 项使用真实 Node 子进程和共享 SQLite。D05 当时的计量失败已由后续复核解决。
+
+**2026-10-03 验收复核**：D06 定向命令 4 个文件 / 20 项通过，其中真实子进程协调器覆盖 owner 竞争、预算、QPS、取消/暂停隔离、owner 崩溃接管和不重复派发；七个 TypeScript 工程检查通过。D06 已验收。细节见 [D06 验收记录](../V2-D06-COORDINATOR.md)。
 
 ### V2-D07 — 复用 WritePipeline，增加隔离工作副本和安全合入
 
@@ -312,7 +316,9 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 用真实Git/非Git、同文件/接口冲突、外部修改和崩溃恢复测试证明不会互相覆盖；不得清场用户修改。
 ```
 
-2026-10-02 执行记录：D06 作为前置按“已实现待验收”核验；D07 复用 WritePipeline 的 plan/preview/apply 与 CAS/快照补偿，新增 Git worktree / 非 Git 隔离副本、显式 HEAD/当前目录基线、持久化读写集/接口契约哈希/任务租约与 fencing、排他资源、受控合入队列和崩溃 journal 恢复。真实 CLI Git 与非 Git 测试覆盖 dirty staged/untracked/删除现场保留、同文件先后合入冲突、接口契约变更重新验证、外部进程修改拒绝覆盖、验证失败补偿保留外部成果、依赖锁/DDL/共享数据库排他、非 Git 不 init/commit，以及强杀进程后的接管补偿和旧 owner fencing。3 个定向测试文件共 29 项通过；Electron strict TypeScript、@ec/ai 和 @ec/git 检查通过。详见 D07 验收记录。
+2026-10-02 执行记录：D06 作为前置按“已实现待验收”核验；D07 复用 WritePipeline 的 plan/preview/apply 与 CAS/快照补偿，新增 Git worktree / 非 Git 隔离副本、显式 HEAD/当前目录基线、持久化读写集/接口契约哈希/任务租约与 fencing、排他资源、受控合入队列和崩溃 journal 恢复。生产 `code` 域已把 Agent 任务的 plan/apply 接到 TaskWriteService，带 `taskId` 的计划禁止绕过协调器直接写共享目录；真实 CLI Git 与非 Git测试覆盖 dirty staged/untracked/删除现场保留、同文件先后合入冲突、接口契约变更重新验证、外部进程修改拒绝覆盖、验证失败补偿保留外部成果、依赖锁/DDL/共享数据库排他、非 Git 不 init/commit，以及强杀进程后的接管补偿和旧 owner fencing。D07 核心 3 个定向测试文件共 31 项通过，生产域集成再通过 17 项；Electron strict TypeScript、@ec/ai 和 @ec/git 检查通过。详见 D07 验收记录。
+
+**2026-10-03 复核**：在事务准备后由独立 Node 子进程改写目标文件，D07 报告冲突且保留外部字节；被 WritePipeline 阻止的计划不再滞留在 queued。D07 核心 31 项、生产域集成 17 项、D06 协调器与 code-agent 6 项通过；三个 TypeScript 项目检查通过。D05 与 D06 前置验收现已通过，D07 保持“已实现待验收”。详见 [D07 验收记录](../V2-D07-WORKTREE-MERGE.md)。
 
 ### V2-D08 — 原生多窗口与 Tauri 旧页面补缺
 

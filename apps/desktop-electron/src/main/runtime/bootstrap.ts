@@ -181,7 +181,12 @@ export async function createHeadlessRuntime(
      * 侧车里同样成立：侧车自己是 Node 进程，直接 `child_process.spawn`，
      * 越界判定仍在 TS 侧（与 Electron 一字不差），不需要额外的宿主能力。
      */
-    const processHost = createControlledProcessHost({ allowedRoot: projectsDir });
+    const processHost = createControlledProcessHost({
+      allowedRoot: projectsDir,
+      // D07 任务副本由 TaskWriteService 存在 dataDir/task-writes 下；
+      // 仍走同一受控进程口，只增加显式隔离根，不把 cwd 放宽到整个用户目录。
+      allowedRoots: [dataDir],
+    });
 
     const credentials =
       options.safeStorage === null

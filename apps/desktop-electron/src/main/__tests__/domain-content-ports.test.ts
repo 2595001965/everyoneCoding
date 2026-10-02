@@ -956,6 +956,25 @@ describe('外部改动检测与 AI 重改', () => {
       .find((payload) => payload.type === 'code:write-plan');
     expect(planEvent).toBeDefined();
     expect(planEvent?.plan?.entries).toHaveLength(1);
+    expect(planEvent?.plan && 'taskId' in planEvent.plan).toBe(true);
+    const taskId = (planEvent?.plan as { taskId?: string }).taskId;
+    expect(taskId).toBeTruthy();
+    expect(existsSync(join(dataDir, 'task-writes', taskId!, 'task.json'))).toBe(true);
+    expect(existsSync(join(codeRootOf(projectId), 'src/reworked.ts'))).toBe(false);
+    const taskBeforeMerge = (
+      await call<
+        Array<{
+          task: { taskId: string; status: string; worktreeId: string | null; writeSet: string[] };
+        }>
+      >({
+        domain: 'code',
+        method: 'listTasks',
+        params: { projectId },
+      })
+    ).find((item) => item.task.taskId === taskId);
+    expect(taskBeforeMerge?.task.status).toBe('awaiting_confirmation');
+    expect(taskBeforeMerge?.task.worktreeId).toBeTruthy();
+    expect(taskBeforeMerge?.task.writeSet).toEqual(['src/reworked.ts']);
 
     const result = await call<{ ok: boolean; applied: string[] }>({
       domain: 'code',
@@ -964,6 +983,17 @@ describe('外部改动检测与 AI 重改', () => {
     });
     expect(result.ok).toBe(true);
     expect(readCodeFile(projectId, 'src/reworked.ts')).toBe('export const reworked = true;\n');
+    expect(
+      JSON.parse(readFileSync(join(dataDir, 'task-writes', taskId!, 'task.json'), 'utf8')).state,
+    ).toBe('merged');
+    const taskAfterMerge = (
+      await call<Array<{ task: { taskId: string; status: string } }>>({
+        domain: 'code',
+        method: 'listTasks',
+        params: { projectId },
+      })
+    ).find((item) => item.task.taskId === taskId);
+    expect(taskAfterMerge?.task.status).toBe('merged');
 
     // 模型输出不符合输出契约时如实报错，不落半成品（持久任务语义：失败落在任务列表里）
     await runtime.dispose();

@@ -32,7 +32,19 @@ export async function executeCodeTask(
   options: {
     aiStack: AiStackHandle | null;
     userId: string;
-    plan(projectId: string, output: GenerationOutput, noteIds?: string[]): Promise<WritePlan>;
+    plan(
+      taskId: string,
+      projectId: string,
+      output: GenerationOutput,
+      noteIds?: string[],
+      spec?: {
+        baseline?: 'head' | 'current';
+        readSet?: string[];
+        writeSet?: string[];
+        contractPaths?: string[];
+        sharedResources?: string[];
+      },
+    ): Promise<WritePlan>;
   },
 ): Promise<{
   result: CodeGenerateResult;
@@ -152,7 +164,25 @@ export async function executeCodeTask(
   const noteIds = Array.isArray(request['noteIds'])
     ? request['noteIds'].filter((id): id is string => typeof id === 'string')
     : undefined;
-  const plan = await options.plan(projectId, result.output, noteIds);
+  const stringArray = (value: unknown): string[] | undefined =>
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : undefined;
+  const baseline =
+    request['baseline'] === 'head' || request['baseline'] === 'current'
+      ? request['baseline']
+      : undefined;
+  const readSet = stringArray(request['readSet']);
+  const writeSet = stringArray(request['writeSet']);
+  const contractPaths = stringArray(request['contractPaths']);
+  const sharedResources = stringArray(request['sharedResources']);
+  const plan = await options.plan(record.task.taskId, projectId, result.output, noteIds, {
+    ...(baseline !== undefined ? { baseline } : {}),
+    ...(readSet !== undefined ? { readSet } : {}),
+    ...(writeSet !== undefined ? { writeSet } : {}),
+    ...(contractPaths !== undefined ? { contractPaths } : {}),
+    ...(sharedResources !== undefined ? { sharedResources } : {}),
+  });
   execution.assertOwner();
   execution.event('agent.output.plan', {
     type: 'code:write-plan',

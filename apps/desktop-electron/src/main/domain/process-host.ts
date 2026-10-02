@@ -54,6 +54,8 @@ export interface CreateControlledProcessHostOptions {
    * 生产必须传，否则 cwd 可被请求方带出任一位置。
    */
   allowedRoot: string | null;
+  /** 额外允许的隔离根（例如 D07 任务工作副本数据目录）。 */
+  allowedRoots?: readonly string[];
   /** 进程环境变量基线（默认继承当前进程 env） */
   env?: NodeJS.ProcessEnv;
   /** 单进程输出缓冲上限（字符），超出丢弃最早的部分，防止内存膨胀 */
@@ -136,7 +138,14 @@ export function createControlledProcessHost(
       }
 
       const cwd = spawnOptions?.cwd ?? null;
-      if (options.allowedRoot !== null && (cwd === null || !withinRoot(options.allowedRoot, cwd))) {
+      const allowedRoots = [
+        ...(options.allowedRoot === null ? [] : [options.allowedRoot]),
+        ...(options.allowedRoots ?? []),
+      ];
+      if (
+        allowedRoots.length > 0 &&
+        (cwd === null || !allowedRoots.some((root) => withinRoot(root, cwd)))
+      ) {
         // cwd 越界意味着调用方拼错了根目录；在这里拒绝比让进程在别的目录里跑更安全
         throw new ShellError('PATH_ESCAPE', '进程工作目录越出工程根目录，已拒绝启动');
       }

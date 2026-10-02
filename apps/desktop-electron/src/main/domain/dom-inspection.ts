@@ -23,6 +23,7 @@ export class DomInspection {
     private readonly projectId: string,
     private readonly paths: ProjectPaths,
     private readonly settings: SettingStore,
+    private readonly settingsScope: string = projectId,
   ) {}
   reset(runtimeId?: string): void {
     this.runtimeId = runtimeId ?? randomUUID();
@@ -140,7 +141,7 @@ export class DomInspection {
       targetPage,
       attached,
     };
-    const key = `preview_dom_notes:${this.projectId}`;
+    const key = `preview_dom_notes:${this.settingsScope}`;
     const existing = this.settings.read<DomAttachment[]>(key) ?? [];
     const path = mapping.anchor.sourceRef?.filePath;
     const line = mapping.anchor.sourceRef?.startLine;
@@ -162,7 +163,7 @@ export class DomInspection {
   }
   readAttachments(): DomAttachment[] {
     return (
-      this.settings.read<DomAttachment[]>(`preview_dom_notes:${this.projectId}`) ?? []
+      this.settings.read<DomAttachment[]>(`preview_dom_notes:${this.settingsScope}`) ?? []
     ).filter((entry) => {
       if (
         !entry.attached ||

@@ -119,9 +119,9 @@ const MAX_BODY_BYTES = 1_048_576;
 const MAX_REQUEST_LOGS = 500;
 
 /** 局域网开关（默认关闭，D-09） */
-const lanSharingKey = (projectId: string): string => `preview_lan_sharing:${projectId}`;
+const lanSharingKey = (scope: string): string => `preview_lan_sharing:${scope}`;
 /** Mock 设置按项目存 */
-const mockSettingsKey = (projectId: string): string => `preview_mock_settings:${projectId}`;
+const mockSettingsKey = (scope: string): string => `preview_mock_settings:${scope}`;
 
 export interface ApiRequestLog {
   id: string;
@@ -151,6 +151,10 @@ export interface PreviewDomainOptions {
    * getThumbnailUrl 保持 null（工作台卡片显示明确占位）。
    */
   capturePage?: ((url: string) => Promise<Buffer | null>) | undefined;
+  /** D07 任务预览解析器：只返回由 TaskWriteService 管理且仍存在的任务副本。 */
+  resolveTaskPreview?:
+    | ((projectId: string, taskId: string) => { codeRoot: string; dataDir: string } | null)
+    | undefined;
   /**
    * 非请求来源事件（后端进程的后续日志行）。日志在 `startBackend` 返回之后仍会持续产生，
    * 那时没有"在飞的请求"可以附着，必须走这条常驻事件口。
@@ -170,14 +174,18 @@ interface ConfirmedRunPlan {
   plans: RunPlan[];
 }
 
-const dataModeKey = (projectId: string): string => `preview_data_mode:${projectId}`;
-const runPlanKey = (projectId: string): string => `preview_run_plan:${projectId}`;
+const dataModeKey = (scope: string): string => `preview_data_mode:${scope}`;
+const runPlanKey = (scope: string): string => `preview_run_plan:${scope}`;
 const THUMBNAIL_FILE = 'thumbnail.png';
 
 interface PreviewInstance {
   readonly inspection: DomInspection;
   readonly domCompiler: DomViteBridge;
   readonly projectId: string;
+  readonly taskId: string | null;
+  readonly scope: string;
+  readonly dataDir: string | null;
+  readonly paths: ProjectPaths;
   readonly codeRoot: string;
   staticRoot: string;
   server: Server | null;
@@ -229,17 +237,63 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
    * 其中"接口真的被打了没、打了几次、返回什么"只有预览域知道，
    * 所以由预览域暴露一份只读投影，而不是让 nav 去猜。
    */
-  readRequestLogs: (projectId: string) => readonly ApiRequestLog[];
-  readDomAttachments: (projectId: string) => readonly DomAttachment[];
+  readRequestLogs: (projectId: string, taskId?: string) => readonly ApiRequestLog[];
+  readDomAttachments: (projectId: string, taskId?: string) => readonly DomAttachment[];
 } {
   const paths: ProjectPaths = createProjectPaths({ projectsDir: options.projectsDir });
   const settings: SettingStore = createSettingStore({ db: options.db, userId: options.userId });
   const instances = new Map<string, PreviewInstance>();
 
+  const taskIdOf = (params: Record<string, unknown>): string | null => {
+    const value = params['taskId'];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  };
+
+  const scopeOf = (projectId: string, taskId: string | null): string =>
+    taskId === null ? projectId : projectId + ':task:' + taskId;
+
+  const taskPathsFor = (projectId: string, codeRoot: string): ProjectPaths => ({
+    projectsDir: codeRoot,
+    projectRoot: (id) => {
+      if (id !== projectId) throw new ShellError('INVALID_ARGUMENT', '任务预览项目标识不一致');
+      return codeRoot;
+    },
+    projectDir: (id, ...segments) => {
+      if (id !== projectId) throw new ShellError('INVALID_ARGUMENT', '任务预览项目标识不一致');
+      if (segments.length === 0) return codeRoot;
+      const relativePath =
+        segments[0] === PROJECT_SUBDIRS.code ? segments.slice(1).join('/') : segments.join('/');
+      return relativePath.length === 0 ? codeRoot : paths.inside(codeRoot, relativePath);
+    },
+    codeRoot: (id) => {
+      if (id !== projectId) throw new ShellError('INVALID_ARGUMENT', '任务预览项目标识不一致');
+      return codeRoot;
+    },
+    pagesDir: (id) => {
+      if (id !== projectId) throw new ShellError('INVALID_ARGUMENT', '任务预览项目标识不一致');
+      return paths.inside(codeRoot, PROJECT_SUBDIRS.pages);
+    },
+    docsDir: (id) => {
+      if (id !== projectId) throw new ShellError('INVALID_ARGUMENT', '任务预览项目标识不一致');
+      return paths.inside(codeRoot, PROJECT_SUBDIRS.docs);
+    },
+    inside: paths.inside,
+    relative: paths.relative,
+    contains: paths.contains,
+  });
+
   const requireProject = (params: Record<string, unknown>): string => {
     const projectId = String(params['projectId'] ?? '');
     if (projectId.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 projectId');
-    paths.codeRoot(projectId);
+    const taskId = taskIdOf(params);
+    if (taskId === null) {
+      paths.codeRoot(projectId);
+    } else if (
+      options.resolveTaskPreview?.(projectId, taskId) === null ||
+      options.resolveTaskPreview === undefined
+    ) {
+      throw new ShellError('NOT_FOUND', '任务预览副本不存在或已清理：' + taskId);
+    }
     return projectId;
   };
 
@@ -254,15 +308,16 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
   const loadOpenApiFor = (
     projectId: string,
     logs: LogStream,
+    localPaths: ProjectPaths = paths,
   ): { spec: LoadedOpenApi; source: string | null } => {
-    const docsDir = paths.projectDir(projectId, PROJECT_SUBDIRS.docs);
-    const pipelineDir = paths.projectDir(projectId, PROJECT_SUBDIRS.pipeline);
+    const docsDir = localPaths.projectDir(projectId, PROJECT_SUBDIRS.docs);
+    const pipelineDir = localPaths.projectDir(projectId, PROJECT_SUBDIRS.pipeline);
     const candidates: string[] = [];
 
     const collect = (dir: string, depth = 0): void => {
       if (depth > 3 || !existsSync(dir)) return;
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = paths.inside(dir, entry.name);
+        const full = localPaths.inside(dir, entry.name);
         if (entry.isDirectory()) {
           if (entry.name === 'node_modules' || entry.name === '.git') continue;
           collect(full, depth + 1);
@@ -283,11 +338,11 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       try {
         return {
           spec: parseOpenApiDocument(text),
-          source: relative(paths.projectRoot(projectId), file),
+          source: relative(localPaths.projectRoot(projectId), file),
         };
       } catch (error) {
         logs.warn(
-          `OpenAPI 文件解析失败（已跳过）：${relative(paths.projectRoot(projectId), file)} ${
+          `OpenAPI 文件解析失败（已跳过）：${relative(localPaths.projectRoot(projectId), file)} ${
             error instanceof OpenApiParseError ? error.message : ''
           }`,
         );
@@ -303,7 +358,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       try {
         return {
           spec: parseOpenApiDocument(fenced[1]),
-          source: relative(paths.projectRoot(projectId), file),
+          source: relative(localPaths.projectRoot(projectId), file),
         };
       } catch {
         // 围栏内容不是合法 spec：继续找下一个候选
@@ -316,20 +371,35 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
   /* ------------------------------ 实例构造 ------------------------------ */
 
-  const resolveStaticRoot = (projectId: string): { root: string; fallback: boolean } => {
-    const codeRoot = paths.codeRoot(projectId);
+  const resolveStaticRoot = (
+    projectId: string,
+    localPaths: ProjectPaths = paths,
+  ): { root: string; fallback: boolean } => {
+    const codeRoot = localPaths.codeRoot(projectId);
     for (const candidate of STATIC_ROOT_CANDIDATES) {
-      const dir = paths.projectDir(projectId, PROJECT_SUBDIRS.code, candidate);
+      const dir = localPaths.inside(codeRoot, candidate);
       if (existsSync(dir) && statSync(dir).isDirectory()) return { root: dir, fallback: false };
     }
     return { root: codeRoot, fallback: true };
   };
 
-  const instanceOf = (projectId: string): PreviewInstance => {
-    const cached = instances.get(projectId);
+  const getInstance = (projectId: string, taskId: string | null = null): PreviewInstance => {
+    const key = scopeOf(projectId, taskId);
+    const cached = instances.get(key);
     if (cached !== undefined) return cached;
 
-    const codeRoot = paths.codeRoot(projectId);
+    let codeRoot: string;
+    let dataDir: string | null = null;
+    let instancePaths = paths;
+    if (taskId === null) {
+      codeRoot = paths.codeRoot(projectId);
+    } else {
+      const task = options.resolveTaskPreview?.(projectId, taskId) ?? null;
+      if (task === null) throw new ShellError('NOT_FOUND', '任务预览副本不存在或已清理：' + taskId);
+      codeRoot = task.codeRoot;
+      dataDir = task.dataDir;
+      instancePaths = taskPathsFor(projectId, codeRoot);
+    }
     if (!existsSync(codeRoot)) {
       throw new ShellError('NOT_FOUND', `项目代码目录不存在：${projectId}`);
     }
@@ -353,14 +423,16 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         source: line.source,
         stream: line.stream,
         projectId,
+        ...(taskId === null ? {} : { taskId }),
       });
     });
-    const { root: staticRoot, fallback } = resolveStaticRoot(projectId);
-    const mockSettings = settings.read<MockSettings>(mockSettingsKey(projectId)) ?? {
+    const scope = scopeOf(projectId, taskId);
+    const { root: staticRoot, fallback } = resolveStaticRoot(projectId, instancePaths);
+    const mockSettings = settings.read<MockSettings>(mockSettingsKey(scope)) ?? {
       ...DEFAULT_MOCK_SETTINGS,
     };
     const mock = new MockResponseGenerator({ settings: mockSettings });
-    const { spec, source } = loadOpenApiFor(projectId, logs);
+    const { spec, source } = loadOpenApiFor(projectId, logs, instancePaths);
     if (fallback) {
       logs.info('未发现构建产物目录（dist/build/public），静态预览直接托管代码根目录');
     }
@@ -400,11 +472,15 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       fixture,
     });
 
-    const inspection = new DomInspection(projectId, paths, settings);
+    const inspection = new DomInspection(projectId, instancePaths, settings, scope);
     const instance: PreviewInstance = {
       inspection,
-      domCompiler: new DomViteBridge(projectId, paths, inspection),
+      domCompiler: new DomViteBridge(projectId, instancePaths, inspection),
       projectId,
+      taskId,
+      scope,
+      dataDir,
+      paths: instancePaths,
       codeRoot,
       staticRoot,
       server: null,
@@ -428,7 +504,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       openapiSource: source,
       resolver,
       backendUrl: null,
-      dataMode: settings.read<DataMode>(dataModeKey(projectId)) === 'mock' ? 'mock' : 'real',
+      dataMode: settings.read<DataMode>(dataModeKey(scope)) === 'mock' ? 'mock' : 'real',
       orchestrator:
         options.process === null
           ? null
@@ -460,7 +536,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     };
 
     startStaticWatcher(instance);
-    instances.set(projectId, instance);
+    instances.set(key, instance);
     return instance;
   };
 
@@ -475,14 +551,14 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     try {
       const relativePath = decodeURIComponent(urlPath.split('?')[0] ?? '/').replace(/^\//, '');
       if (relativePath.split(/[\\/]/).some((part) => part.startsWith('.'))) return null;
-      target = paths.inside(root, relativePath === '' ? 'index.html' : relativePath);
+      target = instance.paths.inside(root, relativePath === '' ? 'index.html' : relativePath);
     } catch {
       return null;
     }
     if (!existsSync(target) || !statSync(target).isFile()) {
       // SPA 兜底：未命中文件回 index.html（前端路由刷新不该 404）
       try {
-        target = paths.inside(root, 'index.html');
+        target = instance.paths.inside(root, 'index.html');
       } catch {
         return null;
       }
@@ -493,7 +569,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     if (type.startsWith('text/html') && instance.inspection.session !== null) {
       const mapped = instance.inspection.registry.instrument(
         body.toString('utf8'),
-        paths.relative(instance.codeRoot, target),
+        instance.paths.relative(instance.codeRoot, target),
         'static_html',
       );
       body = Buffer.from(injectDomSelector(mapped, instance.inspection.session));
@@ -634,7 +710,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     if (instance.server !== null) await stopServer(instance);
     instance.domCompiler.clear();
     instance.inspection.reset();
-    const lanSharing = readLanSharing(instance.projectId);
+    const lanSharing = readLanSharing(instance.scope);
     const allocation = await allocatePort({
       start: DEFAULT_PREVIEW_PORT,
       probe: probePort,
@@ -768,7 +844,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         for (const entry of entries) {
           if (entry.name === 'node_modules' || entry.name === '.git') continue;
           if (entry.isSymbolicLink()) continue;
-          const full = paths.inside(dir, entry.name);
+          const full = instance.paths.inside(dir, entry.name);
           if (entry.isDirectory()) {
             walk(full, depth + 1);
             continue;
@@ -862,13 +938,15 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
   /* ------------------------------ 设置读取 ------------------------------ */
 
-  const readLanSharing = (projectId: string): boolean =>
-    settings.read<boolean>(lanSharingKey(projectId)) === true;
+  const readLanSharing = (scope: string): boolean =>
+    settings.read<boolean>(lanSharingKey(scope)) === true;
 
   /* ------------------------------ 路由 ------------------------------ */
 
   const router: DomainRouter = async (method, params) => {
     const projectId = requireProject(params);
+    const taskId = taskIdOf(params);
+    const instanceOf = (id: string): PreviewInstance => getInstance(id, taskId);
 
     switch (method) {
       case 'state': {
@@ -932,7 +1010,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           confirmedAt: Date.now(),
           plans,
         };
-        settings.write(runPlanKey(projectId), confirmed);
+        settings.write(runPlanKey(instance.scope), confirmed);
         instance.logs.info(
           `运行计划已确认：${plans.length} 份计划 / ${plans.reduce((n, p) => n + p.services.length, 0)} 个服务步骤（安装/启动前不再二次确认）`,
         );
@@ -940,11 +1018,11 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'startRun': {
-        const instance = requireProcess(projectId, '运行实例');
+        const instance = requireProcess(projectId, '运行实例', taskId);
         if (instance.orchestrator === null) {
           throw new ShellError('NOT_SUPPORTED', '运行实例需要受控进程端口，当前未装配。');
         }
-        const confirmed = settings.read<ConfirmedRunPlan>(runPlanKey(projectId));
+        const confirmed = settings.read<ConfirmedRunPlan>(runPlanKey(instance.scope));
         if (confirmed === null || confirmed.plans.length === 0) {
           throw new ShellError(
             'INVALID_ARGUMENT',
@@ -1039,7 +1117,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'restartService': {
-        const instance = requireProcess(projectId, '服务重启');
+        const instance = requireProcess(projectId, '服务重启', taskId);
         if (instance.orchestrator === null) {
           throw new ShellError('NOT_SUPPORTED', '运行实例需要受控进程端口，当前未装配。');
         }
@@ -1067,7 +1145,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         if (!saved) {
           throw new ShellError('NOT_SUPPORTED', '缩略图生成器未装配或截图失败，请查看预览日志');
         }
-        return thumbnailPathOf(projectId);
+        return thumbnailPathOf(projectId, instance.paths);
       }
 
       case 'inspectionSession': {
@@ -1083,7 +1161,9 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       case 'attachDomContext':
         return instanceOf(projectId).inspection.save(params, method === 'attachDomContext');
       case 'domNotes':
-        return settings.read<DomAttachment[]>(`preview_dom_notes:${projectId}`) ?? [];
+        return (
+          settings.read<DomAttachment[]>('preview_dom_notes:' + instanceOf(projectId).scope) ?? []
+        );
 
       case 'start': {
         const mode = String(params['mode'] ?? 'static') as PreviewMode;
@@ -1116,12 +1196,15 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
       case 'pages': {
         const pages: Array<{ route: string; name: string }> = [];
-        const designDir = paths.pagesDir(projectId);
+        const instance = instanceOf(projectId);
+        const designDir = instance.paths.pagesDir(projectId);
         if (existsSync(designDir)) {
           for (const entry of readdirSync(designDir)) {
             if (!entry.endsWith('.dsl.json')) continue;
             try {
-              const envelope = JSON.parse(readFileSync(paths.inside(designDir, entry), 'utf8')) as {
+              const envelope = JSON.parse(
+                readFileSync(instance.paths.inside(designDir, entry), 'utf8'),
+              ) as {
                 page?: { route?: string; name?: string };
               };
               pages.push({
@@ -1213,7 +1296,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'installDependencies': {
-        const instance = requireProcess(projectId, '依赖安装');
+        const instance = requireProcess(projectId, '依赖安装', taskId);
         const profile = instance.profile ?? detectProfile(instance);
         instance.profile = profile;
         if (instance.installer === null) {
@@ -1234,7 +1317,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'startBackend': {
-        const instance = requireProcess(projectId, '后端托管');
+        const instance = requireProcess(projectId, '后端托管', taskId);
         const profile = instance.profile ?? detectProfile(instance);
         instance.profile = profile;
         if (options.process === null) {
@@ -1256,7 +1339,13 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         });
         instance.runner = runner;
 
-        const result = await runner.start(profile, instance.codeRoot);
+        const result = await runner.start(
+          profile,
+          instance.codeRoot,
+          instance.dataDir === null
+            ? undefined
+            : { EC_TASK_ID: instance.taskId ?? '', EC_TASK_DATA_DIR: instance.dataDir },
+        );
         if (result.ok && result.data !== null) {
           instance.setBackend(result.data.url);
         }
@@ -1264,7 +1353,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'stopBackend': {
-        const instance = requireProcess(projectId, '后端托管');
+        const instance = requireProcess(projectId, '后端托管', taskId);
         if (instance.runner === null) {
           throw new ShellError('NOT_SUPPORTED', '后端尚未托管，无需停止。');
         }
@@ -1274,7 +1363,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'restartBackend': {
-        const instance = requireProcess(projectId, '后端托管');
+        const instance = requireProcess(projectId, '后端托管', taskId);
         if (instance.runner === null) {
           throw new ShellError('NOT_SUPPORTED', '后端尚未托管，无法重启。');
         }
@@ -1321,7 +1410,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           );
         }
         // 默认关闭，且拒绝在未开启时"顺手给个地址"——那等于绕过了用户的显式授权
-        if (!readLanSharing(projectId)) {
+        if (!readLanSharing(instanceOf(projectId).scope)) {
           throw new ShellError(
             'NOT_SUPPORTED',
             '局域网预览默认关闭：开启后同一网络下的其它设备即可访问你的本机工程，请确认网络环境可信后再开启。',
@@ -1336,12 +1425,12 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       }
 
       case 'lanSharingEnabled':
-        return readLanSharing(projectId);
+        return readLanSharing(instanceOf(projectId).scope);
 
       case 'setLanSharing': {
         const enabled = params['enabled'] === true;
-        settings.write(lanSharingKey(projectId), enabled);
         const instance = instanceOf(projectId);
+        settings.write(lanSharingKey(instance.scope), enabled);
         instance.logs.warn(
           enabled
             ? '局域网预览已开启：同一网络下的设备可访问本机预览服务，请勿在公共网络使用'
@@ -1360,7 +1449,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
         const instance = instanceOf(projectId);
         const patch = (params['patch'] ?? {}) as Partial<MockSettings>;
         instance.mock.updateSettings(patch);
-        settings.write(mockSettingsKey(projectId), instance.mock.settings());
+        settings.write(mockSettingsKey(instance.scope), instance.mock.settings());
         instance.logs.info(
           // 注意措辞：日志分级按关键字判定，「错误率」会被误判成 error 级（ERROR_RE 命中"错误"）
           `Mock 设置已更新：规则 ${instance.mock.settings().rules.length} 条，延迟 ${JSON.stringify(
@@ -1381,7 +1470,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           throw new ShellError('INVALID_ARGUMENT', `未知数据模式：${String(params['mode'] ?? '')}`);
         }
         instance.dataMode = mode;
-        settings.write(dataModeKey(projectId), mode);
+        settings.write(dataModeKey(instance.scope), mode);
         instance.logs.info(
           mode === 'mock'
             ? '数据来源已显式切换为模拟数据（Mock）：接口响应始终带 X-EC-Data-Source: mock 标记，不代表真实联调通过'
@@ -1397,8 +1486,12 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
 
   /* ------------------------------ 内部工具 ------------------------------ */
 
-  const requireProcess = (projectId: string, action: string): PreviewInstance => {
-    const instance = instanceOf(projectId);
+  const requireProcess = (
+    projectId: string,
+    action: string,
+    taskId: string | null,
+  ): PreviewInstance => {
+    const instance = getInstance(projectId, taskId);
     if (options.process === null) {
       throw new ShellError(
         'NOT_SUPPORTED',
@@ -1423,7 +1516,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const profile = detectProjectType([...names]);
     if (profile.kind === 'node') {
       const pkg = JSON.parse(
-        readFileSync(paths.inside(instance.codeRoot, 'package.json'), 'utf8'),
+        readFileSync(instance.paths.inside(instance.codeRoot, 'package.json'), 'utf8'),
       ) as { scripts?: Record<string, string> };
       profile.startCmd = pkg.scripts?.['dev']
         ? 'npm run dev'
@@ -1466,10 +1559,10 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const packages: Record<string, ParsedPackage> = {};
     const envNames: Record<string, string[]> = {};
 
-    const rootPkg = readJsonFile(paths.inside(instance.codeRoot, 'package.json'));
+    const rootPkg = readJsonFile(instance.paths.inside(instance.codeRoot, 'package.json'));
     if (rootPkg !== null) packages[''] = rootPkg;
     for (const envFile of ['.env.example', '.env.local']) {
-      const text = readSafely(paths.inside(instance.codeRoot, envFile));
+      const text = readSafely(instance.paths.inside(instance.codeRoot, envFile));
       if (text === null) continue;
       const names = text
         .split(/\r?\n/)
@@ -1483,17 +1576,17 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
       rootFiles.includes('pnpm-workspace.yaml') || rootPkg?.workspaces !== undefined;
     if (isWorkspace) {
       for (const group of ['apps', 'packages', 'services']) {
-        const groupDir = paths.inside(instance.codeRoot, group);
+        const groupDir = instance.paths.inside(instance.codeRoot, group);
         if (!existsSync(groupDir)) continue;
         for (const name of listDirNames(groupDir)) {
           if (name.startsWith('.')) continue;
           const dir = `${group}/${name}`;
-          const full = paths.inside(groupDir, name);
+          const full = instance.paths.inside(groupDir, name);
           if (!statSyncSafe(full)?.isDirectory()) continue;
           files[dir] = listDirNames(full);
-          const pkg = readJsonFile(paths.inside(full, 'package.json'));
+          const pkg = readJsonFile(instance.paths.inside(full, 'package.json'));
           if (pkg !== null) packages[dir] = pkg;
-          const envText = readSafely(paths.inside(full, '.env.example'));
+          const envText = readSafely(instance.paths.inside(full, '.env.example'));
           if (envText !== null) {
             envNames[dir] = envText
               .split(/\r?\n/)
@@ -1524,8 +1617,9 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     const installs: { serviceId: string; command: string; cwd: string }[] = [];
     const services: RuntimeServiceSpec[] = [];
     for (const plan of confirmed.plans) {
-      // 计划 cwd 是代码根内的相对路径（'.' = 根）；paths.inside 负责越界拒绝
-      const cwd = plan.cwd === '.' ? instance.codeRoot : paths.inside(instance.codeRoot, plan.cwd);
+      // 计划 cwd 是代码根内的相对路径（'.' = 根）；实例路径负责越界拒绝
+      const cwd =
+        plan.cwd === '.' ? instance.codeRoot : instance.paths.inside(instance.codeRoot, plan.cwd);
       for (const serviceId of plan.startupOrder) {
         const svc = plan.services.find((s) => s.serviceId === serviceId);
         if (svc === undefined) continue; // startupOrder 与 services 不一致按契约应被 schema 拒绝，这里兜底
@@ -1539,7 +1633,10 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           command: svc.command,
           args: svc.args,
           cwd,
-          env: {},
+          env:
+            instance.dataDir === null
+              ? {}
+              : { EC_TASK_ID: instance.taskId ?? '', EC_TASK_DATA_DIR: instance.dataDir },
         });
       }
     }
@@ -1580,8 +1677,8 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     if (hasBackend) instance.mode = 'linked';
   };
 
-  const thumbnailPathOf = (projectId: string): string =>
-    paths.projectDir(projectId, PROJECT_SUBDIRS.meta, THUMBNAIL_FILE);
+  const thumbnailPathOf = (projectId: string, localPaths: ProjectPaths = paths): string =>
+    localPaths.projectDir(projectId, PROJECT_SUBDIRS.meta, THUMBNAIL_FILE);
 
   /** 真实预览页截图 → 持久化 meta/thumbnail.png。失败只记日志，不影响预览本身 */
   const captureThumbnailFor = async (instance: PreviewInstance): Promise<boolean> => {
@@ -1592,7 +1689,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     try {
       const png = await capture(url);
       if (png === null || png.length === 0) return false;
-      const metaDir = paths.projectDir(instance.projectId, PROJECT_SUBDIRS.meta);
+      const metaDir = instance.paths.projectDir(instance.projectId, PROJECT_SUBDIRS.meta);
       mkdirSync(metaDir, { recursive: true });
       writeFileSync(join(metaDir, THUMBNAIL_FILE), png);
       instance.logs.info(`项目缩略图已更新（真实预览截图，${png.length} 字节）`);
@@ -1779,20 +1876,21 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     instances.clear();
   };
 
-  const readRequestLogs = (projectId: string): readonly ApiRequestLog[] => {
-    const instance = instances.get(projectId);
+  const readRequestLogs = (projectId: string, taskId?: string): readonly ApiRequestLog[] => {
+    const instance = instances.get(scopeOf(projectId, taskId ?? null));
     return instance === undefined ? [] : instance.requests;
   };
 
   const pending = new Map<string, Promise<unknown>>();
   const serialized: DomainRouter = (method, params, ctx) => {
     const projectId = requireProject(params);
-    const previous = pending.get(projectId) ?? Promise.resolve();
+    const scope = scopeOf(projectId, taskIdOf(params));
+    const previous = pending.get(scope) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(() => router(method, params, ctx));
-    pending.set(projectId, next);
+    pending.set(scope, next);
     void next
       .finally(() => {
-        if (pending.get(projectId) === next) pending.delete(projectId);
+        if (pending.get(scope) === next) pending.delete(scope);
       })
       .catch(() => undefined);
     return next;
@@ -1801,7 +1899,8 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
     router: serialized,
     dispose,
     readRequestLogs,
-    readDomAttachments: (projectId) => instanceOf(projectId).inspection.readAttachments(),
+    readDomAttachments: (projectId, taskId) =>
+      getInstance(projectId, taskId ?? null).inspection.readAttachments(),
   };
 }
 

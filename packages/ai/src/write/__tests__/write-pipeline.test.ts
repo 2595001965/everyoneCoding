@@ -277,6 +277,7 @@ describe('WritePipeline.apply（T4-05 要点 5）', () => {
     const result = await instance.apply(tampered);
     expect(result.ok).toBe(false);
     expect(result.error).toContain('已被外部修改');
+    expect(result.conflicts).toEqual(['a.ts']);
     expect(local.files.get('a.ts')).toBe('被外部改过了\n');
   });
 

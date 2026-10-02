@@ -163,7 +163,15 @@ export class WritePipeline {
       if (current !== entry.before) {
         const reason = `${entry.path} 自上次读取后已被外部修改，已拒绝写入（建议重新生成或回滚到最近提交）`;
         this.logger?.warn('[write-pipeline] 冲突检测拒绝写入', { path: entry.path });
-        return { ok: false, planId: plan.id, applied: [], skipped, rolledBack: [], error: reason };
+        return {
+          ok: false,
+          planId: plan.id,
+          applied: [],
+          skipped,
+          rolledBack: [],
+          error: reason,
+          conflicts: [entry.path],
+        };
       }
     }
 
@@ -238,6 +246,17 @@ export class WritePipeline {
           });
         }
       }
+      // A target can change after the first conflict scan but before its CAS attempt.
+      // Such a file has no applied snapshot to roll back, but it still belongs in the
+      // conflict result so task coordinators can preserve and present the external side.
+      for (const entry of targets) {
+        if (snapshots.some((snapshot) => snapshot.path === entry.path)) continue;
+        try {
+          if ((await this.fs.readText(entry.path)) !== entry.before) conflicts.push(entry.path);
+        } catch {
+          conflicts.push(entry.path);
+        }
+      }
       const reason = cause instanceof Error ? cause.message : String(cause);
       this.emit({ type: 'rolled-back', planId: plan.id, paths: rolledBack, reason });
       const result: WriteResult = {
@@ -247,7 +266,7 @@ export class WritePipeline {
         skipped,
         rolledBack,
         error: reason,
-        conflicts,
+        conflicts: [...new Set(conflicts)],
       };
       // owner 已失效时不能再写日志；恢复者依据 prepared 快照处理。
       try {

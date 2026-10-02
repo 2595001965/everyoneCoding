@@ -1,10 +1,15 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
-import type { AgentStore, AttemptContext, GatewayContextPreviewRequest } from '@ec/ai';
+import { AgentStore, type AttemptContext, type GatewayContextPreviewRequest } from '@ec/ai';
 
 import type { DomainKind } from '@ec/shell-api';
-import type { GitCredentialStore } from '@ec/git';
+import {
+  createCliGitBackend,
+  createNodeGitRunner,
+  type GitBackend,
+  type GitCredentialStore,
+} from '@ec/git';
 
 import type { ControlledProcessHost } from './process-host';
 import type { DomainRouter, SyncDomainRouter } from './runtime';
@@ -20,6 +25,8 @@ import { createDesignerDomain } from './domains/designer-domain';
 import { createUsageDomain } from './domains/usage-domain';
 import { createPackageDomain } from './domains/package-domain';
 import { createDesignerNoteStore } from './designer-notes';
+import { TaskWriteService } from './task-write-service';
+import { taskFileSystem } from './task-file-system';
 
 /**
  * T12-01 生产端口总装：领域域工厂集合。
@@ -61,6 +68,8 @@ export interface DomainFactoryContext {
    * Git 凭据存储（DPAPI）。null = 系统加密不可用，凭据类方法如实降级，绝不落明文。
    */
   credentials: GitCredentialStore | null;
+  /** D07 任务副本使用的 Git 后端；缺省使用系统 Git CLI，不执行 init/commit。 */
+  taskWriteGit?: GitBackend;
 }
 
 /** AI 栈最小句柄（避免本文件 import @ec/ai 全量类型） */
@@ -164,6 +173,88 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     aiStack: ctx.aiStack,
     readDomAttachments: (projectId) => preview.readDomAttachments(projectId),
   });
+  const agentStore = ctx.aiStack?.agentStore ?? new AgentStore(ctx.db);
+  const taskWriteGit = ctx.taskWriteGit ?? createCliGitBackend({ runner: createNodeGitRunner() });
+  const taskWrites = new TaskWriteService({
+    storageDir: join(ctx.dataDir, 'task-writes'),
+    codeRoot: (projectId) => join(ctx.projectsDir, projectId, 'code'),
+    git: taskWriteGit,
+    owner: {
+      assertOwner: () => agentStore.assertOwner(),
+      fencingToken: () => {
+        if (agentStore.token === null) throw new Error('协调器尚未取得任务写入租约');
+        return agentStore.token;
+      },
+      write: <T>(action: () => T): T => agentStore.write(action),
+    },
+    validate: async (root, changed, task) => {
+      const fs = taskFileSystem(root);
+      return Promise.all(
+        changed.map(async (path) => {
+          const entry = task.journal.find((candidate) => candidate.path === path);
+          const exists = await fs.exists(path);
+          const expected = entry?.action === 'delete' ? !exists : exists;
+          return {
+            name: 'task-write-integrity',
+            ok: expected,
+            detail: expected
+              ? `受影响文件 ${path} 已按计划落盘`
+              : `受影响文件 ${path} 的合入状态与计划不一致`,
+          };
+        }),
+      );
+    },
+    onTask: (task) => {
+      // 把 D07 的副本/读写授权投影回 D06 的 AgentTask，保证任务中心看到的
+      // worktreeId、baseRevision 和写集与磁盘上的权威 task.json 同步。
+      try {
+        const record = agentStore.get(ctx.userId, task.projectId, task.taskId);
+        const gitCommit =
+          task.baseRevision.head !== null && /^[0-9a-f]{40}$/.test(task.baseRevision.head)
+            ? task.baseRevision.head
+            : null;
+        const contentHash = /^[0-9a-f]{64}$/.test(task.baseRevision.hash)
+          ? `sha256:${task.baseRevision.hash}`
+          : null;
+        record.task = {
+          ...record.task,
+          worktreeId: task.worktreeRoot ?? task.copyRoot,
+          readSet: [...task.readSet],
+          writeSet: [...task.writeSet],
+          ...(gitCommit !== null || contentHash !== null
+            ? { baseRevision: { gitCommit, contentHash } }
+            : {}),
+        };
+        const status =
+          task.state === 'merged'
+            ? 'merged'
+            : task.state === 'cleaned'
+              ? 'completed'
+              : task.state === 'conflicted'
+                ? 'conflicted'
+                : task.state === 'failed'
+                  ? 'failed'
+                  : task.state === 'cancelled'
+                    ? 'cancelled'
+                    : task.state === 'awaiting_confirmation'
+                      ? 'awaiting_confirmation'
+                      : task.state === 'queued' || task.state === 'applying'
+                        ? 'validating'
+                        : record.task.status;
+        agentStore.update(record, status);
+      } catch {
+        // 文件事务已先持久化；D06 状态投影可由下一次 owner 恢复重新对齐。
+      }
+    },
+    emit: (task) =>
+      ctx.emit('code', {
+        type: 'code:task-write-updated',
+        taskId: task.taskId,
+        projectId: task.projectId,
+        state: task.state,
+        conflicts: task.conflicts.map((conflict) => conflict.path),
+      }),
+  });
   // code 域要**先建**：它导出的 `writePort` 是 git（冲突落盘）与 rename（代码栏）
   // 的唯一写入口。顺序反了就会退化成"各写各的文件"，D-04 也就名存实亡。
   const code = createCodeDomain({
@@ -172,6 +263,8 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     emit: ctx.emit,
     aiStack: ctx.aiStack,
     userId: ctx.userId,
+    agentStore,
+    taskWrites,
   });
   const pipeline = createPipelineDomain({
     db: ctx.db,
@@ -196,6 +289,16 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     userId: ctx.userId,
     process: ctx.process,
     capturePage: ctx.capturePage,
+    resolveTaskPreview: (projectId, taskId) => {
+      try {
+        const task = taskWrites.get(taskId);
+        if (task.projectId !== projectId || task.state === 'cleaned' || task.state === 'cancelled')
+          return null;
+        return { codeRoot: task.copyRoot, dataDir: task.dataDir };
+      } catch {
+        return null;
+      }
+    },
     // 后端进程日志在请求结束后仍会持续产生：只能走常驻事件口
     emit: (domain, payload) => ctx.emit(domain, payload),
   });

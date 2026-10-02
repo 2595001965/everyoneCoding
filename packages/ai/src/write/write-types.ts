@@ -39,7 +39,10 @@ export interface WorkspaceFileSystem {
 
 /** 外壳统一协调器持有租约/排他队列；管线仍是唯一执行文件变更的实现。 */
 export interface WriteTransactionPort {
-  run(plan: WritePlan, apply: (guard?: WriteApplyGuard) => Promise<WriteResult>): Promise<WriteResult>;
+  run(
+    plan: WritePlan,
+    apply: (guard?: WriteApplyGuard) => Promise<WriteResult>,
+  ): Promise<WriteResult>;
 }
 
 export interface WriteApplyGuard {

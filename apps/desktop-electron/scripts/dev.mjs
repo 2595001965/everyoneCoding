@@ -34,7 +34,10 @@ const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const nodeBin = process.execPath;
 
 function run(script) {
-  const result = spawnSync(nodeBin, [join(appRoot, 'scripts', script)], { cwd: appRoot, stdio: 'inherit' });
+  const result = spawnSync(nodeBin, [join(appRoot, 'scripts', script)], {
+    cwd: appRoot,
+    stdio: 'inherit',
+  });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
@@ -79,7 +82,9 @@ function build() {
 
 /** 嵌入宿主（WorkBuddy / VS Code 等 Electron 应用）通常无 GPU，需软件渲染兜底。 */
 function isEmbeddedHost() {
-  return process.env['EC_ELECTRON_HEADLESS'] === '1' || process.env['ELECTRON_RUN_AS_NODE'] !== undefined;
+  return (
+    process.env['EC_ELECTRON_HEADLESS'] === '1' || process.env['ELECTRON_RUN_AS_NODE'] !== undefined
+  );
 }
 
 /** 无 GPU 可用时的软件渲染开关组合（本机实测可稳定起窗口）。 */
@@ -109,7 +114,8 @@ function launchElectron(exe, flags, env, passthrough) {
       process.stderr.write(chunk);
       // 只保留尾部窗口，避免长时间运行把内存吃满；标记匹配跨 chunk，故留足缓冲。
       tail = (tail + chunk.toString('utf8')).slice(-16384);
-      if (!gpuFailed && GPU_FAILURE_MARKERS.some((marker) => tail.includes(marker))) gpuFailed = true;
+      if (!gpuFailed && GPU_FAILURE_MARKERS.some((marker) => tail.includes(marker)))
+        gpuFailed = true;
     });
     child.on('error', (error) => {
       console.error(`[dev] 无法启动 Electron：${error.message}`);
@@ -123,9 +129,17 @@ async function main() {
   run('prepare-native.mjs');
   build();
 
-  const electronExe = process.platform === 'win32' ? 'electron.exe' : process.platform === 'darwin' ? join('Electron.app', 'Contents', 'MacOS', 'Electron') : 'electron';
+  const electronExe =
+    process.platform === 'win32'
+      ? 'electron.exe'
+      : process.platform === 'darwin'
+        ? join('Electron.app', 'Contents', 'MacOS', 'Electron')
+        : 'electron';
   const exe = join(appRoot, 'node_modules', 'electron', 'dist', electronExe);
-  if (!existsSync(exe)) throw new Error(`Electron 二进制缺失：${exe}\n请先设置 ELECTRON_MIRROR 后执行 pnpm rebuild electron`);
+  if (!existsSync(exe))
+    throw new Error(
+      `Electron 二进制缺失：${exe}\n请先设置 ELECTRON_MIRROR 后执行 pnpm rebuild electron`,
+    );
 
   const flags = [];
   if (isEmbeddedHost()) {
@@ -145,7 +159,12 @@ async function main() {
   if (!first.gpuFailed || flags.includes('--disable-gpu')) process.exit(first.code);
 
   console.warn('[dev] GPU 进程崩溃，改用软件渲染重试（EC_ELECTRON_HEADLESS=1 可跳过首次尝试）');
-  const retry = await launchElectron(exe, [...SOFTWARE_RENDER_FLAGS, ...extraFlags], env, passthrough);
+  const retry = await launchElectron(
+    exe,
+    [...SOFTWARE_RENDER_FLAGS, ...extraFlags],
+    env,
+    passthrough,
+  );
   process.exit(retry.code);
 }
 

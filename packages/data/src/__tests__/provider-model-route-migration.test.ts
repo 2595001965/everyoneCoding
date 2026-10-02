@@ -169,7 +169,10 @@ describe('迁移 0008：Provider+Model 复合路由身份', () => {
   });
 
   it('down 后 schema 回到 0007，再 up 可重复应用（迁移可回滚）', () => {
-    const migrator = new Migrator(db, loadMigrations().filter((migration) => migration.version <= 8));
+    const migrator = new Migrator(
+      db,
+      loadMigrations().filter((migration) => migration.version <= 8),
+    );
     migrator.up();
     migrator.down(1);
 

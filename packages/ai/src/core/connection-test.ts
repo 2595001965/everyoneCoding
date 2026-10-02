@@ -48,15 +48,15 @@ export async function runConnectionTest(
   }
   try {
     const result = await collect(
-      (onChat ? (request: ChatRequest) => onChat(request, models) : (request: ChatRequest) => adapter.chat(request, context))(
-        {
-          provider,
-          model: target,
-          messages: [{ role: 'user', content: 'hi' }],
-          maxTokens: 1,
-          stream: false,
-        },
-      ),
+      (onChat
+        ? (request: ChatRequest) => onChat(request, models)
+        : (request: ChatRequest) => adapter.chat(request, context))({
+        provider,
+        model: target,
+        messages: [{ role: 'user', content: 'hi' }],
+        maxTokens: 1,
+        stream: false,
+      }),
     );
     const error =
       result.error ?? (result.partial ? new ProtocolError('连接测试未完整结束，请重新测试') : null);

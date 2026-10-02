@@ -143,7 +143,14 @@ export class WritePipeline {
     const skipped = plan.entries.filter((entry) => !entry.selected).map((entry) => entry.path);
 
     if (targets.length === 0) {
-      const result: WriteResult = { ok: true, planId: plan.id, applied: [], skipped, rolledBack: [], error: null };
+      const result: WriteResult = {
+        ok: true,
+        planId: plan.id,
+        applied: [],
+        skipped,
+        rolledBack: [],
+        error: null,
+      };
       await guard?.finish(result);
       return result;
     }
@@ -194,7 +201,14 @@ export class WritePipeline {
       }
       await guard?.validate?.();
       guard?.assertOwner();
-      await guard?.finish({ ok: true, planId: plan.id, applied, skipped, rolledBack: [], error: null });
+      await guard?.finish({
+        ok: true,
+        planId: plan.id,
+        applied,
+        skipped,
+        rolledBack: [],
+        error: null,
+      });
     } catch (cause) {
       // ③ 回滚
       const rolledBack: string[] = [];
@@ -226,9 +240,22 @@ export class WritePipeline {
       }
       const reason = cause instanceof Error ? cause.message : String(cause);
       this.emit({ type: 'rolled-back', planId: plan.id, paths: rolledBack, reason });
-      const result: WriteResult = { ok: false, planId: plan.id, applied: [], skipped, rolledBack, error: reason, conflicts };
+      const result: WriteResult = {
+        ok: false,
+        planId: plan.id,
+        applied: [],
+        skipped,
+        rolledBack,
+        error: reason,
+        conflicts,
+      };
       // owner 已失效时不能再写日志；恢复者依据 prepared 快照处理。
-      try { guard?.assertOwner(); await guard?.finish(result); } catch { /* 留给恢复者 */ }
+      try {
+        guard?.assertOwner();
+        await guard?.finish(result);
+      } catch {
+        /* 留给恢复者 */
+      }
       return result;
     }
 

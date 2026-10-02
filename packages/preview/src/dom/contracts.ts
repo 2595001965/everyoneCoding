@@ -60,12 +60,22 @@ export const domEventSchema = z.discriminatedUnion('type', [
   envelope.extend({ type: z.literal('mode'), payload: z.boolean() }).strict(),
 ]);
 export type DomEvent = z.infer<typeof domEventSchema>;
-export type DomCommand = DomSession & {
-  channel: 'ec-dom-v1';
-  documentId: string;
-  type: 'mode' | 'pick';
-  payload: boolean | string;
-};
+export type DomCommand = DomSession &
+  (
+    | { channel: 'ec-dom-v1'; type: 'hello'; payload: null }
+    | {
+        channel: 'ec-dom-v1';
+        documentId: string;
+        type: 'mode';
+        payload: boolean;
+      }
+    | {
+        channel: 'ec-dom-v1';
+        documentId: string;
+        type: 'pick';
+        payload: string;
+      }
+  );
 
 export interface DomMapping {
   anchor: ElementAnchor;

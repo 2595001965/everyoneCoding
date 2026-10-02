@@ -137,4 +137,8 @@ export * from './secure/api-key-store';
 export * from './service/ai-control-api';
 export { AgentStore, StaleAgentOwnerError, type TaskRecord } from './agent/store';
 export { AgentCoordinator, type AgentExecution, type AgentExecutor } from './agent/coordinator';
-export { AgentGatewayControl, type GatewayExecutionControl, type GatewayPermit } from './agent/gateway-control';
+export {
+  AgentGatewayControl,
+  type GatewayExecutionControl,
+  type GatewayPermit,
+} from './agent/gateway-control';

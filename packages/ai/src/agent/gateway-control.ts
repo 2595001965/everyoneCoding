@@ -4,8 +4,9 @@ import type { Model } from '../domain/model';
 import type { Provider } from '../domain/provider';
 import type { GatewayChatRequest } from '../gateway/client';
 import type { BudgetGuard } from '../gateway/budget';
-import { RequestQueue, type QueueRelease } from '../gateway/queue';
-import { AgentStore } from './store';
+import { RequestQueue } from '../gateway/queue';
+import type { QueueRelease } from '../gateway/queue';
+import type { AgentStore } from './store';
 
 export interface GatewayPermit {
   signal: AbortSignal;
@@ -14,18 +15,22 @@ export interface GatewayPermit {
 }
 export interface GatewayExecutionControl {
   acquire(request: GatewayChatRequest, provider: Provider, model: Model): Promise<GatewayPermit>;
+  /** Diagnostic/draft calls still need the same fenced single-writer lease. */
+  withOwner<T>(operation: () => Promise<T>): Promise<T>;
 }
 
 /** Reuses RequestQueue and BudgetGuard under the same cross-process execution lease. */
 export class AgentGatewayControl implements GatewayExecutionControl {
-  private readonly queue = new RequestQueue();
+  private readonly queue: RequestQueue;
   private readonly active = new Set<AbortController>();
   private readonly timer: ReturnType<typeof setInterval>;
   constructor(
     readonly store: AgentStore,
     private readonly budget: BudgetGuard,
     private readonly refreshConfig: () => void = () => {},
+    queue: RequestQueue = new RequestQueue(),
   ) {
+    this.queue = queue;
     this.timer = setInterval(
       () => {
         if (store.token === null) return;
@@ -47,12 +52,25 @@ export class AgentGatewayControl implements GatewayExecutionControl {
     if (this.store.token === null && !this.store.acquire())
       throw new Error('另一个协调器正在执行；请通过持久化任务提交');
     this.store.assertOwner();
+    this.refreshConfig();
     const scopes = [
-      'global',
-      `credential:${provider.keyRef ?? provider.id}`,
-      ...(request.projectId ? [`project:${request.projectId}`] : []),
-      ...(request.sessionId ? [`session:${request.sessionId}`] : []),
+      'agent:global',
+      // Share the exact provider limiter used by ordinary AiGateway requests.
+      provider.id,
+      `agent:provider:${provider.id}`,
+      `agent:credential:${provider.keyRef ?? provider.id}`,
+      ...(request.projectId ? [`agent:project:${request.projectId}`] : []),
+      ...(request.sessionId ? [`agent:session:${request.sessionId}`] : []),
     ];
+    const configuredProviderLimits = this.queue.limitsOf(provider.id);
+    const limits = new Map<string, number>([
+      ['agent:global', 3],
+      [provider.id, configuredProviderLimits.concurrency || 3],
+      [`agent:provider:${provider.id}`, configuredProviderLimits.concurrency || 3],
+      [`agent:credential:${provider.keyRef ?? provider.id}`, 3],
+      ...(request.projectId ? [[`agent:project:${request.projectId}`, 3] as const] : []),
+      ...(request.sessionId ? [[`agent:session:${request.sessionId}`, 1] as const] : []),
+    ]);
     const controller = new AbortController();
     const abort = (): void => controller.abort();
     request.signal?.addEventListener('abort', abort, { once: true });
@@ -60,29 +78,46 @@ export class AgentGatewayControl implements GatewayExecutionControl {
     this.active.add(controller);
     const releases: QueueRelease[] = [];
     try {
-      // Session first prevents a busy session from monopolizing global slots.
+      // Keep Agent-wide scopes on the gateway queue; the provider scope inherits
+      // the same persisted QPS/concurrency settings as AiGateway's provider queue.
       for (const scope of [...scopes].reverse()) {
+        const concurrency = limits.get(scope) ?? 3;
         this.queue.configure(scope, {
-          concurrency: scope === 'global' ? 3 : scope.startsWith('session:') ? 1 : 3,
+          qps:
+            scope === provider.id || scope === `agent:provider:${provider.id}`
+              ? configuredProviderLimits.qps
+              : 0,
+          concurrency,
         });
         releases.push(await this.queue.acquire(scope, Symbol('agent-permit'), controller.signal));
       }
+      if (configuredProviderLimits.qps > 0) {
+        await this.waitForDurableQps(
+          `agent:provider:${provider.id}`,
+          configuredProviderLimits.qps,
+          controller.signal,
+        );
+      }
       const id = newUlid();
       this.store.write(() => {
-        this.refreshConfig();
         this.store.db
           .prepare(
             `UPDATE agent_gateway_permit SET state='unknown' WHERE state='active' AND owner_token != ?`,
           )
           .run(this.store.token);
         const unknown = this.store.db
-          .prepare(`SELECT scopes_json FROM agent_gateway_permit WHERE state='unknown'`)
+          .prepare(
+            `SELECT p.scopes_json FROM agent_gateway_permit p
+             LEFT JOIN agent_task t ON t.task_id=p.task_id
+             WHERE p.state='unknown' AND
+               (p.task_id IS NULL OR t.execution_state IN ('started','unknown'))`,
+          )
           .all() as { scopes_json: string }[];
         for (const scope of scopes) {
           const heldSlots = unknown.filter((row) =>
             (JSON.parse(row.scopes_json) as string[]).includes(scope),
           ).length;
-          const limit = scope.startsWith('session:') ? 1 : 3;
+          const limit = limits.get(scope) ?? 3;
           if (heldSlots >= limit) throw new Error('上游执行结果待对账，当前执行槽位尚未释放');
         }
         const config = this.budget.getConfig();
@@ -178,8 +213,16 @@ export class AgentGatewayControl implements GatewayExecutionControl {
           finished = true;
           try {
             this.store.write(() => {
-              const pending = request.logicalRequestId ? this.store.db.prepare(`SELECT 1 FROM usage_attempt WHERE user_id=? AND logical_request_id=? AND (status IN ('streaming','pending','unknown_pending_reconciliation') OR ended_at IS NULL) LIMIT 1`).get(request.userId, request.logicalRequestId) : undefined;
-              this.store.db.prepare('UPDATE agent_gateway_permit SET state=? WHERE permit_id=?').run(known && !pending ? 'settled' : 'unknown', id);
+              const pending = request.logicalRequestId
+                ? this.store.db
+                    .prepare(
+                      `SELECT 1 FROM usage_attempt WHERE user_id=? AND logical_request_id=? AND (status IN ('streaming','pending','unknown_pending_reconciliation') OR ended_at IS NULL) LIMIT 1`,
+                    )
+                    .get(request.userId, request.logicalRequestId)
+                : undefined;
+              this.store.db
+                .prepare('UPDATE agent_gateway_permit SET state=? WHERE permit_id=?')
+                .run(known && !pending ? 'settled' : 'unknown', id);
             });
           } finally {
             releases.reverse().forEach((release) => release());
@@ -195,9 +238,54 @@ export class AgentGatewayControl implements GatewayExecutionControl {
       throw error;
     }
   }
+
+  async withOwner<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.store.token === null && !this.store.acquire())
+      throw new Error('另一个协调器正在执行；请通过持久化任务提交');
+    this.store.assertOwner();
+    this.refreshConfig();
+    return operation();
+  }
   dispose(): void {
     clearInterval(this.timer);
     for (const controller of this.active) controller.abort();
     this.queue.clear();
   }
+
+  private async waitForDurableQps(scope: string, qps: number, signal: AbortSignal): Promise<void> {
+    while (!signal.aborted) {
+      const waitMs = this.store.write(() => {
+        const now = Date.now();
+        const rows = this.store.db
+          .prepare(
+            'SELECT started_at, scopes_json FROM agent_gateway_permit WHERE started_at>=? ORDER BY started_at',
+          )
+          .all(now - 1000) as { started_at: number; scopes_json: string }[];
+        const starts = rows
+          .filter((row) => (JSON.parse(row.scopes_json) as string[]).includes(scope))
+          .map((row) => row.started_at);
+        return starts.length >= qps ? Math.max(1, (starts[0] ?? now) + 1000 - now) : 0;
+      });
+      if (waitMs === 0) return;
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          signal.removeEventListener('abort', onAbort);
+          resolve();
+        }, waitMs);
+        const onAbort = (): void => {
+          clearTimeout(timer);
+          signal.removeEventListener('abort', onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+    }
+    throw abortError();
+  }
+}
+
+function abortError(): Error {
+  const error = new Error('请求已中断');
+  error.name = 'AbortError';
+  return error;
 }

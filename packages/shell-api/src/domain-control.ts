@@ -340,6 +340,7 @@ export const DOMAIN_RPC_METHODS = {
     'getSnapshot',
     'readEvents',
     'aggregate',
+    'previewContext',
   ],
   'ai-context': ['assemble'],
   code: [

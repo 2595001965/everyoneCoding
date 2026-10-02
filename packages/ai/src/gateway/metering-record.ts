@@ -1,6 +1,10 @@
 import {
-  computeUsageCost, microsFromDecimal,
-  type ContextSnapshot, type PriceVersion, type UsageAttempt, type UsageCost,
+  computeUsageCost,
+  microsFromDecimal,
+  type ContextSnapshot,
+  type PriceVersion,
+  type UsageAttempt,
+  type UsageCost,
 } from '@ec/core';
 import { newUlid } from '@ec/data';
 import type { Model } from '../domain/model';
@@ -49,30 +53,58 @@ export interface MeteredAttempt extends Omit<UsageAttempt, 'route' | 'purpose'> 
 }
 
 export function capturePrice(
-  route: string | null, model: Model | null, at: number, configured?: PriceVersion | null,
+  route: string | null,
+  model: Model | null,
+  at: number,
+  configured?: PriceVersion | null,
 ): AttemptPrice | null {
   if (!route) return null;
   if (configured) {
-    if (configured.providerModelKey !== route || configured.effectiveFrom > at ||
-      (configured.effectiveTo !== null && at >= configured.effectiveTo)) {
+    if (
+      configured.providerModelKey !== route ||
+      configured.effectiveFrom > at ||
+      (configured.effectiveTo !== null && at >= configured.effectiveTo)
+    ) {
       throw new Error('价格快照不匹配实际路由或调用时间');
     }
-    return { snapshotId: configured.priceVersionId, origin: 'configured_price_version',
-      price: JSON.parse(JSON.stringify(configured)) as PriceVersion };
+    return {
+      snapshotId: configured.priceVersionId,
+      origin: 'configured_price_version',
+      price: JSON.parse(JSON.stringify(configured)) as PriceVersion,
+    };
   }
   if (!model) return null;
   const id = newUlid();
   const rate = (value: number | null): number | null => {
     if (value === null || !Number.isFinite(value) || value < 0) return null;
-    try { return microsFromDecimal('USD', String(value)).micros; } catch { return null; }
+    try {
+      return microsFromDecimal('USD', String(value)).micros;
+    } catch {
+      return null;
+    }
   };
-  return { snapshotId: id, origin: 'local_model_capability', price: {
-    priceVersionId: id, providerModelKey: route, billingMode: 'per_million_tokens', currency: 'USD',
-    rates: { uncachedInput: rate(model.capability.inputPricePerMTok),
-      cacheRead: null, cacheWriteByTtl: null, output: rate(model.capability.outputPricePerMTok) },
-    cacheWriteRateSemantics: 'full_rate', source: { kind: 'official_vendor', evidenceUrl: null, verifiedAt: null },
-    effectiveFrom: at, effectiveTo: null, publishedAt: at, version: 1,
-  } };
+  return {
+    snapshotId: id,
+    origin: 'local_model_capability',
+    price: {
+      priceVersionId: id,
+      providerModelKey: route,
+      billingMode: 'per_million_tokens',
+      currency: 'USD',
+      rates: {
+        uncachedInput: rate(model.capability.inputPricePerMTok),
+        cacheRead: null,
+        cacheWriteByTtl: null,
+        output: rate(model.capability.outputPricePerMTok),
+      },
+      cacheWriteRateSemantics: 'full_rate',
+      source: { kind: 'local_model_capability', evidenceUrl: null, verifiedAt: null },
+      effectiveFrom: at,
+      effectiveTo: null,
+      publishedAt: at,
+      version: 1,
+    },
+  };
 }
 
 export function costForAttempt(attempt: MeteredAttempt): UsageCost | null {
@@ -80,11 +112,19 @@ export function costForAttempt(attempt: MeteredAttempt): UsageCost | null {
   if (!usage || !attempt.priceSnapshot) return null;
   const cost = computeUsageCost(attempt.priceSnapshot.price, usage);
   // 公共纯函数只计算已知桶；运行时必须另标未知维度，不能误报完整费用。
-  const writesUnknown = usage.cacheWriteInputByTtl !== null &&
+  const writesUnknown =
+    usage.cacheWriteInputByTtl !== null &&
     Object.values(usage.cacheWriteInputByTtl).some((tokens) => tokens > 0) &&
     attempt.priceSnapshot.price.rates.cacheWriteByTtl === null;
-  return { ...cost, complete: cost.complete && !writesUnknown &&
-    usage.totalInput !== null && usage.totalOutput !== null && usage.uncachedInput !== null &&
-    usage.cacheReadInput !== null && usage.cacheWriteInputByTtl !== null };
+  return {
+    ...cost,
+    complete:
+      cost.complete &&
+      !writesUnknown &&
+      usage.totalInput !== null &&
+      usage.totalOutput !== null &&
+      usage.uncachedInput !== null &&
+      usage.cacheReadInput !== null &&
+      usage.cacheWriteInputByTtl !== null,
+  };
 }
-

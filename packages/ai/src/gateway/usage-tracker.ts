@@ -66,21 +66,37 @@ export class UsageTracker {
   }
 
   /** 内部可信对账入口；不向 renderer 暴露写入。重复回调和重启重放保持幂等。 */
-  correctFinal(userId: string, attemptId: string, eventId: string, final: NormalizedUsage, raw: unknown): MeteredAttempt {
+  correctFinal(
+    userId: string,
+    attemptId: string,
+    eventId: string,
+    final: NormalizedUsage,
+    raw: unknown,
+  ): MeteredAttempt {
     if (final.quality !== 'upstream_final') throw new Error('更正必须提供上游最终 usage');
     const current = this.repo.attempts.find(userId, attemptId);
     if (!current || current.endedAt === null) throw new Error('attempt 尚未结束或不存在');
-    const next: MeteredAttempt = { ...current, normalized: final, rawUsage: safeRawUsage(raw),
+    const next: MeteredAttempt = {
+      ...current,
+      normalized: final,
+      rawUsage: safeRawUsage(raw),
       context: { ...current.context, measuredSentInputTokens: final.totalInput },
-      usageSource: final.quality, billingState: 'estimated', revision: current.revision + 1 };
+      usageSource: final.quality,
+      billingState: 'estimated',
+      revision: current.revision + 1,
+    };
     next.cost = costForAttempt(next);
     const event = this.repo.attempts.save(next, eventId);
-    if (event) { this.emit({ type: 'attempt-updated', event }); this.checkBudget(); }
+    if (event) {
+      this.emit({ type: 'attempt-updated', event });
+      this.checkBudget();
+    }
     return event ? next : current;
   }
 
   recoverInterrupted(userId: string): void {
-    for (const event of this.repo.attempts.recover(userId)) this.emit({ type: 'attempt-updated', event });
+    for (const event of this.repo.attempts.recover(userId))
+      this.emit({ type: 'attempt-updated', event });
   }
 
   /** 记录一次调用；返回入库的费用（单价缺失时为 null） */
@@ -157,7 +173,11 @@ export class UsageTracker {
 
   private emit(event: UsageEvent): void {
     for (const listener of this.listeners) {
-      try { listener(event); } catch { this.logger?.warn('用量订阅回调失败'); }
+      try {
+        listener(event);
+      } catch {
+        this.logger?.warn('用量订阅回调失败');
+      }
     }
   }
 }

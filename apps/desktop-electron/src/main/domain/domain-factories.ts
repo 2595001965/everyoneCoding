@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
-import type { AgentStore } from '@ec/ai';
+import type { AgentStore, AttemptContext, GatewayContextPreviewRequest } from '@ec/ai';
 
 import type { DomainKind } from '@ec/shell-api';
 import type { GitCredentialStore } from '@ec/git';
@@ -89,6 +89,7 @@ export interface AiStackHandle {
       userId: string,
       purpose: string,
     ): { modelName: string; providerName: string; contextWindow: number | null } | null;
+    previewContext?(input: GatewayContextPreviewRequest): AttemptContext | null;
     embed?(input: {
       userId: string;
       texts: readonly string[];
@@ -213,6 +214,9 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
   const usage = createUsageDomain({
     db: ctx.db,
     userId: ctx.userId,
+    ...(ctx.aiStack?.gateway.previewContext
+      ? { previewContext: (input) => ctx.aiStack?.gateway.previewContext?.(input) ?? null }
+      : {}),
     // 预算变更即时回灌 AI 网关：设置页改完当场生效（见 AiStackHandle.budget 注释）
     ...(ctx.aiStack?.budget
       ? { onBudgetChanged: (config) => ctx.aiStack?.budget?.configure(config) }
@@ -220,7 +224,8 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
   });
   const unsubscribeUsage = ctx.aiStack?.usage?.onEvent((event) => {
     const value = event as { type?: string; event?: unknown };
-    if (value.type === 'attempt-updated') ctx.emit('usage', { type: 'usage:updated', event: value.event });
+    if (value.type === 'attempt-updated')
+      ctx.emit('usage', { type: 'usage:updated', event: value.event });
   });
   if (unsubscribeUsage) disposers.push(async () => unsubscribeUsage());
   const pack = createPackageDomain({

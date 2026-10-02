@@ -196,7 +196,11 @@ function main(): void {
     }
     if (checkOnly) throw new Error('--set 与 --check 不能同时使用');
     const rootFile = path.join(repoRoot, 'package.json');
-    fs.writeFileSync(rootFile, writeJsonVersion(fs.readFileSync(rootFile, 'utf8'), explicit), 'utf8');
+    fs.writeFileSync(
+      rootFile,
+      writeJsonVersion(fs.readFileSync(rootFile, 'utf8'), explicit),
+      'utf8',
+    );
     console.log(`根 package.json 版本已设为 ${explicit}`);
   }
 
@@ -216,7 +220,9 @@ function main(): void {
   }
   console.log('');
   if (checkOnly && !allOk) {
-    console.error('版本号存在漂移：请运行 `node --experimental-strip-types ci/version.mts` 同步后再提交');
+    console.error(
+      '版本号存在漂移：请运行 `node --experimental-strip-types ci/version.mts` 同步后再提交',
+    );
     process.exit(1);
   }
   console.log(checkOnly ? '版本号一致' : `版本号已统一为 ${version}`);

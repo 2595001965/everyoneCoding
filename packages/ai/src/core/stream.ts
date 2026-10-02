@@ -99,9 +99,17 @@ export async function collect(chunks: AsyncIterable<StreamChunk>): Promise<Colle
   const toolCalls = accumulateToolCalls(deltas);
   if (toolCalls.length > 0 && finishReason === 'stop') finishReason = 'tool_use';
 
-  return { text, toolCalls, usage, finishReason, partial, error,
+  return {
+    text,
+    toolCalls,
+    usage,
+    finishReason,
+    partial,
+    error,
     normalizedUsage: metering.hasMeasuredUsage() ? metering.snapshot() : null,
-    rawUsage: metering.rawUsage(), providerRequestId: metering.providerRequestId };
+    rawUsage: metering.rawUsage(),
+    providerRequestId: metering.providerRequestId,
+  };
 }
 
 /** 只取文本（丢弃工具调用与用量），用于连接测试等极简场景 */

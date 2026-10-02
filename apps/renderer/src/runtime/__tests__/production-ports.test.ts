@@ -31,6 +31,7 @@ import type { GitApi } from '../../features/git/git-api';
 import type { MemoryApi } from '../../features/memory/memory-api';
 import type { PipelineApi } from '../../features/pipeline/pipeline-api';
 import type { PackageApi } from '../../features/package/package-api';
+import type { UsageApi } from '../../features/usage/usage-api';
 import { useProjectStore } from '../../store/useProjectStore';
 
 const PRODUCTION_DESCRIPTORS: DomainDescriptor[] = [
@@ -183,6 +184,27 @@ describe('同步口缺失时的注入边界（Tauri / mock 降级）', () => {
   it('createDomainSyncCaller 在缺 invokeSync 时返回 null（调用方据此不注入）', () => {
     expect(createDomainSyncCaller(fakeHost().host)).toBeNull();
     expect(createDomainSyncCaller(fakeHost({ sync: true }).host)).not.toBeNull();
+  });
+});
+
+describe('V2-D05 用量上下文估算端口', () => {
+  it('把下一请求的已组装内容发到 usage 域，不在 renderer 重算 Token', async () => {
+    const { globals, calls } = await install();
+    const usage = globals['__EC_USAGE__'] as UsageApi | undefined;
+    const request = {
+      purpose: 'code',
+      messages: [{ role: 'user' as const, content: 'assembled request' }],
+      tools: [{ name: 'inspect', parameters: { type: 'object' } }],
+      maxTokens: 512,
+    };
+
+    await usage?.metering?.previewContext(request);
+
+    expect(calls.at(-1)).toMatchObject({
+      domain: 'usage',
+      method: 'previewContext',
+      params: { request },
+    });
   });
 });
 

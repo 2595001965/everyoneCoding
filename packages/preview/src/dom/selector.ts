@@ -157,7 +157,23 @@ export function installDomSelector(session: DomSession): void {
       data['channel'] !== 'ec-dom-v1' ||
       data['runtimeId'] !== session.runtimeId ||
       data['projectId'] !== session.projectId ||
-      data['nonce'] !== session.nonce
+      data['nonce'] !== session.nonce ||
+      data['parentOrigin'] !== session.parentOrigin
+    )
+      return;
+    const commandKeys = [
+      'channel',
+      'projectId',
+      'runtimeId',
+      'nonce',
+      'parentOrigin',
+      'type',
+      'payload',
+    ];
+    if (data['type'] !== 'hello') commandKeys.push('documentId');
+    if (
+      Object.keys(data).length !== commandKeys.length ||
+      Object.keys(data).some((key) => !commandKeys.includes(key))
     )
       return;
     if (data['type'] === 'hello' && data['payload'] === null) {
@@ -169,7 +185,12 @@ export function installDomSelector(session: DomSession): void {
       selecting = data['payload'];
       highlight(selecting ? selected : null);
       post('mode', selecting);
-    } else if (data['type'] === 'pick' && typeof data['payload'] === 'string' && selecting) {
+    } else if (
+      data['type'] === 'pick' &&
+      typeof data['payload'] === 'string' &&
+      data['payload'].length <= 128 &&
+      selecting
+    ) {
       const element = ancestors.get(data['payload']);
       if (element?.isConnected) pick(element);
     }

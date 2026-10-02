@@ -18,11 +18,11 @@ import { UsageTracker } from '../gateway/usage-tracker';
 import { RequestQueue } from '../gateway/queue';
 import { FailoverController, type FailoverPolicy } from '../gateway/failover';
 import { AiEventLog, type AiEventRecord } from '../gateway/event-log';
-import { AiGateway } from '../gateway/client';
+import { AiGateway, type AiGatewayDeps } from '../gateway/client';
 import { parseProxyUrl } from '../gateway/proxy';
 import type { RetryPolicy } from '../gateway/retry';
 import { AiControlService } from './ai-control-api';
-import { AgentStore } from '../agent/store';
+import type { AgentStore } from '../agent/store';
 import { AgentGatewayControl } from '../agent/gateway-control';
 
 /**
@@ -48,6 +48,8 @@ export interface AiStackOptions {
   retry?: Partial<RetryPolicy>;
   /** 容灾策略（开关 / 连续失败阈值 / 自动恢复时间） */
   failover?: Partial<FailoverPolicy>;
+  /** 每个 attempt 固定版本化的价格快照；测试与后续 D10 装配可注入。 */
+  priceFor?: AiGatewayDeps['priceFor'];
   /** 运维事件落点（已脱敏）；Electron 用它写主进程日志 */
   onAiEvent?: (record: AiEventRecord) => void;
 }
@@ -77,25 +79,40 @@ export function createAiStack(options: AiStackOptions): AiStack {
   const usageRepo = new UsageRepo(options.db);
   const budget = new BudgetGuard(usageRepo, options.userId, options.budget ?? {});
   const rawUsage = new UsageTracker(usageRepo, budget, options.logger ?? null);
-  const mutations = new Set(['beginAttempt', 'updateAttempt', 'correctFinal', 'recoverInterrupted', 'record']);
-  const usage = options.agentStore ? new Proxy(rawUsage, {
-    get(target, property) {
-      const value: unknown = Reflect.get(target, property);
-      if (typeof value !== 'function') return value;
-      if (!mutations.has(String(property))) return value.bind(target);
-      return (...args: unknown[]) => options.agentStore!.write(() => value.apply(target, args));
-    },
-  }) : rawUsage;
+  const mutations = new Set([
+    'beginAttempt',
+    'updateAttempt',
+    'correctFinal',
+    'recoverInterrupted',
+    'record',
+  ]);
+  const usage = options.agentStore
+    ? new Proxy(rawUsage, {
+        get(target, property) {
+          const value: unknown = Reflect.get(target, property);
+          if (typeof value !== 'function') return value;
+          if (!mutations.has(String(property))) return value.bind(target);
+          return (...args: unknown[]) => options.agentStore!.write(() => value.apply(target, args));
+        },
+      })
+    : rawUsage;
   if (!options.agentStore) usage.recoverInterrupted(options.userId);
   const queue = new RequestQueue();
   let recoveredToken: number | null = null;
-  const execution = options.agentStore ? new AgentGatewayControl(options.agentStore, budget, () => {
-    options.refreshSharedConfig?.(budget, queue);
-    if (recoveredToken !== options.agentStore!.token) {
-      usage.recoverInterrupted(options.userId);
-      recoveredToken = options.agentStore!.token;
-    }
-  }) : undefined;
+  const execution = options.agentStore
+    ? new AgentGatewayControl(
+        options.agentStore,
+        budget,
+        () => {
+          options.refreshSharedConfig?.(budget, queue);
+          if (recoveredToken !== options.agentStore!.token) {
+            usage.recoverInterrupted(options.userId);
+            recoveredToken = options.agentStore!.token;
+          }
+        },
+        queue,
+      )
+    : undefined;
   const failover = new FailoverController(options.failover ?? {});
   const events = new AiEventLog(200, options.onAiEvent ?? null);
   failover.onEvent((event) => events.fromFailover(event));
@@ -131,6 +148,7 @@ export function createAiStack(options: AiStackOptions): AiStack {
     ...(proxy ? { proxy } : {}),
     ...(options.logger ? { logger: options.logger } : {}),
     ...(options.retry ? { retry: options.retry } : {}),
+    ...(options.priceFor ? { priceFor: options.priceFor } : {}),
   });
 
   gateway.onEvent((event) => events.fromGateway(event));
@@ -165,7 +183,11 @@ export function createAiStack(options: AiStackOptions): AiStack {
       execution?.dispose();
       queue.clear();
       await transport.close?.();
-      try { options.agentStore?.release(); } catch { /* a successor already owns the lease */ }
+      try {
+        options.agentStore?.release();
+      } catch {
+        /* a successor already owns the lease */
+      }
     },
   };
 }

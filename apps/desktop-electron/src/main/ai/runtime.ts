@@ -24,6 +24,7 @@ import {
   type AiEventRecord,
   type BudgetConfig,
   type FailoverPolicy,
+  type GatewayContextPreviewRequest,
   type HttpTransport,
   type RetryPolicy,
 } from '@ec/ai';
@@ -101,7 +102,8 @@ export async function createElectronAiRuntime(
     agentStore,
     refreshSharedConfig: (budget, queue) => {
       budget.configure(readPersistedBudget(settingsStore));
-      for (const [providerId, limits] of Object.entries(readPersistedLimits(settingsStore))) queue.configure(providerId, limits);
+      for (const [providerId, limits] of Object.entries(readPersistedLimits(settingsStore)))
+        queue.configure(providerId, limits);
     },
     secureStore: secure,
     userId,
@@ -156,7 +158,13 @@ export async function createElectronAiRuntime(
           taskId: request.taskId ?? null,
           purpose,
           messages,
-          ...(request.tools ? { tools: request.tools as NonNullable<Parameters<typeof stack.gateway.chat>[0]['tools']> } : {}),
+          ...(request.tools
+            ? {
+                tools: request.tools as NonNullable<
+                  Parameters<typeof stack.gateway.chat>[0]['tools']
+                >,
+              }
+            : {}),
           ...(request.projectId !== undefined ? { projectId: request.projectId } : {}),
           ...(request.modelId !== undefined ? { modelId: request.modelId } : {}),
           ...(request.providerId !== undefined ? { providerId: request.providerId } : {}),
@@ -210,6 +218,11 @@ export async function createElectronAiRuntime(
             [key: string]: unknown;
           }>,
         describeModel: (id: string, purpose: string) => stack.gateway.describeModel(id, purpose),
+        previewContext: (input) =>
+          stack.gateway.previewContext({
+            ...(input as GatewayContextPreviewRequest),
+            userId,
+          }),
       },
       budget: {
         configure: (patch: {

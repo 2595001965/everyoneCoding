@@ -128,11 +128,11 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 | V2-D00 | 路由契约统一与同名换 Provider 补缺    | 已做 V2 基础收口 | 复用 T01/T02/T03           | 已实现待验收 |
 | V2-D01 | 打开文件夹/普通 ZIP 与统一工程识别    | 源码接入增量     | 无；复用契约               | 已实现待验收 |
 | V2-D02 | 真实前端、多服务预览与项目缩略图      | 预览增量 + V1-L3 | D01                        | 已实现待验收 |
-| V2-D03 | 运行 DOM 选取与可验证源码映射         | 新场景           | D02                        | 待办         |
+| V2-D03 | 运行 DOM 选取与可验证源码映射         | 新场景           | D02                        | 已实现待验收 |
 | V2-D04 | 接口索引、分类、时间与浏览工作台      | 新场景           | D01                        | 已实现待验收 |
-| V2-D05 | attempt、缓存分桶与上下文计量接线     | 计量增量         | D00                        | 待办         |
-| V2-D06 | 持久化 Session/Task 与共享协调器      | 并发增量         | D05                        | 待办         |
-| V2-D07 | Agent 工作副本与受控合入              | 写入增量         | D06                        | 待办         |
+| V2-D05 | attempt、缓存分桶与上下文计量接线     | 计量增量         | D00                        | 已实现待验收 |
+| V2-D06 | 持久化 Session/Task 与共享协调器      | 并发增量         | D05                        | 已实现待验收 |
+| V2-D07 | Agent 工作副本与受控合入              | 写入增量         | D06                        | 已实现待验收 |
 | V2-D08 | 原生多窗口及 Tauri 页面等价收口       | 并发增量 + V1-L1 | D06、D07；旧页面子项可先做 | 待办         |
 | V2-D09 | 指定位置增删接口、依接口新增功能/元素 | 定点开发增量     | D00、D03、D04、D07         | 待办         |
 | V2-D10 | 平台目录与版本化 Provider 定价        | 平台增量         | D00                        | 待办         |
@@ -230,6 +230,8 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 
 **覆盖**：V2-DOM-01～07、V2-E2E-05/06/23。
 
+**2026-10-02 D03 执行记录（待验收）**：在既有预览、anchors、导航和上下文上接入真实选取与原文件编译登记，交付 UI→shell-api→IPC→生产域；严格校验消息身份/载荷，选取态拦截业务事件，未知/过期源码禁止猜位置。真实 Electron 原生输入覆盖静态页及通过 D02 startRun 启动的 React/Vue、共享组件、源码写入后的 HMR 和生产无插桩构建；相关 9 文件 / 97 项回归、原生 2 文件 / 2 项、侧车构建通过。Tauri GUI/真实模型调用未验收，整站构建和 desktop/E2E 目录类型检查仍有其他任务错误。命令、逐项结果、截图与限制见 [D03 验收记录](../V2-D03-REPORT.md)。
+
 ```text
 执行 V2-D03。阅读增量任务通用规则、本卡与PRD §5，核验D02。
 在既有预览消息与anchors上实现真实DOM选取和源码映射，补消息身份/载荷校验，不把生成期elementId当作任意源码映射。
@@ -274,6 +276,8 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 用流夹具和持久化测试覆盖取消/重复/重试/缺usage，不再造公式或钱包，也不把现有三字段统计当新需求全部完成。
 ```
 
+**2026-10-02 执行记录（待验收）**：复用 core/v2 usage 与金额纯函数接入 OpenAI/Anthropic usage、网关 attempt、SQLite 持久化/事件更正、UsageRepo 聚合和上下文预览；19 个测试文件 / 193 项通过，覆盖缓存 TTL 桶、推理子集、重试、取消/缺 usage、重复更正及重开数据库恢复。core/ai/data/shell-api/renderer TypeScript 检查通过；D07 修复测试中的 Git CommitInput 字段后，Electron 全量 strict 检查已在 2026-10-02 复核通过。详见 [D05 验收记录](../V2-D05-METERING.md)。
+
 ### V2-D06 — 在现有网关上增加持久化会话与协调器
 
 **入口/已有能力**：code-domain 使用按 projectId 存储的 AbortController/中断 Map，新生成会取消同项目旧生成；网关已有预算、限流、取消和重试。
@@ -290,6 +294,8 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 必须真实多进程验证单owner、共享预算、取消隔离与不重复调用，不能只用一个Map的单元测试证明并发安全。
 ```
 
+**2026-10-02 执行记录**：D06 已接入持久化 Session/Task、fencing 租约、共享网关队列/预算 permit、事件 cursor 与 task 命令；4 个定向文件 / 18 项测试通过，其中 5 项通过真实 Node 子进程和共享 SQLite 验证 owner 竞争、预算、QPS、取消/暂停隔离、owner 崩溃接管与不重复派发。Electron 业务接线通过；完整 Electron TypeScript 检查仍受既有 D07/usage-domain 错误阻断。D05 定向计量测试 5 项有 3 项失败，前置未确认，故 D06 保持“已实现待验收”。细节见 [D06 验收记录](../V2-D06-COORDINATOR.md)。
+
 ### V2-D07 — 复用 WritePipeline，增加隔离工作副本和安全合入
 
 **入口/已有能力**：WritePipeline 已做 plan/preview/apply、磁盘前值检查及快照回滚；Git/重命名/流水线写端口已存在。
@@ -305,6 +311,8 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 扩展现有WritePipeline/Git事务为任务工作副本、版本/读写依赖校验及安全合入，不另建绕过既有写入口的实现。
 用真实Git/非Git、同文件/接口冲突、外部修改和崩溃恢复测试证明不会互相覆盖；不得清场用户修改。
 ```
+
+2026-10-02 执行记录：D06 作为前置按“已实现待验收”核验；D07 复用 WritePipeline 的 plan/preview/apply 与 CAS/快照补偿，新增 Git worktree / 非 Git 隔离副本、显式 HEAD/当前目录基线、持久化读写集/接口契约哈希/任务租约与 fencing、排他资源、受控合入队列和崩溃 journal 恢复。真实 CLI Git 与非 Git 测试覆盖 dirty staged/untracked/删除现场保留、同文件先后合入冲突、接口契约变更重新验证、外部进程修改拒绝覆盖、验证失败补偿保留外部成果、依赖锁/DDL/共享数据库排他、非 Git 不 init/commit，以及强杀进程后的接管补偿和旧 owner fencing。3 个定向测试文件共 29 项通过；Electron strict TypeScript、@ec/ai 和 @ec/git 检查通过。详见 D07 验收记录。
 
 ### V2-D08 — 原生多窗口与 Tauri 旧页面补缺
 

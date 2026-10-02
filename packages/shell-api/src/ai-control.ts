@@ -129,6 +129,7 @@ export interface AiStackHandle {
       userId: string,
       purpose: string,
     ): { modelName: string; providerName: string; contextWindow: number | null } | null;
+    previewContext?(input: unknown): unknown;
   };
   budget?: {
     configure(patch: {

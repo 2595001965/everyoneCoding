@@ -14,6 +14,18 @@ import type { AiStackHandle } from './domain-factories';
 import type { CodeGenerateResult } from './domains/code-domain';
 import { errorOfStreamChunk, textOfStreamChunk } from './ai-stream-text';
 
+export function isGenerationCheckpoint(value: unknown): value is GenerationResult {
+  if (value === null || typeof value !== 'object') return false;
+  const checkpoint = value as Partial<GenerationResult>;
+  return (
+    typeof checkpoint.raw === 'string' &&
+    typeof checkpoint.partial === 'boolean' &&
+    typeof checkpoint.attempts === 'number' &&
+    checkpoint.parse !== undefined &&
+    'output' in checkpoint
+  );
+}
+
 export async function executeCodeTask(
   record: TaskRecord,
   execution: AgentExecution,
@@ -31,7 +43,11 @@ export async function executeCodeTask(
   const request = record.request;
   const projectId = record.task.projectId;
   const target = String(request['target'] ?? 'backend-code') as GenerationTarget;
-  const resume = request['resume'] as GenerationResult | undefined;
+  const resume = isGenerationCheckpoint(request['resume'])
+    ? request['resume']
+    : isGenerationCheckpoint(record.checkpoint)
+      ? record.checkpoint
+      : undefined;
   const rework = request['kind'] === 'rework';
   const system = rework
     ? `${OUTPUT_CONTRACT_TEXT}\n\n按用户要求重改已有代码。`
@@ -47,7 +63,7 @@ export async function executeCodeTask(
     run: (run) =>
       (async function* () {
         execution.assertOwner();
-        const logicalRequestId = `${record.task.taskId}:${modelRun++}`;
+        const logicalRequestId = `${record.task.taskId}:${record.task.revision}:${modelRun++}`;
         for await (const chunk of aiStack.gateway.chat({
           userId: options.userId,
           purpose: 'code',
@@ -94,6 +110,16 @@ export async function executeCodeTask(
     : await generator.generate({ ...shared, target, prompt: { system, user } });
   execution.checkpoint(result);
   execution.assertOwner();
+  // 上游在流内报错（未配置模型 / 预算超限 / 服务不可用）：如实拒绝并保留可执行指引，
+  // 不能吞成"空 aborted"让调用方误以为模型返回了空内容。
+  if (!execution.signal.aborted && streamError !== null && result.output === null) {
+    execution.event('agent.output.done', {
+      type: 'code:generate-done',
+      projectId,
+      status: 'failed',
+    });
+    throw new ShellError('NOT_SUPPORTED', streamError);
+  }
   const base = {
     raw: result.raw,
     partial: result.partial,

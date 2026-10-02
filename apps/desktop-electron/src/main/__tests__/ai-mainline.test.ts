@@ -376,29 +376,31 @@ describe('T12-08 模型生成主链路（OpenAI / Anthropic 兼容中转）', ()
       expect(page.candidate).toMatchObject({ id: 'page-login', route: '/login' });
 
       // 3) 代码生成（code 域：Generator → 网关流式 → 输出契约 → WritePipeline 计划）
-      const events: DomainEvent[] = [];
       const generated = await domainCall<{
         status: string;
         plan: { entries: Array<{ path: string }> } | null;
         summary: string | null;
-      }>(
-        runtime,
-        'code',
-        'generate',
-        {
-          projectId,
-          request: {
-            system: 'CODEGEN 系统提示',
-            user: '写一个健康检查接口',
-            target: 'backend-code',
-          },
+        sessionId: string;
+      }>(runtime, 'code', 'generate', {
+        projectId,
+        request: {
+          system: 'CODEGEN 系统提示',
+          user: '写一个健康检查接口',
+          target: 'backend-code',
         },
-        (event) => events.push(event),
-      );
+      });
       expect(generated.status).toBe('planned');
       expect(generated.summary).toBe('新增健康检查接口');
       expect(generated.plan?.entries.map((entry) => entry.path)).toEqual(['src/health.ts']);
-      const types = events.map((event) => (event.payload as { type?: string }).type);
+      // 持久任务语义：生成事件走会话快照光标（agent.output.* 的 payload.type 携带 code:* 事件）
+      const snapshot = await domainCall<{
+        events: Array<{ payload: { type?: string } }>;
+      }>(runtime, 'code', 'taskSnapshot', {
+        projectId,
+        sessionId: generated.sessionId,
+        after: 0,
+      });
+      const types = snapshot.events.map((event) => event.payload.type);
       expect(types).toContain('code:generate-started');
       expect(types).toContain('code:generate-delta');
       expect(types).toContain('code:generate-done');

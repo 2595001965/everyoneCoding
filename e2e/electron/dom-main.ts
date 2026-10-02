@@ -83,14 +83,57 @@ async function run(): Promise<void> {
   await win.loadFile(join(folder, 'index.html'), { query: { projectId } });
   win.webContents.debugger.attach('1.3');
   win.webContents.focus();
+  const pendingRequests = new Map<number, string>();
+  win.webContents.session.webRequest.onBeforeRequest(
+    { urls: ['http://127.0.0.1:*/*'] },
+    (details, callback) => {
+      pendingRequests.set(details.id, details.url);
+      callback({});
+    },
+  );
+  win.webContents.session.webRequest.onCompleted({ urls: ['http://127.0.0.1:*/*'] }, (details) => {
+    pendingRequests.delete(details.id);
+  });
+  win.webContents.session.webRequest.onErrorOccurred(
+    { urls: ['http://127.0.0.1:*/*'] },
+    (details) => {
+      pendingRequests.delete(details.id);
+      console.error('DOM network error', details.url, details.error);
+    },
+  );
   const host = <T>(code: string): Promise<T> => win.webContents.executeJavaScript(code);
+  let activeViteProject: string | null = null;
   const wait = async (predicate: () => Promise<boolean>, label: string): Promise<void> => {
     for (let i = 0; i < 120; i++) {
       if (await predicate()) return;
       await delay(100);
     }
-    console.error('DOM failure frames', win.webContents.mainFrame.frames.map(frame=>frame.url));
+    console.error(
+      'DOM failure frames',
+      win.webContents.mainFrame.frames.map((frame) => frame.url),
+    );
     console.error('DOM failure last event', await host('window.__lastEvent'));
+    if (activeViteProject) {
+      const logs = await runtime.invoke({
+        requestId: 'pending-logs',
+        domain: 'preview',
+        method: 'logs',
+        params: { projectId: activeViteProject },
+      });
+      console.error(
+        'Vite loading logs',
+        (logs.result as Array<{ text: string }>).map((line) => line.text).join('\n'),
+      );
+    }
+    console.error('DOM pending requests', [...pendingRequests.values()]);
+    for (const currentFrame of win.webContents.mainFrame.frames) {
+      console.error(
+        'DOM failure document',
+        await currentFrame.executeJavaScript(
+          `({ready:document.readyState,text:document.body?.innerText.slice(0,160),scripts:Array.from(document.scripts).map(script=>({src:script.src,bridge:script.textContent.includes('ec-dom-v1'),length:script.textContent.length}))})`,
+        ),
+      );
+    }
     throw new Error(`${label}: ${await host('document.body.innerText')}`);
   };
   const button = (text: string): Promise<void> =>
@@ -189,6 +232,14 @@ async function run(): Promise<void> {
       '[typeof require,typeof ecShell,typeof window.__TAURI_INTERNALS__]',
     ),
     ['undefined', 'undefined', 'undefined'],
+  );
+  await host(
+    `(()=>{const {projectId,runtimeId,nonce,documentId}=window.__lastEvent;document.querySelector('iframe').contentWindow.postMessage({channel:'ec-dom-v1',projectId,runtimeId,nonce,documentId,parentOrigin:location.origin,type:'mode',payload:true,filePath:'forged.jsx'},'*')})()`,
+  );
+  await delay(100);
+  assert.equal(
+    await host("window.__lastEvent.type==='mode'&&window.__lastEvent.payload===true"),
+    false,
   );
   await button('选取');
   await delay(100);
@@ -336,8 +387,16 @@ async function run(): Promise<void> {
         params,
       });
       if (!response.ok) {
-        const logs = await runtime.invoke({requestId:'failure-logs',domain:'preview',method:'logs',params:{projectId:params['projectId']}});
-        console.error('Vite production logs', (logs.result as Array<{text:string}> | undefined)?.map(line=>line.text).join('\n'));
+        const logs = await runtime.invoke({
+          requestId: 'failure-logs',
+          domain: 'preview',
+          method: 'logs',
+          params: { projectId: params['projectId'] },
+        });
+        console.error(
+          'Vite production logs',
+          (logs.result as Array<{ text: string }> | undefined)?.map((line) => line.text).join('\n'),
+        );
       }
       assert.equal(response.ok, true, response.error?.message ?? '');
       return response.result as T;
@@ -350,6 +409,7 @@ async function run(): Promise<void> {
     });
     assert.equal(created.ok, true);
     const viteProjectId = (created.result as { id: string }).id;
+    activeViteProject = viteProjectId;
     const codeRoot = join(projectsDir, viteProjectId, 'code');
     const fixtureRoot = join(folder, config.name);
     const sourceFile = config.name === 'react' ? 'Shared.jsx' : 'Shared.vue';
@@ -386,7 +446,10 @@ async function run(): Promise<void> {
       `window.__lastEvent=null;window.__testInspect(${JSON.stringify(viteProjectId)},${JSON.stringify(state.url)},${JSON.stringify(state.runtimeId)})`,
     );
     await wait(
-      () => host(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='选取'&&!b.disabled)`),
+      () =>
+        host(
+          `Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='选取'&&!b.disabled)`,
+        ),
       `${config.name} selector ready`,
     );
     await button('选取');

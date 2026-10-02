@@ -29,14 +29,12 @@ async function start(): Promise<void> {
   );
   Object.assign(window, {
     __testInspect: (id: string, src: string, runtimeId: string) => {
-      useProjectStore
-        .getState()
-        .openProject({
-          id,
-          name: 'Vite 生产选取',
-          targetPlatforms: ['web'],
-          updatedAt: Date.now(),
-        });
+      useProjectStore.getState().openProject({
+        id,
+        name: 'Vite 生产选取',
+        targetPlatforms: ['web'],
+        updatedAt: Date.now(),
+      });
       Object.assign(window, { __domEvents: [] });
       root.render(
         <PreviewApiProvider api={api}>

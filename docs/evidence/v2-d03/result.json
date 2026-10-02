@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-02",
+  "environment": "Windows / Node v24.21.0 / Electron 33 / real sandbox iframe / native CDP input",
+  "static": {
+    "safeSelection": true,
+    "interaction": true,
+    "keyboard": true,
+    "ancestor": true,
+    "navigation": true,
+    "noteContext": true,
+    "isolatedBridge": true,
+    "dynamic": true,
+    "privacy": true,
+    "scrollZoom": true,
+    "staleSource": true,
+    "routeInvalidation": true,
+    "unchangedSource": true
+  },
+  "frameworks": [
+    {
+      "name": "react",
+      "productionRuntime": true,
+      "sourceRef": {
+        "filePath": "Shared.jsx",
+        "startLine": 2,
+        "endLine": 2,
+        "symbol": "Shared"
+      },
+      "mappingKind": "react_compiled",
+      "confidence": "exact",
+      "oldConfidenceAfterHmr": "unresolved",
+      "originalHash": "sha256:0f4c177ab620bae3f30561a60c33085686cfaf0d73160c9c0f027748fef24e1d",
+      "updatedHash": "sha256:935290a08b4be44fddf87d2d28ae4c5961298017503534a4d85118348a4c5649",
+      "renderedInstances": 2,
+      "requiresScopeConfirmation": true,
+      "initialNodeText": "Shared action",
+      "updatedNodeText": "HMR updated"
+    },
+    {
+      "name": "vue",
+      "productionRuntime": true,
+      "sourceRef": {
+        "filePath": "Shared.vue",
+        "startLine": 2,
+        "endLine": 2,
+        "symbol": "Shared"
+      },
+      "mappingKind": "vue_compiled",
+      "confidence": "exact",
+      "oldConfidenceAfterHmr": "unresolved",
+      "originalHash": "sha256:250dfb3f81984f12a696315e6d8f204ec80b42b5571c442799fefb4ffdd551ff",
+      "updatedHash": "sha256:3f712ce71ed47dec300d20b42a05eec6693f47ab604c9a5f0b23b61c786e3fa5",
+      "renderedInstances": 2,
+      "requiresScopeConfirmation": true,
+      "initialNodeText": "Shared action",
+      "updatedNodeText": "HMR updated"
+    }
+  ],
+  "productionBuilds": "React + Vue original-source fixtures built with serve-only inspection plugin; output scanned for no source attributes, selector bridge or inspection plugin strings",
+  "paidModelCalled": false,
+  "tauriGuiVerified": false
+}

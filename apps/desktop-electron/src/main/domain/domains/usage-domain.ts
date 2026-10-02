@@ -1,7 +1,13 @@
 import type Database from 'better-sqlite3';
 
 import { ShellError } from '@ec/shell-api';
-import { UsageRepo, type AttemptFilter, type AttemptGroup } from '@ec/ai';
+import {
+  UsageRepo,
+  type AttemptFilter,
+  type AttemptGroup,
+  type AttemptContext,
+  type GatewayContextPreviewRequest,
+} from '@ec/ai';
 import { z } from 'zod';
 
 import type { DomainRouter } from '../runtime';
@@ -22,6 +28,8 @@ export interface UsageDomainOptions {
   userId: string;
   /** 预算落库入口；缺省时按 options 自建（测试可注入内存实现） */
   settings?: SettingStore | undefined;
+  /** Pure, transient estimate against the current payload; the request body is never persisted. */
+  previewContext?: ((input: GatewayContextPreviewRequest) => AttemptContext | null) | undefined;
   /**
    * 预算变更回灌钩子（可选）。
    *
@@ -62,15 +70,66 @@ function monthRange(now: number): [number, number] {
 
 export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
   const repo = new UsageRepo(options.db);
-  const filterSchema = z.object({ since: z.number().int().nonnegative().optional(), until: z.number().int().nonnegative().optional(),
-    projectId: z.string().min(1).optional(), sessionId: z.string().min(1).optional(), taskId: z.string().min(1).optional(),
-    logicalRequestId: z.string().min(1).optional(), providerId: z.string().min(1).optional(), modelRowId: z.string().min(1).optional(),
-    route: z.string().min(1).optional(), purpose: z.string().min(1).optional() }).strict();
+  const filterSchema = z
+    .object({
+      since: z.number().int().nonnegative().optional(),
+      until: z.number().int().nonnegative().optional(),
+      projectId: z.string().min(1).optional(),
+      sessionId: z.string().min(1).optional(),
+      taskId: z.string().min(1).optional(),
+      logicalRequestId: z.string().min(1).optional(),
+      providerId: z.string().min(1).optional(),
+      modelRowId: z.string().min(1).optional(),
+      route: z.string().min(1).optional(),
+      purpose: z.string().min(1).optional(),
+    })
+    .strict();
   const readFilter = (input: unknown): AttemptFilter => {
     const result = filterSchema.safeParse(input ?? {});
     if (!result.success) throw new ShellError('INVALID_ARGUMENT', '用量筛选条件无效');
-    return result.data;
+    // Strip optional keys absent from the RPC payload; keep the runtime type compatible with
+    // exactOptionalPropertyTypes instead of passing explicit `undefined` into repository filters.
+    return Object.fromEntries(
+      Object.entries(result.data).filter(([, value]) => value !== undefined),
+    ) as AttemptFilter;
   };
+  const previewContextSchema = z
+    .object({
+      purpose: z.string().trim().min(1).max(100),
+      messages: z
+        .array(
+          z
+            .object({
+              role: z.enum(['system', 'user', 'assistant', 'tool']),
+              content: z.union([z.string().max(1_000_000), z.array(z.unknown()).max(2_000)]),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(500),
+      tools: z
+        .array(
+          z
+            .object({
+              name: z.string().min(1).max(200),
+              description: z.string().max(10_000).optional(),
+              parameters: z.record(z.unknown()),
+            })
+            .strict(),
+        )
+        .max(128)
+        .optional(),
+      modelId: z.string().min(1).max(200).optional(),
+      providerId: z.string().min(1).max(200).optional(),
+      maxTokens: z.number().int().positive().max(10_000_000).optional(),
+      contextSafetyMarginTokens: z.number().int().nonnegative().max(10_000_000).optional(),
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+      if (JSON.stringify(value).length > 2_000_000) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: '上下文估算载荷过大' });
+      }
+    });
   const settings: SettingStore =
     options.settings ?? createSettingStore({ db: options.db, userId: options.userId });
 
@@ -169,20 +228,52 @@ export function createUsageDomain(options: UsageDomainOptions): DomainRouter {
 
   const router: DomainRouter = async (method, params) => {
     switch (method) {
-      case 'listAttempts': return repo.attempts.list(options.userId, readFilter(params['filter']));
-      case 'getSnapshot': return repo.attempts.snapshot(options.userId, readFilter(params['filter']));
+      case 'previewContext': {
+        if (!options.previewContext) throw new ShellError('NOT_SUPPORTED', '上下文估算未装配');
+        const parsed = previewContextSchema.safeParse(params['request']);
+        if (!parsed.success) throw new ShellError('INVALID_ARGUMENT', '上下文估算请求无效');
+        try {
+          return options.previewContext(parsed.data as unknown as GatewayContextPreviewRequest);
+        } catch {
+          throw new ShellError('INVALID_ARGUMENT', '上下文估算请求无效');
+        }
+      }
+      case 'listAttempts':
+        return repo.attempts.list(options.userId, readFilter(params['filter']));
+      case 'getSnapshot':
+        return repo.attempts.snapshot(options.userId, readFilter(params['filter']));
       case 'readEvents': {
-        const parsed = z.object({ after: z.number().int().nonnegative().default(0), limit: z.number().int().min(1).max(1000).default(200) })
+        const parsed = z
+          .object({
+            after: z.number().int().nonnegative().default(0),
+            limit: z.number().int().min(1).max(1000).default(200),
+          })
           .safeParse({ after: params['after'], limit: params['limit'] });
         if (!parsed.success) throw new ShellError('INVALID_ARGUMENT', '用量事件游标无效');
         return repo.attempts.events(options.userId, parsed.data.after, parsed.data.limit);
       }
       case 'aggregate': {
         const group = params['group'];
-        if (group !== undefined && !['projectId','sessionId','taskId','providerId','modelRowId','route','purpose','date'].includes(String(group))) {
+        if (
+          group !== undefined &&
+          ![
+            'projectId',
+            'sessionId',
+            'taskId',
+            'providerId',
+            'modelRowId',
+            'route',
+            'purpose',
+            'date',
+          ].includes(String(group))
+        ) {
           throw new ShellError('INVALID_ARGUMENT', '用量分组无效');
         }
-        return repo.attempts.aggregate(options.userId, readFilter(params['filter']), group as AttemptGroup | undefined);
+        return repo.attempts.aggregate(
+          options.userId,
+          readFilter(params['filter']),
+          group as AttemptGroup | undefined,
+        );
       }
       case 'listRows': {
         const [since, until] = monthRange(Date.now());

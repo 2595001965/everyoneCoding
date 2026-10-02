@@ -43,7 +43,7 @@ import type { GitApi, GitProgressEvent, GitRepoInfo } from '../features/git/git-
 import type { MemoryApi } from '../features/memory/memory-api';
 import type { NavApi } from '../features/nav/nav-api';
 import type { ApiIndexPort } from '@ec/registry';
-import type { SourceRef } from '@ec/core';
+import type { SourceRef, V2EventEnvelope } from '@ec/core';
 import { navigateToLocation } from './nav-location';
 import type {
   PackageApi,
@@ -739,6 +739,7 @@ export function createAiContextApi(call: DomainCaller): ContextPanelApi {
 export function createUsageApi(call: DomainCaller, subscribe?: DomainEventSubscriber): UsageApi {
   return {
     metering: {
+      previewContext: (request) => call.call('usage', 'previewContext', { request }),
       snapshot: (filter) => call.call('usage', 'getSnapshot', { filter }),
       aggregate: (filter, group) => call.call('usage', 'aggregate', { filter, group }),
       events: (after, limit) => call.call('usage', 'readEvents', { after, limit }),
@@ -748,11 +749,12 @@ export function createUsageApi(call: DomainCaller, subscribe?: DomainEventSubscr
         return subscribe((event) => {
           if (event.domain !== 'usage') return;
           const payload = event.payload as { type?: string; event?: { eventId?: string } };
-          if (payload?.type !== 'usage:updated' || typeof payload.event?.eventId !== 'string') return;
+          if (payload?.type !== 'usage:updated' || typeof payload.event?.eventId !== 'string')
+            return;
           if (seen.has(payload.event.eventId)) return;
           if (seen.size >= 4096) seen.delete(seen.values().next().value!);
           seen.add(payload.event.eventId);
-          listener(payload.event as import('@ec/core').V2EventEnvelope);
+          listener(payload.event as V2EventEnvelope);
         });
       },
     },

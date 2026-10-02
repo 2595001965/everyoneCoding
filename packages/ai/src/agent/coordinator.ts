@@ -1,5 +1,5 @@
 import type { TaskStatus } from '@ec/core';
-import { AgentStore, type TaskRecord } from './store';
+import type { AgentStore, TaskRecord } from './store';
 
 export interface AgentExecution {
   signal: AbortSignal;
@@ -68,7 +68,7 @@ export class AgentCoordinator {
             record,
             'agent.task.started',
             { status: 'running' },
-            `${record.task.taskId}:started`,
+            `${record.task.taskId}:started:${record.task.revision}`,
           );
         });
         const controller = new AbortController();
@@ -126,18 +126,33 @@ export class AgentCoordinator {
           .prepare('SELECT project_id FROM agent_task WHERE task_id=?')
           .get(command.task_id) as { project_id: string };
         const record = this.store.get(this.userId, row.project_id, command.task_id);
-        if (command.kind === 'cancel' || command.kind === 'pause') {
+        if (command.kind === 'cancel') {
+          if (
+            record.task.status === 'queued' ||
+            record.task.status === 'running' ||
+            (record.task.status === 'awaiting_confirmation' && record.executionState === 'paused')
+          ) {
+            this.running.get(command.task_id)?.controller.abort();
+            record.executionState = 'settled';
+            this.store.update(record, 'cancelled');
+          }
+        } else if (command.kind === 'pause') {
           if (record.task.status === 'queued' || record.task.status === 'running') {
             this.running.get(command.task_id)?.controller.abort();
-            this.store.update(
-              record,
-              command.kind === 'cancel' ? 'cancelled' : 'awaiting_confirmation',
-            );
+            record.executionState = this.running.has(command.task_id) ? 'paused' : 'pending';
+            this.store.update(record, 'awaiting_confirmation');
           }
         } else if (command.kind === 'resume') {
-          // Only a paused, never-dispatched task can be safely requeued.
-          if (record.task.status === 'awaiting_confirmation' && record.executionState === 'pending')
+          // Started tasks resume only from a durable checkpoint; the executor
+          // validates that the checkpoint can safely continue its work.
+          if (
+            record.task.status === 'awaiting_confirmation' &&
+            (record.executionState === 'pending' ||
+              (record.executionState === 'paused' && record.checkpoint !== null))
+          ) {
+            record.executionState = 'pending';
             this.store.update(record, 'queued');
+          }
         } else if (command.kind === 'reconcile' && record.executionState === 'unknown') {
           const payload = JSON.parse(command.payload_json) as {
             evidence?: string;
@@ -171,6 +186,7 @@ export class AgentCoordinator {
   }
   private async run(record: TaskRecord, controller: AbortController): Promise<void> {
     let sequence = 0;
+    const runRevision = record.task.revision;
     try {
       const output = await this.execute(record, {
         signal: controller.signal,
@@ -189,7 +205,7 @@ export class AgentCoordinator {
             record,
             type,
             payload,
-            `${record.task.taskId}:output:${sequence++}`,
+            `${record.task.taskId}:run:${runRevision}:output:${sequence++}`,
           );
         },
       });
@@ -197,7 +213,9 @@ export class AgentCoordinator {
         const current = this.store.get(this.userId, record.task.projectId, record.task.taskId);
         record.task = current.task;
         record.result = output.result;
-        record.executionState = 'settled';
+        const paused =
+          current.task.status === 'awaiting_confirmation' && current.executionState === 'paused';
+        record.executionState = paused ? 'paused' : 'settled';
         const status = ['cancelled', 'awaiting_confirmation'].includes(current.task.status)
           ? current.task.status
           : output.status;
@@ -207,7 +225,7 @@ export class AgentCoordinator {
           record,
           'agent.task.completed',
           { status },
-          `${record.task.taskId}:final`,
+          `${record.task.taskId}:final:${record.task.revision}`,
         );
       });
     } catch (error) {
@@ -216,14 +234,29 @@ export class AgentCoordinator {
           const current = this.store.get(this.userId, record.task.projectId, record.task.taskId);
           record.task = current.task;
           record.error = error instanceof Error ? error.message : String(error);
-          record.executionState = 'unknown';
-          this.store.update(record, 'conflicted');
+          const paused =
+            current.task.status === 'awaiting_confirmation' && current.executionState === 'paused';
+          const unresolvedPermit = this.store.db
+            .prepare(
+              "SELECT 1 FROM agent_gateway_permit WHERE task_id=? AND state IN ('active','unknown') LIMIT 1",
+            )
+            .get(record.task.taskId);
+          const unknown = !paused && unresolvedPermit !== undefined;
+          record.executionState = paused ? 'paused' : unknown ? 'unknown' : 'settled';
+          const status = paused
+            ? 'awaiting_confirmation'
+            : unknown
+              ? 'conflicted'
+              : current.task.status === 'cancelled'
+                ? 'cancelled'
+                : 'failed';
+          this.store.update(record, status);
           this.store.event(
             this.userId,
             record,
-            'agent.task.reconciliation',
-            { status: 'conflicted', reason: record.error },
-            `${record.task.taskId}:unknown`,
+            unknown ? 'agent.task.reconciliation' : 'agent.task.updated',
+            { status, reason: record.error },
+            `${record.task.taskId}:${unknown ? 'unknown' : paused ? 'paused' : 'failed'}:${record.task.revision}`,
           );
         });
       } catch {
@@ -238,6 +271,7 @@ export class AgentCoordinator {
       const record = this.store.get(userId, projectId, taskId);
       if (
         record.executionState === 'settled' ||
+        record.executionState === 'paused' ||
         record.executionState === 'unknown' ||
         (record.executionState === 'pending' && record.task.status !== 'queued')
       )

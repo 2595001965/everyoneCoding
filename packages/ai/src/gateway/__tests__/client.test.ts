@@ -38,7 +38,11 @@ function sseReply(
       `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n` +
       `data: ${JSON.stringify({
         choices: [{ delta: {}, finish_reason: 'stop' }],
-        usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, prompt_tokens_details: { cached_tokens: 0 } },
+        usage: {
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          prompt_tokens_details: { cached_tokens: 0 },
+        },
       })}\n\n` +
       'data: [DONE]\n\n',
   };

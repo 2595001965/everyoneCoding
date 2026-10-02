@@ -29,8 +29,10 @@ const abiStamp = join(appRoot, 'build', '.electron-abi');
  * 两处的目录/tag 段都是 `v<版本>`，而文件名是 `<包名>-v<版本>-electron-v<abi>-<平台>-<架构>.tar.gz`。
  */
 const MIRRORS = [
-  (version, name, abi) => `https://registry.npmmirror.com/-/binary/better-sqlite3/v${version}/${name}-electron-v${abi}-win32-x64.tar.gz`,
-  (version, name, abi) => `https://github.com/WiseLibs/better-sqlite3/releases/download/v${version}/${name}-electron-v${abi}-win32-x64.tar.gz`,
+  (version, name, abi) =>
+    `https://registry.npmmirror.com/-/binary/better-sqlite3/v${version}/${name}-electron-v${abi}-win32-x64.tar.gz`,
+  (version, name, abi) =>
+    `https://github.com/WiseLibs/better-sqlite3/releases/download/v${version}/${name}-electron-v${abi}-win32-x64.tar.gz`,
 ];
 
 function electronBin() {
@@ -46,7 +48,12 @@ function electronBin() {
         '或在仓库根设置 ELECTRON_MIRROR 后重装依赖。',
     );
   }
-  const exe = process.platform === 'win32' ? 'electron.exe' : process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron';
+  const exe =
+    process.platform === 'win32'
+      ? 'electron.exe'
+      : process.platform === 'darwin'
+        ? 'Electron.app/Contents/MacOS/Electron'
+        : 'electron';
   return { version: pkg.version, path: join(distDir, exe) };
 }
 
@@ -63,7 +70,9 @@ function detectAbi(exePath) {
 
 function download(url, dest) {
   const script = `const fs=require('fs');(async()=>{const r=await fetch(process.argv[1]);if(!r.ok)throw new Error('HTTP '+r.status);fs.writeFileSync(process.argv[2],Buffer.from(await r.arrayBuffer()));})().catch(e=>{console.error(e.message);process.exit(1)});`;
-  execFileSync(process.execPath, ['-e', script, url, dest], { stdio: ['ignore', 'inherit', 'inherit'] });
+  execFileSync(process.execPath, ['-e', script, url, dest], {
+    stdio: ['ignore', 'inherit', 'inherit'],
+  });
 }
 
 function main() {
@@ -76,7 +85,9 @@ function main() {
     return;
   }
 
-  const bs3Pkg = JSON.parse(readFileSync(join(appRoot, 'node_modules', 'better-sqlite3', 'package.json'), 'utf8'));
+  const bs3Pkg = JSON.parse(
+    readFileSync(join(appRoot, 'node_modules', 'better-sqlite3', 'package.json'), 'utf8'),
+  );
   const bs3Version = bs3Pkg.version;
   const name = `better-sqlite3-v${bs3Version}`;
   const tmpTgz = join(appRoot, 'build', 'better-sqlite3-electron.tgz');
@@ -95,15 +106,21 @@ function main() {
       // 注意：必须用**相对路径**并指定 cwd。Git for Windows 自带的 GNU tar 会把
       // 绝对路径里的盘符（D:\…）误判为 `host:path` 远程语法而报
       // "Cannot connect to D: resolve failed"；相对路径可完全规避该问题。
-      execFileSync('tar', ['-xzf', 'build/better-sqlite3-electron.tgz', 'build/Release/better_sqlite3.node'], {
-        cwd: appRoot,
-        stdio: ['ignore', 'ignore', 'inherit'],
-      });
+      execFileSync(
+        'tar',
+        ['-xzf', 'build/better-sqlite3-electron.tgz', 'build/Release/better_sqlite3.node'],
+        {
+          cwd: appRoot,
+          stdio: ['ignore', 'ignore', 'inherit'],
+        },
+      );
       lastError = undefined;
       break;
     } catch (error) {
       lastError = error;
-      console.log(`[native] 镜像失败，尝试下一个：${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);
+      console.log(
+        `[native] 镜像失败，尝试下一个：${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
+      );
     }
   }
   rmSync(tmpTgz, { force: true });
@@ -119,7 +136,9 @@ function main() {
   }
 
   writeFileSync(abiStamp, String(abi));
-  console.log(`[native] 完成 → build/Release/better_sqlite3.node（electron ${version} / ABI ${abi}）`);
+  console.log(
+    `[native] 完成 → build/Release/better_sqlite3.node（electron ${version} / ABI ${abi}）`,
+  );
 }
 
 main();

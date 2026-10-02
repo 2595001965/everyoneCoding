@@ -28,12 +28,32 @@ const MODULE_TIMEOUT_MS = 30 * 60 * 1000;
 
 /** 六个核心模块（任务卡 T10-03） */
 const MODULES: Array<{ name: string; testGlob: string; include: string }> = [
-  { name: '记忆系统（packages/memory）', testGlob: 'packages/memory', include: 'packages/memory/src/**' },
-  { name: '上下文引擎（packages/ai/src/context）', testGlob: 'packages/ai/src/context', include: 'packages/ai/src/context/**' },
+  {
+    name: '记忆系统（packages/memory）',
+    testGlob: 'packages/memory',
+    include: 'packages/memory/src/**',
+  },
+  {
+    name: '上下文引擎（packages/ai/src/context）',
+    testGlob: 'packages/ai/src/context',
+    include: 'packages/ai/src/context/**',
+  },
   { name: 'Git 封装（packages/git）', testGlob: 'packages/git', include: 'packages/git/src/**' },
-  { name: 'Provider 适配（packages/ai/src/adapters）', testGlob: 'packages/ai/src/adapters', include: 'packages/ai/src/adapters/**' },
-  { name: '统一标识注册表与重命名引擎（packages/registry）', testGlob: 'packages/registry', include: 'packages/registry/src/**' },
-  { name: '归档读写（packages/package-kit）', testGlob: 'packages/package-kit', include: 'packages/package-kit/src/**' },
+  {
+    name: 'Provider 适配（packages/ai/src/adapters）',
+    testGlob: 'packages/ai/src/adapters',
+    include: 'packages/ai/src/adapters/**',
+  },
+  {
+    name: '统一标识注册表与重命名引擎（packages/registry）',
+    testGlob: 'packages/registry',
+    include: 'packages/registry/src/**',
+  },
+  {
+    name: '归档读写（packages/package-kit）',
+    testGlob: 'packages/package-kit',
+    include: 'packages/package-kit/src/**',
+  },
 ];
 
 interface ModuleResult {

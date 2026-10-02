@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { networkInterfaces } from 'node:os';
+import type { Duplex } from 'node:stream';
 import { connect } from 'node:net';
 import { extname, join, relative } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -985,8 +986,16 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
               `后端服务 ${service.serviceId} 已退出（${event.detail}）：数据源已摘除，接口将如实报真实后端不可用`,
             );
           }
-          if (service.kind === 'frontend' && instance.proxyTarget?.serviceId === service.serviceId) {
+          if (
+            service.kind === 'frontend' &&
+            event.runtimeId === snapshot.runtimeId &&
+            instance.proxyTarget?.runtimeId === snapshot.runtimeId &&
+            instance.proxyTarget.serviceId === service.serviceId
+          ) {
             instance.proxyTarget = null;
+            instance.domCompiler.clear();
+            instance.inspection.reset();
+            instance.lastChangeAt = Date.now();
             instance.logs.warn(`前端 dev server ${service.serviceId} 已退出：页面回退静态托管`);
           }
         });
@@ -1642,7 +1651,6 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
           path: req.url ?? '/',
           method: req.method ?? 'GET',
           headers,
-          agent: false,
         },
         (pres) => {
           if (res.headersSent) {
@@ -1727,7 +1735,7 @@ export function createPreviewDomain(options: PreviewDomainOptions): {
   const proxyUpgrade = (
     instance: PreviewInstance,
     req: IncomingMessage,
-    socket: import('node:stream').Duplex,
+    socket: Duplex,
     head: Buffer,
     baseUrl: string,
   ): void => {

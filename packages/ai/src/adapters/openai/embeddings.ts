@@ -132,10 +132,21 @@ export async function embedWithOpenAi(input: {
   }
 
   const vectors = vectorsFromEmbeddingResponse(payload, inputs.length);
-  if (payload.usage) input.onUsage?.({ mode: 'snapshot', final: true, raw: payload.usage,
-    report: { inputIncludesCache: true, inputTokens: tokenCount(payload.usage.prompt_tokens ?? payload.usage.total_tokens),
-      outputTokens: 0, cacheReadTokens: 0, cacheWriteTokensByTtl: {}, reasoningTokens: null,
-      reasoningTokensIncludedInOutput: true } });
+  if (payload.usage)
+    input.onUsage?.({
+      mode: 'snapshot',
+      final: true,
+      raw: payload.usage,
+      report: {
+        inputIncludesCache: true,
+        inputTokens: tokenCount(payload.usage.prompt_tokens ?? payload.usage.total_tokens),
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokensByTtl: {},
+        reasoningTokens: null,
+        reasoningTokensIncludedInOutput: true,
+      },
+    });
   if (!vectors) {
     return embeddingUnavailable('failed', '向量化响应条数与输入不一致，已忽略本次结果');
   }

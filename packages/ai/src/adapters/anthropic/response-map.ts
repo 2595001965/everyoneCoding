@@ -55,14 +55,18 @@ export function usageFromAnthropic(usage: AnthropicUsage | undefined): Usage | n
 }
 
 export function meteringFromAnthropic(
-  usage: AnthropicUsage, final: boolean, providerRequestId?: string,
+  usage: AnthropicUsage,
+  final: boolean,
+  providerRequestId?: string,
 ): MeteringUpdate {
   const report: MeteringUpdate['report'] = {
-    inputIncludesCache: false, reasoningTokensIncludedInOutput: true,
+    inputIncludesCache: false,
+    reasoningTokensIncludedInOutput: true,
   };
   if ('input_tokens' in usage) report.inputTokens = tokenCount(usage.input_tokens);
   if ('output_tokens' in usage) report.outputTokens = tokenCount(usage.output_tokens);
-  if ('cache_read_input_tokens' in usage) report.cacheReadTokens = tokenCount(usage.cache_read_input_tokens);
+  if ('cache_read_input_tokens' in usage)
+    report.cacheReadTokens = tokenCount(usage.cache_read_input_tokens);
   if ('cache_creation_input_tokens' in usage || 'cache_creation' in usage) {
     const total = tokenCount(usage.cache_creation_input_tokens);
     const five = tokenCount(usage.cache_creation?.ephemeral_5m_input_tokens);
@@ -73,11 +77,20 @@ export function meteringFromAnthropic(
     if (hour !== null) buckets['1h'] = hour;
     const known = (five ?? 0) + (hour ?? 0);
     if (total !== null && total > known) buckets['unknown'] = total - known;
-    report.cacheWriteTokensByTtl = total !== null && total < known ? null
-      : total !== null || five !== null || hour !== null ? buckets : null;
+    report.cacheWriteTokensByTtl =
+      total !== null && total < known
+        ? null
+        : total !== null || five !== null || hour !== null
+          ? buckets
+          : null;
   }
-  return { report, mode: 'snapshot', final, raw: usage,
-    ...(providerRequestId ? { providerRequestId } : {}) };
+  return {
+    report,
+    mode: 'snapshot',
+    final,
+    raw: usage,
+    ...(providerRequestId ? { providerRequestId } : {}),
+  };
 }
 
 export function finishReasonFromAnthropic(reason: string | null | undefined): FinishReason {
@@ -123,7 +136,12 @@ export function chunksFromAnthropicResponse(
   });
 
   const usage = usageFromAnthropic(payload.usage);
-  if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromAnthropic(payload.usage!, true, payload.id) });
+  if (usage)
+    chunks.push({
+      type: 'usage',
+      usage,
+      metering: meteringFromAnthropic(payload.usage!, true, payload.id),
+    });
   chunks.push({
     type: 'done',
     finishReason: finishReasonFromAnthropic(payload.stop_reason),
@@ -156,7 +174,15 @@ export function chunksFromAnthropicStreamEvent(
   switch (event.type) {
     case 'message_start': {
       const usage = usageFromAnthropic(event.message?.usage);
-      return usage ? [{ type: 'usage', usage, metering: meteringFromAnthropic(event.message!.usage!, false, event.message?.id) }] : [];
+      return usage
+        ? [
+            {
+              type: 'usage',
+              usage,
+              metering: meteringFromAnthropic(event.message!.usage!, false, event.message?.id),
+            },
+          ]
+        : [];
     }
     case 'content_block_start': {
       const block = event.content_block;
@@ -202,8 +228,14 @@ export function chunksFromAnthropicStreamEvent(
     case 'message_delta': {
       const chunks: StreamChunk[] = [];
       const usage = usageFromAnthropic(event.usage);
-      if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromAnthropic(event.usage!, event.delta?.stop_reason != null) });
-      if (event.delta?.stop_reason !== undefined) {
+      if (usage)
+        chunks.push({
+          type: 'usage',
+          usage,
+          metering: meteringFromAnthropic(event.usage!, event.delta?.stop_reason != null),
+        });
+      // null 是 Anthropic 的中间 message_delta；后续非空 stop_reason 才是真正终止。
+      if (event.delta?.stop_reason != null) {
         chunks.push({
           type: 'done',
           finishReason: finishReasonFromAnthropic(event.delta.stop_reason),

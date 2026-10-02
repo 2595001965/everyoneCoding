@@ -24,7 +24,6 @@ import {
   type AnchorPersistencePort,
   type CodeAnchorRow,
   type GenerationOutput,
-  type GenerationResult,
   type GenerationTarget,
   type WriteMode,
   type WritePlan,
@@ -34,6 +33,7 @@ import {
 import { ShellError } from '@ec/shell-api';
 
 import type { DomainRouter } from '../runtime';
+import { isGenerationCheckpoint } from '../code-agent';
 import { newUlid } from '@ec/data';
 import { executeCodeTask } from '../code-agent';
 import { resolveCodeRoot } from '../code-root';
@@ -110,7 +110,6 @@ const CODE_TARGETS: ReadonlySet<GenerationTarget> = new Set<GenerationTarget>([
   'harmony-code',
   'desktop-code',
 ]);
-
 
 /** `code.generate` 的返回（渲染层据 status 决定展示差异 / 续写 / 原文） */
 export interface CodeGenerateResult {
@@ -412,19 +411,31 @@ export function createCodeDomain(options: CodeDomainOptions): {
 
   const coordinator = new AgentCoordinator(agentStore, options.userId, (record, execution) =>
     executeCodeTask(record, execution, {
-      aiStack: options.aiStack, userId: options.userId,
-      plan: (projectId, output, noteIds) => pipelineOf(projectId).plan({ output, mode: 'preview', ...(noteIds ? { noteIds } : {}) }),
-    }));
+      aiStack: options.aiStack,
+      userId: options.userId,
+      plan: (projectId, output, noteIds) =>
+        pipelineOf(projectId).plan({ output, mode: 'preview', ...(noteIds ? { noteIds } : {}) }),
+    }),
+  );
   coordinator.start();
   const observations = new Map<string, number>();
   const broadcast = setInterval(() => {
     for (const [sessionId, cursor] of observations) {
-      const row = db.prepare('SELECT project_id FROM agent_session WHERE session_id=? AND user_id=?').get(sessionId, options.userId) as { project_id: string } | undefined;
+      const row = db
+        .prepare('SELECT project_id FROM agent_session WHERE session_id=? AND user_id=?')
+        .get(sessionId, options.userId) as { project_id: string } | undefined;
       if (!row) continue;
       const snapshot = agentStore.snapshot(options.userId, row.project_id, sessionId, cursor);
       for (const event of snapshot.events) {
         const payload = event.payload as Record<string, unknown>;
-        if (typeof payload['type'] === 'string') options.emit('code', { ...payload, sessionId, taskId: event.taskId, eventId: event.eventId, sequence: event.sequence });
+        if (typeof payload['type'] === 'string')
+          options.emit('code', {
+            ...payload,
+            sessionId,
+            taskId: event.taskId,
+            eventId: event.eventId,
+            sequence: event.sequence,
+          });
       }
       observations.set(sessionId, snapshot.cursor);
     }
@@ -507,35 +518,68 @@ export function createCodeDomain(options: CodeDomainOptions): {
       case 'requestRework':
       case 'startTask':
       case 'generate': {
-        if (options.aiStack === null) throw new ShellError('NOT_SUPPORTED', 'AI 栈未装配，请先配置模型服务');
+        if (options.aiStack === null)
+          throw new ShellError('NOT_SUPPORTED', 'AI 栈未装配，请先配置模型服务');
         const request = { ...((params['request'] ?? {}) as Record<string, unknown>) };
-        const sessionId = typeof params['sessionId'] === 'string' ? params['sessionId'] : newUlid();
-        const key = typeof params['idempotencyKey'] === 'string' ? params['idempotencyKey'] : ctx.requestId;
+        let sessionId = typeof params['sessionId'] === 'string' ? params['sessionId'] : newUlid();
+        const key =
+          typeof params['idempotencyKey'] === 'string' ? params['idempotencyKey'] : ctx.requestId;
         if (request['continue'] === true) {
-          const previous = agentStore.list(options.userId, projectId, sessionId).at(-1);
-          if (!previous || previous.executionState !== 'settled' || !previous.checkpoint)
-            throw new ShellError('INVALID_ARGUMENT', '没有可安全续写的已结束任务；未知上游结果需先对账');
-          request['resume'] = previous.checkpoint as GenerationResult;
+          // 「继续生成」可以不携带 sessionId（延续旧的项目级中断检查点语义）：
+          // 先找当前会话的最后一个任务，找不到再回退到该项目最近一个可续写任务。
+          const previous =
+            agentStore.list(options.userId, projectId, sessionId).at(-1) ??
+            agentStore.list(options.userId, projectId).at(-1);
+          if (
+            !previous ||
+            previous.executionState !== 'settled' ||
+            !isGenerationCheckpoint(previous.checkpoint)
+          )
+            throw new ShellError(
+              'INVALID_ARGUMENT',
+              '没有可安全续写的已结束任务；未知上游结果需先对账',
+            );
+          request['resume'] = previous.checkpoint;
+          // 续写任务归入上一任务所在会话，事件与快照才对得上
+          if (typeof previous.task.sessionId === 'string' && previous.task.sessionId.length > 0)
+            sessionId = previous.task.sessionId;
         } else if (method === 'requestRework') {
-          if (!String(request['instruction'] ?? '').trim()) throw new ShellError('INVALID_ARGUMENT', 'AI 重改需要重改要求');
+          if (!String(request['instruction'] ?? '').trim())
+            throw new ShellError('INVALID_ARGUMENT', 'AI 重改需要重改要求');
           request['kind'] = 'rework';
-        } else if (!String(request['system'] ?? '').trim() || !String(request['user'] ?? '').trim()) {
+        } else if (
+          !String(request['system'] ?? '').trim() ||
+          !String(request['user'] ?? '').trim()
+        ) {
           throw new ShellError('INVALID_ARGUMENT', '代码生成需要已组装的上下文（system / user）');
         }
-        if (typeof request['target'] !== 'string' || !CODE_TARGETS.has(request['target'] as GenerationTarget)) request['target'] = 'backend-code';
+        if (
+          typeof request['target'] !== 'string' ||
+          !CODE_TARGETS.has(request['target'] as GenerationTarget)
+        )
+          request['target'] = 'backend-code';
         const record = agentStore.submit(options.userId, projectId, sessionId, key, request);
-        observations.set(sessionId, observations.get(sessionId) ?? 0);
+        observations.set(sessionId, agentStore.latestCursor(options.userId, projectId, sessionId));
         if (method === 'startTask') return record;
         const done = await coordinator.wait(options.userId, projectId, record.task.taskId);
-        if (done.executionState === 'unknown') throw new ShellError('UNKNOWN', done.error ?? '上游执行结果需对账');
+        if (done.executionState === 'unknown')
+          throw new ShellError('UNKNOWN', done.error ?? '上游执行结果需对账');
+        // 执行器抛错（未配置模型 / 上游不可用等）：任务失败且无结果，如实拒绝并带回原因
+        if (done.task.status === 'failed' && done.result === null && done.error !== null)
+          throw new ShellError('NOT_SUPPORTED', done.error);
         if (method === 'requestRework') return undefined;
         return done.result;
       }
-      case 'listTasks': return agentStore.list(options.userId, projectId);
+      case 'listTasks':
+        return agentStore.list(options.userId, projectId);
       case 'taskSnapshot': {
         const sessionId = String(params['sessionId'] ?? '');
         const after = typeof params['after'] === 'number' ? params['after'] : 0;
-        return agentStore.snapshot(options.userId, projectId, sessionId, after);
+        const snapshot = agentStore.snapshot(options.userId, projectId, sessionId, after);
+        if (snapshot.session !== null) {
+          observations.set(sessionId, Math.max(observations.get(sessionId) ?? 0, snapshot.cursor));
+        }
+        return snapshot;
       }
       case 'cancelTask':
       case 'pauseTask':
@@ -543,14 +587,38 @@ export function createCodeDomain(options: CodeDomainOptions): {
       case 'reconcileTask':
       case 'abortGeneration': {
         let taskId = typeof params['taskId'] === 'string' ? params['taskId'] : '';
+        if (method === 'resumeTask' && taskId.length > 0) {
+          const record = agentStore.get(options.userId, projectId, taskId);
+          if (record.executionState === 'paused' && !isGenerationCheckpoint(record.checkpoint)) {
+            throw new ShellError('INVALID_ARGUMENT', '暂停任务缺少可继续的持久化生成检查点');
+          }
+        }
         if (!taskId && method === 'abortGeneration') {
-          const active = agentStore.list(options.userId, projectId).filter(record => record.task.status === 'running' || record.task.status === 'queued');
+          const active = agentStore
+            .list(options.userId, projectId)
+            .filter(
+              (record) => record.task.status === 'running' || record.task.status === 'queued',
+            );
           if (active.length === 0) return false;
-          if (active.length !== 1) throw new ShellError('INVALID_ARGUMENT', '多个任务运行中，取消必须指定 taskId');
+          if (active.length !== 1)
+            throw new ShellError('INVALID_ARGUMENT', '多个任务运行中，取消必须指定 taskId');
           taskId = active[0]!.task.taskId;
         }
-        const kind = method === 'pauseTask' ? 'pause' : method === 'resumeTask' ? 'resume' : method === 'reconcileTask' ? 'reconcile' : 'cancel';
-        agentStore.command(options.userId, projectId, taskId, kind, params['evidence'] ? { evidence: params['evidence'] } : {});
+        const kind =
+          method === 'pauseTask'
+            ? 'pause'
+            : method === 'resumeTask'
+              ? 'resume'
+              : method === 'reconcileTask'
+                ? 'reconcile'
+                : 'cancel';
+        agentStore.command(
+          options.userId,
+          projectId,
+          taskId,
+          kind,
+          params['evidence'] ? { evidence: params['evidence'] } : {},
+        );
         return true;
       }
 
@@ -561,4 +629,3 @@ export function createCodeDomain(options: CodeDomainOptions): {
 
   return { router, dispose, writePort };
 }
-

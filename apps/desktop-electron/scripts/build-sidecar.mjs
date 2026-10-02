@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -75,7 +83,12 @@ async function build() {
     runtime: 'everyone-coding-sidecar',
     entry: 'everyone-coding-sidecar.cjs',
     // 宿主据此判断"这个侧车产物是否需要宿主提供 DPAPI 能力"
-    hostCapabilities: ['secure.encrypt', 'secure.decrypt', 'shell.openExternal', 'clipboard.writeText'],
+    hostCapabilities: [
+      'secure.encrypt',
+      'secure.decrypt',
+      'shell.openExternal',
+      'clipboard.writeText',
+    ],
     // 侧车要求的 Node 主版本（better-sqlite3 的 ABI 与之绑定）
     nodeMajor: 22,
     migrations: 'migrations',

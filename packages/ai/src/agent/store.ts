@@ -10,7 +10,7 @@ import {
 
 export interface TaskRecord {
   task: AgentTask;
-  executionState: 'pending' | 'started' | 'settled' | 'unknown';
+  executionState: 'pending' | 'started' | 'paused' | 'settled' | 'unknown';
   request: Record<string, unknown>;
   checkpoint: unknown;
   result: unknown;
@@ -316,6 +316,16 @@ export class AgentStore {
         cursor: events.at(-1)?.sequence ?? after,
       };
     })();
+  }
+
+  latestCursor(userId: string, projectId: string, sessionId: string): number {
+    this.session(userId, projectId, sessionId);
+    const row = this.db
+      .prepare(
+        'SELECT COALESCE(MAX(sequence),0) AS cursor FROM agent_event WHERE user_id=? AND session_id=?',
+      )
+      .get(userId, sessionId) as { cursor: number };
+    return row.cursor;
   }
 }
 function decodeTask(row: TaskRow): TaskRecord {

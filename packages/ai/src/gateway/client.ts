@@ -7,14 +7,24 @@ import type { FinishReason, StreamChunk } from '../core/stream';
 import type { ToolDefinition } from '../core/tool';
 import type { Usage } from '../core/usage';
 import { estimateTokens } from '../core/usage';
-import { ContextLengthError, ProviderUnavailableError, toAiError, type AiError } from '../core/error';
+import {
+  ContextLengthError,
+  ProviderUnavailableError,
+  toAiError,
+  type AiError,
+} from '../core/error';
 import type { HttpTransport, ProxyConfig } from '../core/http';
 import { runConnectionTest } from '../core/connection-test';
 import type { ConnectionTestResult } from '../core/adapter';
 import { embeddingUnavailable, type EmbeddingOutcome } from '../core/embedding';
 import type { Model, ModelDiscovery } from '../domain/model';
 import type { Protocol, Provider } from '../domain/provider';
-import { normalizePurpose, normalizeUsagePurpose, resolveModelId, type AiPurpose } from '../domain/purpose-binding';
+import {
+  normalizePurpose,
+  normalizeUsagePurpose,
+  resolveModelId,
+  type AiPurpose,
+} from '../domain/purpose-binding';
 import { AttemptRuntime } from './attempt-runtime';
 import type { AttemptContext } from './metering-record';
 import { DEFAULT_MAX_TOKENS } from '../adapters/anthropic/request-map';
@@ -82,6 +92,18 @@ export interface GatewayChatRequest {
   contextSafetyMarginTokens?: number;
   stream?: boolean;
 }
+
+/** The assembled next payload and route overrides needed for a transient preview. */
+export type GatewayContextPreviewRequest = Pick<
+  GatewayChatRequest,
+  | 'purpose'
+  | 'messages'
+  | 'tools'
+  | 'modelId'
+  | 'providerId'
+  | 'maxTokens'
+  | 'contextSafetyMarginTokens'
+>;
 
 export interface GatewayEmbeddingRequest {
   userId: string;
@@ -155,12 +177,20 @@ export class AiGateway {
     return this.proxy;
   }
 
+  /** Draft connection tests have no persisted model route, but their writes still use the coordinator fence. */
+  withExecutionOwner<T>(operation: () => Promise<T>): Promise<T> {
+    return this.deps.execution ? this.deps.execution.withOwner(operation) : operation();
+  }
+
   /* ------------------------------ 对话 ------------------------------ */
 
   async *chat(input: GatewayChatRequest): AsyncIterable<StreamChunk> {
     // 用途归一：绑定解析、用量落库、事件上报都用同一个标准用途
-    const request: GatewayChatRequest = { ...input, purpose: normalizeUsagePurpose(input.purpose),
-      logicalRequestId: input.logicalRequestId ?? newUlid() };
+    const request: GatewayChatRequest = {
+      ...input,
+      purpose: normalizeUsagePurpose(input.purpose),
+      logicalRequestId: input.logicalRequestId ?? newUlid(),
+    };
     const model = this.resolveModel(request);
     if (!model) {
       const error = new ProviderUnavailableError(
@@ -285,7 +315,9 @@ export class AiGateway {
           delayMs,
           reason: lastErrorReason,
         });
-        try { await sleep(delayMs, request.signal); } catch {
+        try {
+          await sleep(delayMs, request.signal);
+        } catch {
           yield { type: 'done', finishReason: 'aborted', partial: true };
           return { kind: 'aborted' as const };
         }
@@ -317,9 +349,16 @@ export class AiGateway {
           this.emit({ type: 'budget-exceeded', message: currentBudget.message });
           throw new ProviderUnavailableError(currentBudget.message, { retryable: false });
         }
-        const result = yield* this.streamOnce(adapter, provider, model, request, Date.now() - queuedAt, (chunk) => {
-          if (chunk.type === 'delta' || chunk.type === 'tool_call') emittedContent = true;
-        });
+        const result = yield* this.streamOnce(
+          adapter,
+          provider,
+          model,
+          request,
+          Date.now() - queuedAt,
+          (chunk) => {
+            if (chunk.type === 'delta' || chunk.type === 'tool_call') emittedContent = true;
+          },
+        );
         return { kind: 'success' as const, result };
       } catch (error) {
         if (request.signal?.aborted) {
@@ -366,19 +405,27 @@ export class AiGateway {
     const permit = await this.deps.execution?.acquire(request, provider, model);
     let known = false;
     try {
-      const result = yield* this.streamMetered(adapter, provider, model,
-        permit ? { ...request, signal: permit.signal } : request, queuedMs, chunk => {
+      const result = yield* this.streamMetered(
+        adapter,
+        provider,
+        model,
+        permit ? { ...request, signal: permit.signal } : request,
+        queuedMs,
+        (chunk) => {
           permit?.assertOwner();
           if (chunk.type === 'done' && !chunk.partial) known = true;
           onChunk(chunk);
-        });
+        },
+      );
       return result;
     } catch (error) {
       // A definite HTTP rejection can release the allowance; a lost stream cannot.
       const mapped = toAiError(error);
       if (mapped.status !== undefined && mapped.status < 500) known = true;
       throw error;
-    } finally { permit?.finish(known); }
+    } finally {
+      permit?.finish(known);
+    }
   }
 
   private async *streamMetered(
@@ -399,20 +446,37 @@ export class AiGateway {
 
     const started = Date.now();
     const contextSnapshot = this.estimateContext(adapter, provider, model, request);
-    if (contextSnapshot.routeWindowTokens !== null && contextSnapshot.estimatedNextInputTokens !== null &&
-      contextSnapshot.estimatedNextInputTokens + (contextSnapshot.reservedOutputTokens ?? 0) +
-      (contextSnapshot.safetyMarginTokens ?? 0) > contextSnapshot.routeWindowTokens) {
-      throw new ContextLengthError('有效输入、预留输出和安全余量超出该路由窗口', contextSnapshot.routeWindowTokens);
+    if (
+      contextSnapshot.routeWindowTokens !== null &&
+      contextSnapshot.estimatedNextInputTokens !== null &&
+      contextSnapshot.estimatedNextInputTokens +
+        (contextSnapshot.reservedOutputTokens ?? 0) +
+        (contextSnapshot.safetyMarginTokens ?? 0) >
+        contextSnapshot.routeWindowTokens
+    ) {
+      throw new ContextLengthError(
+        '有效输入、预留输出和安全余量超出该路由窗口',
+        contextSnapshot.routeWindowTokens,
+      );
     }
     if (request.signal?.aborted) {
       yield { type: 'done', finishReason: 'aborted', partial: true };
       return { usage: null, latencyMs: 0 };
     }
     const metering = new AttemptRuntime(this.deps.usage, {
-      userId: request.userId, logicalRequestId: request.logicalRequestId!, providerId: provider.id,
-      model, upstreamModelName: model.name, protocol: provider.protocol, purpose: request.purpose,
-      projectId: request.projectId ?? null, sessionId: request.sessionId ?? null, taskId: request.taskId ?? null,
-      queuedMs, context: contextSnapshot, price: this.deps.priceFor?.(model, started) ?? null,
+      userId: request.userId,
+      logicalRequestId: request.logicalRequestId!,
+      providerId: provider.id,
+      model,
+      upstreamModelName: model.name,
+      protocol: provider.protocol,
+      purpose: request.purpose,
+      projectId: request.projectId ?? null,
+      sessionId: request.sessionId ?? null,
+      taskId: request.taskId ?? null,
+      queuedMs,
+      context: contextSnapshot,
+      price: this.deps.priceFor?.(model, started) ?? null,
     });
 
     const chunks = adapter.chat(
@@ -433,7 +497,8 @@ export class AiGateway {
     try {
       for await (const chunk of chunks) {
         if (chunk.type === 'delta') metering.output(chunk.text);
-        if (chunk.type === 'tool_call') metering.output((chunk.delta.name ?? '') + (chunk.delta.argumentsDelta ?? ''));
+        if (chunk.type === 'tool_call')
+          metering.output((chunk.delta.name ?? '') + (chunk.delta.argumentsDelta ?? ''));
         if (chunk.type === 'usage') metering.usage(chunk.metering, chunk.usage);
         if (chunk.type === 'error') throw chunk.error;
         if (chunk.type === 'done') {
@@ -447,38 +512,73 @@ export class AiGateway {
       }
     } catch (error) {
       const mapped = toAiError(error, { providerId: provider.id, modelId: model.id });
-      metering.finish(request.signal?.aborted || mapped.kind === 'aborted' ? 'aborted' : 'error', true, mapped);
+      metering.finish(
+        request.signal?.aborted || mapped.kind === 'aborted' ? 'aborted' : 'error',
+        true,
+        mapped,
+      );
       finished = true;
       throw mapped;
     } finally {
       if (!finished) metering.finish(request.signal?.aborted ? 'aborted' : 'stop', true);
     }
     const usage = metering.current().normalized;
-    return { usage: usage?.totalInput != null && usage.totalOutput != null
-      ? { promptTokens: usage.totalInput, completionTokens: usage.totalOutput, totalTokens: usage.totalInput + usage.totalOutput } : null,
-      latencyMs: Date.now() - started };
+    return {
+      usage:
+        usage?.totalInput != null && usage.totalOutput != null
+          ? {
+              promptTokens: usage.totalInput,
+              completionTokens: usage.totalOutput,
+              totalTokens: usage.totalInput + usage.totalOutput,
+            }
+          : null,
+      latencyMs: Date.now() - started,
+    };
   }
 
-  private estimateContext(adapter: ProviderAdapter, provider: Provider, model: Model, request: GatewayChatRequest): AttemptContext {
+  private estimateContext(
+    adapter: ProviderAdapter,
+    provider: Provider,
+    model: Model,
+    request: GatewayChatRequest,
+  ): AttemptContext {
     const estimate = adapter.countTokens(request.messages, model);
-    const tools = request.tools?.length ? estimateTokens(JSON.stringify(request.tools)) : { tokens: 0, margin: 0 };
-    const hasImage = request.messages.some((message) => Array.isArray(message.content) && message.content.some((block) => block.type === 'image'));
-    return { kind: 'sent_estimate', computedAt: Date.now(),
+    const tools = request.tools?.length
+      ? estimateTokens(JSON.stringify(request.tools))
+      : { tokens: 0, margin: 0 };
+    const hasImage = request.messages.some(
+      (message) =>
+        Array.isArray(message.content) && message.content.some((block) => block.type === 'image'),
+    );
+    return {
+      kind: 'sent_estimate',
+      computedAt: Date.now(),
       estimatedNextInputTokens: hasImage ? null : estimate.tokens + tools.tokens,
       routeWindowTokens: model.capability.contextWindow,
-      reservedOutputTokens: request.maxTokens ?? (provider.protocol === 'anthropic' ? DEFAULT_MAX_TOKENS : null),
+      reservedOutputTokens:
+        request.maxTokens ?? (provider.protocol === 'anthropic' ? DEFAULT_MAX_TOKENS : null),
       safetyMarginTokens: request.contextSafetyMarginTokens ?? estimate.margin + tools.margin,
-      measuredSentInputTokens: null };
+      measuredSentInputTokens: null,
+    };
   }
 
   /** 下一请求按当前载荷和当前实际候选路由重算，不复用上一轮实测输入。 */
-  previewContext(request: GatewayChatRequest): AttemptContext | null {
+  previewContext(
+    request: GatewayContextPreviewRequest & Pick<GatewayChatRequest, 'userId'>,
+  ): AttemptContext | null {
     const model = this.resolveModel(request);
     if (!model) return null;
     const candidate = this.candidatesFor(model, request.userId, request.providerId ?? null)[0];
     if (!candidate) return null;
-    return { ...this.estimateContext(this.deps.adapterFor(candidate.provider.protocol), candidate.provider,
-      candidate.model, request), kind: 'next_request_estimate' };
+    return {
+      ...this.estimateContext(
+        this.deps.adapterFor(candidate.provider.protocol),
+        candidate.provider,
+        candidate.model,
+        request,
+      ),
+      kind: 'next_request_estimate',
+    };
   }
 
   /**
@@ -538,23 +638,40 @@ export class AiGateway {
 
     const started = Date.now();
     const estimate = estimateTokens(inputs.join('\n'));
-    const metering = new AttemptRuntime(this.deps.usage, { userId: request.userId,
-      logicalRequestId: request.logicalRequestId ?? newUlid(), providerId: provider.id, model,
-      upstreamModelName: model.name, protocol: provider.protocol, purpose: 'embedding',
-      projectId: request.projectId ?? null, sessionId: request.sessionId ?? null, taskId: request.taskId ?? null,
-      context: { kind: 'sent_estimate', computedAt: started, estimatedNextInputTokens: estimate.tokens,
-        routeWindowTokens: model.capability.contextWindow, reservedOutputTokens: 0,
-        safetyMarginTokens: estimate.margin, measuredSentInputTokens: null },
-      price: this.deps.priceFor?.(model, started) ?? null });
-    let outcome: EmbeddingOutcome;
-    try { outcome = await embedWithOpenAi({
-      provider,
+    const metering = new AttemptRuntime(this.deps.usage, {
+      userId: request.userId,
+      logicalRequestId: request.logicalRequestId ?? newUlid(),
+      providerId: provider.id,
       model,
-      inputs,
-      context,
-      ...(request.dimensions !== undefined ? { dimensions: request.dimensions } : {}),
-      onUsage: (update) => metering.usage(update, { promptTokens: 0, completionTokens: 0, totalTokens: 0 }),
-    }); } catch (error) {
+      upstreamModelName: model.name,
+      protocol: provider.protocol,
+      purpose: 'embedding',
+      projectId: request.projectId ?? null,
+      sessionId: request.sessionId ?? null,
+      taskId: request.taskId ?? null,
+      context: {
+        kind: 'sent_estimate',
+        computedAt: started,
+        estimatedNextInputTokens: estimate.tokens,
+        routeWindowTokens: model.capability.contextWindow,
+        reservedOutputTokens: 0,
+        safetyMarginTokens: estimate.margin,
+        measuredSentInputTokens: null,
+      },
+      price: this.deps.priceFor?.(model, started) ?? null,
+    });
+    let outcome: EmbeddingOutcome;
+    try {
+      outcome = await embedWithOpenAi({
+        provider,
+        model,
+        inputs,
+        context,
+        ...(request.dimensions !== undefined ? { dimensions: request.dimensions } : {}),
+        onUsage: (update) =>
+          metering.usage(update, { promptTokens: 0, completionTokens: 0, totalTokens: 0 }),
+      });
+    } catch (error) {
       metering.finish('error', true, toAiError(error));
       return embeddingUnavailable('failed', '向量化响应读取失败');
     }
@@ -585,9 +702,23 @@ export class AiGateway {
     const adapter = this.deps.adapterFor(provider.protocol);
     return runConnectionTest(adapter, provider, context, (chat, discovery) => {
       this.deps.models.upsertDiscovered(provider.id, discovery);
-      const target = this.deps.models.findByName(provider.id, chat.model) ?? this.deps.models.create(provider.id, chat.model);
-      return this.streamOnce(adapter, provider, target, { ...chat, userId: provider.userId,
-        providerId: provider.id, purpose: 'connection-test', logicalRequestId: newUlid() }, 0, () => {});
+      const target =
+        this.deps.models.findByName(provider.id, chat.model) ??
+        this.deps.models.create(provider.id, chat.model);
+      return this.streamOnce(
+        adapter,
+        provider,
+        target,
+        {
+          ...chat,
+          userId: provider.userId,
+          providerId: provider.id,
+          purpose: 'connection-test',
+          logicalRequestId: newUlid(),
+        },
+        0,
+        () => {},
+      );
     });
   }
 
@@ -645,7 +776,11 @@ export class AiGateway {
   /* ------------------------------ 内部 ------------------------------ */
 
   private resolveModel(request: GatewayChatRequest): Model | null {
-    return this.resolveModelFor(request.userId, normalizePurpose(request.purpose), request.modelId ?? null);
+    return this.resolveModelFor(
+      request.userId,
+      normalizePurpose(request.purpose),
+      request.modelId ?? null,
+    );
   }
 
   /**

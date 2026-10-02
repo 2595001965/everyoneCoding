@@ -31,9 +31,10 @@ export type BillingMode = z.infer<typeof billingModeSchema>;
  * - platform_published：服务端发布且匹配该 Provider+Model 的有效售价
  * - official_vendor：厂商官网价（必须留证据 URL + 核验时间；仅估算依据，
  *   用于平台实扣前必须由服务端发布可结算快照）
+ * - local_model_capability：用户本地模型能力表中的旧单价快照；不是官方价或平台价
  */
 export const priceSourceSchema = z.object({
-  kind: z.enum(['platform_published', 'official_vendor']),
+  kind: z.enum(['platform_published', 'official_vendor', 'local_model_capability']),
   evidenceUrl: z.string().url().nullable(),
   verifiedAt: epochMsSchema.nullable(),
 });

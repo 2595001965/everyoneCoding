@@ -33,7 +33,11 @@ export function PreviewFrame({
     retired: new Set(),
   });
   const hello = React.useCallback((): void => {
-    if (session) frame.current?.contentWindow?.postMessage({ ...session, channel: 'ec-dom-v1', type: 'hello', payload: null }, '*');
+    if (session)
+      frame.current?.contentWindow?.postMessage(
+        { ...session, channel: 'ec-dom-v1', type: 'hello', payload: null },
+        '*',
+      );
   }, [session]);
   React.useEffect(() => {
     active.current = { documentId: null, seq: 0, retired: new Set() };

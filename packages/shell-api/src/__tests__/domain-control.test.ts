@@ -53,6 +53,7 @@ describe('域端口方法白名单', () => {
     expect(isDomainRpcMethod('workspace', 'listProjects')).toBe(true);
     expect(isDomainRpcMethod('docs', 'supportedFormats')).toBe(true);
     expect(isDomainRpcMethod('auth', 'login')).toBe(true);
+    expect(isDomainRpcMethod('usage', 'previewContext')).toBe(true);
     // 越域调用必须被拒：settings 不存在 login
     expect(isDomainRpcMethod('settings', 'login')).toBe(false);
     // 原型链上的属性名不能成为后门

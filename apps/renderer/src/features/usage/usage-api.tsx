@@ -10,12 +10,23 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 import type { UsageReport, UsageReportRow } from '@ec/ai';
 import type { BudgetConfig, BudgetDecision } from '@ec/ai';
-import type { AttemptFilter, AttemptGroup, AttemptAggregate, MeteredAttempt } from '@ec/ai';
+import type {
+  AttemptFilter,
+  AttemptGroup,
+  AttemptAggregate,
+  AttemptContext,
+  GatewayContextPreviewRequest,
+  MeteredAttempt,
+} from '@ec/ai';
 import type { V2EventEnvelope } from '@ec/core';
 
 export interface UsageMeteringApi {
+  previewContext(request: GatewayContextPreviewRequest): Promise<AttemptContext | null>;
   snapshot(filter?: AttemptFilter): Promise<{ attempts: MeteredAttempt[]; cursor: number }>;
-  aggregate(filter?: AttemptFilter, group?: AttemptGroup): Promise<Array<{ key: string | null; totals: AttemptAggregate }>>;
+  aggregate(
+    filter?: AttemptFilter,
+    group?: AttemptGroup,
+  ): Promise<Array<{ key: string | null; totals: AttemptAggregate }>>;
   events(after?: number, limit?: number): Promise<V2EventEnvelope[]>;
   subscribe(listener: (event: V2EventEnvelope) => void): () => void;
 }

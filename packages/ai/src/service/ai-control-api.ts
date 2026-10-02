@@ -225,31 +225,61 @@ export class AiControlService {
     const tracker = this.deps.usage;
     const userId = this.deps.userId;
     const transport = this.deps.transport;
-    const result = await (
-      await import('../core/connection-test')
-    ).runConnectionTest(adapter, draft, {
-      transport: this.deps.transport,
-      apiKey,
-      timeoutMs: draft.timeoutMs,
-    }, async function* (chat): AsyncIterable<StreamChunk> {
-      const count = adapter.countTokens(chat.messages);
-      const attempt = new AttemptRuntime(tracker, { userId, logicalRequestId: newUlid(), providerId: null,
-        model: null, upstreamModelName: chat.model, protocol: draft.protocol, purpose: 'connection-test',
-        context: { kind: 'sent_estimate', computedAt: Date.now(), estimatedNextInputTokens: count.tokens,
-          routeWindowTokens: null, reservedOutputTokens: 1, safetyMarginTokens: count.margin, measuredSentInputTokens: null } });
-      let finished = false;
-      try {
-        for await (const chunk of adapter.chat(chat, { transport, apiKey, timeoutMs: draft.timeoutMs })) {
-          if (chunk.type === 'delta') attempt.output(chunk.text);
-          if (chunk.type === 'usage') attempt.usage(chunk.metering, chunk.usage);
-          if (chunk.type === 'error') throw chunk.error;
-          if (chunk.type === 'done') { attempt.finish(chunk.finishReason, chunk.partial); finished = true; }
-          yield chunk;
-        }
-      } catch (error) {
-        attempt.finish('error', true, toAiError(error)); finished = true; throw error;
-      } finally { if (!finished) attempt.finish('stop', true); }
-    });
+    const result = await this.deps.gateway.withExecutionOwner(async () =>
+      (await import('../core/connection-test')).runConnectionTest(
+        adapter,
+        draft,
+        {
+          transport: this.deps.transport,
+          apiKey,
+          timeoutMs: draft.timeoutMs,
+        },
+        async function* (chat): AsyncIterable<StreamChunk> {
+          const count = adapter.countTokens(chat.messages);
+          const attempt = new AttemptRuntime(tracker, {
+            userId,
+            logicalRequestId: newUlid(),
+            providerId: null,
+            model: null,
+            upstreamModelName: chat.model,
+            protocol: draft.protocol,
+            purpose: 'connection-test',
+            context: {
+              kind: 'sent_estimate',
+              computedAt: Date.now(),
+              estimatedNextInputTokens: count.tokens,
+              routeWindowTokens: null,
+              reservedOutputTokens: 1,
+              safetyMarginTokens: count.margin,
+              measuredSentInputTokens: null,
+            },
+          });
+          let finished = false;
+          try {
+            for await (const chunk of adapter.chat(chat, {
+              transport,
+              apiKey,
+              timeoutMs: draft.timeoutMs,
+            })) {
+              if (chunk.type === 'delta') attempt.output(chunk.text);
+              if (chunk.type === 'usage') attempt.usage(chunk.metering, chunk.usage);
+              if (chunk.type === 'error') throw chunk.error;
+              if (chunk.type === 'done') {
+                attempt.finish(chunk.finishReason, chunk.partial);
+                finished = true;
+              }
+              yield chunk;
+            }
+          } catch (error) {
+            attempt.finish('error', true, toAiError(error));
+            finished = true;
+            throw error;
+          } finally {
+            if (!finished) attempt.finish('stop', true);
+          }
+        },
+      ),
+    );
     return result;
   }
 

@@ -52,12 +52,18 @@ export function usageFromOpenAi(usage: OpenAiUsage | undefined): Usage | null {
 
 export function meteringFromOpenAi(usage: OpenAiUsage, providerRequestId?: string): MeteringUpdate {
   return {
-    report: { inputIncludesCache: true, inputTokens: tokenCount(usage.prompt_tokens),
+    report: {
+      inputIncludesCache: true,
+      inputTokens: tokenCount(usage.prompt_tokens),
       outputTokens: tokenCount(usage.completion_tokens),
       cacheReadTokens: tokenCount(usage.prompt_tokens_details?.cached_tokens),
-      cacheWriteTokensByTtl: {}, reasoningTokensIncludedInOutput: true,
-      reasoningTokens: tokenCount(usage.completion_tokens_details?.reasoning_tokens) },
-    mode: 'snapshot', final: true, raw: usage,
+      cacheWriteTokensByTtl: {},
+      reasoningTokensIncludedInOutput: true,
+      reasoningTokens: tokenCount(usage.completion_tokens_details?.reasoning_tokens),
+    },
+    mode: 'snapshot',
+    final: true,
+    raw: usage,
     ...(providerRequestId ? { providerRequestId } : {}),
   };
 }
@@ -103,7 +109,8 @@ export function chunksFromOpenAiResponse(
   }
 
   const usage = usageFromOpenAi(payload.usage);
-  if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromOpenAi(payload.usage!, payload.id) });
+  if (usage)
+    chunks.push({ type: 'usage', usage, metering: meteringFromOpenAi(payload.usage!, payload.id) });
   // 非流式必须尊重服务端 finish_reason（length / tool_calls / content_filter …）
   chunks.push({
     type: 'done',
@@ -132,7 +139,8 @@ export function chunksFromOpenAiStreamEvent(payload: OpenAiResponse): StreamChun
   }
 
   const usage = usageFromOpenAi(payload.usage);
-  if (usage) chunks.push({ type: 'usage', usage, metering: meteringFromOpenAi(payload.usage!, payload.id) });
+  if (usage)
+    chunks.push({ type: 'usage', usage, metering: meteringFromOpenAi(payload.usage!, payload.id) });
 
   if (choice?.finish_reason) {
     chunks.push({

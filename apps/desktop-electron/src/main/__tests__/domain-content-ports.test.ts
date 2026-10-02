@@ -858,7 +858,7 @@ describe('代码写入管线：plan → preview → apply', () => {
         method: 'readFile',
         params: { projectId, path: '../../secret.txt' },
       }),
-    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    ).rejects.toMatchObject({ code: 'PATH_ESCAPE' });
   });
 });
 
@@ -965,16 +965,30 @@ describe('外部改动检测与 AI 重改', () => {
     expect(result.ok).toBe(true);
     expect(readCodeFile(projectId, 'src/reworked.ts')).toBe('export const reworked = true;\n');
 
-    // 模型输出不符合输出契约时如实报错，不落半成品
+    // 模型输出不符合输出契约时如实报错，不落半成品（持久任务语义：失败落在任务列表里）
     await runtime.dispose();
     runtime = buildRuntime({ aiStack: fakeAiStack('抱歉，我无法完成。') });
-    await expect(
-      call({
-        domain: 'code',
-        method: 'requestRework',
-        params: { projectId, request: { instruction: '再来一次', context: '', paths: [] } },
-      }),
-    ).rejects.toMatchObject({ code: 'UNKNOWN' });
+    await call({
+      domain: 'code',
+      method: 'requestRework',
+      params: { projectId, request: { instruction: '再来一次', context: '', paths: [] } },
+    });
+    const failedStart = Date.now();
+    let failedSeen = false;
+    while (Date.now() - failedStart < 5_000) {
+      const tasks = await call<
+        Array<{ task: { status: string }; executionState: string; error: string | null }>
+      >({ domain: 'code', method: 'listTasks', params: { projectId } });
+      if (
+        tasks.some((task) => task.task.status === 'failed' && task.executionState === 'settled')
+      ) {
+        failedSeen = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(failedSeen).toBe(true);
+    expect(readCodeFile(projectId, 'src/reworked.ts')).toBe('export const reworked = true;\n');
 
     // 未装配 AI 栈时给可执行引导
     await runtime.dispose();

@@ -44,6 +44,8 @@ export class BackendRunner {
   private readonly startPort: number;
   private readonly probe: PortProbe;
   private readonly clock: () => number;
+  /** 日志里的服务名（多服务编排时区分前端/后端；缺省按"后端"措辞） */
+  private readonly label: string;
   private current: {
     handle: Awaited<ReturnType<ProcessHostPort['spawn']>>;
     proc: ManagedProcess;
@@ -61,6 +63,8 @@ export class BackendRunner {
     probe?: PortProbe;
     clock?: () => number;
     ready?: (port: number, exited: Promise<unknown>) => Promise<void>;
+    /** 日志与事件里的服务标识（可选；不影响行为） */
+    label?: string;
   }) {
     this.process = opts.process;
     this.logs = opts.logs;
@@ -68,9 +72,15 @@ export class BackendRunner {
     this.probe = opts.probe ?? (async () => true);
     this.clock = opts.clock ?? (() => Date.now());
     this.ready = opts.ready;
+    this.label = opts.label ?? '后端';
   }
 
-  async start(profile: ProjectProfile, cwd: string): Promise<PreviewResult<ManagedProcess>> {
+  async start(
+    profile: ProjectProfile,
+    cwd: string,
+    /** 额外注入子进程的环境变量（叠加在 PORT/HOST 基线上；不落日志明文） */
+    env?: Record<string, string>,
+  ): Promise<PreviewResult<ManagedProcess>> {
     if (this.running && this.current !== null) return ok(this.current.proc, this.logsEntries());
     if (profile.startCmd === null) {
       this.logs.warn(`该项目无法自动启动：${profile.label}`);
@@ -86,7 +96,12 @@ export class BackendRunner {
     const handle = await this.process.spawn(profile.startCmd, [], {
       cwd,
       shell: true,
-      env: { PORT: String(alloc.port), HOST: '127.0.0.1', PYTHONUNBUFFERED: '1' },
+      env: {
+        PORT: String(alloc.port),
+        HOST: '127.0.0.1',
+        PYTHONUNBUFFERED: '1',
+        ...(env ?? {}),
+      },
     });
 
     const proc: ManagedProcess = {
@@ -105,10 +120,10 @@ export class BackendRunner {
       await handle.kill();
       this.current = null;
       this.running = false;
-      return fail('START_FAILED', `后端未就绪：${String(error)}`, this.logsEntries());
+      return fail('START_FAILED', `${this.label}未就绪：${String(error)}`, this.logsEntries());
     }
     this.running = true;
-    this.logs.info(`后端已启动：${proc.command}（端口 ${proc.port}）`);
+    this.logs.info(`${this.label}已启动：${proc.command}（端口 ${proc.port}）`);
     this.emit({ type: 'started', detail: proc.url });
     return ok(proc, this.logsEntries());
   }
@@ -121,7 +136,7 @@ export class BackendRunner {
     await cur.handle.exited;
     this.running = false;
     this.current = null;
-    this.logs.info('后端已停止');
+    this.logs.info(`${this.label}已停止`);
     this.emit({ type: 'stopped' });
   }
 

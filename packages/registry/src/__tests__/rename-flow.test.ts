@@ -308,7 +308,7 @@ describe('T7-03 影响面分析（FR-UNI-04 / FR-UNI-13）', () => {
   it('项目内边界提示原样返回（D-07）', () => {
     expect(report.scopeNotice).toBe(PROJECT_SCOPE_NOTICE);
     expect(report.scopeNotice).toContain('仅影响当前项目');
-    expect(report.scopeNotice).toContain('跨项目复用请手动导入 .ecpkg');
+    expect(report.scopeNotice).toContain('跨项目复用请导入标准 ZIP 数据备份');
     expect(report.projectId).toBe('p1');
   });
 

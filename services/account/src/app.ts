@@ -17,15 +17,23 @@ import { verifyPageRoutes } from './routes/verify-page.ts';
 import { usageRoutes } from './routes/usage.ts';
 import { releaseRoutes } from './routes/release.ts';
 import { catalogRoutes } from './routes/catalog.ts';
+import { walletRoutes } from './routes/wallet.ts';
+import { WalletLedger } from './models/wallet-ledger.ts';
 
 export async function buildApp(config: AppConfig, db?: Database): Promise<FastifyInstance> {
   const database = db ?? openDatabase(config.dbPath);
   runMigrations(database);
   const accountDb = new AccountDb(database);
+  const walletLedger = new WalletLedger(database, {
+    attemptLeaseMs: config.billingAttemptLeaseMs,
+    reconciliationSlaMs: config.billingReconciliationSlaMs,
+  });
+  walletLedger.recoverExpiredAttempts();
 
   const app = Fastify({ logger: false, trustProxy: true });
   app.decorate('accountDb', accountDb);
   app.decorate('appConfig', config);
+  app.decorate('walletLedger', walletLedger);
 
   registerErrorHandlers(app);
   registerRateLimit(app);
@@ -37,6 +45,7 @@ export async function buildApp(config: AppConfig, db?: Database): Promise<Fastif
   await app.register(usageRoutes);
   await app.register(releaseRoutes);
   await app.register(catalogRoutes);
+  await app.register(walletRoutes);
 
   await app.ready();
   return app;

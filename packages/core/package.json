@@ -11,6 +11,10 @@
     ".": {
       "browser": "./src/browser.ts",
       "default": "./src/index.ts"
+    },
+    "./v2": {
+      "browser": "./src/v2/index.ts",
+      "default": "./src/v2/index.ts"
     }
   },
   "scripts": {

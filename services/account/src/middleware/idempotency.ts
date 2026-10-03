@@ -15,6 +15,14 @@ export function registerIdempotency(app: FastifyInstance): void {
 
     const rawUrl = req.url ?? '/';
     const path = rawUrl.split('?')[0] ?? '/';
+    // Wallet mutations enforce payload-bound idempotency inside the same SQLite transaction
+    // as the ledger write. The generic response cache cannot detect a changed request body.
+    if (
+      ['/api/wallets', '/api/admin/wallets', '/api/admin/billing'].some(
+        (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+      )
+    )
+      return;
     const composite = `${method}:${path}:${key}`;
     req.idempotencyComposite = composite;
 

@@ -1,6 +1,6 @@
 # 云端账号服务端（EveryoneCoding · Apache-2.0）
 
-账号服务端承载既有账号服务（T9-06）及平台目录/价格版本增量（V2-D10）。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
+账号服务端承载既有账号服务（T9-06）、平台目录/价格版本（V2-D10）及平台钱包账本（V2-D11）。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
 
 ## 已实现接口（严格按 PRD §8）
 
@@ -90,6 +90,26 @@ Provider 的上游地址仅能通过管理 API 读写；上游凭据只接受 `e
 测试里的 URL 和金额是明确标为合成夹具的值。API 校验 HTTPS 与管理员来源，但不会自动判定域名
 是否属于该厂商；管理员需在录入前人工核验来源。
 
+## V2-D11 平台钱包、预占与对账
+
+`0005_wallet_ledger` 增加独立于客户端本地用量记录的服务端钱包、预占、计费 attempt、不可变流水、预算策略、对账队列和审计事件。余额按定点微单位整数保存：`availableMicros = postedMicros - heldMicros`。数据库触发器阻止无匹配流水的余额改写、流水/价格快照/对账受理记录的修改删除，以及 attempt/hold 状态倒退。
+
+用户只能读取自己各币种钱包、账本和 attempt；管理员 allowlist 才能调整额度、设置预算、查对账队列和冲正。管理员额度调整及冲正要求 `Idempotency-Key` 和原因，调整、预占、结算、释放和冲正都与钱包变化处于同一 SQLite `BEGIN IMMEDIATE` 事务。日/月硬预算按币种原子检查；两个上限都为 `null` 表示移除该预算策略。未配置前不擅自设免费额度或币种规则。
+
+`WalletLedger.reserveAttempt()` 只接受服务端传入的上下文估算，并从 D10 的不可变平台价或已核验官网快照读取价格；按受理时快照调用 `@ec/core/v2` 的 `computeUsageCost` 算预占。结算同样只收可信最终 Token 分桶，不收客户端金额。精确费用无法确定、上游执行状态未知或可用余额不足时保留冻结并开待对账记录。只有标记为未派发的请求可直接释放；开始派发后取消必须保持待对账，管理员确认未执行后才可释放。`buildApp` 启动时把超出租约且未结束的 attempt 转入对账队列，不自动归零或释放。
+
+当前提供受控的服务端 `WalletLedger` attempt 方法供后续 D12 网关接入；HTTP 不暴露客户端预占/结算写接口。**没有在线充值、支付商户、支付回调或真实支付接入**；充值只能等运营与支付方案确认后另行实施。人工额度调整是有审计的后台入账能力，不代表在线充值。
+
+用户读接口：`GET /api/wallets`、`GET /api/wallets/:currency`、`GET /api/wallets/:currency/ledger`、
+`GET /api/billing/attempts` 和 `GET /api/billing/attempts/:attemptId`。管理员接口：
+`GET /api/admin/wallets/:accountId/:currency`、`POST .../adjustments`、`PUT .../budgets`、
+`GET /api/admin/billing/reconciliation`、`POST .../reconciliation/:attemptId/resolve`、
+`POST .../attempts/:attemptId/reversal`。所有用户账单读接口按访问令牌账号过滤；管理员写接口继续由
+`ACCOUNT_PLATFORM_ADMIN_IDS` allowlist 限定。
+
+对账租约与提醒期限可经 `ACCOUNT_BILLING_ATTEMPT_LEASE_MS`（默认 30 秒）和
+`ACCOUNT_BILLING_RECONCILIATION_SLA_MS`（默认 24 小时）配置。SLA 超期只会显示在管理员队列，不能自动释放余额。
+
 ## 技术栈
 
 - Node.js 24 + Fastify（HTTP 框架）
@@ -102,7 +122,7 @@ Provider 的上游地址仅能通过管理 API 读写；上游凭据只接受 `e
 
 - **统一错误结构** `{ code, message, traceId }`；未捕获异常不泄漏堆栈。
 - **bindings 列表**当前返回全部绑定与空 `nextCursor`，未实现 `limit`/`cursor` 分页。
-- **幂等键**：所有写接口支持 `Idempotency-Key` 头，重复提交返回首次结果（落库 `account_idempotency`）。
+- **幂等键**：一般写接口使用 `account_idempotency` 响应缓存；钱包写操作将请求指纹和账本变更放在同一事务校验，同键不同内容返回冲突。
 - **限流**：登录/注册每 IP 每分钟 20 次（内存令牌桶，可经环境变量调整）。
 - **审计日志脱敏**：密码、令牌、邮箱等敏感字段只记前 4 位 + `***`。
 - **自注册开通**：注册即创建默认工作区（名「个人工作区」）并授予免费权益包（`planId = free`），无人工审核。
@@ -124,11 +144,12 @@ services/account/
 │   ├── auth-tokens.ts       # 令牌签发 / 鉴权前置
 │   ├── models/account.ts    # 账号数据访问层
 │   ├── models/platform-catalog.ts # 平台目录与不可变价格存储
-│   ├── routes/              # auth / usage / release / catalog 路由
+│   ├── models/wallet-ledger.ts # 服务端钱包、attempt 与账本
+│   ├── routes/              # auth / usage / release / catalog / wallet 路由
 │   ├── oauth/               # google / github / wechat 策略 + 流程
 │   ├── middleware/          # error / idempotency / rate-limit
 │   └── __tests__/           # 集成测试
-├── migrations/              # 0001～0004 三段式迁移（含平台目录/价格）
+├── migrations/              # 0001～0005 三段式迁移（目录/价格/钱包账本）
 ├── Dockerfile
 ├── docker-compose.yml
 ├── start.sh / start.cmd
@@ -153,7 +174,7 @@ pnpm typecheck
 环境变量（均带默认值，详见 `src/config.ts`）：`ACCOUNT_HOST`、`ACCOUNT_PORT`、`ACCOUNT_DB_PATH`、
 `ACCOUNT_JWT_SECRET`、`ACCOUNT_ACCESS_TTL`、`ACCOUNT_REFRESH_TTL`、
 `ACCOUNT_LOGIN_LIMIT`、`ACCOUNT_REGISTER_LIMIT`、`ACCOUNT_OAUTH_*_ID/SECRET/REDIRECT` 等。
-V2-D10 增加 `ACCOUNT_PLATFORM_ADMIN_IDS`（逗号分隔的平台运营账号 ID；为空时不启用管理权限）。
+V2-D10/D11 使用 `ACCOUNT_PLATFORM_ADMIN_IDS`（逗号分隔的平台运营账号 ID；为空时不启用管理权限）。
 
 ### 邮件与邮箱验证（FR-ACC-08）
 

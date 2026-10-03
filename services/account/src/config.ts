@@ -24,6 +24,10 @@ export interface AppConfig {
   oauthStateTtlSec: number;
   /** 幂等键记录保留时长（秒） */
   idempotencyTtlSec: number;
+  /** 计费 attempt 执行租约；租约到期且未续期时转待对账，默认 30s */
+  billingAttemptLeaseMs: number;
+  /** 待人工对账 SLA；超期只提示管理员，不自动释放冻结或归零，默认 24h */
+  billingReconciliationSlaMs: number;
   /** 邮箱验证链接有效期（秒），默认 24h */
   emailVerifyTtlSec: number;
   /** 重置密码验证码有效期（秒），默认 10 分钟 */
@@ -78,6 +82,11 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     registerRateLimitPerMin: num(process.env.ACCOUNT_REGISTER_LIMIT, 20),
     oauthStateTtlSec: num(process.env.ACCOUNT_OAUTH_STATE_TTL, 10 * 60),
     idempotencyTtlSec: num(process.env.ACCOUNT_IDEMPOTENCY_TTL, 24 * 60 * 60),
+    billingAttemptLeaseMs: num(process.env.ACCOUNT_BILLING_ATTEMPT_LEASE_MS, 30 * 1000),
+    billingReconciliationSlaMs: num(
+      process.env.ACCOUNT_BILLING_RECONCILIATION_SLA_MS,
+      24 * 60 * 60 * 1000,
+    ),
     emailVerifyTtlSec: num(process.env.ACCOUNT_EMAIL_VERIFY_TTL, 24 * 60 * 60),
     passwordResetTtlSec: num(process.env.ACCOUNT_PASSWORD_RESET_TTL, 10 * 60),
     emailResendCooldownMs: num(process.env.ACCOUNT_EMAIL_RESEND_COOLDOWN_MS, 60 * 1000),

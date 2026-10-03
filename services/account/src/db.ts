@@ -35,6 +35,7 @@ export function openDatabase(dbPath: string): SqliteDatabase {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   }
   const db = new Database(resolved);
+  db.pragma('busy_timeout = 5000');
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   runMigrations(db);

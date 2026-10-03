@@ -2,9 +2,9 @@ openapi: 3.0.3
 info:
   title: EveryoneCoding 云端账号服务端 API
   description: >
-    服务端复用既有账号认证，并提供发布版/目录/价格与官网证据管理 API。
+    服务端复用既有账号认证，并提供发布版/目录/价格、平台钱包与账务对账 API。
     客户端可离线读取已保存目录快照；本服务不提供云同步、远程配置下发与分享链接。
-  version: '1.5.0'
+  version: '1.6.0'
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
@@ -21,6 +21,8 @@ tags:
     description: 版本更新
   - name: catalog
     description: 平台目录与价格版本（D10）
+  - name: wallet
+    description: 平台钱包、不可变账本与管理员对账（D11）；不提供真实支付
 
 paths:
   /api/auth/register:
@@ -461,6 +463,272 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
 
+  /api/wallets:
+    get:
+      tags: [wallet]
+      summary: 查询当前账号的平台钱包
+      operationId: listMyWallets
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 账面额、冻结额、可用额与更新时间；只返回当前令牌所属账号
+          content:
+            application/json:
+              schema:
+                {
+                  type: object,
+                  properties:
+                    {
+                      wallets:
+                        { type: array, items: { $ref: '#/components/schemas/WalletSnapshot' } },
+                    },
+                }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /api/wallets/{currency}:
+    get:
+      tags: [wallet]
+      summary: 查询当前账号某币种钱包
+      operationId: getMyWallet
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: currency,
+            in: path,
+            required: true,
+            schema: { type: string, pattern: '^[A-Z]{3}$' },
+          }
+      responses:
+        '200':
+          description: 不存在的钱包以零余额快照返回，不创建充值或支付记录
+          content:
+            application/json:
+              schema:
+                {
+                  type: object,
+                  properties: { wallet: { $ref: '#/components/schemas/WalletSnapshot' } },
+                }
+
+  /api/wallets/{currency}/ledger:
+    get:
+      tags: [wallet]
+      summary: 分页读取当前账号自己的不可变账本流水
+      operationId: listMyWalletLedger
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: currency,
+            in: path,
+            required: true,
+            schema: { type: string, pattern: '^[A-Z]{3}$' },
+          }
+        - {
+            name: limit,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
+          }
+        - { name: before, in: query, schema: { type: integer, description: Unix 毫秒时间游标 } }
+      responses:
+        '200': { description: 账本流水；金额和余额变化均为微单位整数 }
+
+  /api/billing/attempts:
+    get:
+      tags: [wallet]
+      summary: 查询当前账号自己的计费请求与结算状态
+      operationId: listMyBillingAttempts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
+          }
+      responses:
+        '200': { description: 包含受理时不可变价格快照、预占/结算额与未知状态 }
+
+  /api/billing/attempts/{attemptId}:
+    get:
+      tags: [wallet]
+      summary: 查询当前账号自己的一个计费请求
+      operationId: getMyBillingAttempt
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: attemptId,
+            in: path,
+            required: true,
+            schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' },
+          }
+      responses:
+        '200': { description: attempt 及其受理价格快照 }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/admin/wallets/{accountId}/{currency}:
+    get:
+      tags: [wallet]
+      summary: 管理员查询指定账号余额与预算
+      operationId: getPlatformWallet
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string } }
+        - {
+            name: currency,
+            in: path,
+            required: true,
+            schema: { type: string, pattern: '^[A-Z]{3}$' },
+          }
+      responses:
+        '200': { description: 需平台管理员 allowlist 授权 }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/admin/wallets/{accountId}/adjustments:
+    post:
+      tags: [wallet]
+      summary: 管理员审计式额度调整
+      operationId: adjustPlatformWallet
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string } }
+        - {
+            name: Idempotency-Key,
+            in: header,
+            required: true,
+            schema: { type: string, minLength: 1, maxLength: 200 },
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, amountMicros, reason]
+              properties:
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                amountMicros: { type: integer, description: 正数入账、负数扣减；微单位整数 }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '201': { description: 新建审计调整流水 }
+        '200': { description: 完全相同的幂等重放 }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/admin/wallets/{accountId}/budgets:
+    put:
+      tags: [wallet]
+      summary: 管理员设置该账号币种级日/月钱包硬预算
+      operationId: setPlatformWalletBudget
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, dailyLimitMicros, monthlyLimitMicros, reason]
+              properties:
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                dailyLimitMicros: { type: integer, minimum: 0, nullable: true }
+                monthlyLimitMicros: { type: integer, minimum: 0, nullable: true }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '200': { description: 已保存并记录管理员审计事件 }
+
+  /api/admin/billing/reconciliation:
+    get:
+      tags: [wallet]
+      summary: 管理员读取待对账队列
+      operationId: listBillingReconciliationCases
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 500, default: 100 },
+          }
+      responses:
+        '200': { description: 含创建时间和处理期限；超期不会自动归零或释放冻结 }
+
+  /api/admin/billing/reconciliation/{attemptId}/resolve:
+    post:
+      tags: [wallet]
+      summary: 管理员以最终可信用量结算，或确认未发送后释放预占
+      operationId: resolveBillingReconciliation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: attemptId,
+            in: path,
+            required: true,
+            schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' },
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {
+                    type: object,
+                    required: [outcome, reason],
+                    properties:
+                      {
+                        outcome: { type: string, enum: [no_upstream_execution] },
+                        reason: { type: string },
+                      },
+                  }
+                - {
+                    type: object,
+                    required: [outcome, reason, usage],
+                    properties:
+                      {
+                        outcome: { type: string, enum: [final_usage] },
+                        reason: { type: string },
+                        usage:
+                          {
+                            type: object,
+                            description: NormalizedUsage；只提交 Token 分桶，不接受金额,
+                          },
+                      },
+                  }
+      responses:
+        '200': { description: 已结算或释放；费用从受理时价格快照重新计算 }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/admin/billing/attempts/{attemptId}/reversal:
+    post:
+      tags: [wallet]
+      summary: 管理员冲正一笔已结算扣款
+      operationId: reverseBillingSettlement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: attemptId,
+            in: path,
+            required: true,
+            schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' },
+          }
+        - {
+            name: Idempotency-Key,
+            in: header,
+            required: true,
+            schema: { type: string, minLength: 1, maxLength: 200 },
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              {
+                type: object,
+                required: [reason],
+                properties: { reason: { type: string, minLength: 3, maxLength: 500 } },
+              }
+      responses:
+        '201': { description: 追加不可变冲正流水，不编辑原扣款 }
+        '200': { description: 完全相同的幂等重放 }
+        '409': { $ref: '#/components/responses/Error' }
+
   /api/release/check:
     get:
       tags: [release]
@@ -761,6 +1029,19 @@ components:
               type: object,
               description: 官网证据 URL、版本、哈希、适用条件和费率；不含管理员证据原文,
             }
+    WalletSnapshot:
+      type: object
+      required:
+        [accountId, currency, postedMicros, heldMicros, availableMicros, asOf, stale, revision]
+      properties:
+        accountId: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        postedMicros: { type: integer, minimum: 0 }
+        heldMicros: { type: integer, minimum: 0 }
+        availableMicros: { type: integer, minimum: 0, description: postedMicros - heldMicros }
+        asOf: { type: integer, description: Unix 毫秒时间戳 }
+        stale: { type: boolean, description: 是否可能过期 }
+        revision: { type: integer, minimum: 0 }
     TokenPair:
       type: object
       properties:

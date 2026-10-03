@@ -5,11 +5,13 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AccountDb } from './models/account.ts';
 import type { AppConfig } from './config.ts';
+import type { WalletLedger } from './models/wallet-ledger.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
     accountDb: AccountDb;
     appConfig: AppConfig;
+    walletLedger: WalletLedger;
   }
   interface FastifyRequest {
     traceId: string;

@@ -17,8 +17,11 @@ export interface LegacyMigrationResult {
 }
 
 function safeFolderName(value: string, fallback: string): string {
-  const cleaned = value
-    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+  // Control chars are mapped by codepoint instead of a control-char regex, which no-control-regex forbids.
+  const cleaned = [...value]
+    .map((char) => ((char.codePointAt(0) ?? 0) < 0x20 ? '_' : char))
+    .join('')
+    .replace(/[<>:"/\\|?*]/g, '_')
     .replace(/[. ]+$/g, '')
     .trim()
     .slice(0, 80);

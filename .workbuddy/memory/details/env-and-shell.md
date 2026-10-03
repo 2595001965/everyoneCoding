@@ -3,12 +3,20 @@
 > 索引见 `../MEMORY.md §命令与启动`。本文件是被移出 MEMORY.md 的细节，**每会话都该先读**。
 
 ## 本机命令环境（每次会话都要用，别重新踩）
-- **跑测试/门禁必须让 `node` = nvm v24.20.0**：better-sqlite3 的 Node 侧 `.node` 按 ABI 137 构建，
-  托管 v22.22.2 是 ABI 127，用它跑测试满屏 `NODE_MODULE_VERSION ... requires 127`。首选
-  `/c/Users/f2595/AppData/Local/Author Software/nvm/installs/v24.20.0/node.exe`
-  （`.nodejs` 是会被切走的软链，只作临时手段）。
-  ⚠️ **版本目录是 `nvm/installs/v24.20.0`，不是 `nvm/v24.20.0`**：写错前缀 PATH 不生效，
+- **跑测试/门禁必须让 `node` = nvm v24.21.0**：better-sqlite3 的 Node 侧 `.node` 按 ABI 137 构建，
+  托管 v22.22.2 是 ABI 127，用它跑测试满屏 `NODE_MODULE_VERSION ... requires 137`
+  （2026-10-03 实测：2906 项里 **373 项假红、52 个文件**，极易误判成代码坏了）。
+  ⚠️ **本机用户是 `hdl`（不是旧记录里的 `f2595`），版本是 `v24.21.0`**，用整条命令最省事：
+  `export PATH="/c/Users/hdl/AppData/Local/Author Software/nvm/installs/v24.21.0:$PATH"`
+  ⚠️ **版本目录是 `nvm/installs/v24.21.0`，不是 `nvm/v24.21.0`**：写错前缀 PATH 不生效，
   裸 `node` 会落到 WorkBuddy 托管的 22.22.2 上，症状同上（2026-09-23 踩过）。
+- **`--no-file-parallelism` 不能靠 `npm test -- --flag` 传**：`pnpm -r` 会吞掉它并报
+  `Unknown option: 'file-parallelism'`。要么用 `npx vitest run --no-file-parallelism`（根配置），
+  要么把 `fileParallelism: false` 写进 `vitest.config.ts`（2026-10-03 踩过）。
+- **新加/新克隆的包要先 `pnpm install` 再判 typecheck**：未提交的新包（如 `apps/platform-web`）
+  从没装过依赖，react 等缺失会让 tsc 报几百条 TS7026/TS2307，**看着像代码坏了其实只是没装依赖**
+  （2026-10-03 踩过）。注意 `pnpm install` 可能显示 "Already up to date" 却仍然补上了
+  `node_modules`，以目录是否存在为准。
 - **本机跑 vitest 必须加 `--no-file-parallelism`**（2026-09-23 定案）：默认并行时沙盒的文件系统
   代理在写 vitest 的临时 SSR 模块时报 `EPERM`，**症状是一次只收集到一个测试文件**——
   看起来极像"include 写错了 / 测试文件没被识别"，实际是 worker 崩了。

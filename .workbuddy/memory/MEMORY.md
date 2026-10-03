@@ -4,6 +4,23 @@
 > `env-and-shell.md`（**本机环境与环境坑，每会话先读**）；文档见 `docs/` 下 ACCEPTANCE-REPORT、
 > CAPABILITY-MATRIX、DEV-SETUP、tasks/。
 
+## 铁律：包目录里跑 vitest 必须有本包 `vitest.config.ts`（2026-10-03 定案）
+
+**没有本包配置的包，`pnpm test` 会"假绿灯"**：vitest 向上找到**根**配置，而根 `include` 是
+仓库根锚定的 `{packages,apps}/*/src/**/*.test.{ts,tsx}`；从包目录跑时这串 glob 对不上 → 收集 0 文件
+→ `--passWithNoTests` 静默 **exit 0**，CI 日志只留一行 `No test files found, exiting with code 0`
+（**看起来像通过，其实一个用例都没跑**）。2026-10-03 因此在 CI 上漏跑 6 个包 **49 个测试文件**
+（registry/package-kit/preview/pipeline/git/account）。
+
+- **新增测试文件不新增 config，等于没测**。新增包或给现有包加测试前，先确认该包有
+  `vitest.config.ts`；模板照抄 `packages/memory/vitest.config.ts` / `packages/core/vitest.config.ts`
+  （`environment:'node'`、`include:['src/**/*.test.{ts,tsx}']`、`restoreMocks:true`）。
+  `test` 与 `test:coverage` 脚本共用同一份 config，加一份即两者都生效。
+- **识别假绿灯**：CI 日志出现 `No test files found, exiting with code 0` 就是没跑，不是通过。
+  要真跑从**仓库根**执行 `npx vitest run <包路径子串>`（根 include 能匹配上）。
+- **实测需放宽 timeout**：`packages/git` 的 `git-integration.test.ts` 单例 82s
+  （真起 git 进程），故该包 `testTimeout: 180000`；其余包 15s 够用。
+
 ## 最新补充（2026-10-01 · T12-04）
 
 Git/预览/导航/统一重命名四域生产端口已收口验收：路径安全、事务化重命名、受控进程托管、

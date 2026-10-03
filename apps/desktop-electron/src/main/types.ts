@@ -96,7 +96,12 @@ export interface ElectronAppLike {
 export interface IpcDependencies {
   dialog: ElectronDialogLike;
   getWindow: (event?: unknown) => BrowserWindowLike | null;
-  openAgentWindow: (input: { projectId: string; projectName: string; sessionId: string; title: string }) => void;
+  openAgentWindow: (input: {
+    projectId: string;
+    projectName: string;
+    sessionId: string;
+    title: string;
+  }) => void;
   clipboard: ElectronClipboardLike;
   safeStorage: SafeStorageLike | null;
   updater: UpdaterLike | null;

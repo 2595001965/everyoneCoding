@@ -83,7 +83,8 @@ export function StagePanel({
     let cancelled = false;
     setVersions([]);
     setContent('');
-    void api.listArtifacts(projectId, stage)
+    void api
+      .listArtifacts(projectId, stage)
       .then(async (list) => {
         if (cancelled) return;
         setVersions(list);

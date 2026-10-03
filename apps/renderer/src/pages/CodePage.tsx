@@ -370,7 +370,8 @@ export function CodePage(): JSX.Element {
         loading={openingAgent}
         disabled={openingAgent}
         onClick={() => {
-          const shell = (globalThis as typeof globalThis & { __EC_SHELL__?: ShellHost }).__EC_SHELL__;
+          const shell = (globalThis as typeof globalThis & { __EC_SHELL__?: ShellHost })
+            .__EC_SHELL__;
           if (shell === undefined || project === null) return;
           setOpeningAgent(true);
           void shell.window
@@ -380,7 +381,9 @@ export function CodePage(): JSX.Element {
               sessionId: globalThis.crypto.randomUUID(),
               title: `Agent · ${project.name}`,
             })
-            .catch((error: unknown) => setNotice(error instanceof Error ? error.message : String(error)))
+            .catch((error: unknown) =>
+              setNotice(error instanceof Error ? error.message : String(error)),
+            )
             .finally(() => setOpeningAgent(false));
         }}
         data-testid="ec-open-agent-window"

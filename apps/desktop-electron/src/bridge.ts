@@ -66,7 +66,12 @@ export interface EcShellPreload {
     onExit(id: string, cb: (result: ProcessExit) => void): () => void;
   };
   window: {
-    openAgentWindow(input: { projectId: string; projectName: string; sessionId: string; title: string }): Promise<void>;
+    openAgentWindow(input: {
+      projectId: string;
+      projectName: string;
+      sessionId: string;
+      title: string;
+    }): Promise<void>;
     setTitle(title: string): Promise<void>;
     minimize(): Promise<void>;
     maximize(): Promise<void>;

@@ -178,7 +178,11 @@ export interface MemoryApi {
   listProjects(): Promise<ProjectOption[]>;
   stats(input: { userId: string; projectId: string | null }): Promise<MemoryStats>;
 
-  list(input: { userId: string; projectId: string | null; query: MemoryQuery }): Promise<MemoryItem[]>;
+  list(input: {
+    userId: string;
+    projectId: string | null;
+    query: MemoryQuery;
+  }): Promise<MemoryItem[]>;
   detail(id: string): Promise<MemoryDetail | null>;
   /**
    * 冲突索引（memoryId → 该条目的冲突标注）。
@@ -199,7 +203,11 @@ export interface MemoryApi {
   create(draft: MemoryDraft): Promise<MemoryItem>;
   update(id: string, patch: MemoryPatch, expectedVersion?: number): Promise<MemoryItem>;
   setPinned(id: string, pinned: boolean): Promise<MemoryItem>;
-  setIssueStatus(id: string, next: IssueStatus, options?: { explicit?: boolean }): Promise<MemoryItem>;
+  setIssueStatus(
+    id: string,
+    next: IssueStatus,
+    options?: { explicit?: boolean },
+  ): Promise<MemoryItem>;
   moveLayer(ids: readonly string[], target: LayerMoveTarget): Promise<MemoryItem[]>;
 
   /** 批量删除（调用方应先经二次确认）；返回可撤销令牌 */
@@ -207,7 +215,11 @@ export interface MemoryApi {
   /** 撤销一次批量删除 */
   restore(ids: readonly string[]): Promise<void>;
 
-  changeLog(input: { userId: string; memoryId?: string; limit?: number }): Promise<ChangeLogRecord[]>;
+  changeLog(input: {
+    userId: string;
+    memoryId?: string;
+    limit?: number;
+  }): Promise<ChangeLogRecord[]>;
 
   exportMemories(request: MemoryExportRequest): Promise<MemoryExportResult>;
   importPreview(input: {

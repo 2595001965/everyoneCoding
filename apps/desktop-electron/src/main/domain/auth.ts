@@ -349,7 +349,9 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
           for (const [provider, handshake] of pendingHandshakes) {
             if (handshake.state !== state) continue;
             try {
-              const session = await client.completeOAuth(handshake, callbackUrl, { rememberMe: false });
+              const session = await client.completeOAuth(handshake, callbackUrl, {
+                rememberMe: false,
+              });
               pendingHandshakes.delete(provider);
               return keepSession(session);
             } finally {

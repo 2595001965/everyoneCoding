@@ -102,7 +102,12 @@ const oauthBridge: ProtocolBridge | null = singleInstanceLock
  */
 let runtime: HeadlessRuntime | null = null;
 
-function createWindow(agent?: { projectId: string; projectName: string; sessionId: string; title: string }): BrowserWindow {
+function createWindow(agent?: {
+  projectId: string;
+  projectName: string;
+  sessionId: string;
+  title: string;
+}): BrowserWindow {
   const win = new BrowserWindow({
     width: agent ? 1120 : 1440,
     height: agent ? 760 : 900,
@@ -131,12 +136,18 @@ function createWindow(agent?: { projectId: string; projectName: string; sessionI
         console.error('[main] 请确认渲染层 dev server 已在 http://localhost:5173 运行');
       },
     );
-    const route = agent ? `#/agents?projectId=${encodeURIComponent(agent.projectId)}&projectName=${encodeURIComponent(agent.projectName)}&sessionId=${encodeURIComponent(agent.sessionId)}` : '';
+    const route = agent
+      ? `#/agents?projectId=${encodeURIComponent(agent.projectId)}&projectName=${encodeURIComponent(agent.projectName)}&sessionId=${encodeURIComponent(agent.sessionId)}`
+      : '';
     void win.loadURL(`http://localhost:5173/${route}`);
     if (shouldAutoOpenDevTools) win.webContents.openDevTools({ mode: 'bottom' });
   } else {
     void win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), {
-      ...(agent ? { hash: `/agents?projectId=${encodeURIComponent(agent.projectId)}&projectName=${encodeURIComponent(agent.projectName)}&sessionId=${encodeURIComponent(agent.sessionId)}` } : {}),
+      ...(agent
+        ? {
+            hash: `/agents?projectId=${encodeURIComponent(agent.projectId)}&projectName=${encodeURIComponent(agent.projectName)}&sessionId=${encodeURIComponent(agent.sessionId)}`,
+          }
+        : {}),
     });
   }
 

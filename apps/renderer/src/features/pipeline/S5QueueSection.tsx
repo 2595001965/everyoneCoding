@@ -36,11 +36,11 @@ export function S5QueueSection({
     };
     void refresh().catch((cause: unknown) => setError(String(cause)));
     const unsubscribe = api.subscribe('pipeline:*', (raw) => {
-        const event = raw as { projectId?: string; type?: string; message?: string };
-        if (event.projectId !== projectId) return;
-        void refresh().catch((cause: unknown) => setError(String(cause)));
-        if (event.message) setMessage(event.message);
-      });
+      const event = raw as { projectId?: string; type?: string; message?: string };
+      if (event.projectId !== projectId) return;
+      void refresh().catch((cause: unknown) => setError(String(cause)));
+      if (event.message) setMessage(event.message);
+    });
     return () => {
       cancelled = true;
       unsubscribe();
@@ -90,11 +90,7 @@ export function S5QueueSection({
         </Button>
       )}
       {running && (
-        <Button
-          onClick={() => void execute(() => api.pauseQueue(projectId))}
-        >
-          暂停队列
-        </Button>
+        <Button onClick={() => void execute(() => api.pauseQueue(projectId))}>暂停队列</Button>
       )}
       <p role="status">{message}</p>
       {error && <p role="alert">{error}</p>}

@@ -123,7 +123,8 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
         setChangeLogs(nextChangeLogs);
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setNotice(`记忆数据读取失败：${cause instanceof Error ? cause.message : String(cause)}`);
+        if (!cancelled)
+          setNotice(`记忆数据读取失败：${cause instanceof Error ? cause.message : String(cause)}`);
       });
     return () => {
       cancelled = true;

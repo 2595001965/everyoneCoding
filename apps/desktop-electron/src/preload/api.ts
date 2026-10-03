@@ -232,7 +232,12 @@ export function createPreloadApi(ipc: InvokeIpcRendererLike): Record<string, unk
   };
 
   const windowApi = {
-    openAgentWindow: (input: { projectId: string; projectName: string; sessionId: string; title: string }) => {
+    openAgentWindow: (input: {
+      projectId: string;
+      projectName: string;
+      sessionId: string;
+      title: string;
+    }) => {
       for (const [key, value] of Object.entries(input)) assertString(value, key);
       return ipc.invoke(CHANNELS.window.openAgentWindow, input);
     },

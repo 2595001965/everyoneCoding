@@ -118,7 +118,13 @@ export interface CodeViewApi {
 }
 
 export interface AgentTaskRecord {
-  task: { taskId: string; sessionId: string | null; objective: string; status: string; updatedAt: number };
+  task: {
+    taskId: string;
+    sessionId: string | null;
+    objective: string;
+    status: string;
+    updatedAt: number;
+  };
   executionState: string;
   result: unknown;
   error: string | null;
@@ -127,12 +133,23 @@ export interface AgentTaskRecord {
 export interface AgentTaskSnapshot {
   session: { sessionId: string; title: string | null; status: string } | null;
   tasks: AgentTaskRecord[];
-  events: Array<{ eventId: string; type: string; occurredAt: number; taskId: string | null; payload: unknown }>;
+  events: Array<{
+    eventId: string;
+    type: string;
+    occurredAt: number;
+    taskId: string | null;
+    payload: unknown;
+  }>;
   cursor: number;
 }
 
 export interface AgentTaskApi {
-  startTask(input: { projectId: string; sessionId: string; idempotencyKey: string; objective: string }): Promise<AgentTaskRecord>;
+  startTask(input: {
+    projectId: string;
+    sessionId: string;
+    idempotencyKey: string;
+    objective: string;
+  }): Promise<AgentTaskRecord>;
   snapshot(projectId: string, sessionId: string, after: number): Promise<AgentTaskSnapshot>;
   cancel(projectId: string, taskId: string): Promise<boolean>;
 }

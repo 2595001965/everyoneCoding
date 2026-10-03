@@ -115,7 +115,12 @@ describe('ImportWizard：端到端流程', () => {
       diffPreview: diffWithConflicts([conflictItem('M1', 'memory', 'M1', 10, 5)]),
     });
     await expect(
-      fake.api.importPackage({ packagePath: '/x.zip', archiveFormat: 'standard-backup', mode: 'full-restore', decisions: [] }),
+      fake.api.importPackage({
+        packagePath: '/x.zip',
+        archiveFormat: 'standard-backup',
+        mode: 'full-restore',
+        decisions: [],
+      }),
     ).rejects.toThrow(/存在未决策的冲突条目/);
   });
 });

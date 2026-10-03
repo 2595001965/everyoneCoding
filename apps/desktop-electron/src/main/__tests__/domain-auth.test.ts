@@ -571,7 +571,10 @@ describe('OAuth 双通道：回环与 everyonecoding:// 协议各跑一整遍', 
 
   it('Tauri deep-link 路由：协议 URL 按 state 命中唯一握手并一次性消费', async () => {
     const fake = makeFakeTransport(
-      oauthRoutes((redirectUri) => expect(redirectUri).toBe('everyonecoding://oauth'), 'code-tauri'),
+      oauthRoutes(
+        (redirectUri) => expect(redirectUri).toBe('everyonecoding://oauth'),
+        'code-tauri',
+      ),
     );
     build({ fake, forceOAuthChannel: 'protocol', registerProtocolHandler: () => true });
     await call('beginOAuth', { provider: 'google' });

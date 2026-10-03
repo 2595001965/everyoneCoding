@@ -4,9 +4,15 @@ import { CHANNELS } from '../channels';
 /** window IPC：仅窗口管理；渲染层不得接触任何窗口实现细节。 */
 export function registerWindowIpc(ipc: IpcMainLike, deps: IpcDependencies): void {
   ipc.handle(CHANNELS.window.openAgentWindow, (_e, payload) => {
-    const input = payload as { projectId: string; projectName: string; sessionId: string; title: string };
+    const input = payload as {
+      projectId: string;
+      projectName: string;
+      sessionId: string;
+      title: string;
+    };
     for (const [key, value] of Object.entries(input)) {
-      if (typeof value !== 'string' || value.length === 0) throw new TypeError(`参数 ${key} 必须是非空字符串`);
+      if (typeof value !== 'string' || value.length === 0)
+        throw new TypeError(`参数 ${key} 必须是非空字符串`);
     }
     deps.openAgentWindow(input);
   });
@@ -31,7 +37,9 @@ export function registerWindowIpc(ipc: IpcMainLike, deps: IpcDependencies): void
   ipc.handle(CHANNELS.window.setFullScreen, (event, payload) =>
     withWindow(event, (win) => win.setFullScreen((payload as { fullscreen: boolean }).fullscreen)),
   );
-  ipc.handle(CHANNELS.window.isFullScreen, (event) => withWindow(event, (win) => win.isFullScreen()));
+  ipc.handle(CHANNELS.window.isFullScreen, (event) =>
+    withWindow(event, (win) => win.isFullScreen()),
+  );
   ipc.handle(CHANNELS.window.setSize, (event, payload) => {
     const { width, height } = payload as { width: number; height: number };
     return withWindow(event, (win) => win.setSize(width, height));

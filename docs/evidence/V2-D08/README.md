@@ -13,11 +13,11 @@
 
 从 Electron preload `window.openAgentWindow` bridge 同时发出三次窗口创建调用。三个目标各自是独立 BrowserWindow / renderer，绑定同一隔离项目 `01M3ZEZA12AN5XR0H7R3CM0P2M`，session 分别为 `d08-evidence-session-1`、`-2`、`-3`，共用该 Electron 进程装配的 code domain 与 AgentCoordinator。
 
-| 窗口 | Chromium target | 页面截图 |
-| --- | --- | --- |
-| 1 | `0D8924AF9502FE412DBD5949DBF7347E` | [窗口 1](./electron-agent-window-01.png) |
-| 2 | `0C962F29E290580837B6D63EA40CD2AB` | [窗口 2](./electron-agent-window-02.png) |
-| 3 | `C4DF108B9A78BBCBABE4BA0B24315483` | [窗口 3](./electron-agent-window-03.png) |
+| 窗口 | Chromium target                    | 页面截图                                 |
+| ---- | ---------------------------------- | ---------------------------------------- |
+| 1    | `0D8924AF9502FE412DBD5949DBF7347E` | [窗口 1](./electron-agent-window-01.png) |
+| 2    | `0C962F29E290580837B6D63EA40CD2AB` | [窗口 2](./electron-agent-window-02.png) |
+| 3    | `C4DF108B9A78BBCBABE4BA0B24315483` | [窗口 3](./electron-agent-window-03.png) |
 
 三个页面同时回显“此会话还没有任务。协调器游标：0”，并显示 `外壳: electron`。因此这证明了三个真实 Electron 原生窗口与独立会话页面同时存在、并能读取共享协调器快照；它**不证明三项 Agent 执行任务并发**。隔离配置的 AI readiness 是 `ready=false`、`providers=0`，为避免模型费用没有提交真实生成任务。
 

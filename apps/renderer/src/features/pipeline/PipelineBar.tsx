@@ -2,7 +2,6 @@ import type { PipelineStage, PipelineStageSnapshot, StageStatus } from '@ec/pipe
 import { STAGE_DEFS, STAGE_ORDER, STAGE_STATUS_LABELS } from '@ec/pipeline';
 import { Button } from '@ec/ui';
 
-
 /**
  * 横向 7 阶段步骤条（T5-02 要点 1 / FR-PIPE-01）。
  * - 状态四色：未开始（灰）/ 进行中（蓝）/ 已确认（绿）/ 已跳过（黄）/ 已过期（红描边）；

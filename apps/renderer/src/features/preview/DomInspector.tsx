@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { ApiEditTargetRequest, RuntimeElementEditTarget } from '@ec/registry';
 import type {
   DomAttachment,
   DomEvent,
@@ -18,6 +20,7 @@ export function DomInspector({
   src: string;
   runtimeId: string | null;
 }): JSX.Element {
+  const navigate = useNavigate();
   const api = usePreviewApi();
   const [session, setSession] = React.useState<DomSession | null>(null);
   const [ready, setReady] = React.useState(false);
@@ -129,6 +132,37 @@ export function DomInspector({
       setStatus(attach ? '已附加到本项目 AI 上下文；源码修改仍经计划、diff 和确认' : '备注已保存');
     } catch (error) {
       setStatus(String(error));
+    }
+  };
+  const developAtSelection = async (): Promise<void> => {
+    if (!selection || !session || !api.inspection || !mapping) return;
+    if (mapping.anchor.confidence !== 'exact' || !mapping.anchor.sourceRef) return;
+    if (mapping.shared.requiresConfirmation && !confirmed) return;
+    try {
+      const attachment = await api.inspection.save(
+        { session, selection, note, placement, targetPage, sharedConfirmed: confirmed },
+        true,
+      );
+      const anchor = attachment.mapping.anchor;
+      if (!anchor.sourceRef || !anchor.sourceRevision || anchor.confidence !== 'exact')
+        throw new Error('源码映射在确认时已失效，请重新选取');
+      const runtimeElement: RuntimeElementEditTarget = {
+        anchorId: anchor.anchorId,
+        elementId: anchor.elementId ?? selection.node.nodeId,
+        pageRoute: anchor.pageRoute ?? selection.route,
+        sourceRef: anchor.sourceRef,
+        sourceRevision: anchor.sourceRevision,
+        componentSymbol: anchor.componentSymbol,
+        scope: attachment.mapping.shared.scope,
+        requiresConfirmation: attachment.mapping.shared.requiresConfirmation,
+        sharedConfirmed: confirmed,
+        placement,
+      };
+      const apiEditTarget: ApiEditTargetRequest = { mode: 'element-feature', runtimeElement };
+      setNotes(await api.inspection.notes());
+      navigate('/code', { state: { apiEditTarget } });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
     }
   };
   const locate = async (): Promise<void> => {
@@ -270,6 +304,13 @@ export function DomInspector({
             }}
           >
             附加到 AI 上下文
+          </button>
+          <button
+            type="button"
+            disabled={!exact || (mapping?.shared.requiresConfirmation === true && !confirmed)}
+            onClick={() => void developAtSelection()}
+          >
+            在此元素附近新增功能
           </button>
         </div>
       )}

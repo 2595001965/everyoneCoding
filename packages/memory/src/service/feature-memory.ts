@@ -118,6 +118,26 @@ export class FeatureMemoryService {
     return this.patchSection(current, 'apis', next, projectId, options);
   }
 
+  /** 删除已下线的接口清单项；无匹配时不写空变更。 */
+  removeApi(
+    projectId: string,
+    featureId: string,
+    method: string,
+    path: string,
+    options: UpsertOptions = {},
+  ): UpsertOutcome | null {
+    const current = this.findByFeature(featureId);
+    if (!current || current.projectId !== projectId) return null;
+    const existing = Array.isArray(current.structured?.['apis'])
+      ? (current.structured['apis'] as ApiEntry[]).filter(
+          (item) => item && typeof item.path === 'string',
+        )
+      : [];
+    const next = existing.filter((item) => !(item.method === method && item.path === path));
+    if (next.length === existing.length) return null;
+    return this.patchSection(current, 'apis', next, projectId, options);
+  }
+
   /** 追加边界条件 */
   appendEdgeCase(
     projectId: string,

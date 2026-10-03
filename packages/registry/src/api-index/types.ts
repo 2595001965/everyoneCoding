@@ -1,4 +1,35 @@
-import type { ApiEndpoint, ApiRelation, HttpMethod, SourceRef } from '@ec/core';
+import type { ApiEndpoint, ApiRelation, HttpMethod, SourceRef, SourceRevision } from '@ec/core';
+
+/** A trusted, reviewable target that is resolved again by the main process before generation. */
+export type ApiEditMode =
+  'add-endpoint' | 'delete-endpoint' | 'extend-endpoint' | 'api-feature' | 'element-feature';
+
+export interface RuntimeElementEditTarget {
+  anchorId: string;
+  elementId: string;
+  pageRoute: string;
+  sourceRef: SourceRef;
+  sourceRevision: SourceRevision;
+  componentSymbol: string | null;
+  scope: string;
+  requiresConfirmation: boolean;
+  sharedConfirmed: boolean;
+  placement: 'before' | 'after' | 'inside';
+}
+
+/** Data-only navigation/generation target. Source paths and revision are revalidated in code-domain. */
+export interface ApiEditTargetRequest {
+  mode: ApiEditMode;
+  endpointId?: string;
+  expectedEndpointRevision?: number;
+  /** For add-endpoint, select an existing route in the desired Controller/Router. */
+  locationEndpointId?: string;
+  callId?: string;
+  method?: HttpMethod;
+  path?: string;
+  pageId?: string;
+  runtimeElement?: RuntimeElementEditTarget;
+}
 
 export interface ApiSourceFile {
   path: string;

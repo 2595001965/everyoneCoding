@@ -31,6 +31,7 @@ export {
   type ReworkRequest,
   type WritePlanHint,
 } from './code-api';
+export type { ApiEditTargetRequest } from '@ec/registry';
 export { CodeView, describeReadOnlyBlock, type CodeViewProps } from './CodeView';
 export { AiFixEntry, type AiFixEntryProps } from './AiFixEntry';
 export {

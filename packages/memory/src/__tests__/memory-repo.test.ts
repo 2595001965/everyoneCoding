@@ -310,14 +310,18 @@ describe('分层服务', () => {
     service.upsertErrorCode('P1', 'F1', { code: 'AUTH_1001', msg: '账号或密码错误' });
     service.upsertErrorCode('P1', 'F1', { code: 'AUTH_1001', msg: '账号或密码错误（已更新文案）' });
     service.upsertApi('P1', 'F1', { method: 'POST', path: '/api/auth/login', auth: false });
+    service.upsertApi('P1', 'F1', { method: 'GET', path: '/api/users/me' });
     service.appendEdgeCase('P1', 'F1', '连续失败 5 次锁定 10 分钟');
     service.appendEdgeCase('P1', 'F1', '连续失败 5 次锁定 10 分钟');
+    expect(service.removeApi('P1', 'F1', 'POST', '/api/auth/login')).not.toBeNull();
+    expect(service.removeApi('P1', 'F1', 'POST', '/api/auth/login')).toBeNull();
+    expect(service.removeApi('P2', 'F1', 'GET', '/api/users/me')).toBeNull();
 
     const feature = service.findByFeature('F1');
     expect(feature?.structured?.['errors']).toEqual([
       { code: 'AUTH_1001', msg: '账号或密码错误（已更新文案）' },
     ]);
-    expect(feature?.structured?.['apis']).toHaveLength(1);
+    expect(feature?.structured?.['apis']).toEqual([{ method: 'GET', path: '/api/users/me' }]);
     expect(feature?.structured?.['edgeCases']).toHaveLength(1);
     expect(feature?.structured?.['errors']).toHaveLength(1);
 

@@ -40,6 +40,8 @@ export interface TaskWriteSpec {
   readSet?: string[];
   writeSet: string[];
   contractPaths?: string[];
+  /** D09 source/index revisions. Creation refuses to snapshot a different preflight target. */
+  expectedReadHashes?: Record<string, string | null>;
   /** 未隔离的数据库等资源；同一资源的任务在启动前即拒绝重叠。 */
   sharedResources?: string[];
 }
@@ -241,6 +243,11 @@ export class TaskWriteService {
       const baseline = spec.baseline ?? 'current';
       if (baseline === 'head' && head === null) throw new Error('此项目没有可用的 HEAD 基线');
       const originalHashes = taskInventory(root);
+      for (const [path, expected] of Object.entries(spec.expectedReadHashes ?? {})) {
+        sourcePaths.inside(root, path);
+        if ((originalHashes[path] ?? null) !== expected)
+          throw new Error(`定点源码已变化，拒绝基于过期索引生成：${path}`);
+      }
       let copyRoot = join(directory, 'code');
       const repositoryRoot =
         head !== null && this.options.git.repositoryRoot !== undefined

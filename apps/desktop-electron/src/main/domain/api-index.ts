@@ -680,5 +680,61 @@ export function createApiIndex(options: { db: Database.Database; paths: ProjectP
     if (ref.startLine !== null && (!Number.isInteger(ref.startLine) || ref.startLine < 1))
       throw new ShellError('INVALID_ARGUMENT', '非法代码行号');
   }
-  return { snapshot, rescan, detail, classify, confirmCall, reverse, validateSource, codeRoot };
+  function previewOverlay(
+    projectId: string,
+    overlay: ReadonlyArray<{ path: string; content: string | null }>,
+  ): ReturnType<typeof scanApiSources> {
+    const source = readSources(projectId);
+    if (!source.complete)
+      throw new ShellError('INVALID_ARGUMENT', '当前 API 索引扫描不完整，拒绝验证补丁');
+    const byPath = new Map(source.files.map((file) => [file.path, file]));
+    for (const item of overlay) {
+      paths.inside(codeRoot(projectId), item.path);
+      if (!item.path || item.path.includes('\\') || item.path.split('/').includes('..'))
+        throw new ShellError('INVALID_ARGUMENT', '补丁路径不是安全的项目相对路径');
+      if (item.content === null) byPath.delete(item.path);
+      else
+        byPath.set(item.path, {
+          path: item.path,
+          content: item.content,
+          modifiedAt: byPath.get(item.path)?.modifiedAt ?? null,
+        });
+    }
+    return scanApiSources([...byPath.values()], parseOpenApiDocument);
+  }
+  async function recordToolCreated(
+    projectId: string,
+    identity: { serviceId: string; method: IndexedApiEndpoint['method']; path: string },
+  ): Promise<IndexedApiEndpoint> {
+    const current = await rescan(projectId);
+    const endpoint = current.endpoints.find(
+      (item) =>
+        item.status === 'active' &&
+        item.serviceId === identity.serviceId &&
+        item.method === identity.method &&
+        item.normalizedPath === identity.path,
+    );
+    if (!endpoint) throw new ShellError('NOT_FOUND', '合入后未能在接口索引中找到新增接口');
+    const now = Date.now();
+    endpoint.createdAt = now;
+    endpoint.createdAtSource = 'tool_event';
+    endpoint.firstSeenAt = Math.max(endpoint.firstSeenAt, now);
+    endpoint.timeReason = '由 V2-D09 工具变更成功事件记录；不是文件时间推断';
+    endpoint.updatedAt = now;
+    endpoint.revision++;
+    persistEndpoint(endpoint);
+    return endpoint;
+  }
+  return {
+    snapshot,
+    rescan,
+    detail,
+    classify,
+    confirmCall,
+    reverse,
+    validateSource,
+    codeRoot,
+    previewOverlay,
+    recordToolCreated,
+  };
 }

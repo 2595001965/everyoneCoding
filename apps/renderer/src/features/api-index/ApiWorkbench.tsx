@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, EmptyState } from '@ec/ui';
+import { useNavigate } from 'react-router-dom';
 import {
   sortApiEndpoints,
   type ApiEndpointDetail,
@@ -7,6 +8,7 @@ import {
   type ApiIndexSnapshot,
   type ApiSort,
   type IndexedApiCall,
+  type ApiEditTargetRequest,
 } from '@ec/registry';
 import type { SourceRef } from '@ec/core';
 import { useNavLocation } from '../../runtime/nav-location';
@@ -36,6 +38,7 @@ export function ApiWorkbench({
   api: ApiIndexPort;
   projectId: string;
 }): JSX.Element {
+  const routeTo = useNavigate();
   const [snapshot, setSnapshot] = useState<ApiIndexSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +146,9 @@ export function ApiWorkbench({
   );
   const navigate = (ref: SourceRef): void => {
     void api.navigate(ref).catch((cause) => setError(errorText(cause)));
+  };
+  const openCodeTarget = (apiEditTarget: ApiEditTargetRequest): void => {
+    routeTo('/code', { state: { apiEditTarget } });
   };
   const refList = (refs: readonly SourceRef[]): JSX.Element => (
     <ul className="ec-api-refs">
@@ -367,6 +373,58 @@ export function ApiWorkbench({
                         ? '待确认'
                         : '有效'}
                   </p>
+                  <div role="group" aria-label="AI 定点开发" className="ec-api-edit-actions">
+                    <Button
+                      size="sm"
+                      disabled={busy || snapshot?.stale || detail.endpoint.status !== 'active'}
+                      onClick={() =>
+                        openCodeTarget({
+                          mode: 'extend-endpoint',
+                          endpointId: detail.endpoint.endpointId,
+                          expectedEndpointRevision: detail.endpoint.revision,
+                        })
+                      }
+                    >
+                      扩展现有接口
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={
+                        busy ||
+                        snapshot?.stale ||
+                        detail.endpoint.status !== 'active' ||
+                        !detail.endpoint.evidence.some(
+                          (evidence) => evidence.kind === 'router_decl',
+                        )
+                      }
+                      onClick={() =>
+                        openCodeTarget({
+                          mode: 'add-endpoint',
+                          locationEndpointId: detail.endpoint.endpointId,
+                          expectedEndpointRevision: detail.endpoint.revision,
+                        })
+                      }
+                    >
+                      在此 Router/Controller 新增接口
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={busy || snapshot?.stale || detail.endpoint.status !== 'active'}
+                      onClick={() =>
+                        openCodeTarget({
+                          mode: 'delete-endpoint',
+                          endpointId: detail.endpoint.endpointId,
+                          expectedEndpointRevision: detail.endpoint.revision,
+                        })
+                      }
+                    >
+                      AI 删除接口及已知引用
+                    </Button>
+                  </div>
+                  <p className="ec-api-edit-safety">
+                    以上操作只生成隔离源码补丁；应用前展示影响文件、契约和调用方，不会发送 HTTP
+                    删除请求。
+                  </p>
                   <dl>
                     <dt>创建时间</dt>
                     <dd>
@@ -456,6 +514,25 @@ export function ApiWorkbench({
                           {c.confirmedByUser ? '· 人工确认' : ''}
                         </p>
                         <pre>{c.expression}</pre>
+                        <Button
+                          size="sm"
+                          disabled={
+                            busy ||
+                            snapshot?.stale ||
+                            c.status !== 'resolved' ||
+                            !c.endpointIds.includes(detail.endpoint.endpointId)
+                          }
+                          onClick={() =>
+                            openCodeTarget({
+                              mode: 'api-feature',
+                              endpointId: detail.endpoint.endpointId,
+                              expectedEndpointRevision: detail.endpoint.revision,
+                              callId: c.callId,
+                            })
+                          }
+                        >
+                          以此调用点新增页面功能
+                        </Button>
                       </div>
                     ))
                   ) : (

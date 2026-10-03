@@ -10,6 +10,7 @@ import { CodeWorkspacePage } from '../CodePage';
 import { CODE_API_GLOBAL_KEY } from '../../features/code';
 import { CONTEXT_API_GLOBAL_KEY } from '../../features/ai/context-api';
 import { DESIGNER_API_GLOBAL_KEY } from '../../features/designer/designer-api';
+import { API_INDEX_GLOBAL_KEY } from '../../runtime/api-index-port';
 import { useProjectStore } from '../../store/useProjectStore';
 
 /**
@@ -30,6 +31,9 @@ interface FakeState {
   reworked: unknown[];
   emitExternalChange: ((change: unknown) => void) | null;
   emitWritePlan: ((hint: { plan: WritePlan; source: string }) => void) | null;
+  generated: unknown[];
+  applyConfirmations: unknown[];
+  generateImpl: ((request: unknown) => Promise<unknown>) | null;
 }
 
 let state: FakeState;
@@ -162,6 +166,9 @@ function installFakePorts(): FakeState {
     reworked: [],
     emitExternalChange: null,
     emitWritePlan: null,
+    generated: [],
+    applyConfirmations: [],
+    generateImpl: null,
   };
 
   (globalThis as Record<string, unknown>)[CODE_API_GLOBAL_KEY] = {
@@ -171,8 +178,9 @@ function installFakePorts(): FakeState {
     },
     write: {
       plan: async () => planFixture(),
-      apply: async (plan: WritePlan) => {
+      apply: async (plan: WritePlan, confirmation?: unknown) => {
         created.applied.push(plan);
+        created.applyConfirmations.push(confirmation);
         return {
           ok: true,
           planId: plan.id,
@@ -184,6 +192,20 @@ function installFakePorts(): FakeState {
       },
       requestRework: async (request: unknown) => {
         created.reworked.push(request);
+      },
+      generate: async (request: unknown) => {
+        created.generated.push(request);
+        if (created.generateImpl) return created.generateImpl(request);
+        return {
+          status: 'planned',
+          plan: planFixture(),
+          raw: '{}',
+          partial: false,
+          attempts: 1,
+          model: 'fake-model',
+          summary: '目标页面补丁',
+          issues: [],
+        };
       },
     },
     subscribeExternalChanges: (listener: (change: unknown) => void) => {
@@ -225,12 +247,117 @@ function installFakePorts(): FakeState {
     noteBadges: async () => ({}),
   };
 
+  const endpoint = {
+    endpointId: 'API-ENDPOINT-1',
+    projectId: PROJECT_ID,
+    serviceId: 'local-api',
+    method: 'GET',
+    rawPath: '/orders',
+    normalizedPath: '/orders',
+    contractSource: 'router_decl',
+    sourceRef: { filePath: 'src/server.ts', startLine: 1, endLine: 1, symbol: 'get' },
+    featureIds: [],
+    createdAt: null,
+    createdAtSource: 'unknown',
+    firstSeenAt: 1,
+    updatedAt: 1,
+    revision: 3,
+    status: 'active',
+    title: 'Order list',
+    tags: [],
+    evidence: [
+      {
+        kind: 'router_decl',
+        sourceRef: { filePath: 'src/server.ts', startLine: 1, endLine: 1, symbol: 'get' },
+        detail: 'router.get',
+        confidence: 1,
+        key: 'src/server.ts#get',
+      },
+    ],
+    parameters: [],
+    response: [],
+    authentication: ['session'],
+    implementation: [{ filePath: 'src/server.ts', startLine: 1, endLine: 1, symbol: 'get' }],
+    tests: [],
+    documents: [],
+    classification: {
+      group: 'Orders',
+      tags: [],
+      source: 'unclassified',
+      revision: 1,
+      updatedAt: 1,
+    },
+    manualClassification: null,
+    fingerprint: 'fingerprint',
+    routeHistory: [],
+  };
+  const call = {
+    callId: 'API-CALL-1',
+    projectId: PROJECT_ID,
+    key: 'src/pages/orders.tsx#fetch',
+    method: 'GET',
+    expression: "fetch('/orders')",
+    path: '/orders',
+    origin: null,
+    serviceHint: 'local-api',
+    sourceRef: { filePath: 'src/pages/orders.tsx', startLine: 2, endLine: 2, symbol: 'fetch' },
+    dynamic: false,
+    reason: null,
+    endpointIds: [endpoint.endpointId],
+    status: 'resolved',
+    confirmedEndpointId: endpoint.endpointId,
+    confirmedByUser: true,
+    revision: 1,
+    firstSeenAt: 1,
+    updatedAt: 1,
+  };
+  (globalThis as Record<string, unknown>)[API_INDEX_GLOBAL_KEY] = {
+    list: async () => ({
+      projectId: PROJECT_ID,
+      endpoints: [endpoint],
+      calls: [call],
+      relations: [],
+      services: [],
+      warnings: [],
+      scannedAt: 10,
+      stale: false,
+      fingerprint: 'fingerprint',
+    }),
+    rescan: async () => ({
+      projectId: PROJECT_ID,
+      endpoints: [endpoint],
+      calls: [call],
+      relations: [],
+      services: [],
+      warnings: [],
+      scannedAt: 10,
+      stale: false,
+      fingerprint: 'fingerprint',
+    }),
+    detail: async () => ({ endpoint, calls: [call], relations: [], elements: [] }),
+    classify: async () => endpoint,
+    confirmCall: async () => ({
+      projectId: PROJECT_ID,
+      endpoints: [endpoint],
+      calls: [call],
+      relations: [],
+      services: [],
+      warnings: [],
+      scannedAt: 10,
+      stale: false,
+      fingerprint: 'fingerprint',
+    }),
+    reverse: async () => [],
+    navigate: async () => undefined,
+    navigateElement: () => undefined,
+  };
+
   return created;
 }
 
-async function renderPage(): Promise<void> {
+async function renderPage(routeState?: unknown): Promise<void> {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[{ pathname: '/code', state: routeState }]}>
       <CodeWorkspacePage />
     </MemoryRouter>,
   );
@@ -250,7 +377,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  for (const key of [CODE_API_GLOBAL_KEY, CONTEXT_API_GLOBAL_KEY, DESIGNER_API_GLOBAL_KEY]) {
+  for (const key of [
+    CODE_API_GLOBAL_KEY,
+    CONTEXT_API_GLOBAL_KEY,
+    DESIGNER_API_GLOBAL_KEY,
+    API_INDEX_GLOBAL_KEY,
+  ]) {
     delete (globalThis as Record<string, unknown>)[key];
   }
   useProjectStore.getState().closeProject();
@@ -355,5 +487,131 @@ describe('代码与上下文页', () => {
       '请重新生成 src/auth.service.ts：外部修改与生成结果冲突。',
     );
     expect(within(banner).getByRole('button', { name: '回滚到最近提交' })).toBeInTheDocument();
+  });
+
+  it('D09 API 调用点目标进入现有生成和差异预览链', async () => {
+    await renderPage({
+      apiEditTarget: {
+        mode: 'api-feature',
+        endpointId: 'API-ENDPOINT-1',
+        expectedEndpointRevision: 3,
+        callId: 'API-CALL-1',
+      },
+    });
+    expect(await screen.findByText(/依据接口在调用页面新增功能/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('确认任务基线'));
+    fireEvent.click(screen.getByRole('button', { name: '按定点目标生成安全计划' }));
+
+    expect(await screen.findByTestId('ec-write-plan')).toBeInTheDocument();
+    expect(state.generated).toHaveLength(1);
+    expect(state.generated[0]).toMatchObject({
+      target: 'frontend-code',
+      baseline: 'current',
+      apiEditTarget: { mode: 'api-feature', endpointId: 'API-ENDPOINT-1', callId: 'API-CALL-1' },
+    });
+  });
+
+  it('D09 拒绝失效索引，并把授权/生成错误留在预览页', async () => {
+    const stalePort = (globalThis as Record<string, unknown>)[API_INDEX_GLOBAL_KEY] as Record<
+      string,
+      unknown
+    >;
+    stalePort['list'] = async () => ({
+      projectId: PROJECT_ID,
+      endpoints: [],
+      calls: [],
+      relations: [],
+      services: [],
+      warnings: [],
+      scannedAt: 10,
+      stale: true,
+      fingerprint: 'old',
+    });
+    await renderPage({
+      apiEditTarget: {
+        mode: 'delete-endpoint',
+        endpointId: 'API-ENDPOINT-1',
+        expectedEndpointRevision: 3,
+      },
+    });
+    expect(await screen.findByTestId('ec-api-target-error')).toHaveTextContent(/已过期/);
+    expect(screen.getByRole('button', { name: '按定点目标生成安全计划' })).toBeDisabled();
+    expect(state.generated).toHaveLength(0);
+  });
+
+  it('D09 元素功能在项目接口清单为空时要求先选择有效接口', async () => {
+    const emptyPort = (globalThis as Record<string, unknown>)[API_INDEX_GLOBAL_KEY] as Record<
+      string,
+      unknown
+    >;
+    emptyPort['list'] = async () => ({
+      projectId: PROJECT_ID,
+      endpoints: [],
+      calls: [],
+      relations: [],
+      services: [],
+      warnings: [],
+      scannedAt: 10,
+      stale: false,
+      fingerprint: 'empty',
+    });
+    await renderPage({
+      apiEditTarget: {
+        mode: 'element-feature',
+        runtimeElement: {
+          anchorId: 'anchor-1',
+          elementId: 'button-1',
+          pageRoute: '/orders',
+          sourceRef: {
+            filePath: 'src/orders.tsx',
+            startLine: 4,
+            endLine: 5,
+            symbol: 'OrderActions',
+          },
+          sourceRevision: { gitCommit: null, contentHash: 'sha256:fixture' },
+          componentSymbol: 'OrderActions',
+          scope: 'OrderActions',
+          requiresConfirmation: false,
+          sharedConfirmed: false,
+          placement: 'inside',
+        },
+      },
+    });
+    expect(await screen.findByLabelText('复用项目接口')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '按定点目标生成安全计划' })).toBeDisabled();
+    expect(state.generated).toHaveLength(0);
+  });
+
+  it('D09 生成失败可见，重复提交只向现有生成器发送一次', async () => {
+    let release: (value: unknown) => void = () => {
+      throw new Error('Generation did not start');
+    };
+    state.generateImpl = () => new Promise((resolve) => (release = resolve));
+    await renderPage({
+      apiEditTarget: {
+        mode: 'api-feature',
+        endpointId: 'API-ENDPOINT-1',
+        expectedEndpointRevision: 3,
+        callId: 'API-CALL-1',
+      },
+    });
+    fireEvent.click(screen.getByLabelText('确认任务基线'));
+    const generate = screen.getByRole('button', { name: '按定点目标生成安全计划' });
+    fireEvent.click(generate);
+    await waitFor(() => expect(generate).toBeDisabled());
+    fireEvent.click(generate);
+    expect(state.generated).toHaveLength(1);
+    release({
+      status: 'degraded',
+      plan: null,
+      raw: '',
+      partial: false,
+      attempts: 1,
+      model: null,
+      summary: null,
+      issues: ['401 unauthorized'],
+    });
+    expect(await screen.findByText(/401 unauthorized/)).toBeInTheDocument();
+    expect(screen.queryByTestId('ec-write-plan')).not.toBeInTheDocument();
   });
 });

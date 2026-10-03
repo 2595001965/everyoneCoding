@@ -950,6 +950,10 @@ describe('外部改动检测与 AI 重改', () => {
         },
       },
     });
+    const planPublished = await waitFor(() =>
+      emitted.some((event) => (event.payload as { type?: string }).type === 'code:write-plan'),
+    );
+    expect(planPublished).toBe(true);
 
     const planEvent = emitted
       .map((event) => event.payload as { type?: string; plan?: { id: string; entries: unknown[] } })

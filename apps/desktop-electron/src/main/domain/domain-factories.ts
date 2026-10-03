@@ -27,6 +27,7 @@ import { createPackageDomain } from './domains/package-domain';
 import { createDesignerNoteStore } from './designer-notes';
 import { TaskWriteService } from './task-write-service';
 import { taskFileSystem } from './task-file-system';
+import { resolveCodeRoot } from './code-root';
 
 /**
  * T12-01 生产端口总装：领域域工厂集合。
@@ -177,7 +178,7 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
   const taskWriteGit = ctx.taskWriteGit ?? createCliGitBackend({ runner: createNodeGitRunner() });
   const taskWrites = new TaskWriteService({
     storageDir: join(ctx.dataDir, 'task-writes'),
-    codeRoot: (projectId) => join(ctx.projectsDir, projectId, 'code'),
+    codeRoot: (projectId) => resolveCodeRoot(join(ctx.projectsDir, projectId)),
     git: taskWriteGit,
     owner: {
       assertOwner: () => agentStore.assertOwner(),
@@ -265,6 +266,7 @@ export function createProductionDomains(ctx: DomainFactoryContext): DomainFactor
     userId: ctx.userId,
     agentStore,
     taskWrites,
+    readDomAttachments: (projectId) => preview.readDomAttachments(projectId),
   });
   const pipeline = createPipelineDomain({
     db: ctx.db,

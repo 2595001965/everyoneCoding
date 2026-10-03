@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import {
   sortApiEndpoints,
@@ -53,6 +54,25 @@ const endpoint = (
   fingerprint: 'fixture',
   routeHistory: [],
 });
+
+function renderWorkbench(api: ApiIndexPort): void {
+  render(
+    <MemoryRouter>
+      <ApiWorkbench api={api} projectId="project" />
+      <RouteProbe />
+    </MemoryRouter>,
+  );
+}
+
+function RouteProbe(): JSX.Element {
+  const location = useLocation();
+  return (
+    <output data-testid="route-target">
+      {JSON.stringify({ pathname: location.pathname, state: location.state })}
+    </output>
+  );
+}
+
 function fixture(): { api: ApiIndexPort; snapshot: ApiIndexSnapshot } {
   const snapshot: ApiIndexSnapshot = {
     projectId: 'project',
@@ -118,7 +138,7 @@ describe('V2-D04 接口工作台', () => {
   });
   it('列表排序/搜索/详情导航，未知时间明确展示首次发现', async () => {
     const { api } = fixture();
-    render(<ApiWorkbench api={api} projectId="project" />);
+    renderWorkbench(api);
     const list = screen.getByLabelText('接口列表');
     await waitFor(() => expect(within(list).getAllByRole('button')).toHaveLength(3));
     expect(within(list).getAllByRole('button')[0]!.textContent).toContain('/users/new');
@@ -142,7 +162,7 @@ describe('V2-D04 接口工作台', () => {
   });
   it('人工覆盖包含版本，重扫仍有分类；失效时禁用确认', async () => {
     const { api, snapshot } = fixture();
-    render(<ApiWorkbench api={api} projectId="project" />);
+    renderWorkbench(api);
     await screen.findByRole('button', { name: /GET \/users\/new/ });
     fireEvent.click(screen.getByRole('button', { name: /GET \/users\/new/ }));
     await screen.findByLabelText('人工功能分组');
@@ -164,12 +184,81 @@ describe('V2-D04 接口工作台', () => {
   });
   it('再次点击当前接口保留已加载详情', async () => {
     const { api } = fixture();
-    render(<ApiWorkbench api={api} projectId="project" />);
+    renderWorkbench(api);
     const selected = await screen.findByRole('button', { name: /GET \/users\/new/ });
     fireEvent.click(selected);
     await screen.findByLabelText('人工功能分组');
     fireEvent.click(selected);
     expect(screen.getByLabelText('人工功能分组')).toBeTruthy();
+  });
+  it('接口新增、扩展、删除和调用点功能动作送入现有代码路由', async () => {
+    const { api, snapshot } = fixture();
+    const call = {
+      callId: 'resolved-call',
+      projectId: 'project',
+      key: 'resolved-call',
+      method: 'GET' as const,
+      expression: "fetch('/users/new')",
+      path: '/users/new',
+      origin: null,
+      serviceHint: 'service:users',
+      sourceRef: { filePath: 'view.ts', startLine: 2, endLine: 2, symbol: 'loadUsers' },
+      dynamic: false,
+      reason: null,
+      endpointIds: ['new'],
+      status: 'resolved' as const,
+      confirmedEndpointId: 'new',
+      confirmedByUser: false,
+      revision: 1,
+      firstSeenAt: 100,
+      updatedAt: 100,
+    };
+    snapshot.calls = [call];
+    vi.mocked(api.detail).mockResolvedValue({
+      endpoint: snapshot.endpoints[2]!,
+      calls: [call],
+      relations: [],
+      elements: [],
+    } as ApiEndpointDetail);
+    renderWorkbench(api);
+    fireEvent.click(await screen.findByRole('button', { name: /GET \/users\/new/ }));
+    const detail = screen.getByLabelText('接口详情');
+    await within(detail).findByText('已关联');
+    const actions = screen.getByRole('group', { name: 'AI 定点开发' });
+    const routeTarget = (): {
+      pathname: string;
+      state: { apiEditTarget: Record<string, unknown> };
+    } =>
+      JSON.parse(screen.getByTestId('route-target').textContent ?? '{}') as {
+        pathname: string;
+        state: { apiEditTarget: Record<string, unknown> };
+      };
+
+    fireEvent.click(within(actions).getByRole('button', { name: '扩展现有接口' }));
+    expect(routeTarget()).toMatchObject({
+      pathname: '/code',
+      state: {
+        apiEditTarget: { mode: 'extend-endpoint', endpointId: 'new', expectedEndpointRevision: 1 },
+      },
+    });
+    fireEvent.click(
+      within(actions).getByRole('button', { name: '在此 Router/Controller 新增接口' }),
+    );
+    expect(routeTarget().state.apiEditTarget).toMatchObject({
+      mode: 'add-endpoint',
+      locationEndpointId: 'new',
+    });
+    fireEvent.click(within(actions).getByRole('button', { name: 'AI 删除接口及已知引用' }));
+    expect(routeTarget().state.apiEditTarget).toMatchObject({
+      mode: 'delete-endpoint',
+      endpointId: 'new',
+    });
+    fireEvent.click(within(detail).getByRole('button', { name: '以此调用点新增页面功能' }));
+    expect(routeTarget().state.apiEditTarget).toMatchObject({
+      mode: 'api-feature',
+      endpointId: 'new',
+      callId: 'resolved-call',
+    });
   });
   it('详情中的候选调用不冒充已关联，第三方请求有独立视图', async () => {
     const { api, snapshot } = fixture();
@@ -212,7 +301,7 @@ describe('V2-D04 接口工作台', () => {
       relations: [],
       elements: [],
     } as ApiEndpointDetail);
-    render(<ApiWorkbench api={api} projectId="project" />);
+    renderWorkbench(api);
     await screen.findByRole('button', { name: /GET \/users\/new/ });
     fireEvent.click(screen.getByRole('button', { name: /GET \/users\/new/ }));
     await screen.findByText('候选，待确认');

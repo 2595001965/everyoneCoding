@@ -1,0 +1,10 @@
+{
+  "actualElectronWindow": true,
+  "actualCodePage": true,
+  "existingApiCallTarget": true,
+  "visibleFocusedDiff": true,
+  "loadingAndDuplicateSubmit": true,
+  "emptyErrorAndUnauthorizedStates": true,
+  "isolatedSafeMerge": true,
+  "noLiveApiDeleteRequest": true
+}

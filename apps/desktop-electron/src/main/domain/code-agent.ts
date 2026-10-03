@@ -43,8 +43,10 @@ export async function executeCodeTask(
         writeSet?: string[];
         contractPaths?: string[];
         sharedResources?: string[];
+        expectedReadHashes?: Record<string, string | null>;
       },
     ): Promise<WritePlan>;
+    validateOutput?(request: Record<string, unknown>, output: GenerationOutput): Promise<void>;
   },
 ): Promise<{
   result: CodeGenerateResult;
@@ -161,6 +163,7 @@ export async function executeCodeTask(
   }
   if (result.output.files.length > 40)
     throw new ShellError('INVALID_ARGUMENT', '单次生成文件数超限，请拆分后重试');
+  await options.validateOutput?.(request, result.output);
   const noteIds = Array.isArray(request['noteIds'])
     ? request['noteIds'].filter((id): id is string => typeof id === 'string')
     : undefined;
@@ -176,12 +179,22 @@ export async function executeCodeTask(
   const writeSet = stringArray(request['writeSet']);
   const contractPaths = stringArray(request['contractPaths']);
   const sharedResources = stringArray(request['sharedResources']);
+  const expectedReadHashes =
+    request['expectedReadHashes'] !== null && typeof request['expectedReadHashes'] === 'object'
+      ? Object.fromEntries(
+          Object.entries(request['expectedReadHashes'] as Record<string, unknown>).filter(
+            (entry): entry is [string, string | null] =>
+              typeof entry[1] === 'string' || entry[1] === null,
+          ),
+        )
+      : undefined;
   const plan = await options.plan(record.task.taskId, projectId, result.output, noteIds, {
     ...(baseline !== undefined ? { baseline } : {}),
     ...(readSet !== undefined ? { readSet } : {}),
     ...(writeSet !== undefined ? { writeSet } : {}),
     ...(contractPaths !== undefined ? { contractPaths } : {}),
     ...(sharedResources !== undefined ? { sharedResources } : {}),
+    ...(expectedReadHashes !== undefined ? { expectedReadHashes } : {}),
   });
   execution.assertOwner();
   execution.event('agent.output.plan', {

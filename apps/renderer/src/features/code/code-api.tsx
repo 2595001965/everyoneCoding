@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
 import type { GenerationOutput, WriteMode, WritePlan, WriteResult } from '@ec/ai';
+import type { ApiEditTargetRequest } from '@ec/registry';
 
 /**
  * 代码视图的端口（与记忆中心 `MemoryApi`、上下文面板 `ContextPanelApi` 同一套做法）。
@@ -40,7 +41,7 @@ export interface CodeWriteApi {
     noteIds?: readonly string[];
   }): Promise<WritePlan>;
   /** 应用计划（校验后由 AI 侧执行，事务性） */
-  apply(plan: WritePlan): Promise<WriteResult>;
+  apply(plan: WritePlan, confirmation?: { migrationConfirmed?: boolean }): Promise<WriteResult>;
   /** 把重改要求交回 AI 对话（预填上下文） */
   requestRework(request: ReworkRequest): Promise<void>;
   /**
@@ -62,6 +63,10 @@ export interface CodeGenerateRequest {
   user?: string;
   target?: CodeGenerationTarget;
   noteIds?: readonly string[];
+  /** V2-D09 API / verified runtime-element target; the main process resolves it again. */
+  apiEditTarget?: ApiEditTargetRequest;
+  /** D07 isolated task snapshot; current preserves local uncommitted work by default. */
+  baseline?: 'head' | 'current';
   /** true = 从上次被中断处继续 */
   continue?: boolean;
 }

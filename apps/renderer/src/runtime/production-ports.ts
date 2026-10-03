@@ -629,7 +629,8 @@ export function createCodeApi(call: DomainCaller, subscribe: DomainEventSubscrib
     },
     write: {
       plan: (input) => call.call('code', 'plan', withProject(input)),
-      apply: (plan) => call.call('code', 'apply', withProject({ plan })),
+      apply: (plan, confirmation) =>
+        call.call('code', 'apply', withProject({ plan, ...(confirmation ?? {}) })),
       requestRework: (request) =>
         call.call('code', 'requestRework', withProject({ request })).then(() => undefined),
       generate: (request) => call.call('code', 'generate', withProject({ request })),

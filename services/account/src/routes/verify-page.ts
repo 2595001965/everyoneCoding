@@ -20,13 +20,7 @@
 
 import type { FastifyInstance } from 'fastify';
 
-const PAGE = `<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>邮箱验证 · EveryoneCoding</title>
-<style>
+const PAGE_STYLES = `
   :root { color-scheme: light dark; }
   body {
     margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -50,7 +44,68 @@ const PAGE = `<!doctype html>
     p { color: #a7adb8; }
     .detail { color: #8b939f; }
   }
-</style>
+`;
+
+const PAGE_SCRIPT = String.raw`
+(function () {
+  var params = new URLSearchParams(location.search);
+  var token = params.get('token') || '';
+  var card = document.getElementById('card');
+  var title = document.getElementById('title');
+  var desc = document.getElementById('desc');
+  var detail = document.getElementById('detail');
+
+  function fail(message) {
+    card.className = 'card fail';
+    card.querySelector('.mark').textContent = '✕';
+    title.textContent = '验证未完成';
+    desc.textContent = message;
+    detail.textContent = '请在 EveryoneCoding 客户端重新发送验证邮件后重试。';
+  }
+
+  if (!token) {
+    fail('验证链接缺少令牌。');
+    return;
+  }
+
+  fetch('/api/auth/email/verify/confirm', {
+    method: 'POST',
+    mode: 'same-origin',
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token })
+  })
+    .then(function (response) {
+      return response.json().catch(function () { return {}; }).then(function (body) {
+        return { status: response.status, body: body };
+      });
+    })
+    .then(function (result) {
+      if (result.status >= 200 && result.status < 300 && result.body && result.body.ok) {
+        card.className = 'card ok';
+        card.querySelector('.mark').textContent = '✓';
+        title.textContent = '邮箱验证完成';
+        desc.textContent = '可以回到 EveryoneCoding 客户端继续使用了。';
+        detail.textContent = '';
+        return;
+      }
+      fail((result.body && (result.body.message || result.body.error)) || '验证令牌无效或已过期。');
+    })
+    .catch(function () {
+      fail('无法连接账号服务，请确认客户端或服务端已启动。');
+    });
+})();
+`;
+
+const PAGE = `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>邮箱验证 · EveryoneCoding</title>
+<link rel="stylesheet" href="/verify-email.css">
+<script src="/verify-email.js" defer></script>
 </head>
 <body>
   <main class="card" id="card">
@@ -59,54 +114,6 @@ const PAGE = `<!doctype html>
     <p id="desc">请稍候，正在与账号服务确认验证令牌。</p>
     <p class="detail" id="detail"></p>
   </main>
-  <script>
-    (function () {
-      var params = new URLSearchParams(location.search);
-      var token = params.get('token') || '';
-      var card = document.getElementById('card');
-      var title = document.getElementById('title');
-      var desc = document.getElementById('desc');
-      var detail = document.getElementById('detail');
-
-      function fail(message) {
-        card.className = 'card fail';
-        card.querySelector('.mark').textContent = '\\u2715';
-        title.textContent = '验证未完成';
-        desc.textContent = message;
-        detail.textContent = '请在 EveryoneCoding 客户端重新发送验证邮件后重试。';
-      }
-
-      if (!token) {
-        fail('验证链接缺少令牌。');
-        return;
-      }
-
-      fetch('/api/auth/email/verify/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token })
-      })
-        .then(function (response) {
-          return response.json().catch(function () { return {}; }).then(function (body) {
-            return { status: response.status, body: body };
-          });
-        })
-        .then(function (result) {
-          if (result.status >= 200 && result.status < 300 && result.body && result.body.ok) {
-            card.className = 'card ok';
-            card.querySelector('.mark').textContent = '\\u2713';
-            title.textContent = '邮箱验证完成';
-            desc.textContent = '可以回到 EveryoneCoding 客户端继续使用了。';
-            detail.textContent = '';
-            return;
-          }
-          fail((result.body && (result.body.message || result.body.error)) || '验证令牌无效或已过期。');
-        })
-        .catch(function () {
-          fail('无法连接账号服务，请确认客户端或服务端已启动。');
-        });
-    })();
-  </script>
 </body>
 </html>
 `;
@@ -126,4 +133,10 @@ export async function verifyPageRoutes(app: FastifyInstance): Promise<void> {
       .header('Cache-Control', 'no-store')
       .send(PAGE);
   });
+  app.get('/verify-email.css', async (_req, reply) =>
+    reply.header('Content-Type', 'text/css; charset=utf-8').send(PAGE_STYLES),
+  );
+  app.get('/verify-email.js', async (_req, reply) =>
+    reply.header('Content-Type', 'text/javascript; charset=utf-8').send(PAGE_SCRIPT),
+  );
 }

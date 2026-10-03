@@ -511,7 +511,8 @@ paths:
           description: 流式输出、用量、结算状态与完成事件
           content:
             text/event-stream:
-              schema: { type: string, description: '每个 event/data 帧的 data 是 V2EventEnvelope JSON' }
+              schema:
+                { type: string, description: '每个 event/data 帧的 data 是 V2EventEnvelope JSON' }
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -654,8 +655,35 @@ paths:
             in: query,
             schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
           }
+        - { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
+        - {
+            name: from,
+            in: query,
+            schema: { type: string, pattern: '^\d+$' },
+            description: Unix 毫秒起始时间,
+          }
+        - {
+            name: to,
+            in: query,
+            schema: { type: string, pattern: '^\d+$' },
+            description: Unix 毫秒结束时间,
+          }
+        - { name: projectId, in: query, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: sessionId, in: query, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - {
+            name: providerId,
+            in: query,
+            schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' },
+          }
+        - {
+            name: modelId,
+            in: query,
+            schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' },
+          }
       responses:
-        '200': { description: 包含受理时不可变价格快照、预占/结算额与未知状态 }
+        '200': { description: attempts 与 nextCursor；只返回当前账号，包含不可变价格快照与结算状态 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
 
   /api/billing/attempts/{attemptId}:
     get:
@@ -673,6 +701,42 @@ paths:
       responses:
         '200': { description: attempt 及其受理价格快照 }
         '404': { $ref: '#/components/responses/Error' }
+
+  /api/admin/accounts/{accountId}:
+    get:
+      tags: [wallet]
+      summary: 管理员按账号 ID 查询非敏感账号信息
+      operationId: getPlatformAccount
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: accountId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1, maxLength: 128 },
+          }
+      responses:
+        '200': { description: accountId、显示名和注册时间，不含邮箱或凭据 }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/admin/audit:
+    get:
+      tags: [wallet]
+      summary: 管理员读取平台账号与账务审计事件
+      operationId: listPlatformAuditEvents
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
+          }
+        - { name: cursor, in: query, schema: { type: string, minLength: 1, maxLength: 512 } }
+      responses:
+        '200': { description: 按创建时间倒序返回 events 与 nextCursor }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
 
   /api/admin/wallets/{accountId}/{currency}:
     get:
@@ -1143,19 +1207,42 @@ components:
     PlatformAiAttempt:
       type: object
       description: 仅返回请求身份、目录路由与计费状态；不包含消息正文、上游地址或 Key
-      required: [attemptId, logicalRequestId, status, dispatchState, providerModelKey, currency, reservedMicros, priceVersionId]
+      required:
+        [
+          attemptId,
+          logicalRequestId,
+          status,
+          dispatchState,
+          providerModelKey,
+          currency,
+          reservedMicros,
+          priceVersionId,
+        ]
       properties:
         attemptId: { type: string }
         logicalRequestId: { type: string }
         status:
           type: string
-          enum: [reserved, unknown_pending_reconciliation, reconciliation_required, settled, released, reversed]
+          enum:
+            [
+              reserved,
+              unknown_pending_reconciliation,
+              reconciliation_required,
+              settled,
+              released,
+              reversed,
+            ]
         dispatchState: { type: string, enum: [not_dispatched, dispatched] }
         providerModelKey: { type: string, description: D10 providerId/modelId route key }
         currency: { type: string }
         reservedMicros: { type: integer, minimum: 0 }
         finalMicros: { type: integer, nullable: true }
-        usage: { type: object, nullable: true, description: 可信归一 Token 分桶；未知状态为 null 或不完整 }
+        usage:
+          {
+            type: object,
+            nullable: true,
+            description: 可信归一 Token 分桶；未知状态为 null 或不完整,
+          }
         priceVersionId: { type: string }
         createdAt: { type: integer }
         updatedAt: { type: integer }

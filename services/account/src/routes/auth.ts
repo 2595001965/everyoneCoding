@@ -423,7 +423,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // 开发/运维：读取 outbox（仅本机调试用；生产建议 webhook 投递）
-  app.get('/api/dev/email-outbox', async (req) => {
+  app.get('/api/dev/email-outbox', async (req, reply) => {
+    if (!config.enableDevEmailOutbox) {
+      return reply.code(404).send({ code: 'NOT_FOUND', message: '资源不存在' });
+    }
     const limit = Math.min(Number((req.query as { limit?: string }).limit ?? '20') || 20, 100);
     const rows = db.raw
       .prepare('SELECT * FROM account_email_outbox ORDER BY created_at DESC LIMIT ?')

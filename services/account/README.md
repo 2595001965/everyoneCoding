@@ -1,6 +1,6 @@
 # 云端账号服务端（EveryoneCoding · Apache-2.0）
 
-账号服务端承载既有账号服务（T9-06）、平台目录/价格版本（V2-D10）、平台钱包账本（V2-D11）及可信平台 AI 网关（V2-D12）。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
+账号服务端承载既有账号服务（T9-06）、平台目录/价格版本（V2-D10）、平台钱包账本（V2-D11）及可信平台 AI 网关（V2-D12）。网站、管理台、本地容器部署与数据恢复见 [V2-D13 交付说明](../../docs/V2-D13-WEB.md)。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
 
 ## 已实现接口（严格按 PRD §8）
 
@@ -15,8 +15,8 @@
 | POST            | `/api/usage/report`                   | 匿名用量上报（需授权）                                                           |
 | GET             | `/api/release/check`                  | 版本检查，按 `?form=tauri\|electron` 分别下发版本与增量包清单                    |
 | POST            | `/api/ai/requests`                    | 登录账号经目录路由发起平台托管流式生成；服务端内部预占并按可信最终 usage 结算    |
-| GET             | `/api/ai/requests/:attemptId`         | 查询本人托管请求状态、实际平台路由、价格版本与结算摘要                            |
-| POST            | `/api/ai/requests/:attemptId/cancel`  | 取消本人活动请求；派发后状态不明时保留预占并进入对账                              |
+| GET             | `/api/ai/requests/:attemptId`         | 查询本人托管请求状态、实际平台路由、价格版本与结算摘要                           |
+| POST            | `/api/ai/requests/:attemptId/cancel`  | 取消本人活动请求；派发后状态不明时保留预占并进入对账                             |
 
 ### 邮箱闭环补充接口（FR-ACC-08）
 
@@ -27,7 +27,7 @@
 | GET  | `/api/auth/email/status?email=...` | 返回 `{ emailVerified }`                                           |
 | POST | `/api/auth/password/reset/request` | 请求体 `{ email }`；发送 6 位验证码，返回 `{ ok: true }`           |
 | POST | `/api/auth/password/reset`         | 请求体 `{ email, code, newPassword }`；成功返回 `{ ok: true }`     |
-| GET  | `/verify-email?token=...`          | 自托管静态落地页；浏览器脚本读取 token 后调用 confirm              |
+| GET  | `/verify-email?token=...`          | 自托管静态落地页；同源静态 JS 读取 token 后调用 confirm            |
 | GET  | `/api/dev/email-outbox?limit=20`   | 开发邮件 sink，返回 `{ items }`；正文保留链接/验证码，收件地址脱敏 |
 
 ### 客户端契约（2026-10-01 核对）
@@ -160,14 +160,14 @@ services/account/
 │   ├── models/account.ts    # 账号数据访问层
 │   ├── models/platform-catalog.ts # 平台目录与不可变价格存储
 │   ├── models/wallet-ledger.ts # 服务端钱包、attempt 与账本
-│   ├── routes/              # auth / usage / release / catalog / wallet / ai-gateway 路由
+│   ├── routes/              # auth / usage / release / catalog / wallet / admin / ai-gateway 路由
 │   ├── gateway/             # 上游地址防护与服务端凭据引用解析
 │   ├── oauth/               # google / github / wechat 策略 + 流程
 │   ├── middleware/          # error / idempotency / rate-limit
 │   └── __tests__/           # 集成测试
-├── migrations/              # 0001～0005 三段式迁移（目录/价格/钱包账本）
+├── migrations/              # 0001～0006 三段式迁移（目录/价格/钱包账本/账单筛选字段）
 ├── Dockerfile
-├── docker-compose.yml
+├── scripts/                # SQLite 一致性备份与显式确认恢复
 ├── start.sh / start.cmd
 └── openapi.yaml
 ```
@@ -202,7 +202,7 @@ V2-D10/D11 使用 `ACCOUNT_PLATFORM_ADMIN_IDS`（逗号分隔的平台运营账�
 | `ACCOUNT_EMAIL_VERIFY_TTL`         | `86400`（24h）               | 验证链接有效期（秒）                                                      |
 | `ACCOUNT_PASSWORD_RESET_TTL`       | `600`（10min）               | 重置验证码有效期（秒）                                                    |
 | `ACCOUNT_EMAIL_RESEND_COOLDOWN_MS` | `60000`                      | 同一用户同类邮件最小发送间隔（限流）                                      |
-| `ACCOUNT_MAIL_WEBHOOK_URL`         | 空                           | 邮件投递 webhook；**为空则落 outbox 表**（开发可查）                      |
+| `ACCOUNT_MAIL_WEBHOOK_URL`         | 空                           | 邮件投递 webhook；留空时写入开发 outbox，生产须配置真实投递               |
 
 验证链接由本服务自托管（`GET /verify-email`），**不依赖桌面端是否运行**：用户常在邮件客户端里
 点开链接，此时应用可能根本没启动。链接令牌单次有效、过期拒绝。
@@ -213,7 +213,7 @@ JWT 链接。重置码成功使用后失效，旧 refresh 全部撤销。默认 
 当前未验证邮箱也可登录。注册接口本身只建号；renderer 注册表单随后调用发送验证邮件接口，
 直接使用 API 的调用方需执行同样的第二步。
 
-开发期取验证令牌 / 重置码：
+仅本地开发期取验证令牌 / 重置码（生产默认关闭）：
 
 ```bash
 curl http://localhost:3000/api/dev/email-outbox            # 最近 20 封（正文含链接或 6 位验证码）
@@ -233,8 +233,9 @@ curl 'http://localhost:3000/api/dev/email-outbox?limit=50'
 
 **投递与部署边界**：配置 `ACCOUNT_MAIL_WEBHOOK_URL` 后服务 POST `{ to, subject, text, kind }`，
 由接收方完成真实投递；本服务没有内置 SMTP 配置。当前网络异常会回写 outbox，HTTP 非 2xx 响应不会
-触发这条回退，亦未实现自动重试队列。outbox 读取端点目前没有环境开关或鉴权隔离，部署时须限制
-其访问范围；开发本地自测与公网邮件投递验收须分开记录。Docker 部署另须设置强随机 `ACCOUNT_JWT_SECRET`。
+触发这条回退，亦未实现自动重试队列。`/api/dev/email-outbox` 仅在非 production 且
+`ACCOUNT_ENABLE_DEV_EMAIL_OUTBOX` 未设为 `false` 时启用；正式容器强制关闭。容器部署、TLS、备份
+与恢复步骤见 [V2-D13 交付说明](../../docs/V2-D13-WEB.md)。
 
 ### 自动化与手工验收
 

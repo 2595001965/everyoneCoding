@@ -48,6 +48,8 @@ interface AttemptRow {
   currency: string;
   price_version_id: string;
   provider_model_key: string;
+  project_id: string | null;
+  session_id: string | null;
   price_snapshot_json: string;
   reserve_micros: number;
   final_micros: number | null;
@@ -144,6 +146,8 @@ export interface BillingAttemptView {
   providerModelKey: string;
   priceVersionId: string;
   priceSnapshot: PriceVersion;
+  projectId: string | null;
+  sessionId: string | null;
   reservedMicros: number;
   finalMicros: number | null;
   status: BillingAttemptStatus;
@@ -161,6 +165,9 @@ export interface ReserveAttemptInput {
   logicalRequestId: string;
   idempotencyKey: string;
   providerModelKey: string;
+  /** Opaque local identifiers only; never project names, paths, or conversation content. */
+  projectId?: string | null;
+  sessionId?: string | null;
   priceVersionId: string;
   /** Trusted gateway context estimate; totalOutput is the maximum accepted output. */
   usageEstimate: NormalizedUsage;
@@ -197,6 +204,24 @@ function safeInteger(value: number, label: string, minimum = 0): number {
     throw new AppError(ErrCode.BAD_REQUEST, `${label} 超出安全整数范围`, 400);
   }
   return value;
+}
+
+function hasControlChars(value: string): boolean {
+  // Control chars are matched by codepoint instead of a control-char regex, which no-control-regex forbids.
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+function normalizeOpaqueId(value: string | null | undefined, label: string): string | null {
+  if (value === undefined || value === null || value.trim() === '') return null;
+  const normalized = value.trim();
+  if (normalized.length > 200 || hasControlChars(normalized)) {
+    throw new AppError(ErrCode.BAD_REQUEST, `${label} 无效`, 400);
+  }
+  return normalized;
 }
 
 function validateIdempotencyKey(value: string): string {
@@ -303,6 +328,8 @@ function toAttemptView(row: AttemptRow): BillingAttemptView {
     accountId: row.account_id,
     currency: row.currency,
     providerModelKey: row.provider_model_key,
+    projectId: row.project_id,
+    sessionId: row.session_id,
     priceVersionId: row.price_version_id,
     priceSnapshot: priceVersionSchema.parse(JSON.parse(row.price_snapshot_json) as unknown),
     reservedMicros: row.reserve_micros,
@@ -397,6 +424,86 @@ export class WalletLedger {
       )
       .all(accountId, Math.max(1, Math.min(100, Math.trunc(limit)))) as AttemptRow[];
     return rows.map(toAttemptView);
+  }
+
+  listAttemptPage(
+    accountId: string,
+    filters: {
+      limit: number;
+      cursor?: string;
+      from?: number;
+      to?: number;
+      projectId?: string;
+      sessionId?: string;
+      providerId?: string;
+      modelId?: string;
+    },
+  ): { attempts: BillingAttemptView[]; nextCursor: string | null } {
+    const where = ['account_id = ?'];
+    const params: Array<string | number> = [accountId];
+    if (filters.from !== undefined) {
+      where.push('created_at >= ?');
+      params.push(filters.from);
+    }
+    if (filters.to !== undefined) {
+      where.push('created_at <= ?');
+      params.push(filters.to);
+    }
+    if (filters.projectId !== undefined) {
+      where.push('project_id = ?');
+      params.push(filters.projectId);
+    }
+    if (filters.sessionId !== undefined) {
+      where.push('session_id = ?');
+      params.push(filters.sessionId);
+    }
+    if (filters.providerId !== undefined) {
+      where.push('provider_model_key LIKE ?');
+      params.push(`${filters.providerId}/%`);
+    }
+    if (filters.modelId !== undefined) {
+      where.push('provider_model_key LIKE ?');
+      params.push(`%/${filters.modelId}`);
+    }
+    if (filters.cursor !== undefined) {
+      let cursor: unknown;
+      try {
+        cursor = JSON.parse(Buffer.from(filters.cursor, 'base64url').toString('utf8')) as unknown;
+      } catch {
+        throw new AppError(ErrCode.BAD_REQUEST, '账单分页游标无效', 400);
+      }
+      if (
+        typeof cursor !== 'object' ||
+        cursor === null ||
+        !('createdAt' in cursor) ||
+        !('attemptId' in cursor) ||
+        !Number.isSafeInteger(cursor.createdAt) ||
+        typeof cursor.attemptId !== 'string' ||
+        !/^[0-9A-HJKMNP-TV-Z]{26}$/.test(cursor.attemptId)
+      ) {
+        throw new AppError(ErrCode.BAD_REQUEST, '账单分页游标无效', 400);
+      }
+      const parsedCursor = cursor as { createdAt: number; attemptId: string };
+      where.push('(created_at < ? OR (created_at = ? AND attempt_id < ?))');
+      params.push(parsedCursor.createdAt, parsedCursor.createdAt, parsedCursor.attemptId);
+    }
+    const pageSize = Math.max(1, Math.min(100, Math.trunc(filters.limit)));
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM billing_attempt WHERE ${where.join(' AND ')}
+         ORDER BY created_at DESC, attempt_id DESC LIMIT ?`,
+      )
+      .all(...params, pageSize + 1) as AttemptRow[];
+    const hasMore = rows.length > pageSize;
+    const attempts = rows.slice(0, pageSize).map(toAttemptView);
+    const last = attempts.at(-1);
+    const nextCursor =
+      hasMore && last
+        ? Buffer.from(
+            JSON.stringify({ createdAt: last.createdAt, attemptId: last.attemptId }),
+          ).toString('base64url')
+        : null;
+    return { attempts, nextCursor };
   }
 
   listOpenReconciliation(limit = 100): Array<Record<string, unknown>> {
@@ -578,11 +685,15 @@ export class WalletLedger {
     if (contentFingerprint !== null && !/^[0-9a-f]{64}$/.test(contentFingerprint)) {
       throw new AppError(ErrCode.BAD_REQUEST, '请求内容指纹无效', 400);
     }
+    const projectId = normalizeOpaqueId(input.projectId, 'projectId');
+    const sessionId = normalizeOpaqueId(input.sessionId, 'sessionId');
     const requestFingerprint = fingerprint({
       attemptId,
       logicalRequestId,
       providerModelKey,
       contentFingerprint,
+      projectId,
+      sessionId,
     });
     const tx = this.db.transaction(() => {
       const duplicate = this.db
@@ -642,9 +753,9 @@ export class WalletLedger {
         .prepare(
           `INSERT INTO billing_attempt
           (attempt_id, account_id, logical_request_id, request_idempotency_key, request_fingerprint,
-           currency, price_version_id, provider_model_key, price_snapshot_json, reserve_micros,
+           currency, price_version_id, provider_model_key, project_id, session_id, price_snapshot_json, reserve_micros,
            status, lease_expires_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved', ?, ?, ?)`,
         )
         .run(
           attemptId,
@@ -655,6 +766,8 @@ export class WalletLedger {
           price.currency,
           price.priceVersionId,
           providerModelKey,
+          projectId,
+          sessionId,
           JSON.stringify(price),
           reserveMicros,
           leaseExpiresAt,
@@ -701,6 +814,8 @@ export class WalletLedger {
     logicalRequestId: string;
     providerModelKey: string;
     contentFingerprint: string;
+    projectId?: string | null;
+    sessionId?: string | null;
   }): BillingAttemptView | null {
     const accountId = input.accountId;
     const attemptId = ulidSchema.parse(input.attemptId);
@@ -714,9 +829,7 @@ export class WalletLedger {
     }
     const logicalRequestId = input.logicalRequestId.trim();
     const row = this.db
-      .prepare(
-        'SELECT * FROM billing_attempt WHERE account_id = ? AND request_idempotency_key = ?',
-      )
+      .prepare('SELECT * FROM billing_attempt WHERE account_id = ? AND request_idempotency_key = ?')
       .get(accountId, idempotencyKey) as AttemptRow | undefined;
     if (!row) return null;
     const expected = fingerprint({
@@ -724,6 +837,8 @@ export class WalletLedger {
       logicalRequestId,
       providerModelKey: providerModelKeyOf(route.data),
       contentFingerprint: input.contentFingerprint,
+      projectId: normalizeOpaqueId(input.projectId, 'projectId'),
+      sessionId: normalizeOpaqueId(input.sessionId, 'sessionId'),
     });
     if (row.attempt_id !== attemptId || row.request_fingerprint !== expected) {
       throw new AppError(ErrCode.IDEMPOTENCY_CONFLICT, '幂等键已用于不同的计费请求', 409);

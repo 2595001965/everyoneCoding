@@ -7,8 +7,10 @@
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {
-    "dev": "node --experimental-strip-types src/server.ts",
-    "start": "node --experimental-strip-types src/server.ts",
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/restore.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -19,6 +21,7 @@
     "@ec/data": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "fastify": "^5.12.4",
+    "tsx": "4.23.15",
     "zod": "^3.23.8"
   },
   "devDependencies": {

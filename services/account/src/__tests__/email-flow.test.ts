@@ -97,7 +97,14 @@ describe('邮箱验证（FR-ACC-08）', () => {
     expect(page.statusCode).toBe(200);
     expect(page.headers['content-type']).toContain('text/html');
     expect(page.body).not.toContain(token);
-    expect(page.body).toContain('/api/auth/email/verify/confirm');
+    expect(page.body).toContain('src="/verify-email.js"');
+    expect(page.body).not.toContain('<script>');
+    const pageScript = await app.inject({ method: 'GET', url: '/verify-email.js' });
+    expect(pageScript.statusCode).toBe(200);
+    expect(pageScript.body).toContain('/api/auth/email/verify/confirm');
+    expect(pageScript.body).toContain("params.get('token')");
+    expect(pageScript.body).toContain('result.body.ok');
+    expect(pageScript.body).toContain("credentials: 'omit'");
 
     // 页面脚本的请求与成功判据（body.ok）—— 与脚本保持一致
     const confirm = await app.inject({

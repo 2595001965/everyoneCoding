@@ -14,6 +14,24 @@ const nonnegativeSafeMicrosSchema = z.number().int().nonnegative().refine(Number
 const walletParamsSchema = z.object({ currency: currencySchema }).strict();
 const accountParamsSchema = z.object({ accountId: accountIdSchema }).strict();
 const attemptParamsSchema = z.object({ attemptId: attemptIdSchema }).strict();
+const attemptListQuerySchema = z
+  .object({
+    limit: z.string().regex(/^\d+$/).optional(),
+    cursor: z.string().min(1).max(512).optional(),
+    from: z.string().regex(/^\d+$/).optional(),
+    to: z.string().regex(/^\d+$/).optional(),
+    projectId: z.string().trim().min(1).max(200).optional(),
+    sessionId: z.string().trim().min(1).max(200).optional(),
+    providerId: z
+      .string()
+      .regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+      .optional(),
+    modelId: z
+      .string()
+      .regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+      .optional(),
+  })
+  .strict();
 
 const adjustmentSchema = z
   .object({
@@ -96,15 +114,36 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.get<{ Querystring: { limit?: string } }>(
+  app.get<{ Querystring: Record<string, string | undefined> }>(
     '/api/billing/attempts',
     { preHandler: requireAuth },
     async (req) => {
-      const limit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+      const parsed = attemptListQuerySchema.safeParse(req.query);
+      if (!parsed.success) throw new AppError(ErrCode.BAD_REQUEST, '账单筛选参数无效', 400);
+      const query = parsed.data;
+      const limit = query.limit === undefined ? 50 : Number(query.limit);
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
         throw new AppError(ErrCode.BAD_REQUEST, 'limit 必须在 1 到 100 之间', 400);
       }
-      return { attempts: ledger.listAttempts(req.user!.userId, limit) };
+      const from = query.from === undefined ? undefined : Number(query.from);
+      const to = query.to === undefined ? undefined : Number(query.to);
+      if (
+        (from !== undefined && !Number.isSafeInteger(from)) ||
+        (to !== undefined && !Number.isSafeInteger(to)) ||
+        (from !== undefined && to !== undefined && from > to)
+      ) {
+        throw new AppError(ErrCode.BAD_REQUEST, '账单日期范围无效', 400);
+      }
+      return ledger.listAttemptPage(req.user!.userId, {
+        limit,
+        ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+        ...(from !== undefined ? { from } : {}),
+        ...(to !== undefined ? { to } : {}),
+        ...(query.projectId !== undefined ? { projectId: query.projectId } : {}),
+        ...(query.sessionId !== undefined ? { sessionId: query.sessionId } : {}),
+        ...(query.providerId !== undefined ? { providerId: query.providerId } : {}),
+        ...(query.modelId !== undefined ? { modelId: query.modelId } : {}),
+      });
     },
   );
 

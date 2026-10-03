@@ -1,0 +1,65 @@
+services:
+  account:
+    build:
+      context: ..
+      dockerfile: services/account/Dockerfile
+    restart: unless-stopped
+    expose:
+      - '3000'
+    environment:
+      NODE_ENV: production
+      ACCOUNT_HOST: 0.0.0.0
+      ACCOUNT_PORT: 3000
+      ACCOUNT_DB_PATH: /data/account.db
+      ACCOUNT_JWT_SECRET: ${ACCOUNT_JWT_SECRET:?Run node deploy/bootstrap-local.mjs and protect deploy/.env}
+      ACCOUNT_PLATFORM_ADMIN_IDS: ${ACCOUNT_PLATFORM_ADMIN_IDS:-}
+      ACCOUNT_PLATFORM_SECRET_DIR: /run/platform-secrets
+      ACCOUNT_PUBLIC_BASE_URL: ${ACCOUNT_PUBLIC_BASE_URL:-http://localhost:8080}
+      ACCOUNT_EMAIL_VERIFY_BASE_URL: ${ACCOUNT_EMAIL_VERIFY_BASE_URL:-}
+      ACCOUNT_MAIL_WEBHOOK_URL: ${ACCOUNT_MAIL_WEBHOOK_URL:-}
+      ACCOUNT_REQUIRE_HTTPS: ${ACCOUNT_REQUIRE_HTTPS:-false}
+      ACCOUNT_ENABLE_DEV_EMAIL_OUTBOX: 'false'
+      ACCOUNT_GATEWAY_ALLOW_LOOPBACK: 'false'
+    volumes:
+      - account-data:/data
+      - ./secrets/platform:/run/platform-secrets:ro
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - --input-type=module
+        - -e
+        - fetch('http://127.0.0.1:3000/health',{headers:{'x-forwarded-proto':'https'}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/platform-web/Dockerfile
+      args:
+        VITE_EC_ELECTRON_DOWNLOAD_URL: ${EC_ELECTRON_DOWNLOAD_URL:-}
+        VITE_EC_TAURI_DOWNLOAD_URL: ${EC_TAURI_DOWNLOAD_URL:-}
+    restart: unless-stopped
+    depends_on:
+      account:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${EC_WEB_PORT:-8080}:80'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --header='X-Forwarded-Proto: https' -qO- http://127.0.0.1/health | grep -q '"status":"ok"'
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  account-data:

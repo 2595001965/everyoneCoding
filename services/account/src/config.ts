@@ -40,6 +40,10 @@ export interface AppConfig {
   emailResendCooldownMs: number;
   /** 平台目录管理员账号 ID 的服务端 allowlist；不得由公开注册接口设置 */
   platformAdminAccountIds: string[];
+  /** Require an HTTPS request as observed through the configured trusted proxy. */
+  requireHttps: boolean;
+  /** Local email outbox is a development aid and must stay disabled in production. */
+  enableDevEmailOutbox: boolean;
   /** 邮件投递 webhook（可选；空则落 outbox 表） */
   mailWebhookUrl: string | undefined;
   /**
@@ -100,6 +104,10 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean),
+    requireHttps: process.env.ACCOUNT_REQUIRE_HTTPS === 'true',
+    enableDevEmailOutbox:
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ACCOUNT_ENABLE_DEV_EMAIL_OUTBOX !== 'false',
     mailWebhookUrl: str(process.env.ACCOUNT_MAIL_WEBHOOK_URL, '') || undefined,
     publicBaseUrl,
     emailVerifyBaseUrl: str(process.env.ACCOUNT_EMAIL_VERIFY_BASE_URL, publicBaseUrl),

@@ -59,7 +59,7 @@ export function HealingReportView(props: HealingReportViewProps): JSX.Element {
     return (
       <EmptyState
         title="尚无自愈报告"
-        description="导入 .ecpkg 后自动运行自愈；也可以点击「重新自愈」对当前工作区手动执行。"
+        description="恢复本地数据或完成旧包迁移后会运行自愈；也可以点击「重新自愈」对当前工作区手动执行。"
       />
     );
   }

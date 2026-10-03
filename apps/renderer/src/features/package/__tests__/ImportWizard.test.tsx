@@ -33,7 +33,7 @@ describe('ImportWizard：端到端流程', () => {
       ),
     });
     renderWizard(fake.api);
-    await userEvent.click(screen.getByText('选择包文件'));
+    await userEvent.click(screen.getByText('选择备份 ZIP'));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('包完整性校验未通过'));
   });
 
@@ -52,7 +52,7 @@ describe('ImportWizard：端到端流程', () => {
     });
     renderWizard(fake.api);
 
-    await userEvent.click(screen.getByText('选择包文件'));
+    await userEvent.click(screen.getByText('选择备份 ZIP'));
     await waitFor(() => expect(screen.getByText('选择导入模式')).toBeInTheDocument());
     await userEvent.click(screen.getByText('下一步：差异预览'));
     await waitFor(() =>
@@ -92,7 +92,7 @@ describe('ImportWizard：端到端流程', () => {
     });
     renderWizard(fake.api);
 
-    await userEvent.click(screen.getByText('选择包文件'));
+    await userEvent.click(screen.getByText('选择备份 ZIP'));
     await waitFor(() => expect(screen.getByText('选择导入模式')).toBeInTheDocument());
     await userEvent.click(screen.getByText('下一步：差异预览'));
     await waitFor(() => expect(screen.getByTestId('conflict-total')).toBeInTheDocument());
@@ -115,7 +115,7 @@ describe('ImportWizard：端到端流程', () => {
       diffPreview: diffWithConflicts([conflictItem('M1', 'memory', 'M1', 10, 5)]),
     });
     await expect(
-      fake.api.importPackage({ packagePath: '/x.ecpkg', mode: 'full-restore', decisions: [] }),
+      fake.api.importPackage({ packagePath: '/x.zip', archiveFormat: 'standard-backup', mode: 'full-restore', decisions: [] }),
     ).rejects.toThrow(/存在未决策的冲突条目/);
   });
 });

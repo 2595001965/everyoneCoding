@@ -23,6 +23,7 @@ function createFakeApi(options: { adoptOk?: boolean } = {}) {
       createdAt: new Date(2026, 8, 12, 8, 0).getTime(),
       sizeBytes: 1024 * 512,
       scope: 'all',
+      format: 'legacy-ecpkg',
     },
   ];
   const restoreCalls: string[] = [];
@@ -36,6 +37,9 @@ function createFakeApi(options: { adoptOk?: boolean } = {}) {
     saveExportPreset: () => Promise.reject(new Error('not implemented')),
     deleteExportPreset: () => Promise.reject(new Error('not implemented')),
     pickPackagePath: () => Promise.reject(new Error('not implemented')),
+    pickLegacyPackagePath: () => Promise.reject(new Error('not implemented')),
+    pickLegacyMigrationOutputPath: () => Promise.reject(new Error('not implemented')),
+    migrateLegacyPackage: () => Promise.reject(new Error('not implemented')),
     verifyPackage: () => Promise.reject(new Error('not implemented')),
     previewImport: () => Promise.reject(new Error('not implemented')),
     previewMode: () => Promise.reject(new Error('not implemented')),
@@ -53,11 +57,12 @@ function createFakeApi(options: { adoptOk?: boolean } = {}) {
     createBackupNow: () => {
       backupNowCalls.push(1);
       snapshots.unshift({
-        fileName: 'ec-backup-20260913-090000-000-manual.ecpkg',
-        path: 'D:\\EC-Backups\\ec-backup-20260913-090000-000-manual.ecpkg',
+        fileName: 'ec-backup-20260913-090000-000-manual.zip',
+        path: 'D:\\EC-Backups\\ec-backup-20260913-090000-000-manual.zip',
         createdAt: new Date(2026, 8, 13, 9, 0).getTime(),
         sizeBytes: 2048,
         scope: 'all',
+        format: 'standard-zip',
       });
       return Promise.resolve(snapshots[0]!);
     },

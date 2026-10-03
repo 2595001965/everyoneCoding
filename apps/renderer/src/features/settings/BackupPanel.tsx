@@ -1,13 +1,11 @@
 /**
  * BackupPanel（T9-03 / FR-SET-04 + T8-02/T8-03 打通）：数据导出与本地备份。
  *
- * 两种导出共用同一套排除与脱敏策略（FR-SET-04）：
- * - 「完整归档」（.ecpkg：代码 + 设计 DSL + 记忆 + 文档）
- * - 「仅代码」（轻量包）
+ * 完整数据备份 ZIP 与 metadata-free 源码 ZIP 分开；旧 .ecpkg 通过独立迁移入口处理。
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Input, Select, Switch } from '@ec/ui';
+import { Button, Input, Select } from '@ec/ui';
 
 import { useSettings, type ExportResult, type ImportResult } from './settings-api';
 
@@ -19,11 +17,8 @@ export interface BackupPanelProps {
 export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
   const api = useSettings();
   const [mode, setMode] = useState<'full' | 'code-only'>('full');
-  const [encrypted, setEncrypted] = useState(false);
-  const [exportPassword, setExportPassword] = useState('');
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [importPath, setImportPath] = useState('');
-  const [importPassword, setImportPassword] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [intervalHours, setIntervalHours] = useState('24');
   const [backupDir, setBackupDir] = useState('');
@@ -54,9 +49,6 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
         await api.exportProject({
           projectId,
           mode,
-          encrypted,
-          // 只有勾选加密时才带口令；空串按"未提供"处理，由实现给出明确报错
-          ...(encrypted && exportPassword ? { password: exportPassword } : {}),
         }),
       );
       setNotice('导出完成（本地文件，未上传任何服务器）');
@@ -65,7 +57,7 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
     } finally {
       setBusy(false);
     }
-  }, [api, encrypted, exportPassword, mode, projectId]);
+  }, [api, mode, projectId]);
 
   const importNow = useCallback(async () => {
     setBusy(true);
@@ -74,7 +66,6 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
       setImportResult(
         await api.importPackage({
           filePath: importPath.trim(),
-          ...(importPassword ? { password: importPassword } : {}),
         }),
       );
       setNotice('导入完成');
@@ -83,7 +74,7 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
     } finally {
       setBusy(false);
     }
-  }, [api, importPassword, importPath]);
+  }, [api, importPath]);
 
   const saveSchedule = useCallback(async () => {
     setBusy(true);
@@ -101,7 +92,8 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
     <section className="ec-settings__panel" aria-label="导出与备份">
       <h2>导出与备份</h2>
       <p className="ec-settings__hint">
-        归档包为本地文件（`.ecpkg`）；本产品不提供云端同步与分享链接。
+        新导出为普通 ZIP。本地数据备份 ZIP 可恢复 EveryoneCoding 数据；源码 ZIP 可用打开文件夹/ZIP
+        接入，不依赖产品元数据。
       </p>
 
       <label className="ec-settings__field">
@@ -110,32 +102,16 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
           aria-label="导出范围"
           value={mode}
           options={[
-            { value: 'full', label: '完整归档（代码 + 设计 + 记忆 + 文档）' },
-            { value: 'code-only', label: '仅代码（轻量包）' },
+            { value: 'full', label: '完整数据备份（代码 + 设计 + 记忆 + 文档）' },
+            { value: 'code-only', label: '源码 ZIP（无产品元数据）' },
           ]}
           onChange={(value) => setMode(value as 'full' | 'code-only')}
         />
       </label>
-      <label className="ec-settings__field">
-        <span>加密归档（口令保护）</span>
-        <Switch checked={encrypted} onChange={setEncrypted} aria-label="加密归档" />
-      </label>
-      {encrypted ? (
-        <label className="ec-settings__field">
-          <span>口令</span>
-          <Input
-            type="password"
-            value={exportPassword}
-            onChange={setExportPassword}
-            aria-label="归档口令"
-            placeholder="设置用于加密归档的口令"
-          />
-        </label>
-      ) : null}
       <Button
         variant="primary"
         loading={busy}
-        disabled={!projectId || (encrypted && exportPassword.length === 0)}
+        disabled={!projectId}
         onClick={() => void exportNow()}
       >
         一键导出
@@ -149,22 +125,12 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
       ) : null}
 
       <label className="ec-settings__field">
-        <span>导入归档包（.ecpkg）</span>
+        <span>恢复完整数据备份（.zip）</span>
         <Input
           value={importPath}
           onChange={setImportPath}
-          aria-label="归档包路径"
-          placeholder="D:\\backup\\ec-2026.ecpkg"
-        />
-      </label>
-      <label className="ec-settings__field">
-        <span>归档口令（加密包才需要）</span>
-        <Input
-          type="password"
-          value={importPassword}
-          onChange={setImportPassword}
-          aria-label="导入口令"
-          placeholder="未加密的归档可留空"
+          aria-label="备份 ZIP 路径"
+          placeholder="D:\\backup\\ec-2026.zip"
         />
       </label>
       <Button
@@ -173,7 +139,7 @@ export function BackupPanel({ projectId }: BackupPanelProps): JSX.Element {
         disabled={!importPath.trim()}
         onClick={() => void importNow()}
       >
-        导入归档
+        恢复备份
       </Button>
       {importResult ? (
         <p className="ec-settings__notice" role="status">

@@ -20,7 +20,7 @@ import {
 } from '@ec/core';
 import { ShellError } from '@ec/shell-api';
 import {
-  EcpkgReader,
+  StandardBackupReader,
   buildDiffPreview,
   collectPackageObjects,
   runExport,
@@ -49,17 +49,16 @@ import { createTelemetryRuntime, type TelemetryRuntime } from './telemetry-runti
  * - `backup-config.json` 定时备份配置
  * - `telemetry-buffer.json` 本地遥测缓冲
  * - `everyonecoding.sqlite`  业务库（迁移时用 `VACUUM INTO` 安全复制）
- * - `exports/`（或备份配置里的目录）归档 `.ecpkg` 的默认输出位置
+ * - `exports/`（或备份配置里的目录）普通 ZIP 导出的默认位置
  *
  * 归档导出/导入接 `@ec/package-kit` 的真实作业：
  * - 导出：`runExport` + 本目录 `package-ports.ts` 的 `ExportSourcePort`；
  * - 导入：`runImport` + `ImportLocalStatePort` / `ImportTargetPort`；
  *   `mode: 'merge'` 且按类型批量决策为 `keepLocal`（与界面"冲突按不覆盖处理"的文案一致）；
  * - `ImportReportData` 只有四分类计数，故 memory/docs/codeFiles 三个数在导入前
- *   另开一次 `EcpkgReader` 按对象类型统计。
+ *   另开一次 `StandardBackupReader` 按对象类型统计。
  *
- * 加密归档的**合同细节**：加密用口令派生密钥（PBKDF2-SHA256），
- * `encrypted: true` 却没给口令时**拒绝导出**，绝不静默产出未加密文件。
+ * 新导出使用普通 ZIP；历史 `.ecpkg` 只读迁移由 package 域的独立入口处理。
  */
 
 export interface SettingsDomainOptions {
@@ -168,14 +167,14 @@ function buildExportSelection(mode: 'full' | 'code-only', projectId: string): Ex
     registry: true,
     attachments: true,
   };
-  // 「仅代码（轻量包）」与导入侧 MODE_PARTICIPATING_TYPES['code-only'] 的参与类型对齐
+  // 普通源码 ZIP 根目录直接包含源码，不携带产品元数据。
   const codeOnly: ContentSelection = {
     memory: { longterm: false, project: false, feature: false, page: false, issue: false },
     documents: false,
     code: true,
-    pipeline: true,
-    anchors: true,
-    registry: true,
+    pipeline: false,
+    anchors: false,
+    registry: false,
     attachments: false,
   };
   return { scope: 'project', projectIds: [projectId], content: mode === 'full' ? full : codeOnly };
@@ -379,18 +378,11 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
         const input = params['input'] as {
           projectId: string;
           mode: 'full' | 'code-only';
-          encrypted: boolean;
-          password?: string | undefined;
+          encrypted?: boolean;
+          password?: string;
         };
-        const password =
-          typeof input.password === 'string' && input.password.length > 0
-            ? input.password
-            : undefined;
-        if (input.encrypted && password === undefined) {
-          throw new ShellError(
-            'INVALID_ARGUMENT',
-            '加密导出需要口令：请先在「加密归档」下方填写口令再重试（不会退化成未加密导出）。',
-          );
+        if (input.encrypted === true || input.password) {
+          throw new ShellError('INVALID_ARGUMENT', '新 ZIP 导出不使用旧归档加密口令');
         }
         const project = db
           .prepare(`SELECT id, name FROM project WHERE id = ?`)
@@ -399,16 +391,17 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
 
         const outputDir = backupConfig.dir.trim() ? backupConfig.dir : join(dataDir, 'exports');
         mkdirSync(outputDir, { recursive: true });
-        const outputPath = join(outputDir, `${sanitizeFileName(project.name)}-${Date.now()}.ecpkg`);
+        const outputPath = join(outputDir, `${sanitizeFileName(project.name)}-${Date.now()}.zip`);
 
         const source = createExportSourcePort({ db, projectsDir, userId });
         const startedAt = Date.now();
         const result = await runExport(
           {
             outputPath,
+            archiveFormat: 'standard-zip',
+            archiveKind: input.mode === 'code-only' ? 'source' : 'backup',
             selection: buildExportSelection(input.mode, input.projectId),
             redact: true,
-            ...(password !== undefined ? { password } : {}),
           },
           source,
         );
@@ -431,23 +424,28 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
       }
 
       case 'importPackage': {
-        const input = params['input'] as { filePath: string; password?: string | undefined };
-        const password =
-          typeof input.password === 'string' && input.password.length > 0
-            ? input.password
-            : undefined;
+        const input = params['input'] as { filePath: string; password?: string };
+        if (input.password) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            '标准 ZIP 不使用旧归档口令；旧 .ecpkg 请走独立迁移工具',
+          );
+        }
         if (!existsSync(input.filePath)) {
           throw new ShellError('NOT_FOUND', `归档文件不存在：${input.filePath}`);
+        }
+        if (!input.filePath.toLowerCase().endsWith('.zip')) {
+          throw new ShellError(
+            'INVALID_ARGUMENT',
+            '设置页只恢复完整数据备份 ZIP；旧 .ecpkg 请走独立迁移工具',
+          );
         }
 
         // 先按对象类型统计（ImportReportData 只有 added/conflicted/unchanged/missing 四分类）
         const counts = { memory: 0, docs: 0, codeFiles: 0 };
         let objects: PackageObject[] = [];
         try {
-          const reader = EcpkgReader.open(
-            input.filePath,
-            password !== undefined ? { password } : {},
-          );
+          const reader = StandardBackupReader.open(input.filePath);
           try {
             objects = collectPackageObjects(reader);
             counts.memory = objects.filter((object) => object.type === 'memory').length;
@@ -474,9 +472,9 @@ export function createSettingsDomain(options: SettingsDomainOptions): SettingsDo
         const report = await runImport(
           {
             packagePath: input.filePath,
+            archiveFormat: 'standard-backup',
             mode: 'merge' satisfies ImportMode,
             decisions,
-            ...(password !== undefined ? { password } : {}),
           },
           {
             local: localPort,

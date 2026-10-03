@@ -371,6 +371,9 @@ export class ZipReader {
   private constructor(fd: number, entries: ZipEntryInfo[]) {
     this.fd = fd;
     for (const entry of entries) {
+      if (this.entriesByName.has(entry.path)) {
+        throw new ZipReadError(`ZIP 内存在重复条目路径：${entry.path}`);
+      }
       this.entriesByName.set(entry.path, entry);
     }
   }

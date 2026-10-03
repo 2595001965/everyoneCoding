@@ -165,7 +165,7 @@ afterAll(async () => {
 
 describe('附件：内容寻址导出/导入不静默丢弃', () => {
   it('导出包内含 attachments/<sha256>.<ext>，且导入后文件与内容一致', async () => {
-    const outputPath = join(root, 'with-attachments.ecpkg');
+    const outputPath = join(root, 'with-attachments.zip');
     const result = await call<{ counts: { attachments: number }; archiveSizeBytes: number }>({
       domain: 'package',
       method: 'exportPackage',
@@ -195,7 +195,7 @@ describe('附件：内容寻址导出/导入不静默丢弃', () => {
   });
 
   it('导出的包内确实存在 attachments/ 条目', async () => {
-    const outputPath = join(root, 'inspect-attachments.ecpkg');
+    const outputPath = join(root, 'inspect-attachments.zip');
     await call({
       domain: 'package',
       method: 'exportPackage',
@@ -381,9 +381,9 @@ describe('备份：按日/周生成、保留份数清理、快照回滚', () => 
       method: 'listSnapshots',
     });
     expect(snapshots.length).toBe(2);
-    // 命名规范：ec-backup-<yyyymmdd-hhmmss>-<ms>-<origin>.ecpkg
+    // 命名规范：ec-backup-<yyyymmdd-hhmmss>-<ms>-<origin>.zip
     expect(
-      snapshots.every((item) => /^ec-backup-\d{8}-\d{6}-\d{3}-manual\.ecpkg$/.test(item.fileName)),
+      snapshots.every((item) => /^ec-backup-\d{8}-\d{6}-\d{3}-manual\.zip$/.test(item.fileName)),
     ).toBe(true);
     expect(existsSync(join(backupDir, snapshots[0]!.fileName))).toBe(true);
   }, 30_000);
@@ -486,8 +486,8 @@ describe('遥测：默认关闭、白名单字段、三层清除', () => {
 });
 
 describe('导出/导入完整性：篡改与错误口令不留半导入状态', () => {
-  it('篡改包内容后 verifyPackage 报完整性失败并指出文件', async () => {
-    const outputPath = join(root, 'tamper.ecpkg');
+  it('篡改标准备份内容后校验失败', async () => {
+    const outputPath = join(root, 'tamper.zip');
     await call({
       domain: 'package',
       method: 'exportPackage',
@@ -523,9 +523,9 @@ describe('导出/导入完整性：篡改与错误口令不留半导入状态', 
     expect(report.failureCode).not.toBeNull();
   });
 
-  it('加密导出错误口令被拒绝，且不产生半解密数据', async () => {
-    const outputPath = join(root, 'encrypted.ecpkg');
-    await call({
+  it('新 ZIP 导出拒绝旧私有加密协议', async () => {
+    const outputPath = join(root, 'encrypted.zip');
+    const response = await invoke({
       domain: 'package',
       method: 'exportPackage',
       params: {
@@ -545,25 +545,12 @@ describe('导出/导入完整性：篡改与错误口令不留半导入状态', 
             },
           },
           redact: true,
-          password: 'correct-password',
+          password: 'old-private-protocol',
         },
       },
     });
-    // 正确口令可通过
-    const good = await call<{ ok: boolean }>({
-      domain: 'package',
-      method: 'verifyPackage',
-      params: { packagePath: outputPath, password: 'correct-password' },
-    });
-    expect(good.ok).toBe(true);
-
-    // 错误口令必须明确失败（认证标签校验在落盘之前）
-    const bad = await call<{ ok: boolean; failureCode: string | null }>({
-      domain: 'package',
-      method: 'verifyPackage',
-      params: { packagePath: outputPath, password: 'wrong-password' },
-    });
-    expect(bad.ok).toBe(false);
-    expect(bad.failureCode).toBe('password');
+    expect(response.ok).toBe(false);
+    expect(response.error?.message).toMatch(/不使用旧归档口令/);
+    expect(existsSync(outputPath)).toBe(false);
   });
 });

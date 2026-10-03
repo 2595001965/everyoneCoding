@@ -17,6 +17,11 @@ import * as fs from 'node:fs';
 import { isTextEntry } from '../export/redactor';
 
 import { EcpkgReader } from '../reader';
+import {
+  StandardBackupReader,
+  verifyStandardBackup,
+  type PackageArchiveReader,
+} from '../standard/standard-zip';
 import { verifyPackage } from './verifier';
 import { buildDiffPreview, resolveConflicts } from './conflict-resolver';
 import { MODE_PARTICIPATING_TYPES, attachmentsAllowed } from './mode-selector';
@@ -107,7 +112,7 @@ function readUpdatedAt(text: string): number {
 }
 
 function genericObject(
-  reader: EcpkgReader,
+  reader: PackageArchiveReader,
   path: string,
   projectId: string,
   type: PackageObjectType,
@@ -131,7 +136,7 @@ function genericObject(
 }
 
 /** 收集包内全部可比较对象（记忆 + 文档/设计/注册表/锚点/流水线/代码） */
-export function collectPackageObjects(reader: EcpkgReader): PackageObject[] {
+export function collectPackageObjects(reader: PackageArchiveReader): PackageObject[] {
   const objects: PackageObject[] = [];
 
   for (const p of reader.listEntries()) {
@@ -260,7 +265,7 @@ function parseDocIndex(text: string): DocIndexEntry[] {
 
 /** 收集包内原始文件（文档原始文件 + 附件），导入时按 putFile 复制 */
 export function collectPackageFiles(
-  reader: EcpkgReader,
+  reader: PackageArchiveReader,
 ): Array<{ path: string; kind: 'doc' | 'attachment' }> {
   const files: Array<{ path: string; kind: 'doc' | 'attachment' }> = [];
   for (const p of reader.listEntries()) {
@@ -272,7 +277,7 @@ export function collectPackageFiles(
 
 /** 收集包内项目元信息（projects/<id>/meta.json） */
 function collectProjectMetas(
-  reader: EcpkgReader,
+  reader: PackageArchiveReader,
 ): Array<{ id: string; name: string; metaJson: string }> {
   const metas: Array<{ id: string; name: string; metaJson: string }> = [];
   for (const p of reader.listEntries()) {
@@ -321,13 +326,21 @@ export async function runImport(
 
   // ① 包内重新校验（不信任外部预览）
   onProgress?.('verifying', 0, 1, null);
-  const verify = await verifyPackage(request.packagePath, {
-    password: request.password,
-    signaturePublicKeyPem: request.signaturePublicKeyPem,
-  });
+  const standardBackup = request.archiveFormat === 'standard-backup';
+  if (standardBackup && request.password !== undefined) {
+    throw new Error('标准 ZIP 备份不使用旧归档口令，请重新选择备份文件');
+  }
+  const verify = standardBackup
+    ? verifyStandardBackup(request.packagePath)
+    : await verifyPackage(request.packagePath, {
+        password: request.password,
+        signaturePublicKeyPem: request.signaturePublicKeyPem,
+      });
   if (!verify.ok) throw new ImportVerifyError(verify);
 
-  const reader = EcpkgReader.open(request.packagePath, { password: request.password });
+  const reader: PackageArchiveReader = standardBackup
+    ? StandardBackupReader.open(request.packagePath)
+    : EcpkgReader.open(request.packagePath, { password: request.password });
   const applied = zeroApplied();
   const failures: Array<{ path: string; reason: string }> = [];
 

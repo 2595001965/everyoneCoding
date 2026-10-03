@@ -2,7 +2,7 @@
  * 设置特性端口（T9-03 / FR-SET-01 ~ 08）。
  *
  * 边界（D-02 硬约束）：**状态栏与设置页不出现任何云端同步入口**；
- * 数据导出/导入走 `.ecpkg`（T8-02/T8-03），不走云。
+ * 新源码导出与本地数据恢复走标准 ZIP；旧 `.ecpkg` 仅由独立迁移入口只读处理。
  *
  * 冻结契约：外壳注入 `globalThis.__EC_SETTINGS__`。
  */
@@ -78,24 +78,11 @@ export interface SettingsApi {
   rollbackMigration(): Promise<MigrationResult>;
 
   /**
-   * 导出项目为 `.ecpkg` 归档。
-   *
-   * `encrypted: true` 时**必须**提供 `password`：归档加密用的是口令派生密钥
-   * （PBKDF2-SHA256），没有口令就无法加密。缺口令时实现会拒绝并给出可读原因，
-   * **不会**退化成"静默产出未加密文件"。
+   * 导出普通 ZIP：code-only 是不带产品元数据的源码树，full 是带可读恢复描述的本地数据备份。
    */
-  exportProject(input: {
-    projectId: string;
-    mode: 'full' | 'code-only';
-    encrypted: boolean;
-    password?: string | undefined;
-  }): Promise<ExportResult>;
-  /**
-   * 导入 `.ecpkg` 归档。加密包需提供 `password`。
-   *
-   * 冲突按「不覆盖」处理（`keepLocal`），与本页提示文案一致。
-   */
-  importPackage(input: { filePath: string; password?: string | undefined }): Promise<ImportResult>;
+  exportProject(input: { projectId: string; mode: 'full' | 'code-only' }): Promise<ExportResult>;
+  /** 恢复标准完整数据 ZIP；冲突按「不覆盖」处理。 */
+  importPackage(input: { filePath: string }): Promise<ImportResult>;
 
   setTelemetry(enabled: boolean): Promise<void>;
   inspectLocalTelemetry(): Promise<TelemetryInspection>;

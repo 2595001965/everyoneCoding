@@ -18,6 +18,8 @@ import { createHash } from 'node:crypto';
 
 import { EcpkgReader } from '../reader';
 import { EcpkgWriteError, EcpkgWriter } from '../writer';
+import { ZipReader } from '../container/zip';
+import { StandardBackupReader, StandardZipWriter } from '../standard/standard-zip';
 import {
   PKG_CHECKSUM_PATH,
   PKG_MANIFEST_PATH,
@@ -95,6 +97,25 @@ export async function runExport(
   const redact = request.redact ?? true;
   const useDefaultExcludes = request.useDefaultExcludes ?? true;
   const content = request.selection.content;
+  const standardZip = request.archiveFormat === 'standard-zip';
+  const archiveKind = request.archiveKind ?? 'backup';
+  if (standardZip) {
+    if (request.password || request.signWithPrivateKeyPem || request.updatedSince !== undefined) {
+      throw new Error('普通 ZIP 不支持旧归档的口令封装、签名或增量协议');
+    }
+    if (
+      archiveKind === 'source' &&
+      (!content.code ||
+        content.documents ||
+        content.pipeline ||
+        content.anchors ||
+        content.registry ||
+        content.attachments ||
+        Object.values(content.memory).some(Boolean))
+    ) {
+      throw new Error('源码 ZIP 只接受源码文件；记忆和应用数据请使用完整数据备份 ZIP');
+    }
+  }
 
   // 范围解析
   tracker.setStage('enumerating');
@@ -105,6 +126,9 @@ export async function runExport(
       ? allProjects
       : allProjects.filter((p) => selectedProjectIds.includes(p.id));
   const includedProjectIds = new Set(includedProjects.map((p) => p.id));
+  if (standardZip && archiveKind === 'source' && includedProjects.length !== 1) {
+    throw new Error('源码 ZIP 需要且只需要选择一个项目');
+  }
 
   const inWindow = (at: number): boolean =>
     request.updatedSince === undefined || at > request.updatedSince;
@@ -405,15 +429,25 @@ export async function runExport(
       }
     }
   }
+  const outputOps =
+    standardZip && archiveKind === 'source'
+      ? ops.flatMap((op) => {
+          const match = /^projects\/([^/]+)\/code\/(.+)$/.exec(op.pkgPath);
+          if (match === null || match[1] !== includedProjects[0]?.id) return [];
+          return [{ ...op, pkgPath: match[2]! }];
+        })
+      : ops;
   if (redact) tracker.setStage('redacting');
   tracker.setStage('writing');
   const plainTmpPath =
     request.password !== undefined ? `${request.outputPath}.plain.tmp` : request.outputPath;
-  const writer = EcpkgWriter.create(plainTmpPath);
+  const standardWriter = standardZip ? new StandardZipWriter(request.outputPath) : null;
+  const ecpkgWriter = standardZip ? null : EcpkgWriter.create(plainTmpPath);
+  const writer = standardWriter ?? ecpkgWriter!;
 
-  const total = ops.length;
+  const total = outputOps.length;
   let processed = 0;
-  for (const op of ops) {
+  for (const op of outputOps) {
     tracker.update(processed, total, op.pkgPath);
     try {
       if (op.kind === 'text') {
@@ -430,6 +464,11 @@ export async function runExport(
         await writer.writeFileEntry(op.pkgPath, op.sourcePath);
       }
     } catch (error) {
+      if (standardZip) {
+        writer.abort();
+        tracker.setStage('failed');
+        throw error;
+      }
       tracker.addFailure({
         path: op.pkgPath,
         reason: error instanceof Error ? error.message : String(error),
@@ -457,28 +496,39 @@ export async function runExport(
   ];
 
   try {
-    writer.finalize({
-      generator: { app: 'EveryoneCoding', version: '0.1.0', platform: process.platform },
-      scope: request.selection.scope,
-      includes,
-      excludes: excludesList,
-      counts: {
-        projects: counts.projects,
-        memoryItems: counts.memoryItems,
-        documents: counts.documents,
-        pages: counts.pages,
-        codeFiles: counts.codeFiles,
-      },
-      redacted: redact,
-      ...(request.updatedSince !== undefined
-        ? { incremental: { since: request.updatedSince, deletionsIncluded: false as const } }
-        : {}),
-      ...(request.password !== undefined ? { encryption: encryptionInfo() } : {}),
-      ...(request.signWithPrivateKeyPem !== undefined
-        ? { signWithPrivateKeyPem: request.signWithPrivateKeyPem }
-        : {}),
-    });
+    if (standardWriter !== null) {
+      if (archiveKind === 'source') standardWriter.finalizeSource();
+      else
+        standardWriter.finalizeBackup({
+          scope: request.selection.scope,
+          includes,
+          redacted: redact,
+        });
+    } else {
+      ecpkgWriter!.finalize({
+        generator: { app: 'EveryoneCoding', version: '0.1.0', platform: process.platform },
+        scope: request.selection.scope,
+        includes,
+        excludes: excludesList,
+        counts: {
+          projects: counts.projects,
+          memoryItems: counts.memoryItems,
+          documents: counts.documents,
+          pages: counts.pages,
+          codeFiles: counts.codeFiles,
+        },
+        redacted: redact,
+        ...(request.updatedSince !== undefined
+          ? { incremental: { since: request.updatedSince, deletionsIncluded: false as const } }
+          : {}),
+        ...(request.password !== undefined ? { encryption: encryptionInfo() } : {}),
+        ...(request.signWithPrivateKeyPem !== undefined
+          ? { signWithPrivateKeyPem: request.signWithPrivateKeyPem }
+          : {}),
+      });
+    }
   } catch (error) {
+    writer.abort();
     tracker.setStage('failed');
     if (error instanceof EcpkgWriteError) throw error;
     throw error;
@@ -504,27 +554,43 @@ export async function runExport(
 
   // 自检：遍历包内文本条目再扫一遍密钥
   const selfCheckFindings: RedactionFinding[] = [];
-  const reader = EcpkgReader.open(
-    outputPath,
-    request.password !== undefined ? { password: request.password } : {},
-  );
+  const ecpkgReader = standardZip
+    ? null
+    : EcpkgReader.open(
+        outputPath,
+        request.password !== undefined ? { password: request.password } : {},
+      );
+  const backupReader =
+    standardZip && archiveKind === 'backup' ? StandardBackupReader.open(outputPath) : null;
+  const sourceReader = standardZip && archiveKind === 'source' ? ZipReader.open(outputPath) : null;
   try {
-    for (const entryPath of reader.listEntries()) {
+    const entryPaths =
+      ecpkgReader?.listEntries() ??
+      backupReader?.listEntries() ??
+      sourceReader!.list().map((entry) => entry.path);
+    for (const entryPath of entryPaths) {
       if (
-        entryPath === PKG_MANIFEST_PATH ||
-        entryPath === PKG_CHECKSUM_PATH ||
-        entryPath === PKG_SIGNATURE_PATH
+        (!standardZip &&
+          (entryPath === PKG_MANIFEST_PATH ||
+            entryPath === PKG_CHECKSUM_PATH ||
+            entryPath === PKG_SIGNATURE_PATH)) ||
+        entryPath === 'everyonecoding-backup.json'
       ) {
         continue;
       }
       if (!isTextEntry(entryPath)) continue;
-      const text = reader.readEntryText(entryPath);
+      const text =
+        ecpkgReader?.readEntryText(entryPath) ??
+        backupReader?.readEntryText(entryPath) ??
+        sourceReader!.readEntry(entryPath).toString('utf8');
       for (const finding of scanForSecrets(text, entryPath)) {
         selfCheckFindings.push(finding);
       }
     }
   } finally {
-    reader.close();
+    ecpkgReader?.close();
+    backupReader?.close();
+    sourceReader?.close();
   }
 
   const durationMs = Date.now() - startTime;
@@ -542,7 +608,7 @@ export async function runExport(
     redacted: redact,
     redactionFindings,
     selfCheckFindings,
-    encrypted,
+    encrypted: standardZip ? false : encrypted,
     warnings: [],
   };
 }

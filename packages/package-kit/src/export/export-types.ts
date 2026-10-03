@@ -234,6 +234,10 @@ export interface ExportJobResult {
 export interface ExportJobRequest {
   outputPath: string;
   selection: ExportSelection;
+  /** V2-D15 production output. Omitted keeps legacy writer available for compatibility fixtures only. */
+  archiveFormat?: 'ecpkg' | 'standard-zip' | undefined;
+  /** Source ZIP is a metadata-free source tree; backup ZIP is a readable local-data snapshot. */
+  archiveKind?: 'source' | 'backup' | undefined;
   /** 默认 true */
   useDefaultExcludes?: boolean | undefined;
   /** 项目级 .ecignore 之外的额外排除规则 */

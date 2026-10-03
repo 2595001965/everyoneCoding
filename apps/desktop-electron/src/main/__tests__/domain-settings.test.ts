@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { APP_COMMANDS } from '@ec/core';
+import { ZipReader } from '@ec/package-kit';
 import type { DomainControlServiceHost } from '@ec/shell-api';
 import type Database from 'better-sqlite3';
 
@@ -18,8 +19,8 @@ import { createSettingsDomain, type SettingsDomain } from '../domain/settings';
  * 重点：
  * - `update` / `saveKeymap` / `saveBackupConfig` 必须真的落盘（重启后仍在）；
  * - 数据目录迁移必须**按条目数校验**，不一致时如实报失败并清掉复制产物；
- * - 归档导出/导入走真实 `.ecpkg`，并做**导出→导入→再导出**的往返一致性验证；
- * - 加密导出缺口令时必须拒绝，不得静默产出未加密文件。
+ * - 数据备份导出/导入走普通 ZIP，并做**导出→导入**的真实往返验证；
+ * - 源码导出是无产品元数据的标准 ZIP；旧归档加密参数不得静默套用到新 ZIP。
  *
  * 调用一律经 `createDomainRuntime`：错误码映射与脱敏发生在那一层，
  * 直接调 router 会拿到未映射的原始异常，测出来的结论不代表真实链路。
@@ -352,7 +353,7 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     ).run(projectId, now, now);
   }
 
-  it('完整归档：产出 .ecpkg、文件存在且有体积', async () => {
+  it('完整归档：产出可校验的标准 ZIP、文件存在且有体积', async () => {
     seedProject();
     const result = await call<{ ok: boolean; filePath: string; bytes: number; mode: string }>(
       'exportProject',
@@ -362,8 +363,16 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     );
     expect(result.ok).toBe(true);
     expect(result.mode).toBe('full');
+    expect(result.filePath.endsWith('.zip')).toBe(true);
     expect(existsSync(result.filePath)).toBe(true);
     expect(result.bytes).toBeGreaterThan(0);
+    const zip = ZipReader.open(result.filePath);
+    try {
+      expect(zip.has('everyonecoding-backup.json')).toBe(true);
+      expect(zip.has('manifest.json')).toBe(false);
+    } finally {
+      zip.close();
+    }
   });
 
   it('项目不存在时如实报 NOT_FOUND', async () => {
@@ -372,14 +381,14 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('勾选加密却没给口令时拒绝导出（绝不静默产出未加密文件）', async () => {
+  it('新 ZIP 导出拒绝旧加密参数（不静默忽略用户选择）', async () => {
     seedProject();
     await expect(
       call('exportProject', { input: { projectId, mode: 'full', encrypted: true } }),
     ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
     await expect(
       call('exportProject', { input: { projectId, mode: 'full', encrypted: true } }),
-    ).rejects.toThrowError(/不会退化成未加密导出/);
+    ).rejects.toThrowError(/不使用旧归档加密口令/);
   });
 
   it('导出 → 导入到**空库**：项目 / 记忆 / 文档 / 代码全部回来', async () => {
@@ -471,50 +480,30 @@ describe('归档导出与导入（真实 .ecpkg）', () => {
     });
   });
 
-  it('加密归档：带口令可导出；导入时给错口令如实报错', async () => {
+  it('标准 ZIP 不接受旧归档口令', async () => {
     seedProject();
-    const exported = await call<{ filePath: string }>('exportProject', {
-      input: { projectId, mode: 'full', encrypted: true, password: 's3cret-pass' },
-    });
-    expect(existsSync(exported.filePath)).toBe(true);
-
     await expect(
-      call('importPackage', { input: { filePath: exported.filePath, password: '错误口令' } }),
+      call('exportProject', {
+        input: { projectId, mode: 'full', encrypted: true, password: 's3cret-pass' },
+      }),
     ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
   });
 
-  it('仅代码包：不含记忆与文档，但代码文件在', async () => {
+  it('源码 ZIP：根目录直接放源码，不带数据备份或产品元数据', async () => {
     seedProject();
     const exported = await call<{ filePath: string; mode: string }>('exportProject', {
       input: { projectId, mode: 'code-only', encrypted: false },
     });
     expect(exported.mode).toBe('code-only');
 
-    const freshRoot = mkdtempSync(join(tmpdir(), 'ec-settings-codeonly-'));
-    const freshDb = openBusinessDb({ dataDir: join(freshRoot, 'data') });
+    expect(exported.filePath.endsWith('.zip')).toBe(true);
+    const zip = ZipReader.open(exported.filePath);
     try {
-      const freshDomain = createSettingsDomain({
-        dataDir: join(freshRoot, 'data'),
-        cacheDir: join(freshRoot, 'cache'),
-        defaultWorkspaceRoot: join(freshRoot, 'workspace'),
-        projectsDir: join(freshRoot, 'workspace', 'projects'),
-        db: freshDb,
-      });
-      const freshRuntime = createDomainRuntime({ routers: { settings: freshDomain.router } });
-      const response = await freshRuntime.invoke({
-        requestId: 'restore-code-only',
-        domain: 'settings',
-        method: 'importPackage',
-        params: { input: { filePath: exported.filePath } },
-      });
-      expect(response.ok, JSON.stringify(response.error)).toBe(true);
-      const result = response.result as {
-        counts: { memory: number; docs: number; codeFiles: number };
-      };
-      expect(result.counts).toEqual({ memory: 0, docs: 0, codeFiles: 1 });
+      expect(zip.has('src/index.ts')).toBe(true);
+      expect(zip.has('manifest.json')).toBe(false);
+      expect(zip.has('everyonecoding-backup.json')).toBe(false);
     } finally {
-      freshDb.close();
-      rmSync(freshRoot, { recursive: true, force: true });
+      zip.close();
     }
   });
 });

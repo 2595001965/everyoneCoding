@@ -113,6 +113,8 @@ export interface ExportJobResult {
 }
 
 export interface ExportJobRequest {
+  archiveFormat?: 'standard-zip';
+  archiveKind?: 'source' | 'backup';
   incremental?: boolean;
   outputPath: string;
   selection: ExportSelection;
@@ -195,6 +197,7 @@ export interface ImportReportData {
 
 export interface ImportJobRequest {
   packagePath: string;
+  archiveFormat?: 'ecpkg' | 'standard-backup';
   mode: ImportMode;
   password?: string;
   signaturePublicKeyPem?: string;
@@ -259,6 +262,14 @@ export interface SnapshotInfo {
   createdAt: number;
   sizeBytes: number;
   scope: string;
+  format?: 'standard-zip' | 'legacy-ecpkg';
+}
+
+export interface LegacyMigrationResult {
+  outputPath: string;
+  sourceFiles: number;
+  publicDataFiles: number;
+  projects: Array<{ name: string; support: string; framework: string | null }>;
 }
 
 /** 渲染层端口接口（外壳注入实现） */
@@ -272,8 +283,15 @@ export interface PackageApi {
   deleteExportPreset(name: string): Promise<void>;
 
   /* -------- 导入（T8-03） -------- */
-  /** 打开系统文件对话框选 .ecpkg 文件（取消为 null） */
+  /** 打开系统文件对话框选标准 ZIP 本地备份（取消为 null） */
   pickPackagePath(): Promise<string | null>;
+  pickLegacyPackagePath(): Promise<string | null>;
+  pickLegacyMigrationOutputPath(defaultName: string): Promise<string | null>;
+  migrateLegacyPackage(input: {
+    packagePath: string;
+    outputPath: string;
+    password?: string;
+  }): Promise<LegacyMigrationResult>;
   /** 导入前校验（版本→完整性→签名→解密），全过才允许进差异预览 */
   verifyPackage(
     packagePath: string,

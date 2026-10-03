@@ -68,7 +68,7 @@ const EMPTY_PREVIEW: PackageDiffPreview = {
 
 export function createFakeImportApi(opts: FakeImportOptions = {}): FakeImportApi {
   const store = new Map<string, FakeObject>((opts.localStore ?? []).map((o) => [o.id, o]));
-  const path = opts.packagePath ?? '/fake/pkg.ecpkg';
+  const path = opts.packagePath ?? '/fake/backup.zip';
   const verifyReport = opts.verifyReport ?? OK_REPORT;
   const diffPreview = opts.diffPreview ?? EMPTY_PREVIEW;
   const modePreview = opts.modePreview ?? {

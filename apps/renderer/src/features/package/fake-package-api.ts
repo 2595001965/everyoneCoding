@@ -47,7 +47,7 @@ function defaultResult(request: ExportJobRequest): ExportJobResult {
     redacted: request.redact ?? true,
     redactionFindings: [],
     selfCheckFindings: [],
-    encrypted: request.password !== undefined,
+    encrypted: false,
     warnings: [],
   };
 }
@@ -78,6 +78,15 @@ export function createFakePackageApi(
     // 其余方法：未实现（导出测试用不到）
     pickPackagePath: async () => {
       throw new Error('假端口未实现：pickPackagePath');
+    },
+    pickLegacyPackagePath: async () => {
+      throw new Error('假端口未实现：pickLegacyPackagePath');
+    },
+    pickLegacyMigrationOutputPath: async () => {
+      throw new Error('假端口未实现：pickLegacyMigrationOutputPath');
+    },
+    migrateLegacyPackage: async () => {
+      throw new Error('假端口未实现：migrateLegacyPackage');
     },
     verifyPackage: async () => {
       throw new Error('假端口未实现：verifyPackage');

@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react';
-import { Button, Checkbox, Input, Modal } from '@ec/ui';
+import { Button, Checkbox, Modal, Select } from '@ec/ui';
 
 import { usePackageApi } from './package-api';
 import type {
@@ -51,7 +51,8 @@ export interface ExportWizardProps {
 
 export function ExportWizard(props: ExportWizardProps): React.ReactElement {
   const api = usePackageApi();
-  const [incremental, setIncremental] = React.useState(false);
+  const [archiveKind, setArchiveKind] = React.useState<'source' | 'backup'>('source');
+  const [sourceProjectId, setSourceProjectId] = React.useState(props.projects?.[0]?.id ?? '');
   const [savedPresets, setSavedPresets] = React.useState<ExportPlanPreset[]>([]);
   React.useEffect(() => {
     if (api)
@@ -60,12 +61,12 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
         .then(setSavedPresets)
         .catch(() => {});
   }, [api]);
+  React.useEffect(() => {
+    if (!sourceProjectId && props.projects?.[0]) setSourceProjectId(props.projects[0].id);
+  }, [props.projects, sourceProjectId]);
   const [selection, setSelection] = React.useState<ExportSelection>(DEFAULT_SELECTION);
   const [useDefaultExcludes, setUseDefaultExcludes] = React.useState(true);
   const [redact, setRedact] = React.useState(true);
-  const [encryptEnabled, setEncryptEnabled] = React.useState(false);
-  const [password, setPassword] = React.useState('');
-  const [confirmPassword, setConfirmPassword] = React.useState('');
   const [redactConfirmOpen, setRedactConfirmOpen] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [snapshot, setSnapshot] = React.useState<ExportProgressSnapshot | null>(null);
@@ -83,9 +84,11 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
     );
   }
 
-  const passwordOk = !encryptEnabled || (password.length > 0 && password === confirmPassword);
   const canExport =
-    !exporting && passwordOk && (selection.scope === 'all' || selection.projectIds.length > 0);
+    !exporting &&
+    (archiveKind === 'source'
+      ? sourceProjectId.length > 0
+      : selection.scope === 'all' || selection.projectIds.length > 0);
 
   const handleRedactChange = (value: boolean): void => {
     if (value) {
@@ -98,7 +101,9 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
 
   const handleExport = async (): Promise<void> => {
     if (!api || !canExport) return;
-    const outputPath = await api.pickExportPath('everyonecoding.ecpkg');
+    const outputPath = await api.pickExportPath(
+      archiveKind === 'source' ? 'source.zip' : 'everyonecoding-backup.zip',
+    );
     if (outputPath === null) return;
     setExporting(true);
     setResult(null);
@@ -106,14 +111,35 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
     setSnapshot(null);
     try {
       const request: ExportJobRequest = {
+        archiveFormat: 'standard-zip',
+        archiveKind,
         outputPath,
-        incremental,
-        selection,
+        selection:
+          archiveKind === 'source'
+            ? {
+                scope: 'project',
+                projectIds: [sourceProjectId],
+                content: {
+                  memory: {
+                    longterm: false,
+                    project: false,
+                    feature: false,
+                    page: false,
+                    issue: false,
+                  },
+                  documents: false,
+                  code: true,
+                  pipeline: false,
+                  anchors: false,
+                  registry: false,
+                  attachments: false,
+                },
+              }
+            : selection,
         useDefaultExcludes,
         redact,
         onProgress: (s: ExportProgressSnapshot) => setSnapshot(s),
       };
-      if (encryptEnabled && password.length > 0) request.password = password;
       const res = await api.exportPackage(request);
       setResult(res);
     } catch (e) {
@@ -125,69 +151,74 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
 
   return (
     <div className="ec-export-wizard" data-testid="export-wizard">
-      <ScopeSelector
-        selection={selection}
-        projects={props.projects ?? []}
-        presets={savedPresets}
-        useDefaultExcludes={useDefaultExcludes}
-        onChange={setSelection}
-        onToggleDefaultExcludes={setUseDefaultExcludes}
-        onSavePreset={(name) => {
-          void api
-            .saveExportPreset({ name, selection, useDefaultExcludes, redact, savedAt: Date.now() })
-            .then(() => api.listExportPresets())
-            .then(setSavedPresets);
-          props.onSavedPreset?.(name);
-        }}
-        onLoadPreset={(name) => {
-          const preset = savedPresets.find((p) => p.name === name);
-          if (preset) {
-            setSelection(preset.selection);
-            setUseDefaultExcludes(preset.useDefaultExcludes);
-            setRedact(preset.redact);
-          }
-          props.onLoadedPreset?.(name);
-        }}
-        onDeletePreset={(name) => {
-          void api
-            .deleteExportPreset(name)
-            .then(() => api.listExportPresets())
-            .then(setSavedPresets);
-          props.onDeletedPreset?.(name);
-        }}
-      />
+      <label>
+        导出类型
+        <Select
+          aria-label="导出类型"
+          options={[
+            { value: 'source', label: '源码 ZIP（无产品元数据）' },
+            { value: 'backup', label: '完整数据备份 ZIP（用于恢复本地数据）' },
+          ]}
+          value={archiveKind}
+          onChange={(value) => setArchiveKind(value as 'source' | 'backup')}
+        />
+      </label>
+      {archiveKind === 'source' ? (
+        <label>
+          源码项目
+          <Select
+            aria-label="源码项目"
+            options={(props.projects ?? []).map((project) => ({
+              value: project.id,
+              label: project.name,
+            }))}
+            value={sourceProjectId}
+            onChange={setSourceProjectId}
+          />
+          <p>ZIP 解压后的根目录直接是源码，可用普通打开文件夹/ZIP 接入。</p>
+        </label>
+      ) : (
+        <ScopeSelector
+          selection={selection}
+          projects={props.projects ?? []}
+          presets={savedPresets}
+          useDefaultExcludes={useDefaultExcludes}
+          onChange={setSelection}
+          onToggleDefaultExcludes={setUseDefaultExcludes}
+          onSavePreset={(name) => {
+            void api
+              .saveExportPreset({
+                name,
+                selection,
+                useDefaultExcludes,
+                redact,
+                savedAt: Date.now(),
+              })
+              .then(() => api.listExportPresets())
+              .then(setSavedPresets);
+            props.onSavedPreset?.(name);
+          }}
+          onLoadPreset={(name) => {
+            const preset = savedPresets.find((p) => p.name === name);
+            if (preset) {
+              setSelection(preset.selection);
+              setUseDefaultExcludes(preset.useDefaultExcludes);
+              setRedact(preset.redact);
+            }
+            props.onLoadedPreset?.(name);
+          }}
+          onDeletePreset={(name) => {
+            void api
+              .deleteExportPreset(name)
+              .then(() => api.listExportPresets())
+              .then(setSavedPresets);
+            props.onDeletedPreset?.(name);
+          }}
+        />
+      )}
 
       <section className="ec-export-wizard__security">
-        <Checkbox
-          label="增量导出（同一范围首次导出为全量，后续仅包含更新；删除项需完整恢复）"
-          checked={incremental}
-          onChange={setIncremental}
-        />
         <h3>安全选项</h3>
-        <Checkbox
-          label="加密导出（需设置口令）"
-          checked={encryptEnabled}
-          onChange={setEncryptEnabled}
-        />
-        {encryptEnabled && (
-          <div className="ec-export-wizard__password" data-testid="password-fields">
-            <Input
-              aria-label="导出口令"
-              type="password"
-              placeholder="导出口令"
-              value={password}
-              onChange={setPassword}
-            />
-            <Input
-              aria-label="确认口令"
-              type="password"
-              placeholder="再次输入口令"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-            />
-            {!passwordOk && <span className="ec-export-wizard__hint">两次口令不一致</span>}
-          </div>
-        )}
         <Checkbox
           label="导出时脱敏（默认开启，关闭需二次确认）"
           checked={redact}
@@ -217,14 +248,16 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
           <div>输出路径：{result.outputPath}</div>
           <div>包大小：{result.archiveSizeBytes} 字节</div>
           <div>耗时：{result.durationMs} ms</div>
-          <div>加密：{result.encrypted ? '是' : '否'}</div>
+          <div>
+            格式：普通 ZIP（{archiveKind === 'source' ? '无产品元数据' : '含可读恢复信息'}）
+          </div>
           <div>脱敏：{result.redacted ? '是' : '否'}</div>
         </div>
       )}
 
       <Modal open={redactConfirmOpen} title="确认关闭脱敏？" footer={null}>
         <div data-testid="redact-confirm">
-          <p>关闭脱敏后，密钥、连接串等敏感信息将以明文写入 .ecpkg，存在泄露风险。确认关闭吗？</p>
+          <p>关闭脱敏后，密钥和连接串将以明文写入 ZIP，存在泄露风险。确认关闭吗？</p>
           <Button
             data-testid="confirm-disable-redact"
             onClick={() => {

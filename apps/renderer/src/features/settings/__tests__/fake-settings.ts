@@ -97,7 +97,7 @@ export function createFakeSettings(
     exportProject: (input) => {
       const result: ExportResult = {
         ok: true,
-        filePath: `D:\\EC\\backup\\project-${input.projectId}.ecpkg`,
+        filePath: `D:\\EC\\backup\\project-${input.projectId}.zip`,
         bytes: input.mode === 'full' ? 2_048_000 : 128_000,
         mode: input.mode,
       };

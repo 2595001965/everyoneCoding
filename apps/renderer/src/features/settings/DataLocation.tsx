@@ -64,7 +64,7 @@ export function DataLocation(): JSX.Element {
     <section className="ec-settings__panel" aria-label="数据位置">
       <h2>数据与位置</h2>
       <p className="ec-settings__hint">
-        项目、记忆、文档与代码全部保存在本地；导出/导入使用 `.ecpkg` 归档包，不上传任何服务器。
+        项目、记忆、文档与代码全部保存在本地；新导出使用普通 ZIP，不上传任何服务器。
       </p>
 
       {FIELD_LABELS.map((field) => (

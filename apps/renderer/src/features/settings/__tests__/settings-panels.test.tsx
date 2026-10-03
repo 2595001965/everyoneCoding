@@ -151,7 +151,7 @@ describe('导出与备份（FR-SET-04）', () => {
     expect(await screen.findByText(/已导出 完整归档/)).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText('导出范围'));
-    fireEvent.click(screen.getByRole('option', { name: /仅代码/ }));
+    fireEvent.click(screen.getByRole('option', { name: /源码 ZIP/ }));
     fireEvent.click(screen.getByRole('button', { name: '一键导出' }));
     await waitFor(() => expect(env.exports).toHaveLength(2));
     expect(env.exports[1]!.bytes).toBeLessThan(env.exports[0]!.bytes);
@@ -165,12 +165,12 @@ describe('导出与备份（FR-SET-04）', () => {
 
   it('导入归档展示记忆/文档/代码计数与冲突数', async () => {
     renderWith(<BackupPanel projectId="p-1" />);
-    fireEvent.change(await screen.findByLabelText('归档包路径'), {
-      target: { value: 'D:/backup/a.ecpkg' },
+    fireEvent.change(await screen.findByLabelText('备份 ZIP 路径'), {
+      target: { value: 'D:/backup/a.zip' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '导入归档' }));
+    fireEvent.click(screen.getByRole('button', { name: '恢复备份' }));
     expect(await screen.findByText(/记忆 12 条、文档 3 篇、代码 40 个文件/)).toBeTruthy();
-    expect(env.imports).toEqual(['D:/backup/a.ecpkg']);
+    expect(env.imports).toEqual(['D:/backup/a.zip']);
   });
 
   it('备份计划可保存（间隔 + 目录）', async () => {

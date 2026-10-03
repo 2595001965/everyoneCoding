@@ -813,6 +813,10 @@ export function createPackageApi(call: DomainCaller, subscribe: DomainEventSubsc
     saveExportPreset: (preset) => call.call('package', 'saveExportPreset', { preset }),
     deleteExportPreset: (name) => call.call('package', 'deleteExportPreset', { name }),
     pickPackagePath: () => call.call('package', 'pickPackagePath'),
+    pickLegacyPackagePath: () => call.call('package', 'pickLegacyPackagePath'),
+    pickLegacyMigrationOutputPath: (defaultName) =>
+      call.call('package', 'pickLegacyMigrationOutputPath', { defaultName }),
+    migrateLegacyPackage: (input) => call.call('package', 'migrateLegacyPackage', input),
     verifyPackage: (packagePath, password, publicKeyPem) =>
       call.call('package', 'verifyPackage', {
         packagePath,

@@ -33,7 +33,7 @@ export const IMPACT_BUDGET_MS = 1500;
 
 /** 项目内边界提示（固定文案，UI 顶部展示，FR-UNI-13） */
 export const PROJECT_SCOPE_NOTICE =
-  '本次重命名仅影响当前项目，不修改长期记忆与其他项目；跨项目复用请手动导入 .ecpkg';
+  '本次重命名仅影响当前项目，不修改长期记忆与其他项目；跨项目复用请导入标准 ZIP 数据备份';
 
 /** 关于长期记忆的补充提示 */
 export const LONGTERM_MEMORY_NOTICE =

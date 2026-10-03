@@ -204,13 +204,16 @@ describe('快照管理（T8-04：生成 / 清点 / 保留份数 / 一键回滚�
       origin: 'scheduled',
       createFile: async (p) => fs.writeFileSync(p, 'snap'),
     });
+    const historicalName = 'ec-backup-20260801-080000-000-scheduled.ecpkg';
+    fs.writeFileSync(path.join(targetDir, historicalName), '历史用户备份');
     fs.writeFileSync(path.join(targetDir, '我的笔记.txt'), '不许动');
     fs.writeFileSync(path.join(targetDir, 'random.ecpkg'), '不是本模块命名的快照，也不许动');
 
     pruneSnapshots(targetDir, 0);
     expect(fs.existsSync(path.join(targetDir, '我的笔记.txt'))).toBe(true);
     expect(fs.existsSync(path.join(targetDir, 'random.ecpkg'))).toBe(true);
-    expect(listSnapshots(targetDir).length).toBe(0);
+    expect(fs.existsSync(path.join(targetDir, historicalName))).toBe(true);
+    expect(listSnapshots(targetDir).map((snapshot) => snapshot.format)).toEqual(['legacy-ecpkg']);
   });
 
   it('restoreFromSnapshot：先安全快照后导入（顺序可证，可撤销）', async () => {

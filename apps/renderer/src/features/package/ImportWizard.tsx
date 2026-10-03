@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Button, Input, Select } from '@ec/ui';
+import { Button, Select } from '@ec/ui';
 
 import {
   usePackageApi,
@@ -46,7 +46,6 @@ const MODE_OPTIONS: Array<{ label: string; value: ImportMode }> = [
 
 export function ImportWizard(): JSX.Element {
   const api = usePackageApi();
-  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [step, setStep] = useState<Step>('select');
@@ -105,7 +104,7 @@ export function ImportWizard(): JSX.Element {
     const path = await api.pickPackagePath();
     if (path === null) return;
     setPackagePath(path);
-    const v = await api.verifyPackage(path, password || undefined);
+    const v = await api.verifyPackage(path);
     setVerifyReport(v);
     if (!v.ok) {
       setError(v.failureMessage ?? '包校验未通过');
@@ -118,8 +117,8 @@ export function ImportWizard(): JSX.Element {
     if (packagePath === null) return;
     setMode(next);
     const [mp, dp] = await Promise.all([
-      api.previewMode(packagePath, next, password || undefined),
-      api.previewImport(packagePath, password || undefined),
+      api.previewMode(packagePath, next),
+      api.previewImport(packagePath),
     ]);
     setModePreview({
       toApply: mp.toApply,
@@ -155,8 +154,8 @@ export function ImportWizard(): JSX.Element {
       setBusy(true);
       const r = await api.importPackage({
         packagePath,
+        archiveFormat: 'standard-backup',
         mode,
-        ...(password ? { password } : {}),
         decisions: decisionList(),
         onProgress: (stage, n, total) => setProgress(`${stage} ${n}/${total}`),
       });
@@ -171,13 +170,6 @@ export function ImportWizard(): JSX.Element {
 
   return (
     <div className="import-wizard">
-      <Input
-        type="password"
-        aria-label="导入口令"
-        placeholder="加密包口令（未加密可留空）"
-        value={password}
-        onChange={setPassword}
-      />
       {progress && <p role="status">{progress}</p>}
       {report?.healing && (
         <HealingReportView
@@ -197,9 +189,9 @@ export function ImportWizard(): JSX.Element {
 
       {step === 'select' && (
         <section className="import-wizard__select">
-          <h2>导入 .ecpkg 包</h2>
-          <p>选择要导入的归档包，将先进行格式/完整性/签名校验。</p>
-          <Button onClick={() => void handlePick()}>选择包文件</Button>
+          <h2>恢复完整数据备份 ZIP</h2>
+          <p>选择标准 ZIP 本地备份，将先校验可读描述与全部文件内容，再预览恢复冲突。</p>
+          <Button onClick={() => void handlePick()}>选择备份 ZIP</Button>
           {packagePath && <p className="import-wizard__path">已选择：{packagePath}</p>}
           {verifyReport && !verifyReport.ok && (
             <div className="import-wizard__verify-fail" role="alert">

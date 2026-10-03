@@ -4,6 +4,9 @@ import type Database from 'better-sqlite3';
 
 import {
   EcpkgReader,
+  StandardBackupReader,
+  verifyStandardBackup,
+  migrateLegacyEcpkg,
   buildDiffPreview,
   buildHealingReport,
   checkAttachments,
@@ -33,6 +36,7 @@ import {
   type LinkFixOutcome,
   type PackageObject,
   type RelocatableAnchor,
+  type PackageArchiveReader,
 } from '@ec/package-kit';
 import { ShellError } from '@ec/shell-api';
 
@@ -85,6 +89,22 @@ export interface PackageDomain {
   dispose(): void;
 }
 
+function isStandardZip(filePath: string): boolean {
+  return filePath.toLowerCase().endsWith('.zip');
+}
+
+function openDataArchive(filePath: string, password?: string): PackageArchiveReader {
+  return isStandardZip(filePath)
+    ? StandardBackupReader.open(filePath)
+    : EcpkgReader.open(filePath, password === undefined ? {} : { password });
+}
+
+async function verifyDataArchive(filePath: string, password?: string) {
+  return isStandardZip(filePath)
+    ? verifyStandardBackup(filePath)
+    : await verifyPackage(filePath, password === undefined ? {} : { password });
+}
+
 export function createPackageDomain(options: PackageDomainOptions): PackageDomain {
   const exportsDir =
     options.exportsDir ?? join(process.env['EC_ELECTRON_USER_DATA_DIR'] ?? '.', 'data', 'exports');
@@ -101,6 +121,8 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
     await runExport(
       {
         outputPath: absolutePath,
+        archiveFormat: 'standard-zip',
+        archiveKind: 'backup',
         selection: { scope: 'all', projectIds: [], content: defaultContentSelection() },
         redact: true,
       },
@@ -188,9 +210,9 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const picked = await dialog.showSaveDialog({
           defaultPath: join(
             readBackupDir(),
-            String(params['defaultName'] ?? 'everyonecoding.ecpkg'),
+            String(params['defaultName'] ?? 'everyonecoding-backup.zip'),
           ),
-          filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }],
+          filters: [{ name: 'ZIP 文件', extensions: ['zip'] }],
         });
         return picked.canceled ? null : (picked.filePath ?? null);
       }
@@ -198,21 +220,58 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const { dialog } = await import('electron');
         const picked = await dialog.showOpenDialog({
           properties: ['openFile'],
-          filters: [{ name: 'EveryoneCoding 归档', extensions: ['ecpkg'] }],
+          filters: [{ name: 'EveryoneCoding 数据备份 ZIP', extensions: ['zip'] }],
         });
         return picked.canceled ? null : (picked.filePaths[0] ?? null);
+      }
+      case 'pickLegacyPackagePath': {
+        const { dialog } = await import('electron');
+        const picked = await dialog.showOpenDialog({
+          properties: ['openFile'],
+          filters: [{ name: '历史 .ecpkg（只读迁移）', extensions: ['ecpkg'] }],
+        });
+        return picked.canceled ? null : (picked.filePaths[0] ?? null);
+      }
+      case 'pickLegacyMigrationOutputPath': {
+        const { dialog } = await import('electron');
+        const picked = await dialog.showSaveDialog({
+          defaultPath: join(readBackupDir(), String(params['defaultName'] ?? 'ecpkg-migrated.zip')),
+          filters: [{ name: '普通 ZIP', extensions: ['zip'] }],
+        });
+        return picked.canceled ? null : (picked.filePath ?? null);
+      }
+      case 'migrateLegacyPackage': {
+        const packagePath = String(params['packagePath'] ?? '');
+        const outputPath = String(params['outputPath'] ?? '');
+        if (!existsSync(packagePath)) throw new ShellError('NOT_FOUND', '旧 .ecpkg 文件不存在');
+        if (!/\.ecpkg$/i.test(packagePath))
+          throw new ShellError('INVALID_ARGUMENT', '迁移入口只读取 .ecpkg 原件');
+        if (!/\.zip$/i.test(outputPath))
+          throw new ShellError('INVALID_ARGUMENT', '迁移结果必须是普通 .zip');
+        return migrateLegacyEcpkg({
+          packagePath,
+          outputPath,
+          ...(typeof params['password'] === 'string' ? { password: params['password'] } : {}),
+        });
       }
 
       case 'exportPackage': {
         const request = params['request'] as Record<string, unknown>;
         const outputPath = String(request['outputPath'] ?? '');
         if (outputPath.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 outputPath');
-        const password = typeof request['password'] === 'string' ? request['password'] : undefined;
+        if (!/\.zip$/i.test(outputPath))
+          throw new ShellError('INVALID_ARGUMENT', '新导出必须使用普通 .zip 文件');
+        const archiveKind = request['archiveKind'] === 'source' ? 'source' : 'backup';
+        if (request['password'] || request['signWithPrivateKeyPem'] || request['incremental']) {
+          throw new ShellError('INVALID_ARGUMENT', '普通 ZIP 不使用旧归档口令、签名或增量协议');
+        }
         mkdirSync(dirname(outputPath), { recursive: true });
         const result = await runExport(
           {
             ...(request as unknown as ExportJobRequest),
             outputPath,
+            archiveFormat: 'standard-zip',
+            archiveKind,
             onProgress: (snapshot) => ctx.emit({ type: 'package:progress', ...snapshot }),
           },
           createExportSourcePort(options),
@@ -227,7 +286,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           redacted: request['redact'] !== false,
           redactionFindings: result.redactionFindings,
           selfCheckFindings: result.selfCheckFindings,
-          encrypted: password !== undefined,
+          encrypted: false,
           warnings: result.warnings,
         };
       }
@@ -237,20 +296,22 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
         if (!existsSync(packagePath))
           throw new ShellError('NOT_FOUND', `归档文件不存在：${packagePath}`);
-        const report = verifyPackage(packagePath, {
-          password,
-          signaturePublicKeyPem:
-            typeof params['publicKeyPem'] === 'string' ? params['publicKeyPem'] : undefined,
-        });
+        const report = isStandardZip(packagePath)
+          ? verifyStandardBackup(packagePath)
+          : verifyPackage(packagePath, {
+              password,
+              signaturePublicKeyPem:
+                typeof params['publicKeyPem'] === 'string' ? params['publicKeyPem'] : undefined,
+            });
         return report;
       }
 
       case 'previewImport': {
         const packagePath = String(params['packagePath'] ?? '');
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
-        const verification = await verifyPackage(packagePath, { password });
+        const verification = await verifyDataArchive(packagePath, password);
         if (!verification.ok) throw new Error(verification.failureMessage ?? '包校验失败');
-        const reader = EcpkgReader.open(packagePath, password !== undefined ? { password } : {});
+        const reader = openDataArchive(packagePath, password);
         try {
           const objects = collectPackageObjects(reader);
           const preview = buildDiffPreview(
@@ -289,9 +350,9 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
         const mode = String(params['mode'] ?? 'merge');
         const packagePath = String(params['packagePath'] ?? '');
         const password = typeof params['password'] === 'string' ? params['password'] : undefined;
-        const verification = await verifyPackage(packagePath, { password });
+        const verification = await verifyDataArchive(packagePath, password);
         if (!verification.ok) throw new Error(verification.failureMessage ?? '包校验失败');
-        const reader = EcpkgReader.open(packagePath, password !== undefined ? { password } : {});
+        const reader = openDataArchive(packagePath, password);
         try {
           const objects = collectPackageObjects(reader);
           const preview = buildDiffPreview(
@@ -309,7 +370,11 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
       }
 
       case 'importPackage': {
-        const request = params['request'] as ImportJobRequest;
+        const incoming = params['request'] as ImportJobRequest;
+        if (!isStandardZip(incoming.packagePath)) {
+          throw new ShellError('INVALID_ARGUMENT', '旧 .ecpkg 请使用独立的只读迁移入口');
+        }
+        const request: ImportJobRequest = { ...incoming, archiveFormat: 'standard-backup' };
         const report = await runImport(
           {
             ...request,
@@ -578,6 +643,8 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
             runExport(
               {
                 outputPath: absolutePath,
+                archiveFormat: 'standard-zip',
+                archiveKind: 'backup',
                 selection: { scope: 'all', projectIds: [], content: defaultContentSelection() },
                 redact: true,
               },
@@ -596,6 +663,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           createdAt: snapshot.createdAt,
           sizeBytes: snapshot.sizeBytes,
           scope: 'all',
+          format: snapshot.format,
         };
       }
 
@@ -608,6 +676,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           sizeBytes: snapshot.sizeBytes,
           scope: 'all',
           origin: snapshot.origin,
+          format: snapshot.format,
         }));
       }
 
@@ -625,6 +694,8 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
             runExport(
               {
                 outputPath: absolutePath,
+                archiveFormat: 'standard-zip',
+                archiveKind: 'backup',
                 selection: { scope: 'all', projectIds: [], content: defaultContentSelection() },
                 redact: true,
               },
@@ -635,7 +706,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
               }),
             ).then(() => undefined),
           importFullRestore: async (snapshotAbsolutePath) => {
-            const reader = EcpkgReader.open(snapshotAbsolutePath, {});
+            const reader = openDataArchive(snapshotAbsolutePath);
             let objects: PackageObject[] = [];
             try {
               objects = collectPackageObjects(reader);
@@ -658,6 +729,7 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
             return runImport(
               {
                 packagePath: snapshotAbsolutePath,
+                archiveFormat: isStandardZip(snapshotAbsolutePath) ? 'standard-backup' : 'ecpkg',
                 mode: 'full-restore',
                 decisions,
                 replaceWorkspace: true,
@@ -700,44 +772,35 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
             createdAt: result.safetySnapshot.createdAt,
             sizeBytes: result.safetySnapshot.sizeBytes,
             scope: 'all',
+            format: result.safetySnapshot.format,
           },
         };
       }
 
       case 'exportIncremental': {
-        /**
-         * 增量导出（FR-PKG-11，P2）：基于 `updatedAt` 游标，只导出变更对象。
-         *
-         * 游标语义：上次导出完成后记录"当时见到的最大 updatedAt"，
-         * 下一次把 `since` 作为 `updatedSince` 传给导出流水线。
-         * 缺省游标（首次调用）= 全量导出，并把游标推进到当前水位。
-         */
+        // V2-D15 不再延续专有增量协议；兼容旧调用名，但始终产出普通完整 ZIP。
         const request = params['request'] as Record<string, unknown>;
         const outputPath = String(request['outputPath'] ?? '');
         if (outputPath.length === 0) throw new ShellError('INVALID_ARGUMENT', '缺少 outputPath');
+        if (!/\.zip$/i.test(outputPath))
+          throw new ShellError('INVALID_ARGUMENT', '新导出必须使用普通 .zip 文件');
+        if (request['password'] || request['signWithPrivateKeyPem'])
+          throw new ShellError('INVALID_ARGUMENT', '标准 ZIP 不支持旧归档加密或签名');
         const cursorKey = `${INCREMENTAL_CURSOR_KEY}:${JSON.stringify(request['selection'] ?? 'all')}`;
         const startedAt = Date.now();
-        const stored = settings.read<{ since: number; savedAt: number }>(cursorKey);
-        const since =
-          typeof request['since'] === 'number'
-            ? (request['since'] as number)
-            : typeof stored?.since === 'number'
-              ? stored.since
-              : undefined;
-        const password = typeof request['password'] === 'string' ? request['password'] : undefined;
         mkdirSync(dirname(outputPath), { recursive: true });
 
         const result = await runExport(
           {
             outputPath,
+            archiveFormat: 'standard-zip',
+            archiveKind: 'backup',
             selection: (request['selection'] ?? {
               scope: 'all',
               projectIds: [],
               content: defaultContentSelection(),
             }) as never,
             redact: request['redact'] !== false,
-            ...(since !== undefined ? { updatedSince: since } : {}),
-            ...(password !== undefined ? { password } : {}),
           },
           createExportSourcePort({
             db: options.db,
@@ -757,7 +820,8 @@ export function createPackageDomain(options: PackageDomainOptions): PackageDomai
           durationMs: result.durationMs,
           counts: result.counts,
           cursor,
-          incremental: since !== undefined,
+          incremental: false,
+          warnings: [...result.warnings, '普通 ZIP 使用完整快照；历史增量游标未应用。'],
         };
       }
 

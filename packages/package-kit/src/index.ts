@@ -78,3 +78,6 @@ export * from './incremental';
 export * from './backup/scheduler';
 /** 快照管理（生成 / 清点 / 保留份数 / 一键回滚） */
 export * from './backup/snapshot-manager';
+/** V2-D15 标准 ZIP 与旧 .ecpkg 只读迁移 */
+export * from './standard/standard-zip';
+export * from './standard/legacy-migration';

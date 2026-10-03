@@ -123,7 +123,8 @@ export interface VerificationReport {
   failureMessage: string | null;
   /** 完整性明细（integrity 步骤） */
   integrity: IntegrityReport | null;
-  manifest: EcpkgManifest;
+  /** null for ordinary ZIP backups, which deliberately have no .ecpkg manifest */
+  manifest: EcpkgManifest | null;
 }
 
 /* ------------------------------ 落库端口 ------------------------------ */
@@ -193,6 +194,8 @@ export interface ImportReportData {
 /** 导入请求（T8-03 的 ImportJob 输入） */
 export interface ImportJobRequest {
   packagePath: string;
+  /** `ecpkg` is accepted for legacy read-only migration; new restore inputs are standard backups. */
+  archiveFormat?: 'ecpkg' | 'standard-backup' | undefined;
   mode: ImportMode;
   /** 仅本地快照恢复使用；调用方已先创建安全快照。 */
   replaceWorkspace?: boolean;

@@ -120,6 +120,12 @@ export function BackupSettings(): JSX.Element {
   return (
     <section className="ec-backup-settings" aria-label="定时备份">
       <h3>定时本地备份</h3>
+      {snapshots.some((snapshot) => snapshot.format === 'legacy-ecpkg') && (
+        <p role="note">
+          检测到历史 .ecpkg 备份。定时任务现在只写普通
+          ZIP；历史文件已保留，不会被保留份数清理删除。需要时可在“旧包迁移”中另存为普通 ZIP。
+        </p>
+      )}
       {loaded ? null : <p>加载中…</p>}
 
       <div className="ec-backup-settings__form">
@@ -202,8 +208,9 @@ export function BackupSettings(): JSX.Element {
         <ul aria-label="备份快照">
           {snapshots.map((snapshot) => (
             <li key={snapshot.path}>
-              <code>{snapshot.fileName}</code> · {formatTime(snapshot.createdAt)} ·{' '}
-              {formatBytes(snapshot.sizeBytes)}
+              <code>{snapshot.fileName}</code> ·{' '}
+              {snapshot.format === 'legacy-ecpkg' ? '旧包' : 'ZIP'} ·{' '}
+              {formatTime(snapshot.createdAt)} · {formatBytes(snapshot.sizeBytes)}
               <Button size="sm" disabled={busy} onClick={() => setPendingRestore(snapshot)}>
                 回滚到此快照
               </Button>

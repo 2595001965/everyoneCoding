@@ -11,8 +11,7 @@
  * 2. 再以 full-restore 语义导入所选快照；
  * 3. 返回安全快照位置——回滚错了还能再滚回来（可撤销）。
  *
- * 保留份数：`pruneSnapshots(targetDir, keepCount)` 按 createdAt 从旧到新删除，
- * 只删本模块命名规范（`ec-backup-*.ecpkg`）的文件，绝不碰目录里其他文件。
+ * 保留份数只整理新版 ZIP；历史 `.ecpkg` 快照始终保留，等待用户显式迁移。
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -27,19 +26,21 @@ export interface SnapshotRecord {
   sizeBytes: number;
   /** 备注来源：定时备份 / 手动 / 回滚前安全快照 */
   origin: 'scheduled' | 'manual' | 'pre-restore';
+  format: 'standard-zip' | 'legacy-ecpkg';
 }
 
-/** 快照文件的命名规范：ec-backup-<时间戳>-<origin>.ecpkg */
+/** 新快照使用普通 ZIP 扩展名。 */
 export function snapshotFileName(now: Date, origin: SnapshotRecord['origin']): string {
   const pad = (value: number, width = 2): string => String(value).padStart(width, '0');
   const stamp =
     `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
     `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const serial = pad(now.getTime() % 1000, 3);
-  return `ec-backup-${stamp}-${serial}-${origin}.ecpkg`;
+  return `ec-backup-${stamp}-${serial}-${origin}.zip`;
 }
 
-const SNAPSHOT_PATTERN = /^ec-backup-(\d{8}-\d{6})-(\d{3})-(scheduled|manual|pre-restore)\.ecpkg$/;
+const SNAPSHOT_PATTERN =
+  /^ec-backup-(\d{8}-\d{6})-(\d{3})-(scheduled|manual|pre-restore)\.(zip|ecpkg)$/;
 
 /** 从文件名解析创建时间（本地时区）；不匹配命名规范返回 null */
 function parseSnapshotCreatedAt(fileName: string): number | null {
@@ -67,7 +68,7 @@ export async function createSnapshot(options: {
   targetDir: string;
   now: Date;
   origin: SnapshotRecord['origin'];
-  /** 外壳注入：把当前工作区全量导出为 `<absolutePath>` 的 .ecpkg */
+  /** 外壳注入：把当前工作区全量导出为普通 ZIP */
   createFile: (absolutePath: string) => Promise<void>;
 }): Promise<SnapshotRecord> {
   if (!fs.existsSync(options.targetDir)) {
@@ -89,6 +90,7 @@ export async function createSnapshot(options: {
     createdAt: parseSnapshotCreatedAt(fileName) ?? options.now.getTime(),
     sizeBytes: fs.statSync(absolutePath).size,
     origin: options.origin,
+    format: 'standard-zip',
   };
 }
 
@@ -108,6 +110,7 @@ export function listSnapshots(targetDir: string): SnapshotRecord[] {
       createdAt: parseSnapshotCreatedAt(fileName) ?? stat.mtimeMs,
       sizeBytes: stat.size,
       origin,
+      format: fileName.endsWith('.ecpkg') ? 'legacy-ecpkg' : 'standard-zip',
     });
   }
   records.sort((a, b) => b.createdAt - a.createdAt);
@@ -128,10 +131,12 @@ export function pruneSnapshots(
   const deletedUnknownNames: string[] = [];
   const kept: string[] = [];
 
-  const parsable = snapshots.filter(
+  const currentFormat = snapshots.filter((snapshot) => snapshot.format === 'standard-zip');
+  const legacyHistory = snapshots.filter((snapshot) => snapshot.format === 'legacy-ecpkg');
+  const parsable = currentFormat.filter(
     (snapshot) => parseSnapshotCreatedAt(snapshot.fileName) !== null,
   );
-  const unparsable = snapshots.filter(
+  const unparsable = currentFormat.filter(
     (snapshot) => parseSnapshotCreatedAt(snapshot.fileName) === null,
   );
 
@@ -153,6 +158,7 @@ export function pruneSnapshots(
     kept.push(snapshot.fileName);
     deletedUnknownNames.push(snapshot.fileName);
   }
+  for (const snapshot of legacyHistory) kept.push(snapshot.fileName);
 
   return { deleted, kept, deletedUnknown: deletedUnknownNames.length > 0 };
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@ec/ui';
 import { BackupSettings } from './BackupSettings';
+import { LegacyPackageMigration } from './LegacyPackageMigration';
 import { ExportWizard } from './ExportWizard';
 import { ImportWizard } from './ImportWizard';
 import { HealingReportView } from './HealingReport';
@@ -38,7 +39,8 @@ export function ArchiveSettings({
       <nav aria-label="归档操作">
         {Object.entries({
           export: '导出归档',
-          import: '导入归档',
+          import: '恢复数据备份',
+          legacy: '旧包迁移',
           backup: '定时备份与恢复',
           healing: '自愈检查',
         }).map(([id, label]) => (
@@ -49,6 +51,7 @@ export function ArchiveSettings({
       </nav>
       {tab === 'export' && <ExportWizard projects={projects} />}
       {tab === 'import' && <ImportWizard />}
+      {tab === 'legacy' && <LegacyPackageMigration />}
       {tab === 'backup' && <BackupSettings />}
       {tab === 'healing' && (
         <>

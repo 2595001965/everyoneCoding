@@ -1,7 +1,7 @@
 /**
  * ExportWizard 渲染层测试（T8-02 / FR-PKG-12）。
  *
- * 覆盖：未注入端口的装配引导、脱敏关闭的二次确认 Modal、加密两遍口令校验、
+ * 覆盖：未注入端口的装配引导、脱敏关闭的二次确认 Modal、普通源码 ZIP 契约、
  * 导出完成结果展示、进度回放。只走内存假端口，不跑 Node 流水线。
  */
 
@@ -35,40 +35,27 @@ describe('ExportWizard', () => {
     await waitFor(() => expect(screen.queryByTestId('redact-confirm')).not.toBeInTheDocument());
   });
 
-  it('加密：两遍口令不一致时禁用导出并提示', async () => {
+  it('默认源码 ZIP 使用标准 ZIP 且不带产品数据选择', async () => {
     const user = userEvent.setup();
+    const api = createFakePackageApi();
     render(
-      <PackageApiProvider api={createFakePackageApi()}>
-        <ExportWizard />
+      <PackageApiProvider api={api}>
+        <ExportWizard projects={[{ id: 'p-1', name: '演示项目' }]} />
       </PackageApiProvider>,
     );
-    await user.click(screen.getByLabelText('加密导出（需设置口令）'));
-    await user.type(screen.getByLabelText('导出口令'), 'secret-1');
-    await user.type(screen.getByLabelText('确认口令'), 'secret-2');
-    expect(screen.getByText('两次口令不一致')).toBeInTheDocument();
-    expect(screen.getByTestId('export-start')).toBeDisabled();
-  });
-
-  it('加密：两遍口令一致可导出，结果展示加密标记', async () => {
-    const user = userEvent.setup();
-    render(
-      <PackageApiProvider api={createFakePackageApi()}>
-        <ExportWizard />
-      </PackageApiProvider>,
-    );
-    await user.click(screen.getByLabelText('加密导出（需设置口令）'));
-    await user.type(screen.getByLabelText('导出口令'), 'secret-1');
-    await user.type(screen.getByLabelText('确认口令'), 'secret-1');
     await user.click(screen.getByTestId('export-start'));
     await waitFor(() => expect(screen.getByTestId('export-result')).toBeInTheDocument());
-    expect(screen.getByText('加密：是')).toBeInTheDocument();
+    expect(api.state.exportCalls[0]?.archiveFormat).toBe('standard-zip');
+    expect(api.state.exportCalls[0]?.archiveKind).toBe('source');
+    expect(api.state.exportCalls[0]?.selection.content.memory.longterm).toBe(false);
+    expect(screen.getByText(/普通 ZIP（无产品元数据）/)).toBeInTheDocument();
   });
 
   it('导出完成：展示结果（路径/大小/耗时）', async () => {
     const user = userEvent.setup();
     const api = createFakePackageApi({
       result: {
-        outputPath: '/tmp/out.ecpkg',
+        outputPath: '/tmp/out.zip',
         archiveSizeBytes: 1024,
         rawSizeBytes: 2048,
         durationMs: 555,
@@ -97,7 +84,7 @@ describe('ExportWizard', () => {
     });
     render(
       <PackageApiProvider api={api}>
-        <ExportWizard />
+        <ExportWizard projects={[{ id: 'p-1', name: '演示项目' }]} />
       </PackageApiProvider>,
     );
     await user.click(screen.getByTestId('export-start'));
@@ -149,7 +136,7 @@ describe('ExportWizard', () => {
     ];
     render(
       <PackageApiProvider api={createFakePackageApi({ progress: snapshots })}>
-        <ExportWizard />
+        <ExportWizard projects={[{ id: 'p-1', name: '演示项目' }]} />
       </PackageApiProvider>,
     );
     await user.click(screen.getByTestId('export-start'));

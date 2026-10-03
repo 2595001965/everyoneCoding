@@ -9,10 +9,7 @@ import { toAiError } from '../core/error';
 import { parseSse } from './shared/sse-parser';
 
 /** Platform catalog routes use the trusted account-service gateway endpoint. */
-export function isHostedGatewayProvider(
-  provider: Provider,
-  accountBaseUrl?: string,
-): boolean {
+export function isHostedGatewayProvider(provider: Provider, accountBaseUrl?: string): boolean {
   if (provider.source !== 'platform') return false;
   try {
     const actual = new URL(provider.baseUrl);
@@ -31,10 +28,7 @@ export function isHostedGatewayProvider(
 
     const expectedBase = new URL(accountBaseUrl);
     const expectedPath = `${expectedBase.pathname.replace(/\/+$/, '')}/api/ai/requests`;
-    return (
-      actual.origin === expectedBase.origin &&
-      actualPath === expectedPath.replace(/\/+$/, '')
-    );
+    return actual.origin === expectedBase.origin && actualPath === expectedPath.replace(/\/+$/, '');
   } catch {
     return false;
   }

@@ -135,10 +135,7 @@ export function createAiStack(options: AiStackOptions): AiStack {
   const hostedAdapters = new Map<Protocol, ProviderAdapter>(
     options.platformGateway
       ? [
-          [
-            'openai',
-            new PlatformGatewayAdapter('openai', options.platformGateway.accountBaseUrl),
-          ],
+          ['openai', new PlatformGatewayAdapter('openai', options.platformGateway.accountBaseUrl)],
           [
             'anthropic',
             new PlatformGatewayAdapter('anthropic', options.platformGateway.accountBaseUrl),

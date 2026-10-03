@@ -289,7 +289,7 @@ describe('V2-D12 trusted platform gateway', () => {
     expect(upstreamCalls).toBe(1);
 
     const persisted = database
-      .prepare("SELECT request_fingerprint FROM billing_attempt WHERE attempt_id = ?")
+      .prepare('SELECT request_fingerprint FROM billing_attempt WHERE attempt_id = ?')
       .get(key) as { request_fingerprint: string };
     expect(persisted.request_fingerprint).not.toContain('private controlled request text');
   });
@@ -330,7 +330,8 @@ describe('V2-D12 trusted platform gateway', () => {
     await hangStarted.promise;
     controller.abort();
     await waitFor(
-      () => ledger.getAttempt(account().accountId, key)?.status === 'unknown_pending_reconciliation',
+      () =>
+        ledger.getAttempt(account().accountId, key)?.status === 'unknown_pending_reconciliation',
       'disconnected request was not marked unknown',
     );
     expect(ledger.getWallet(account().accountId, 'USD').heldMicros).toBeGreaterThan(0);

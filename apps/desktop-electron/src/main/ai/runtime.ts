@@ -114,7 +114,9 @@ export async function createElectronAiRuntime(
       ? {
           platformGateway: {
             accountBaseUrl:
-              options.accountBaseUrl ?? process.env['EC_ACCOUNT_BASE_URL'] ?? 'http://127.0.0.1:3000',
+              options.accountBaseUrl ??
+              process.env['EC_ACCOUNT_BASE_URL'] ??
+              'http://127.0.0.1:3000',
             getAccessToken: options.getPlatformAccessToken,
           },
         }

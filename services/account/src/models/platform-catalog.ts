@@ -524,7 +524,8 @@ export class PlatformCatalogDb {
       row.provider_status !== 'active' ||
       row.model_status !== 'active' ||
       row.credential_ref === null
-    ) return null;
+    )
+      return null;
     const priceVersion = this.getGatewayPrice(providerId, modelId, at);
     if (priceVersion === null) return null;
     return {

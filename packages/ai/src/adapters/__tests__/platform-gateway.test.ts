@@ -130,8 +130,7 @@ describe('PlatformGatewayAdapter', () => {
     const transport: HttpTransport = {
       async request(input) {
         requests.push(input);
-        const frame =
-          `event: output.delta\ndata: ${JSON.stringify({ payload: { chunk: { type: 'delta', text: 'before cancel' } } })}\n\n`;
+        const frame = `event: output.delta\ndata: ${JSON.stringify({ payload: { chunk: { type: 'delta', text: 'before cancel' } } })}\n\n`;
         const body: HttpResponse['body'] =
           input.method === 'POST' && input.url.endsWith('/cancel')
             ? { async *[Symbol.asyncIterator]() {} }
@@ -167,18 +166,19 @@ describe('PlatformGatewayAdapter', () => {
       stream: true,
     };
     const iterator = new PlatformGatewayAdapter('openai', 'https://account.example.test')
-      .chat(request, { transport, apiKey: 'account-session-token' })[Symbol.asyncIterator]();
+      .chat(request, { transport, apiKey: 'account-session-token' })
+      [Symbol.asyncIterator]();
 
-    expect(await iterator.next()).toMatchObject({ value: { type: 'delta', text: 'before cancel' } });
+    expect(await iterator.next()).toMatchObject({
+      value: { type: 'delta', text: 'before cancel' },
+    });
     controller.abort();
     expect(await iterator.next()).toMatchObject({
       value: { type: 'done', finishReason: 'aborted', partial: true },
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(requests).toHaveLength(2);
-    expect(requests[1]?.url).toBe(
-      `${hostedProvider.baseUrl}/${request.idempotencyKey}/cancel`,
-    );
+    expect(requests[1]?.url).toBe(`${hostedProvider.baseUrl}/${request.idempotencyKey}/cancel`);
     expect(requests[1]?.headers?.['authorization']).toBe('Bearer account-session-token');
   });
 });

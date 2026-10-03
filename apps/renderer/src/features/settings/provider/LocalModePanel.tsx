@@ -23,7 +23,9 @@ export function LocalModePanel(props: {
     setError(null);
     try {
       const result = await props.onSync();
-      setStatus(`目录已同步：${result.providers} 个渠道、${result.models} 个模型。到下方用途绑定中选择托管路由即可使用。`);
+      setStatus(
+        `目录已同步：${result.providers} 个渠道、${result.models} 个模型。到下方用途绑定中选择托管路由即可使用。`,
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -35,19 +37,35 @@ export function LocalModePanel(props: {
         运行模式：<Tag color="success">本地直连（BYOK）</Tag>
       </h2>
       <p className="ec-ai__hint">
-        本地直连（BYOK）无需平台账号。自建 Provider 的 Key 仅保存在本机系统加密存储，请求由本机直连上游，不经过平台；本地 Key 不会上传。
+        本地直连（BYOK）无需平台账号。自建 Provider 的 Key
+        仅保存在本机系统加密存储，请求由本机直连上游，不经过平台；本地 Key 不会上传。
       </p>
       <p className="ec-ai__hint">
-        托管路由由平台账号鉴权，经过 EveryoneCoding 网关并按目录价格预占、结算。平台不可达或余额不足时托管请求会失败；已配置的 BYOK 路由仍可直连使用。登出不会删除或禁用本地 Provider。
+        托管路由由平台账号鉴权，经过 EveryoneCoding
+        网关并按目录价格预占、结算。平台不可达或余额不足时托管请求会失败；已配置的 BYOK
+        路由仍可直连使用。登出不会删除或禁用本地 Provider。
       </p>
       <div className="ec-ai__row-actions">
-        <button type="button" className="ec-ai__btn" disabled={props.busy || !props.onSync} onClick={() => void sync()}>
+        <button
+          type="button"
+          className="ec-ai__btn"
+          disabled={props.busy || !props.onSync}
+          onClick={() => void sync()}
+        >
           {props.busy ? '同步中…' : '同步平台托管目录'}
         </button>
         <span className="ec-ai__hint">选择目录模型后，在下方“用途绑定”里切换到平台渠道。</span>
       </div>
-      {status ? <p className="ec-ai__hint" role="status">{status}</p> : null}
-      {error ? <p className="ec-ai__error" role="alert">{error}</p> : null}
+      {status ? (
+        <p className="ec-ai__hint" role="status">
+          {status}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="ec-ai__error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

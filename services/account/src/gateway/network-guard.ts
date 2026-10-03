@@ -58,7 +58,12 @@ export async function guardUpstream(
   } catch {
     throw new AppError(ErrCode.FORBIDDEN, '平台上游地址无效', 403);
   }
-  if (url.username || url.password || url.hash || (url.protocol !== 'https:' && url.protocol !== 'http:')) {
+  if (
+    url.username ||
+    url.password ||
+    url.hash ||
+    (url.protocol !== 'https:' && url.protocol !== 'http:')
+  ) {
     throw new AppError(ErrCode.FORBIDDEN, '平台上游地址协议或权限格式不允许', 403);
   }
   const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
@@ -86,11 +91,10 @@ export async function guardUpstream(
   }
   if (addresses.length === 0) throw new AppError(ErrCode.FORBIDDEN, '平台上游没有可用地址', 403);
   const unsafe = addresses.some((entry) =>
-    allowLoopback && isLoopback(entry.address)
-      ? false
-      : isForbiddenAddress(entry.address),
+    allowLoopback && isLoopback(entry.address) ? false : isForbiddenAddress(entry.address),
   );
-  if (unsafe) throw new AppError(ErrCode.FORBIDDEN, '平台上游解析到未授权的本机、内网或保留地址', 403);
+  if (unsafe)
+    throw new AppError(ErrCode.FORBIDDEN, '平台上游解析到未授权的本机、内网或保留地址', 403);
 
   let next = 0;
   const pinnedLookup: HttpLookup = (requestedHost, options, callback) => {

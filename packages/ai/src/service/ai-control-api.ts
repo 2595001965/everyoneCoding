@@ -183,10 +183,7 @@ export class AiControlService {
 
   async testConnection(providerId: string): Promise<ConnectionTestResult> {
     const provider = this.deps.providers.findById(providerId);
-    if (
-      provider &&
-      isHostedGatewayProvider(provider, this.deps.platformGateway?.accountBaseUrl)
-    ) {
+    if (provider && isHostedGatewayProvider(provider, this.deps.platformGateway?.accountBaseUrl)) {
       throw new Error('托管路由由平台账号鉴权；选择目录模型后可直接使用，无需发送测试生成请求');
     }
     return this.deps.gateway.testConnection(providerId);

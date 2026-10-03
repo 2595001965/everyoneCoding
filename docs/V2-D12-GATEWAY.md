@@ -26,6 +26,7 @@
 - Electron 主进程托管/BYOK 与既有模型主链路 **2 个文件 / 13 项通过**；Renderer 设置页 **9 项通过**。
 - 严格类型检查通过：`@ec/account-service`、`@ec/ai`、`@ec/desktop-electron`、`@ec/renderer`。
 - 未发起真实厂商请求、未产生外部 Token 费用、未接支付或充值。所有上游响应、凭据和平台售价均为合成测试夹具。
+
 ## 接口与运行边界
 
 - `POST /api/ai/requests` 需要 `Idempotency-Key` 和 `X-EC-Logical-Request-Id`；模型标识为 `providerId/modelId` ULID 路由，不接受客户端上游 URL、Key、价格或结算金额。

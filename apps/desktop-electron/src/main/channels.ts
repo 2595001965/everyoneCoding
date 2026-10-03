@@ -37,6 +37,7 @@ export const CHANNELS = {
     exit: 'ec:process:event:exit',
   },
   window: {
+    openAgentWindow: 'ec:window:openAgentWindow',
     setTitle: 'ec:window:setTitle',
     minimize: 'ec:window:minimize',
     maximize: 'ec:window:maximize',
@@ -153,6 +154,7 @@ export const PRELOAD_METHOD_KEYS: Record<string, readonly string[]> = {
   dialog: ['openFile', 'openDirectory', 'saveFile', 'showMessage', 'confirm'],
   process: ['spawn', 'write', 'kill', 'list', 'killAll', 'onStdout', 'onStderr', 'onExit'],
   window: [
+    'openAgentWindow',
     'setTitle',
     'minimize',
     'maximize',

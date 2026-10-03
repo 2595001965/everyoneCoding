@@ -569,6 +569,23 @@ describe('OAuth 双通道：回环与 everyonecoding:// 协议各跑一整遍', 
     expect(result.session.tokens.accessToken).toBe('at-1');
   });
 
+  it('Tauri deep-link 路由：协议 URL 按 state 命中唯一握手并一次性消费', async () => {
+    const fake = makeFakeTransport(
+      oauthRoutes((redirectUri) => expect(redirectUri).toBe('everyonecoding://oauth'), 'code-tauri'),
+    );
+    build({ fake, forceOAuthChannel: 'protocol', registerProtocolHandler: () => true });
+    await call('beginOAuth', { provider: 'google' });
+
+    const result = await call<{ tokens: { accessToken: string } }>('deliverProtocolUrl', {
+      url: `everyonecoding://oauth?code=code-tauri&state=${STATE}`,
+    });
+    expect(result.tokens.accessToken).toBe('at-1');
+    await expect(
+      call('deliverProtocolUrl', { url: `everyonecoding://oauth?code=code-tauri&state=${STATE}` }),
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    expect(fake.requests.filter((request) => request.url.includes('/callback'))).toHaveLength(1);
+  });
+
   it('自动回退：回环端口真的被占用（EADDRINUSE）→ 未强制也改走协议通道并完成登录', async () => {
     // 先占住一个端口，再让域用同一端口起回环 —— 这是真实的 listen 失败，不是开关模拟
     const blocker = createServer();

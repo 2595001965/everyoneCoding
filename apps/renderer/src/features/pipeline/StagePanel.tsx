@@ -66,7 +66,10 @@ export function StagePanel({
         content: draft,
         note: '手动编辑',
       });
-      setContent(draft);
+      const savedVersions = await api.listArtifacts(projectId, stage);
+      setVersions(savedVersions);
+      const latest = savedVersions[savedVersions.length - 1];
+      if (latest) setContent(await api.readArtifact(projectId, stage, latest.version));
       setManualEdit(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -77,20 +80,19 @@ export function StagePanel({
 
   // 装载版本台账与生效内容
   useEffect(() => {
-    const list = api.listArtifacts(projectId, stage);
-    setVersions(list);
-    if (list.length === 0) {
-      setContent('');
-      return;
-    }
-    const target =
-      viewingVersion > 0
-        ? viewingVersion
-        : (state.activeVersion ?? list[list.length - 1]?.version ?? 0);
     let cancelled = false;
-    void api
-      .readArtifact(projectId, stage, target)
-      .then((text) => {
+    setVersions([]);
+    setContent('');
+    void api.listArtifacts(projectId, stage)
+      .then(async (list) => {
+        if (cancelled) return;
+        setVersions(list);
+        if (list.length === 0) return;
+        const target =
+          viewingVersion > 0
+            ? viewingVersion
+            : (state.activeVersion ?? list[list.length - 1]?.version ?? 0);
+        const text = await api.readArtifact(projectId, stage, target);
         if (!cancelled) {
           setContent(text);
           setDraft(text);

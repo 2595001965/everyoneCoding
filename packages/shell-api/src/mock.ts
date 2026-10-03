@@ -607,6 +607,7 @@ export class MockShell implements ShellHost {
       size: { width: 1440, height: 900 },
     };
     this.window = {
+      openAgentWindow: async () => undefined,
       setTitle: async (title) => {
         windowState.title = title;
       },

@@ -17,6 +17,8 @@ use crate::commands::updater::{PendingUpdate, UpdateProgressEvent};
 pub struct AppState {
     /// 子进程 id 自增序列。
     pub process_seq: AtomicU64,
+    /// Secondary native window labels are unique within one app process.
+    pub window_seq: AtomicU64,
     /// 运行中的子进程表（key = 进程 id）。
     pub processes: Mutex<HashMap<String, RunningProcess>>,
     /// 受限网络允许的 host 白名单。
@@ -35,6 +37,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             process_seq: AtomicU64::new(1),
+            window_seq: AtomicU64::new(1),
             processes: Mutex::new(HashMap::new()),
             allowed_hosts: Mutex::new(AllowedHosts::default()),
             workspace_root: Mutex::new(None),

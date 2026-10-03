@@ -14,7 +14,7 @@ export interface SupplementDialogProps {
   open: boolean;
   stage: PipelineStage;
   /** 影响面评估回调（父层用 SplitModel.evaluateImpact；未拆分时返回空） */
-  onEvaluate: (instruction: string) => ImpactReport | null;
+  onEvaluate: (instruction: string) => Promise<ImpactReport | null>;
   /** 提交补充指令（父层调 api.generateRequirement / generateTechDoc with instruction） */
   onSubmit: (instruction: string) => void;
   onClose: () => void;
@@ -29,10 +29,15 @@ export function SupplementDialog({
 }: SupplementDialogProps): JSX.Element {
   const [instruction, setInstruction] = useState('');
   const [report, setReport] = useState<ImpactReport | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
 
-  const evaluate = (): void => {
-    const result = onEvaluate(instruction);
-    setReport(result);
+  const evaluate = async (): Promise<void> => {
+    setEvaluating(true);
+    try {
+      setReport(await onEvaluate(instruction));
+    } finally {
+      setEvaluating(false);
+    }
   };
 
   const submit = (): void => {
@@ -62,8 +67,8 @@ export function SupplementDialog({
           <Button
             variant="secondary"
             data-testid="supplement-evaluate"
-            onClick={evaluate}
-            disabled={instruction.trim().length === 0}
+            onClick={() => void evaluate()}
+            disabled={instruction.trim().length === 0 || evaluating}
           >
             评估影响范围
           </Button>

@@ -1,6 +1,7 @@
 /** 浏览器条件入口：只导出协议无关值与类型，禁止引入 Node IO 或 SQLite。 */
 export * from './domain/provider';
 export * from './domain/model';
+export * from './domain/model-route';
 export * from './domain/capability';
 export * from './domain/purpose-binding';
 export * from './dto/create-provider';

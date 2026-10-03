@@ -102,10 +102,10 @@ const oauthBridge: ProtocolBridge | null = singleInstanceLock
  */
 let runtime: HeadlessRuntime | null = null;
 
-function createWindow(): BrowserWindow {
+function createWindow(agent?: { projectId: string; projectName: string; sessionId: string; title: string }): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: agent ? 1120 : 1440,
+    height: agent ? 760 : 900,
     minWidth: 1024,
     minHeight: 640,
     show: false,
@@ -131,15 +131,18 @@ function createWindow(): BrowserWindow {
         console.error('[main] 请确认渲染层 dev server 已在 http://localhost:5173 运行');
       },
     );
-    void win.loadURL('http://localhost:5173');
+    const route = agent ? `#/agents?projectId=${encodeURIComponent(agent.projectId)}&projectName=${encodeURIComponent(agent.projectName)}&sessionId=${encodeURIComponent(agent.sessionId)}` : '';
+    void win.loadURL(`http://localhost:5173/${route}`);
     if (shouldAutoOpenDevTools) win.webContents.openDevTools({ mode: 'bottom' });
   } else {
-    void win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+    void win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), {
+      ...(agent ? { hash: `/agents?projectId=${encodeURIComponent(agent.projectId)}&projectName=${encodeURIComponent(agent.projectName)}&sessionId=${encodeURIComponent(agent.sessionId)}` } : {}),
+    });
   }
 
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => {
-    mainWindow = null;
+    if (mainWindow === win) mainWindow = null;
   });
   return win;
 }
@@ -180,7 +183,15 @@ function buildDependencies(): IpcDependencies {
 
   return {
     dialog: dialog as unknown as IpcDependencies['dialog'],
-    getWindow: () => mainWindow,
+    getWindow: (event) => {
+      const sender = (event as { sender?: Electron.WebContents } | undefined)?.sender;
+      return sender ? BrowserWindow.fromWebContents(sender) : mainWindow;
+    },
+    openAgentWindow: (input) => {
+      const window = createWindow(input);
+      window.setTitle(input.title);
+      window.center();
+    },
     clipboard,
     safeStorage: safeStorage ?? null,
     updater: createUpdater(),

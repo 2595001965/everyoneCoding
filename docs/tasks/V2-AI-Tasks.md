@@ -36,7 +36,7 @@
 
 | 编号 | 已核实差额                      | 证据及准确边界                                                                                                                                                                                                                   | 合并到任务                                      |
 | ---- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| L1   | Tauri 记忆/流水线页面缺生产端口 | [production-ports.ts:855](../../apps/renderer/src/runtime/production-ports.ts:855)～871：没有 invokeSync 时不注入 memory/pipeline。Tauri 域能异步调用，不代表这两个页面可用；[能力矩阵](../CAPABILITY-MATRIX.md:104)也明确此限制 | D08：补异步页面消费，不重写内核                 |
+| L1   | ~~Tauri 记忆/流水线页面缺生产端口~~ D08 已改为 Promise 端口并在写后重读真实领域状态 | Tauri 原生页面待实机验；异步端口实现与 UI 测试已通过 | 已实现；原生验收待环境 |
 | L2   | 工作台最近提交与详情为空        | [workspace.ts:447](../../apps/desktop-electron/src/main/domain/workspace.ts:447)及513：`git.recent`/详情恒空。Git 模块本身已有能力；V1 FR-WSP-06 原为 P2，不能把这个展示缺口说成核心 Git 未完成                                  | D14：接既有 Git 查询和下钻，不新增 Git 实现     |
 | L3   | 项目缩略图未接线                | [workspace.ts:839](../../apps/desktop-electron/src/main/domain/workspace.ts:839)：`getThumbnailUrl` 恒返回 null；不能用占位卡片证明缩略图完成                                                                                    | D02：复用真实预览产出缩略图；空工程保留明确占位 |
 | L4   | CI 覆盖率不是阻断门禁           | [.github/workflows/ci.yml:81](../../.github/workflows/ci.yml:81)～84：覆盖率步骤 `continue-on-error: true`，失败被忽略                                                                                                           | D16：修实际门禁并校验证明；不重建现有 CI        |
@@ -133,7 +133,7 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 | V2-D05 | attempt、缓存分桶与上下文计量接线     | 计量增量         | D00                        | 已验收       |
 | V2-D06 | 持久化 Session/Task 与共享协调器      | 并发增量         | D05                        | 已验收       |
 | V2-D07 | Agent 工作副本与受控合入              | 写入增量         | D06                        | 已实现待验收 |
-| V2-D08 | 原生多窗口及 Tauri 页面等价收口       | 并发增量 + V1-L1 | D06、D07；旧页面子项可先做 | 待办         |
+| V2-D08 | 原生多窗口及 Tauri 页面等价收口       | 并发增量 + V1-L1 | D06、D07；旧页面子项可先做 | 实现完成；原生验收待做 |
 | V2-D09 | 指定位置增删接口、依接口新增功能/元素 | 定点开发增量     | D00、D03、D04、D07         | 待办         |
 | V2-D10 | 平台目录与版本化 Provider 定价        | 平台增量         | D00                        | 已实现待验收 |
 | V2-D11 | 平台钱包、预占、结算与对账            | 平台增量         | D05、D10                   | 待办         |
@@ -322,7 +322,7 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 
 ### V2-D08 — 原生多窗口与 Tauri 旧页面补缺
 
-**已有**：双外壳共用业务运行时，Electron 有单实例/主窗口；Tauri 有异步域但 memory/pipeline 页面被同步签名阻断。
+**已有**：双外壳共用业务运行时；D06/D07 持久化协调器与隔离工作副本已就绪。此前 Memory/Pipeline 页面因消费同步签名端口而未注入。
 
 **按两个子步骤实施**：
 
@@ -330,6 +330,8 @@ node node_modules/vitest/vitest.mjs run apps/desktop-electron/src/main/__tests__
 2. D06/D07 完成后增加原生窗口创建/会话绑定/任务中心、独立日志与状态、关闭继续/取消、重连。各窗口连接同协调器，双外壳并开不能各建写 owner。
 
 **同时核验**：发行侧车/Node ABI 和 Tauri OAuth 协议桥的当前链路；确实缺失才补外壳配置/桥接，不把第三方资质或 MSVC 安装列作业务编码。
+
+**执行记录（2026-10-03）**：Memory/Pipeline 改为真实异步端口并在写后读取权威状态；新增共享 code-domain Agent 会话页与 Electron/Tauri 原生窗口入口；Tauri OAuth Deep Link/单实例桥按 state 回投共享 auth 域；发行侧车 staged Node + SQLite ABI 检查通过。Renderer/Electron/Tauri TypeScript 检查通过；Memory/Pipeline UI 测试 49 项通过，Auth 协议测试通过。另在隔离 user-data 目录启动真实 Electron 33.4.11：两个页面截图见 [D08 Electron 实机证据](../evidence/V2-D08/README.md)，memory 页读出 SQLite 空态，pipeline 页显示“未打开项目”（不是“未初始化”）；从 Electron preload bridge 同时打开 3 个 BrowserWindow，3 个独立 session 都读到 code-domain 的共享协调器快照。该隔离配置 readiness 为 0 个 Provider，因此没有提交会触发模型的任务，**任务执行重叠未验**。本机没有 Cargo/Rust 命令，Tauri 原生页面、发行安装包、Tauri 3 窗口及双壳任务并发仍**未验**；没有用浏览器 mock 替代原生证据。
 
 **验收**：Tauri 记忆/流水线页面真正能操作且重启一致；两种外壳各3个原生窗口产生时间重叠的独立任务；同会话双视图不重发、取消不串窗、关闭恢复正确。浏览器标签和 mock bridge 不替代原生证据。
 
@@ -518,11 +520,11 @@ D06/D07就绪后接原生多窗口与共享协调器；发行侧车和协议桥�
 - **D00，2026-10-02**：已实现待验收。①契约转换单点落在 `packages/ai/src/domain/model-route.ts`（`coreRouteOfModelRoute`/`modelRouteOfCoreRoute`/`persistentRouteKeyOf`）：ai 生产路由 modelId=上游名、colon 句柄（DB `provider_model_id` 列），core 契约 modelId=本地 model 行 ULID、slash 键（usage/价格/账务持久化用），两键空间不互解、转换无损；`packages/core/src/v2/provider-model.ts` 只补分层说明，不反向依赖 ai。②`planApply` 默认配置改按完整路由（模型名+声明渠道）比较：同名换渠道（A/x→B/x）经 `providerSwitch` 提示确认；服务层三处调用改传 `currentDefaultProviderName`，指名渠道内未命中解析为 missing 不回退全局绑定；未确认绑定保持原渠道。③差异提示 `DiffPreview` 区分「换模型」与「仅换渠道」。测试：新增跨包转换 5 项（`domain/__tests__/model-route.test.ts`）、planApply 完整路由 4 项、服务层确认/拒绝/无处解析 1 项（`ai-control-route.test.ts` 6 项全过）、DiffPreview 渲染 3 项；remote-config 18 项、core v2 28 项复跑通过；13 项基线中 local-mode 5 项与 ai-control-route 6 项通过，迁移测试 1 项因并行会话在途新增 `0009_api_index.sql` 使 `down(1)` 只回滚 0009 而失败（非本卡回归，归属迁移集成人协调）。typecheck（core/ai/renderer）、eslint、prettier 通过。未验：真实 UI 手工操作与真实渠道（归 D16）。
 - **D10，2026-10-03**：已实现待验收。新增账号服务迁移 `0004_platform_catalog` 与 Fastify `/api/catalog`、本地 JSON 快照读取契约、`/api/admin/catalog/*`：复用 `ProviderModelInfo`、`PriceVersion`、路由键和 `computeUsageCost`；Provider/Model 目录可管理状态、精确 canonical 身份、能力与上下文来源。管理员由服务端 `ACCOUNT_PLATFORM_ADMIN_IDS` allowlist 授权；上游地址只在管理 API 可见，凭据只接收 `env:`/`secret://` 引用名并仅回传存在/轮换状态。平台价格按渠道+模型路由追加版本，effectiveTo 从下一生效时间推导，DB trigger 拒绝更新/删除；官网价单独存精确 canonical 身份、HTTPS 来源、核验时间、版本、证据原文哈希和适用条件，仅完全匹配才作为本地估算。没有真实 Provider/模型定价种子；测试金额和 URL 是合成夹具。测试：账号服务 29 项、core 335 项、D00 AI 29 项及 DiffPreview 3 项通过；D10 范围 account/core-v2 TypeScript 检查、ESLint 与 Prettier 通过。全量 account/core typecheck 复跑被工作区中未提交的 `packages/shell-api/src/mock.ts` 改动挡住（缺 `WindowApi.openAgentWindow`，不属于 D10）。未验：真实厂商官网来源逐项人工核验、部署 allowlist/secret resolver 和 D13 网站管理 UI；不得把测试夹具当线上价格。
 - **D01，2026-10-02**：已实现待验收。①统一识别管线落在 `packages/core/src/project/source-detection.ts`（`detectSource`/`anchorDraftToRoot`，纯函数、不执行工程脚本）：四路接入（Git/打开文件夹/复制/ZIP）共用同一扫描器（`git-import-port.ts` 导出 `scanSourceSnapshot`）与同一落盘口径（`<projectDir>/meta/source-detection.json`，v2 `sourceDetectionSchema` 校验，重扫 revision 递增）；P0 矩阵（静态站/React+Vite/Vue+Vite/Express/NestJS/FastAPI）给 `supported`+运行计划，Next/Nuxt/CRA/Flask 等给 `partial`，无信号给 `unknown` 且不出命令（未知栈不误报支持）；workspace 成员识别（pnpm-workspace.yaml/workspaces 字段）、多应用并列输出并由 UI 让用户选择。②打开文件夹（`importFromFolder`，link 默认/copy 可选）与 ZIP（`importFromZip`）新增到 workspace 域 + shell-api 白名单（previewSourceDetection/cancelSourceImport/detectSource/getSourceDetection 同批）；文件夹 link 模式只写代码根指针并只读扫描（未提交改动零触碰），ZIP 复用 package-kit `ZipReader` 流式解压 + `zip-safety.ts` 三层防御（落盘前条目校验：穿越/绝对路径/盘符/UNC/ADS/大小写与尾部字符碰撞/重复路径/条目数/声明大小/压缩比；逐条目复核+containment；实际字节预算），解压目标必须为空目录。③取消：选择器取消（渲染层 dialog 能力，返回 null 不发起调用）、预取消、复制/解压中途取消（`cancelSourceImport` 按令牌中止，复制循环每 64 文件让出事件循环使取消 RPC 可落地）；失败/取消补偿只清本次创建的项目行与工程目录。④UI：NewProjectDialog 新增「打开文件夹」「从 ZIP 导入」两页签（外壳 dialog 能力选路径，导入前只读预扫描展示识别结论与建议命令/环境变量名/支持边界），阶段常量扩为 clone/copy/extract/inspect/finalize。测试：core 新增 source-detection 14 项+zip-safety 15 项、域集成 21 项（`domain-workspace-source.test.ts`：四路径/中文空格路径/未提交改动保护（git status 前后一致）/穿越·盘符·UNC·ADS·大小写碰撞·解压炸弹反例/损坏 ZIP/非空目标拒绝/预取消+复制中途取消+解压中途取消/重扫 revision 递增/Git 导入接入同管线）、renderer 5 项（取消选择不写库/link·copy·zip 落库/取消导入令牌一致）；既有回归复跑全绿（domain-workspace 25 项、domain-workspace-git 9 项、project-service 24 项、git-import 18 项、shell-api domain-control 23 项）。eslint/prettier 通过；desktop-electron 与 renderer 的 tsc 有并行会话在途错误（preview-domain/run-planner/gateway-control 等，非本卡文件），本卡文件经临时 tsconfig 验证 0 错误。未验：Electron/Tauri 真实外壳手工操作（原生选择器实际行为、真实大 ZIP），归 D16 双壳验收。
-- **T01，2026-10-01**：已交付 [V2-CONTRACT-BASELINE.md](../V2-CONTRACT-BASELINE.md) 与 `packages/core/src/v2/`；历史记录为 28 项新契约测试、core 子集通过。未做真实 UI/双壳验收；并行产生的路由差异现由 D00 收口，不删除已交付契约。
-- **T02，2026-10-01**：已交付 0008 迁移、复合路由、幂等补齐、歧义拒绝与选择器 Provider/Model 显示；同 Provider 重复行处理不跨 Provider 合并。执行时 T01 并行在建，领域契约暂自足，这一历史原因保留；本次路由/迁移8项测试通过，不能据此忽略跨包差异和默认变更反例。
 - **D15，2026-10-03**：已实现待验收。确认 D01、D02 仍为「已实现待验收」，源码 ZIP 继续复用 D01 的普通 ZIP 接入与统一 `detectSource`，未向源码 ZIP 添加产品元数据。package-kit 用既有 ZipReader/ZipWriter、路径/条目/展开体积/压缩比校验、脱敏和导入冲突管线新增普通 ZIP 源码导出与带可读校验 sidecar 的本地数据备份；源码 ZIP 平铺源码根目录，完整备份独立恢复，冲突必须逐项决策且默认保留本地。Electron 设置导出、包域导出、增量兼容入口、手动/定时/回滚前快照均改写 `.zip`；旧 `.ecpkg` 独立只读迁移 UI 先校验旧包与密码，再写 ZIP，不改原件；快照 UI 标记旧包，保留份数清理只删新 ZIP、不删历史 `.ecpkg`。旧归档 writer/reader 留作兼容与回归，不再由生产新导出调用；未重写 ZIP 容器或引入新专有扩展名。
   - 验证：package-kit 全套测试通过（216 项）；D15 定向回归最终 14 个文件、132 项通过（标准 ZIP、备份/冲突与恢复、明文迁移、错密码/损坏包原件保护、旧快照保留、Electron 域与设置 UI）；`@ec/package-kit`、`@ec/desktop-electron`、`@ec/desktop-tauri`、`@ec/renderer` TypeScript 检查通过，D15 TypeScript 文件 Prettier 检查与 `git diff --check` 通过。
   - 未验：Electron/Tauri 原生窗口手工操作与用户真实历史 `.ecpkg` 样本迁移；目前旧包验收使用既有 writer 生成的明文/加密夹具与坏包。双壳发行/真实旧档案验证归 D16，不据此宣称最终验收完成。
+- **T01，2026-10-01**：已交付 [V2-CONTRACT-BASELINE.md](../V2-CONTRACT-BASELINE.md) 与 `packages/core/src/v2/`；历史记录为 28 项新契约测试、core 子集通过。未做真实 UI/双壳验收；并行产生的路由差异现由 D00 收口，不删除已交付契约。
+- **T02，2026-10-01**：已交付 0008 迁移、复合路由、幂等补齐、歧义拒绝与选择器 Provider/Model 显示；同 Provider 重复行处理不跨 Provider 合并。执行时 T01 并行在建，领域契约暂自足，这一历史原因保留；本次路由/迁移8项测试通过，不能据此忽略跨包差异和默认变更反例。
 - **T03，2026-10-01**：已补连接测试收费确认/计量（purpose=connection-test）、本地模式说明、空域/禁平台/脱敏/登出保留/A-B 路由测试；上游为本机 OpenAI 协议模拟服务，无真实付费调用。原证据见 [ACCEPTANCE-REPORT.md §2.15](../ACCEPTANCE-REPORT.md)；本次5项复跑通过，真实DPAPI/双壳仍须验收。
 
 ## 6. 需求覆盖与不重复建设边界

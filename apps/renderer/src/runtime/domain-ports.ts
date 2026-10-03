@@ -317,10 +317,9 @@ export async function installDomainPorts(
   if (available.has('settings')) globals['__EC_SETTINGS__'] = createSettingsApi(call);
 
   // T12-01：十一域生产能力端口（memory / pipeline / git / preview / rename /
-  // package / usage / ai-context / code / nav / designer）。
-  // 同步签名端口（memory / pipeline）在外壳没有 invokeSync 时不注入——
-  // 消费方会在写入后立刻同步读回，异步通道给不出正确结果，宁可保留装配引导。
-  const production = await installProductionPorts(host, call, subscribe, available, globals);
+  // package / usage / ai-context / code / nav / designer）。Memory/Pipeline
+  // 也走异步 RPC；页面在成功写入后主动读取领域权威状态。
+  const production = await installProductionPorts(call, subscribe, available, globals);
   const installed = [...selectAvailableDomains(descriptors), ...production.installed];
   // 两个装配批次可能重叠（基础四域不产出生产能力端口，但 keep 语义清晰），按序去重
   const deduped = [...new Set(installed)];

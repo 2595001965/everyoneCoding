@@ -386,6 +386,14 @@ const processApi: ProcessApi = {
 };
 
 const windowApi: WindowApi = {
+  async openAgentWindow(input): Promise<void> {
+    await call<void>('window_open_agent', {
+      project_id: input.projectId,
+      project_name: input.projectName,
+      session_id: input.sessionId,
+      title: input.title,
+    });
+  },
   async setTitle(title: string): Promise<void> {
     await call<void>('window_set_title', { title });
   },

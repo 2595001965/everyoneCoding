@@ -51,6 +51,7 @@ describe('PipelineWorkspace（E2E-03 集成路径）', () => {
 
     // 待确认 → 确认 → 前进
     fireEvent.click(screen.getByTestId('stage-confirm'));
+    await waitFor(() => expect(api.machine.statusOf('S1')).toBe('confirmed'));
     fireEvent.click(screen.getByTestId('stage-advance'));
     await waitFor(() => {
       expect(api.machine.statusOf('S2')).toBe('running');
@@ -66,12 +67,13 @@ describe('PipelineWorkspace（E2E-03 集成路径）', () => {
     fireEvent.click(screen.getByTestId('idea-generate'));
     await waitFor(() => expect(screen.getByTestId('artifact-viewer')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('stage-confirm'));
+    await waitFor(() => expect(api.machine.statusOf('S1')).toBe('confirmed'));
     fireEvent.click(screen.getByTestId('stage-advance'));
+    await waitFor(() => expect(api.machine.statusOf('S2')).toBe('running'));
     // S2 由设计器产出 → 提交待确认 → 确认 → 前进 S3
-    act(() => {
-      api.submitForReview('P1', 'S2');
-    });
+    await act(async () => api.submitForReview('P1', 'S2'));
     fireEvent.click(screen.getByTestId('stage-confirm'));
+    await waitFor(() => expect(api.machine.statusOf('S2')).toBe('confirmed'));
     fireEvent.click(screen.getByTestId('stage-advance'));
 
     // 未选方案：S3 侧栏出现问卷入口
@@ -96,18 +98,15 @@ describe('PipelineWorkspace（E2E-03 集成路径）', () => {
       orm: 'prisma',
       deploy: 'desktop',
     });
+    await api.startStage('P1', 'S1');
+    await api.submitForReview('P1', 'S1');
+    await api.confirm('P1', 'S1');
+    await api.advance('P1', 'S1', 'S2');
+    await api.startStage('P1', 'S2');
+    await api.submitForReview('P1', 'S2');
+    await api.confirm('P1', 'S2');
+    await api.advance('P1', 'S2', 'S3');
     renderWorkspace(api);
-
-    api.startStage('P1', 'S1');
-    api.submitForReview('P1', 'S1');
-    api.confirm('P1', 'S1');
-    api.advance('P1', 'S1', 'S2');
-    api.startStage('P1', 'S2');
-    api.submitForReview('P1', 'S2');
-    api.confirm('P1', 'S2');
-    act(() => {
-      api.advance('P1', 'S2', 'S3');
-    });
 
     await waitFor(() => {
       expect(screen.getByTestId('tech-choice-side')).toBeInTheDocument();

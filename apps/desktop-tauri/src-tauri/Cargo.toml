@@ -41,6 +41,10 @@ tauri-plugin-fs = "2"
 tauri-plugin-process = "2"
 # 自动更新（check / download / install）。
 tauri-plugin-updater = "2"
+# OAuth custom-scheme delivery across installed and running app instances.
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+url = "2"
 # 更新发布时间的 RFC3339 格式化（updater 插件返回 time::OffsetDateTime）。
 time = { version = "0.3", default-features = false, features = ["formatting", "std"] }
 # 操作系统信息（arch / 平台 / 语言）。

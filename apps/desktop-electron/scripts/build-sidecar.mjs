@@ -59,7 +59,7 @@ async function build() {
     entryPoints: [entry],
     bundle: true,
     platform: 'node',
-    target: 'node22',
+    target: `node${process.versions.node.split('.')[0]}`,
     format: 'cjs',
     outfile: join(outDir, 'everyone-coding-sidecar.cjs'),
     // 原生模块与宿主注入的全局不打包
@@ -90,7 +90,8 @@ async function build() {
       'clipboard.writeText',
     ],
     // 侧车要求的 Node 主版本（better-sqlite3 的 ABI 与之绑定）
-    nodeMajor: 22,
+    nodeMajor: Number(process.versions.node.split('.')[0]),
+    nodeAbi: Number(process.versions.modules),
     migrations: 'migrations',
   };
   writeFileSync(join(outDir, 'sidecar-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

@@ -157,7 +157,15 @@ export function createSidecarService(
   overrides: Partial<SidecarDeps> = {},
 ): SidecarServiceHandle {
   const deps: SidecarDeps = {
-    createRuntime: overrides.createRuntime ?? createHeadlessRuntime,
+    createRuntime:
+      overrides.createRuntime ??
+      ((options) =>
+        createHeadlessRuntime({
+          ...options,
+          // Tauri owns OS scheme registration and forwards validated URLs through
+          // the auth domain's deliverProtocolUrl method.
+          registerProtocolHandler: () => true,
+        })),
     resolveMigrationsDir: overrides.resolveMigrationsDir ?? resolveSidecarMigrationsDir,
     pid: overrides.pid ?? process.pid,
     nodeVersion: overrides.nodeVersion ?? process.versions.node,

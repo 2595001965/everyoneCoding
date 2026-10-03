@@ -15,6 +15,7 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "dev": "tauri dev",
+    "stage-sidecar": "node scripts/stage-sidecar.mjs",
     "build": "tauri build"
   },
   "dependencies": {

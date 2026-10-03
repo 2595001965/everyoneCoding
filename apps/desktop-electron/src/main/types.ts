@@ -95,7 +95,8 @@ export interface ElectronAppLike {
 /** 全部 IPC 模块共享的依赖集合 */
 export interface IpcDependencies {
   dialog: ElectronDialogLike;
-  getWindow: () => BrowserWindowLike | null;
+  getWindow: (event?: unknown) => BrowserWindowLike | null;
+  openAgentWindow: (input: { projectId: string; projectName: string; sessionId: string; title: string }) => void;
   clipboard: ElectronClipboardLike;
   safeStorage: SafeStorageLike | null;
   updater: UpdaterLike | null;

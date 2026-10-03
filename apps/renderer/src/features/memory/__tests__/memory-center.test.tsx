@@ -133,7 +133,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
 
-    expect(screen.getByText('看板任务列表')).toBeInTheDocument();
+    expect(await screen.findByText('看板任务列表')).toBeInTheDocument();
     expect(screen.getByText('命名规范')).toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: '选择项目' }));
@@ -183,7 +183,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
 
-    await user.click(screen.getByText('命名规范'));
+    await user.click(await screen.findByText('命名规范'));
     const titleInput = await screen.findByRole('textbox', { name: '记忆标题' });
     await user.clear(titleInput);
     await user.type(titleInput, '命名规范（更新）');
@@ -202,7 +202,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
 
-    await user.click(screen.getByText('登录页 /login'));
+    await user.click(await screen.findByText('登录页 /login'));
     await user.click(await screen.findByRole('tab', { name: '结构化' }));
 
     await user.click(screen.getByRole('button', { name: '保存' }));
@@ -226,7 +226,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
 
-    await user.click(screen.getByRole('checkbox', { name: '选择「命名规范」' }));
+    await user.click(await screen.findByRole('checkbox', { name: '选择「命名规范」' }));
     expect(screen.getByText('已选 1 条')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '删除' }));
@@ -250,7 +250,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
 
-    await user.click(screen.getByRole('checkbox', { name: '选择「命名规范」' }));
+    await user.click(await screen.findByRole('checkbox', { name: '选择「命名规范」' }));
     await user.click(screen.getByRole('button', { name: '删除' }));
     await user.click(screen.getByRole('button', { name: '取消' }));
 
@@ -264,7 +264,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
     // 选中条目后右侧展示该条目的变更日志
-    await user.click(screen.getByText('命名规范'));
+    await user.click(await screen.findByText('命名规范'));
     expect(await screen.findByText('自动写入')).toBeInTheDocument();
     expect(screen.getByText(/以后都用小驼峰命名/)).toBeInTheDocument();
     expect(screen.getByText('原始对话暂不可跳转')).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe('记忆中心', () => {
     const user = userEvent.setup();
     renderCenter(api);
 
-    await user.click(screen.getByRole('checkbox', { name: '选择「命名规范」' }));
+    await user.click(await screen.findByRole('checkbox', { name: '选择「命名规范」' }));
     await user.click(screen.getByRole('button', { name: '导出选中为 JSON' }));
 
     await waitFor(() => {
@@ -292,10 +292,10 @@ describe('记忆中心', () => {
     expect(screen.getByText('记忆中心尚未初始化')).toBeInTheDocument();
   });
 
-  it('其它项目下的条目不会被误纳入统计', () => {
+  it('其它项目下的条目不会被误纳入统计', async () => {
     renderCenter(api);
     // 项目记忆：P1 一条 + P2 一条（当前未选项目，两者都可见）
-    expect(screen.getByText('共 6 条')).toBeInTheDocument();
+    expect(await screen.findByText('共 6 条')).toBeInTheDocument();
     expect(vi.isMockFunction(api.list)).toBe(false);
   });
 });

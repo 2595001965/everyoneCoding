@@ -47,9 +47,10 @@ Rust 只负责三件事：**生命周期**（起停 / 崩溃回收 / 升级兼�
 - 不伪造成功：侧车不可用时每个命令返回**带真实原因**的 `NOT_SUPPORTED`，
   `capabilities()` 的 `ai` / `domain` 来自 `sidecar_status` 的真实装配结果，
   缺失原因经 `ShellCapabilities.reasons` 回传渲染层
-- 唯一的结构性差异：`memory` / `pipeline` 的**同步签名端口**在 Tauri 下不注入
-  （Tauri 渲染层没有同步 IPC 原语，用异步伪装同步会读到上一拍的数据）。
-  两个域本身完全可用，走异步 `domain.invoke`。详见 `docs/CAPABILITY-MATRIX.md §2.1`
+- `memory` / `pipeline` 的渲染端口统一走异步 `domain.invoke`：操作完成后再读取权威状态，
+  两个页面在 Electron 与 Tauri 都会注入；不依赖 Tauri 不具备的同步 IPC。
+- Agent 二级窗口是原生 WebView / BrowserWindow，所有窗口调用同一进程的领域运行时；
+  Tauri 侧还由 D06 SQLite fencing lease 约束跨进程协调器所有权。
 
 ## 启动命令
 
@@ -122,10 +123,12 @@ scripts/
   `tauri build`（release + NSIS 出包）已在装有 MSVC 的机器上通过；release 产物实机启动渲染正常。
   首轮编译曾修正 20 余处与真实依赖 API 的偏差（windows 0.58 的 `CRYPT_INTEGER_BLOB`/
   `LocalFree` 位置、`AppState::default` 缺失、`dialog_confirm` 按钮语义、`Update.body` 字段名等）。
-- **侧车随包分发（发行形态）未做**：开发期侧车用系统 PATH 上的 `node`；
-  发行包需要把 `node.exe` + `dist/sidecar/**` 一起放进 `bundle.resources`，
-  并且随包的 Node 必须与 `better-sqlite3` 的 Node ABI 同代（当前按 Node 24 / ABI 137 构建）。
-  未做这一步之前，**打包产物里的域端口与 AI 栈不可用**（会如实报"未找到侧车产物"）。
+- **侧车随包分发已接线，Tauri 安装包待本机编译验证**：`beforeBuildCommand` 构建共享业务侧车并运行
+  `scripts/stage-sidecar.mjs`，将 `node.exe`、侧车、迁移与 ABI 对应的 `better-sqlite3` 依赖写入
+  `src-tauri/resources/sidecar`；脚本会启动暂存 Node 并执行真实内存 SQLite 查询。`bundle.resources`
+  递归打包该目录。Tauri/Cargo 工具链未安装时，安装包实测仍未验。
+- **OAuth 协议桥已接线，OS 实测待验**：Deep Link 与单实例插件将 `everyonecoding://oauth`
+  送到应用级侧车，由 auth 域按 state 选中一次性 handshake；回环仍是首选通道。
 - **updater**：端点与公钥在 `tauri.conf.json` 中为占位符，发布前须替换为真实 `pubkey`。
 - **fs.watch**：采用轻量轮询实现（约 400ms 粒度），非原生 inotify/ReadDirectoryChangesW。
 - **clipboard**：依赖 `tauri-plugin-clipboard-manager`，需确认其 API 与所用版本一致。

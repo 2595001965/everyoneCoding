@@ -3,7 +3,6 @@ import { createApiIndexApi, installProductionPorts } from '../production-ports';
 import { navigateToLocation, useNavLocation } from '../nav-location';
 import { useProjectStore } from '../../store/useProjectStore';
 import type { DomainCaller } from '../domain-ports';
-import type { DomainControlHost } from '@ec/shell-api';
 import type { SourceRef } from '@ec/core';
 
 beforeEach(() => {
@@ -14,16 +13,10 @@ beforeEach(() => {
 });
 describe('D04 共用异步生产端口（Electron/Tauri）', () => {
   it('新方法只经 nav 白名单，附带真实项目与版本；缺同步口仍可注入', async () => {
-    const invoke = vi.fn(async () => ({ requestId: 'r', ok: true, result: null }));
-    const host = {
-      invoke,
-      describe: async () => [{ kind: 'nav', available: true }],
-    } as DomainControlHost;
     const call = vi.fn(async () => null),
       caller = { call } as DomainCaller,
       globals: Record<string, unknown> = {};
     const installed = await installProductionPorts(
-      host,
       caller,
       () => () => {},
       new Set(['nav']),

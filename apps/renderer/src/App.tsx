@@ -40,6 +40,9 @@ const CodeWorkspacePage = lazy(() =>
 const ApiPage = lazy(() =>
   import('./pages/ApiPage').then((module) => ({ default: module.ApiPage })),
 );
+const AgentWindowPage = lazy(() =>
+  import('./pages/AgentWindowPage').then((module) => ({ default: module.AgentWindowPage })),
+);
 
 /**
  * 根组件：主题应用 + 主路由（工作台 / 设计器 / 记忆 / 流水线 / Git / 预览 / 统一重命名 / 文档 / 账号 / 用量 / 设置）。
@@ -64,6 +67,7 @@ export function App(): JSX.Element {
             <Route path="/" element={<WorkspacePage />} />
             <Route path="/designer" element={<DesignerPage />} />
             <Route path="/code" element={<CodeWorkspacePage />} />
+            <Route path="/agents" element={<AgentWindowPage />} />
             <Route path="/apis" element={<ApiPage />} />
             <Route path="/memory" element={<MemoryPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />

@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @ec/renderer dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm --filter @ec/renderer build",
+    "beforeBuildCommand": "pnpm --filter @ec/renderer build && pnpm --filter @ec/desktop-electron build:sidecar && pnpm --filter @ec/desktop-tauri stage-sidecar",
     "frontendDist": "../../renderer/dist"
   },
   "app": {
@@ -34,7 +34,7 @@
     "targets": "nsis",
     "icon": ["icons/icon.ico"],
     "createUpdaterArtifacts": true,
-    "resources": ["../../../LICENSE", "../../../NOTICE"],
+    "resources": ["../../../LICENSE", "../../../NOTICE", "resources/sidecar"],
     "windows": {
       "nsis": {
         "displayLanguageSelector": false,
@@ -44,6 +44,11 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["everyonecoding"]
+      }
+    },
     "updater": {
       "endpoints": [
         "https://github.com/2595001965/everyoneCoding/releases/latest/download/latest.json"

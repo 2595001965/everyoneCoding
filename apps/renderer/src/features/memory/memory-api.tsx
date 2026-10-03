@@ -175,11 +175,11 @@ export interface ImportCommitResult {
 /* ---------------------------- 取消/撤销 ---------------------------- */
 
 export interface MemoryApi {
-  listProjects(): ProjectOption[];
-  stats(input: { userId: string; projectId: string | null }): MemoryStats;
+  listProjects(): Promise<ProjectOption[]>;
+  stats(input: { userId: string; projectId: string | null }): Promise<MemoryStats>;
 
-  list(input: { userId: string; projectId: string | null; query: MemoryQuery }): MemoryItem[];
-  detail(id: string): MemoryDetail | null;
+  list(input: { userId: string; projectId: string | null; query: MemoryQuery }): Promise<MemoryItem[]>;
+  detail(id: string): Promise<MemoryDetail | null>;
   /**
    * 冲突索引（memoryId → 该条目的冲突标注）。
    * 一次调用拿到整批条目的覆盖关系，避免列表逐条查询。
@@ -187,27 +187,27 @@ export interface MemoryApi {
   conflictIndex(input: {
     userId: string;
     projectId: string | null;
-  }): Record<string, ConflictAnnotation[]>;
+  }): Promise<Record<string, ConflictAnnotation[]>>;
   context(input: {
     userId: string;
     projectId: string;
     featureId?: string | null;
     pageId?: string | null;
     elementId?: string | null;
-  }): ContextView;
+  }): Promise<ContextView>;
 
-  create(draft: MemoryDraft): MemoryItem;
-  update(id: string, patch: MemoryPatch, expectedVersion?: number): MemoryItem;
-  setPinned(id: string, pinned: boolean): MemoryItem;
-  setIssueStatus(id: string, next: IssueStatus, options?: { explicit?: boolean }): MemoryItem;
-  moveLayer(ids: readonly string[], target: LayerMoveTarget): MemoryItem[];
+  create(draft: MemoryDraft): Promise<MemoryItem>;
+  update(id: string, patch: MemoryPatch, expectedVersion?: number): Promise<MemoryItem>;
+  setPinned(id: string, pinned: boolean): Promise<MemoryItem>;
+  setIssueStatus(id: string, next: IssueStatus, options?: { explicit?: boolean }): Promise<MemoryItem>;
+  moveLayer(ids: readonly string[], target: LayerMoveTarget): Promise<MemoryItem[]>;
 
   /** 批量删除（调用方应先经二次确认）；返回可撤销令牌 */
-  remove(ids: readonly string[]): BatchRemoveResult;
+  remove(ids: readonly string[]): Promise<BatchRemoveResult>;
   /** 撤销一次批量删除 */
-  restore(ids: readonly string[]): void;
+  restore(ids: readonly string[]): Promise<void>;
 
-  changeLog(input: { userId: string; memoryId?: string; limit?: number }): ChangeLogRecord[];
+  changeLog(input: { userId: string; memoryId?: string; limit?: number }): Promise<ChangeLogRecord[]>;
 
   exportMemories(request: MemoryExportRequest): Promise<MemoryExportResult>;
   importPreview(input: {

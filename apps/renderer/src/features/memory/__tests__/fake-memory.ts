@@ -47,9 +47,9 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
     lastImportDecisions: [],
     all: () => [...store],
 
-    listProjects: () => options.projects ?? [{ id: 'P1', name: '商城' }],
+    listProjects: async () => options.projects ?? [{ id: 'P1', name: '商城' }],
 
-    stats({ projectId }): MemoryStats {
+    async stats({ projectId }): Promise<MemoryStats> {
       const visible = store.filter((item) => matchesProject(item, projectId));
       const byLayer = new Map<string, number>();
       for (const item of visible) {
@@ -67,7 +67,7 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       };
     },
 
-    list({ projectId, query }): MemoryItem[] {
+    async list({ projectId, query }): Promise<MemoryItem[]> {
       let rows = store.filter((item) => matchesProject(item, projectId));
       if (query.layers && query.layers.length > 0) {
         rows = rows.filter((item) => query.layers?.includes(layerOf(item)));
@@ -98,15 +98,15 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       return query.limit !== undefined ? rows.slice(0, query.limit) : rows;
     },
 
-    detail(id): MemoryDetail | null {
+    async detail(id): Promise<MemoryDetail | null> {
       const item = store.find((entry) => entry.id === id);
       if (!item) return null;
       return { item, conflicts: options.conflicts?.[id] ?? [], coverage: null, violations: [] };
     },
 
-    conflictIndex: () => options.conflicts ?? {},
+    conflictIndex: async () => options.conflicts ?? {},
 
-    context({ projectId }) {
+    async context({ projectId }) {
       const rows = store.filter((item) => matchesProject(item, projectId));
       const byLayer = new Map<string, MemoryItem[]>();
       for (const item of rows) {
@@ -121,7 +121,7 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       };
     },
 
-    create(draft): MemoryItem {
+    async create(draft): Promise<MemoryItem> {
       sequences += 1;
       const now = Date.now();
       const item: MemoryItem = {
@@ -153,7 +153,7 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       return item;
     },
 
-    update(id, patch: MemoryPatch, expectedVersion?: number): MemoryItem {
+    async update(id, patch: MemoryPatch, expectedVersion?: number): Promise<MemoryItem> {
       const index = store.findIndex((entry) => entry.id === id);
       const current = store[index];
       if (!current) throw new Error(`条目不存在：${id}`);
@@ -179,11 +179,11 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       return next;
     },
 
-    setPinned(id, pinned): MemoryItem {
+    async setPinned(id, pinned): Promise<MemoryItem> {
       return api.update(id, { pinned });
     },
 
-    setIssueStatus(id, next): MemoryItem {
+    async setIssueStatus(id, next): Promise<MemoryItem> {
       // issueStatus 不在 MemoryPatch 内（真实实现走 MemoryRepo.setIssueStatus），这里直接改行
       const index = store.findIndex((entry) => entry.id === id);
       const current = store[index];
@@ -193,7 +193,7 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       return updated;
     },
 
-    moveLayer(ids, target: LayerMoveTarget): MemoryItem[] {
+    async moveLayer(ids, target: LayerMoveTarget): Promise<MemoryItem[]> {
       return ids.map((id) => {
         const index = store.findIndex((entry) => entry.id === id);
         const current = store[index];
@@ -214,20 +214,20 @@ export function createFakeMemoryApi(options: FakeMemoryOptions = {}): FakeMemory
       });
     },
 
-    remove(ids: readonly string[]): BatchRemoveResult {
+    async remove(ids: readonly string[]): Promise<BatchRemoveResult> {
       const removed = store.filter((item) => ids.includes(item.id));
       trash = [...trash, ...removed];
       store = store.filter((item) => !ids.includes(item.id));
       return { removedIds: removed.map((item) => item.id) };
     },
 
-    restore(ids: readonly string[]): void {
+    async restore(ids: readonly string[]): Promise<void> {
       const back = trash.filter((item) => ids.includes(item.id));
       trash = trash.filter((item) => !ids.includes(item.id));
       store = [...store, ...back];
     },
 
-    changeLog: ({ limit }) => (options.changeLogs ?? []).slice(0, limit ?? 50),
+    changeLog: async ({ limit }) => (options.changeLogs ?? []).slice(0, limit ?? 50),
 
     async exportMemories(request: MemoryExportRequest): Promise<MemoryExportResult> {
       api.lastExport = request;

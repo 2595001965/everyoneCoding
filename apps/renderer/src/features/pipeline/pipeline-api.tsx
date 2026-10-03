@@ -26,25 +26,25 @@ export interface PipelineApi {
   readonly ready: boolean;
   readonly reason?: string | undefined;
   captureDesign(projectId: string): Promise<{ artifact: ArtifactVersion; pages: number }>;
-  getQueueState(projectId: string): QueueState | null;
+  getQueueState(projectId: string): Promise<QueueState | null>;
 
   /* ------------------------------ 状态机 ------------------------------ */
   /** 只读阶段状态快照 */
-  snapshot(projectId: string): PipelineStageSnapshot;
+  snapshot(projectId: string): Promise<PipelineStageSnapshot>;
   /** 前进到下一阶段（前置校验失败抛 InvalidTransitionError） */
-  advance(projectId: string, from: PipelineStage, to: PipelineStage): void;
+  advance(projectId: string, from: PipelineStage, to: PipelineStage): Promise<void>;
   /** 开始 / 重新生成某阶段 */
-  startStage(projectId: string, stage: PipelineStage): void;
+  startStage(projectId: string, stage: PipelineStage): Promise<void>;
   /** 生成完成进入待确认 */
-  submitForReview(projectId: string, stage: PipelineStage): void;
+  submitForReview(projectId: string, stage: PipelineStage): Promise<void>;
   /** 确认通过 */
-  confirm(projectId: string, stage: PipelineStage): void;
+  confirm(projectId: string, stage: PipelineStage): Promise<void>;
   /** 回退（UI 已二次确认；返回被置 stale 的阶段） */
-  back(projectId: string, from: PipelineStage, to: PipelineStage): PipelineStage[];
+  back(projectId: string, from: PipelineStage, to: PipelineStage): Promise<PipelineStage[]>;
   /** 跳过（仅 skippable 阶段） */
-  skip(projectId: string, stage: PipelineStage): void;
+  skip(projectId: string, stage: PipelineStage): Promise<void>;
   /** 确认"重新生成下游"后置 stale */
-  applyDownstreamStale(projectId: string, stage: PipelineStage): PipelineStage[];
+  applyDownstreamStale(projectId: string, stage: PipelineStage): Promise<PipelineStage[]>;
 
   /* ------------------------------ 阶段产物 ------------------------------ */
   /** 保存新版本产物 */
@@ -56,15 +56,15 @@ export interface PipelineApi {
     note?: string | undefined;
   }): Promise<ArtifactVersion>;
   /** 某阶段的版本台账 */
-  listArtifacts(projectId: string, stage: PipelineStage): ArtifactVersion[];
+  listArtifacts(projectId: string, stage: PipelineStage): Promise<ArtifactVersion[]>;
   /** 读取某版本内容 */
   readArtifact(projectId: string, stage: PipelineStage, version: number): Promise<string>;
   /** 读取相对上一版本的 diff（v1 为 null） */
   readDiff(projectId: string, stage: PipelineStage, version: number): Promise<string | null>;
   /** 切换生效版本（只改指针；提示由调用方用 notifyDownstream 发） */
-  switchVersion(projectId: string, stage: PipelineStage, version: number): void;
+  switchVersion(projectId: string, stage: PipelineStage, version: number): Promise<void>;
   /** 发"下游需重新生成"提示事件 */
-  notifyDownstream(projectId: string, stage: PipelineStage, message: string): void;
+  notifyDownstream(projectId: string, stage: PipelineStage, message: string): Promise<void>;
 
   /* ------------------------------ 阶段执行 ------------------------------ */
   /** S1：生成需求文档（入档 + 关联记忆） */
@@ -76,7 +76,7 @@ export interface PipelineApi {
     instruction?: string | undefined;
   }): Promise<RequirementGenerationResult>;
   /** 技术选型问卷：读取已保存结果（未选择返回 null → 阻断进入 S3） */
-  getTechChoice(projectId: string): TechChoice | null;
+  getTechChoice(projectId: string): Promise<TechChoice | null>;
   /** 保存问卷结果（写入项目记忆 structured.stack / targetPlatforms） */
   saveTechChoice(projectId: string, choice: TechChoice): Promise<void>;
   /** S3：生成技术文档（含 OpenAPI 草案与禁止技术后置校验） */
@@ -90,11 +90,11 @@ export interface PipelineApi {
     instruction?: string | undefined;
   }): Promise<TechDocGenerationResult>;
   /** S4：读取拆分结果（未拆分返回 null） */
-  getSplit(projectId: string): SplitResult | null;
+  getSplit(projectId: string): Promise<SplitResult | null>;
   /** 保存拆分结果 */
   saveSplit(projectId: string, split: SplitResult): Promise<void>;
   /** S4：影响面评估（T5-02 补充需求 / T7 重命名消费） */
-  evaluateImpact(projectId: string, change: ImpactRequest): ImpactReport;
+  evaluateImpact(projectId: string, change: ImpactRequest): Promise<ImpactReport>;
   /** S5：执行生成队列（含断点续生成；返回终态与进度快照） */
   runGeneration(input: {
     projectId: string;
@@ -116,14 +116,14 @@ export interface PipelineApi {
   /** S5 队列：单节点跳过 */
   skipNode(projectId: string, nodeId: string): Promise<QueueState>;
   /** S5 队列：暂停 */
-  pauseQueue(projectId: string): QueueState;
+  pauseQueue(projectId: string): Promise<QueueState>;
   /** 断点恢复信息：阶段快照 + S5 进度 + 待续阶段 */
-  getResumeProgress(projectId: string): {
+  getResumeProgress(projectId: string): Promise<{
     snapshot: PipelineStageSnapshot;
     s5Progress: string | null;
     resumeStage: PipelineStage | null;
     inputs?: { description: string };
-  };
+  }>;
   /** 重启恢复：校验产物一致性并返回断点 */
   recoverProject(projectId: string): Promise<{
     snapshot: PipelineStageSnapshot;

@@ -34,6 +34,7 @@ pub mod protocol;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
+use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
@@ -270,6 +271,23 @@ pub fn resolve_node(sidecar_dir: &Path) -> Result<PathBuf, String> {
     )
 }
 
+fn validate_node_abi(node: &Path, expected: Option<u32>) -> Result<(), String> {
+    let Some(expected) = expected else { return Ok(()) };
+    let output = Command::new(node)
+        .args(["-p", "process.versions.modules"])
+        .output()
+        .map_err(|error| format!("无法读取侧车 Node ABI（{}）：{error}", node.display()))?;
+    if !output.status.success() {
+        return Err(format!("侧车 Node ABI 探测失败（{}）", node.display()));
+    }
+    let actual = String::from_utf8_lossy(&output.stdout).trim().parse::<u32>()
+        .map_err(|_| format!("侧车 Node ABI 输出无效（{}）", node.display()))?;
+    if actual != expected {
+        return Err(format!("侧车与 better-sqlite3 ABI 不匹配：清单要求 {expected}，当前 Node 为 {actual}（{}）", node.display()));
+    }
+    Ok(())
+}
+
 /// 侧车目录候选（按优先级）。
 fn sidecar_dir_candidates(app: &AppHandle) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
@@ -315,6 +333,7 @@ pub fn resolve_sidecar(app: &AppHandle) -> Result<SidecarLocation, String> {
         match validate_sidecar_dir(&dir) {
             Ok((manifest, entry)) => {
                 let node = resolve_node(&dir)?;
+                validate_node_abi(&node, manifest.node_abi)?;
                 let migrations_dir = manifest
                     .migrations
                     .as_ref()

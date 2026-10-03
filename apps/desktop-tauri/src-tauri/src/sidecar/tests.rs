@@ -47,6 +47,7 @@ impl TempDir {
             "entry": entry_file,
             "hostCapabilities": ["secure.encrypt", "secure.decrypt"],
             "nodeMajor": 22,
+            "nodeAbi": 127,
             "migrations": "migrations",
         });
         std::fs::write(
@@ -419,6 +420,7 @@ fn descriptor_wire_omits_absent_reason() {
         entry: SIDECAR_ENTRY_FILE.into(),
         host_capabilities: vec![capability::SECURE_ENCRYPT.into()],
         node_major: 22,
+        node_abi: Some(127),
         migrations: Some("migrations".into()),
     };
     assert_eq!(manifest.node_major, 22);

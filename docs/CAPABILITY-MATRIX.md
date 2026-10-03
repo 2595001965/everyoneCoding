@@ -101,22 +101,11 @@ Tauri:     渲染层 → invoke  → Rust   → NDJSON → 侧车（同一个 do
 | `nav`        | ✅       | ✅    | 跳转 / 反查 / 关系图                                                                                          |
 | `designer`   | ✅       | ✅    | PageDSL；`createPage` 走 `@ec/designer/dsl` 的 `createEmptyPage`                                              |
 
-### 2.1 唯一的结构性差异：同步签名端口（memory / pipeline）
+### 2.1 Memory / Pipeline 的异步渲染端口
 
-`MemoryApi` 与 `PipelineApi` 是**同步签名**端口，消费方在 `advance()` 之后**立刻同步**
-读 `snapshot()`。Electron 用 `ipcRenderer.sendSync` 承载（`ec:domain:invokeSync`）。
-
-**Tauri 形态不提供该能力**，且这是如实的选择而非缺口：
-
-1. Tauri 的渲染层**没有同步 IPC 原语**（`invoke` 只有异步形态）；
-2. 用异步往返假装同步 = 写入后立刻读会拿到**上一拍**的数据，属于伪造状态；
-3. 在 JS 侧维护一份"同步镜像"同样是把非权威副本当权威用。
-
-因此渲染层的行为是：**这两个端口不注入**，对应页面保留如实的装配引导
-（`production-ports.ts` 的 `createDomainSyncCaller` 在宿主持有 `invokeSync` 时才注入）。
-两个域本身在 Tauri 下**完全可用**，走的是异步 `domain.invoke`。
-
-> 换句话说：受影响的是「记忆中心 / 流水线页的**同步调用方式**」，不是这两个域的功能。
+`MemoryApi` 与 `PipelineApi` 已转换为 Promise 契约，Electron 与 Tauri 都经异步
+`domain.invoke` 调用同一领域实现。页面在写入完成后重读 SQLite 权威状态；Tauri 不需要也不伪造
+同步 IPC。`ready.syncDomains` 仅描述领域内仍有同步实现的兼容信息，不再阻止异步页面注入。
 
 ---
 
@@ -131,7 +120,7 @@ settings 16，合计 76；上文历史记录中的“四域 69 方法”是此�
 | 文档全文搜索        | `searchDocuments(projectId, query)` 按标题/段落匹配，返回锚点与片段；renderer 点击定位，转换范围预选命中段      | OCR 文字与普通正文同样可搜，排除回收站；目前逐段扫描，未做大库索引性能验收                                                      |
 | 文档转记忆          | 配置的 AI 网关以 `memory-extract` 生成预览；提交保存编辑后的草稿和来源关联；缺配置、空输出或流错误如实失败      | 自动化使用模拟网关；真实模型质量仍需 M-08                                                                                       |
 | 邮箱验证 / 找回密码 | account 服务自托管验证页面；随机令牌校验、单次消费、过期拒绝、发送冷却与开发 outbox 已实现                      | 无需再扩展邮箱接口；真实送达需邮件 webhook。当前允许未验证账号登录，M-01 验证完整操作与送达时间                                 |
-| OAuth 自定义协议    | Electron 的 `everyonecoding://oauth` 经单实例桥接至 auth 域；默认回环失败才回退，支持 `EC_OAUTH_LOOPBACK_PORT`  | Electron 回环/协议模拟回调与真实端口冲突测试通过；Tauri 侧车未注入同等协议注册桥，不能据共用域推断协议通道等价；真实授权见 M-02 |
+| OAuth 自定义协议    | Electron 经单实例桥接；Tauri Deep Link + single-instance 插件将 URL 投递给共享 auth 域，按 state 一次性完成握手；默认回环失败才回退，支持 `EC_OAUTH_LOOPBACK_PORT` | Electron 回环/协议测试与共享 auth state 路由测试通过；Tauri Rust 插件尚未在本机编译/OS 实测；真实授权见 M-02 |
 
 证据及历史门禁数字见 [验收报告 §2.12.5](ACCEPTANCE-REPORT.md#2125-复核补缺与验收边界2026-09-30)。
 
@@ -182,7 +171,7 @@ AI 栈**不在 Rust 里重写**：它随侧车一起跑，Rust 只提供服务�
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Tauri 安装包产出与体积实测             | **未产出**：`cargo check / clippy / build` 与真实启动应用均已跑通（Rust 1.98.1；本机无 MSVC、无管理员权限，走的是非官方支持的 `x86_64-pc-windows-gnu` 路径）                                                                                                                                                                                    | 管理员身份装 MSVC C++ 生成工具（`scripts/setup-rust-tauri.ps1`），再 `pnpm build:tauri`；NSIS 还需预置 nsis-3.11 工具链    |
 | **Rust 单测执行（`cargo test`）**      | **未执行**：`cargo test --no-run` 可产出测试二进制，但 `-f74df249f9da6813.exe`（lib 测试）在本机以 `STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139)` 退出。已排除：导入表逐符号可解析（`LoadLibrary` 成功）、PE 头/子系统/入口点正常、依赖中无 delay-import、`.refptr` 无内容、`ring` 的 C 目标文件单独链接可运行；根因在 GNU 路径的运行期，非仓库代码 | MSVC 官方工具链（同上一行）。2026-09-22 在装有 MSVC 的机器上 `cargo test` 为 **24/24 全绿**                                |
-| 侧车随包分发（发行形态）               | **未做**：开发期侧车用系统 PATH 上的 `node`；发行包需把 `node.exe` + `dist/sidecar/**` 一起打进 resources                                                                                                                                                                                                                                       | 在 `tauri.conf.json` 的 `bundle.resources` 增加侧车产物与 `node.exe`；侧车目录放 `node.exe` 即被优先采用（`resolve_node`） |
+| 侧车随包分发（发行形态）               | 已有构建前置脚本：共享侧车、Node 24 / ABI 137、SQLite native binding、迁移写入 bundle resources；staged Node + better-sqlite3 smoke 通过；Tauri installer build 未验证 | `apps/desktop-tauri/scripts/stage-sidecar.mjs`；需要 Cargo/Rust 工具链验证实际安装包 |
 | 侧车与 Node 的 ABI 绑定                | 未实测发行形态：`better-sqlite3` 的 Node 侧绑定按 **Node 24 / ABI 137** 构建；随包分发的 `node.exe` 必须是同一 ABI 大版本                                                                                                                                                                                                                       | 分发 Node ≥24（或按分发版本重建绑定，`prepare:native`）                                                                    |
 | Tauri 实机 GUI 冒烟（窗口 / 首屏）     | **已执行**（2026-09-30）：窗口创建、标题正确、WebView2 渲染进程就位、侧车建库成功；**未做**的是"人工点一遍"（建项目 → 开设计器 → 预览）需真实人工操作                                                                                                                                                                                           | 一次人工走查                                                                                                               |
 | 冷启动 ≤5s / 双形态内存（NFR-P-01/05） | **未实测**：需安装包 + 真实桌面会话                                                                                                                                                                                                                                                                                                             | 见 `docs/PERF-REPORT.md §3`                                                                                                |

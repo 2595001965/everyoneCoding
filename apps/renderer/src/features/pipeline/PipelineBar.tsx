@@ -2,7 +2,6 @@ import type { PipelineStage, PipelineStageSnapshot, StageStatus } from '@ec/pipe
 import { STAGE_DEFS, STAGE_ORDER, STAGE_STATUS_LABELS } from '@ec/pipeline';
 import { Button } from '@ec/ui';
 
-import { usePipelineApi } from './pipeline-api';
 
 /**
  * 横向 7 阶段步骤条（T5-02 要点 1 / FR-PIPE-01）。
@@ -12,8 +11,7 @@ import { usePipelineApi } from './pipeline-api';
  */
 
 export interface PipelineBarProps {
-  projectId: string;
-  snapshot?: PipelineStageSnapshot | null | undefined;
+  snapshot: PipelineStageSnapshot;
   /** 点击已完成阶段（回看其产物） */
   onReview: (stage: PipelineStage) => void;
   /** 回退请求（父层负责二次确认后调 api.back） */
@@ -38,14 +36,12 @@ function statusClass(status: StageStatus): string {
 }
 
 export function PipelineBar({
-  projectId,
   snapshot,
   onReview,
   onRollback,
   viewingStage,
 }: PipelineBarProps): JSX.Element {
-  const api = usePipelineApi();
-  const states = snapshot ?? api.snapshot(projectId);
+  const states = snapshot;
   const current =
     STAGE_ORDER.find((stage) => states[stage].status === 'running') ??
     STAGE_ORDER.find(

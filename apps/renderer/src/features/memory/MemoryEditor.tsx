@@ -75,7 +75,6 @@ export function MemoryEditor({
     setStructured(item.structured ?? {});
     setJsonDraft(JSON.stringify(item.structured ?? {}, null, 2));
     setJsonError(null);
-    setMessage(null);
   }, [
     item.id,
     item.version,
@@ -85,6 +84,10 @@ export function MemoryEditor({
     item.importance,
     item.structured,
   ]);
+
+  useEffect(() => {
+    setMessage(null);
+  }, [item.id]);
 
   const structuredKeys = useMemo(() => Object.keys(structured), [structured]);
 

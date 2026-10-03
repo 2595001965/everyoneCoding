@@ -34,8 +34,7 @@ import type { DomainRouter } from './runtime';
  *   令牌必须从已恢复的会话里取。
  *
  * 如实说明：
- * - OAuth 的自定义协议辅通道（`everyonecoding://oauth`）**未接线**，`registerProtocol` 如实返回
- *   `false`；主通道（本地回环监听）可用；
+ * - OAuth 自定义协议 URL 按正在等待的 state 与 provider handshake 绑定；外壳只负责投递 URL；
  * - 邮箱验证与重置密码依赖**服务端投递邮件**，PRD §8 的最小服务端不含该能力——
  *   客户端这一侧是真实实现，调用会得到服务端的真实响应（含"未实现"的业务错误），
  *   不在本域伪造成功。
@@ -335,6 +334,30 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
           } finally {
             pendingHandshakes.delete(provider);
           }
+        }
+
+        /** Tauri deep-link 事件桥：按一次性 state 选择唯一待完成握手。 */
+        case 'deliverProtocolUrl': {
+          const callbackUrl = String(params['url'] ?? '');
+          let state: string | null = null;
+          try {
+            state = new URL(callbackUrl).searchParams.get('state');
+          } catch {
+            throw new ShellError('INVALID_ARGUMENT', 'OAuth 协议回调 URL 格式无效');
+          }
+          if (state === null) throw new ShellError('INVALID_ARGUMENT', 'OAuth 协议回调缺少 state');
+          for (const [provider, handshake] of pendingHandshakes) {
+            if (handshake.state !== state) continue;
+            try {
+              const session = await client.completeOAuth(handshake, callbackUrl, { rememberMe: false });
+              pendingHandshakes.delete(provider);
+              return keepSession(session);
+            } finally {
+              // state 对应的 verifier 为一次性凭据，失败也不得重放。
+              pendingHandshakes.delete(provider);
+            }
+          }
+          throw new ShellError('INVALID_ARGUMENT', '没有与 OAuth 回调 state 匹配的待完成授权');
         }
 
         case 'pollWechatScan': {

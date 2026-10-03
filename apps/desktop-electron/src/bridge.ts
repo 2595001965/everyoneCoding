@@ -66,6 +66,7 @@ export interface EcShellPreload {
     onExit(id: string, cb: (result: ProcessExit) => void): () => void;
   };
   window: {
+    openAgentWindow(input: { projectId: string; projectName: string; sessionId: string; title: string }): Promise<void>;
     setTitle(title: string): Promise<void>;
     minimize(): Promise<void>;
     maximize(): Promise<void>;
@@ -337,6 +338,7 @@ export function createElectronShell(preload?: EcShellPreload): ShellHost {
     },
     process: processApi,
     window: {
+      openAgentWindow: (input) => call(() => api.window.openAgentWindow(input)),
       setTitle: async (title) => call(() => api.window.setTitle(title)),
       minimize: () => call(() => api.window.minimize()),
       maximize: () => call(() => api.window.maximize()),

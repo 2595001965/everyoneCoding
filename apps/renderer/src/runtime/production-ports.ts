@@ -6,10 +6,8 @@
  * 三条硬约束（与 `runtime/domain-ports.ts` 同一套纪律）：
  * 1. **不注入未装配的域**。`describe()` 报 `available: false` 时该端口保持不注入，
  *    页面继续显示既有装配引导；
- * 2. **同步签名端口走同步通道**。`MemoryApi` / `PipelineApi` 的消费方会在写入后立刻
- *    同步读回（如 `advance()` 后紧跟 `snapshot()`），快照缓存表达不了这种语义，
- *    因此外壳没有 `invokeSync` 时这两个端口**不注入**（Tauri / mock 如实降级），
- *    而不是返回一份脏的缓存；
+ * 2. **跨壳域调用统一异步**。Memory / Pipeline 的页面消费 Promise 并在写入后读取
+ *    权威状态；不要求外壳实现 `invokeSync`，也不靠可能过期的同步镜像；
  * 3. **过程事件按 requestId 关联**，跨进程错误统一还原为带 `code` 的 `ShellError`。
  *
  * 本模块只在运行时装配点（`main.tsx`）使用；业务特性仍只消费
@@ -34,11 +32,10 @@ import type { BudgetConfig, BudgetDecision, UsageReportRow } from '@ec/ai';
 import type { JumpOutcome, ReverseJumpResult } from '@ec/ai';
 import type { AssembledContext, ContextAssemblyRequest, ContextSources, WritePlan } from '@ec/ai';
 import type { AutoCommitPolicy, CredentialBinding, GitResult } from '@ec/git';
-import type { PipelineStage, PipelineStageSnapshot } from '@ec/pipeline';
 import type { DomMapping, PreviewResult, StreamedLogLine } from '@ec/preview';
 
 import type { ContextPanelApi } from '../features/ai/context-api';
-import type { CodeViewApi } from '../features/code/code-api';
+import type { AgentTaskRecord, AgentTaskSnapshot, CodeViewApi } from '../features/code/code-api';
 import type { GitApi, GitProgressEvent, GitRepoInfo } from '../features/git/git-api';
 import type { MemoryApi } from '../features/memory/memory-api';
 import type { NavApi } from '../features/nav/nav-api';
@@ -152,12 +149,9 @@ function forwardGitProgress(
 
 /* ------------------------------- 记忆中心 ------------------------------- */
 
-export function createMemoryApi(
-  call: DomainCaller,
-  sync: DomainSyncCaller | null,
-): MemoryApi | null {
-  if (sync === null) return null;
-  const m = <T>(method: string, params?: unknown): T => sync.callSync<T>('memory', method, params);
+export function createMemoryApi(call: DomainCaller): MemoryApi {
+  const m = <T>(method: string, params?: unknown): Promise<T> =>
+    call.call<T>('memory', method, params);
   return {
     listProjects: () => m('listProjects'),
     stats: (input) => m('stats', input),
@@ -189,14 +183,11 @@ export function createMemoryApi(
 
 export function createPipelineApi(
   call: DomainCaller,
-  sync: DomainSyncCaller | null,
   subscribe: DomainEventSubscriber,
-): PipelineApi | null {
-  if (sync === null) return null;
-  const p = <T>(method: string, params?: unknown): T =>
-    sync.callSync<T>('pipeline', method, params);
-  const pa = <T>(method: string, params?: unknown): Promise<T> =>
+): PipelineApi {
+  const p = <T>(method: string, params?: unknown): Promise<T> =>
     call.call<T>('pipeline', method, params);
+  const pa = p;
   return {
     ready: true,
     snapshot: (projectId) => p('snapshot', { projectId }),
@@ -222,16 +213,16 @@ export function createPipelineApi(
     generateTechDoc: (input) => pa('generateTechDoc', input),
     getSplit: (projectId) => p<SplitResult | null>('getSplit', { projectId }),
     saveSplit: (projectId, split) => pa('saveSplit', { projectId, split }),
-    evaluateImpact: (projectId, change) => {
+    evaluateImpact: async (projectId, change) => {
       // 与流水线域同源：先读真实拆分结果，再交给 SplitModel（@ec/pipeline 的浏览器入口是纯逻辑）。
       // 读不到拆分就抛结构化错误，而不是返回一个空报告伪装成「没有影响面」。
-      if (p<TechChoice | null>('getTechChoice', { projectId }) === null) {
+      if ((await p<TechChoice | null>('getTechChoice', { projectId })) === null) {
         throw new ShellError(
           'INVALID_ARGUMENT',
           '尚未完成技术选型：请先在 S3 阶段完成问卷，再评估影响面',
         );
       }
-      const split = p<SplitResult | null>('getSplit', { projectId });
+      const split = await p<SplitResult | null>('getSplit', { projectId });
       if (split === null) {
         throw new ShellError('NOT_FOUND', '尚未保存拆分结果（S4），无法评估影响面');
       }
@@ -239,29 +230,12 @@ export function createPipelineApi(
     },
     runGeneration: (input) => pa('runGeneration', input),
     generateSplit: (projectId, input) =>
-      pa('generateSplit', { projectId, ...(input ?? {}) }) as Promise<SplitResult>,
-    retryNode: (projectId, nodeId) => pa('retryNode', { projectId, nodeId }) as Promise<QueueState>,
+      pa<SplitResult>('generateSplit', { projectId, ...(input ?? {}) }),
+    retryNode: (projectId, nodeId) => pa<QueueState>('retryNode', { projectId, nodeId }),
     skipNode: (projectId, nodeId) => pa('skipNode', { projectId, nodeId }),
-    pauseQueue: (projectId) => p('pauseQueue', { projectId }) as QueueState,
-    getResumeProgress: (projectId) =>
-      p('getResumeProgress', { projectId }) as {
-        snapshot: PipelineStageSnapshot;
-        s5Progress: string | null;
-        resumeStage: PipelineStage | null;
-      },
-    recoverProject: (projectId) =>
-      pa('recoverProject', { projectId }) as Promise<{
-        snapshot: PipelineStageSnapshot;
-        resumeStage: PipelineStage | null;
-        integrityProblems: Array<{
-          stage: string;
-          version: number;
-          contentRef: string;
-          reason: string;
-        }>;
-        unexpectedExit: boolean;
-        artifactVersions: number;
-      }>,
+    pauseQueue: (projectId) => p<QueueState>('pauseQueue', { projectId }),
+    getResumeProgress: (projectId) => p('getResumeProgress', { projectId }),
+    recoverProject: (projectId) => pa('recoverProject', { projectId }),
     subscribe: (event, listener) => {
       if (event !== 'pipeline:*') return () => {};
       return subscribe((domainEvent: DomainEvent) => {
@@ -631,6 +605,24 @@ export function createRenameApi(call: DomainCaller, subscribe: DomainEventSubscr
 
 export function createCodeApi(call: DomainCaller, subscribe: DomainEventSubscriber): CodeViewApi {
   return {
+    agent: {
+      startTask: ({ projectId, sessionId, idempotencyKey, objective }) =>
+        call.call<AgentTaskRecord>('code', 'startTask', {
+          projectId,
+          sessionId,
+          idempotencyKey,
+          request: {
+            system:
+              'You are a coding agent. Inspect the project context, make a focused implementation for the requested objective, and return a verifiable summary. Use the isolated task workspace and follow repository instructions.',
+            user: objective,
+            target: 'backend-code',
+          },
+        }),
+      snapshot: (projectId, sessionId, after) =>
+        call.call<AgentTaskSnapshot>('code', 'taskSnapshot', { projectId, sessionId, after }),
+      cancel: (projectId, taskId) =>
+        call.call<boolean>('code', 'cancelTask', { projectId, taskId }),
+    },
     files: {
       listFiles: () => call.call('code', 'listFiles', withProject()),
       readFile: (path) => call.call('code', 'readFile', withProject({ path })),
@@ -917,7 +909,7 @@ export interface ProductionPortGlobals {
 
 export interface ProductionInstallResult {
   installed: DomainKind[];
-  /** 有域可用、但同步口缺失（Tauri / mock）而未注入的域，附原因供启动日志定位 */
+  /** 有域可用、但适配器因其它条件未注入的端口，附原因供启动日志定位 */
   unavailable: Array<{ kind: DomainKind; reason: string }>;
 }
 
@@ -926,34 +918,17 @@ export interface ProductionInstallResult {
  *
  * 两条规则：
  * - `available: false` 的域不注入（页面保留装配引导）；
- * - memory / pipeline 额外要求外壳提供同步口（`invokeSync`），否则也不注入——
- *   它们的消费方在写入后立刻同步读回，异步通道给不出正确结果。
+ * - memory / pipeline 使用异步 RPC，适用于 Electron 与不暴露同步 IPC 的 Tauri。
  */
 export async function installProductionPorts(
-  host: DomainControlHost,
   call: DomainCaller,
   subscribe: DomainEventSubscriber,
   available: ReadonlySet<DomainKind>,
   globals: ProductionPortGlobals = globalThis as unknown as ProductionPortGlobals,
 ): Promise<ProductionInstallResult> {
-  const sync = createDomainSyncCaller(host);
   const unavailable: Array<{ kind: DomainKind; reason: string }> = [];
-
-  const needSync = (kind: DomainKind): boolean => {
-    if (sync !== null) return true;
-    unavailable.push({
-      kind,
-      reason: '外壳未提供同步域通道（invokeSync），同步签名的端口不注入',
-    });
-    return false;
-  };
-
-  if (available.has('memory') && needSync('memory')) {
-    globals['__EC_MEMORY__'] = createMemoryApi(call, sync);
-  }
-  if (available.has('pipeline') && needSync('pipeline')) {
-    globals['__EC_PIPELINE__'] = createPipelineApi(call, sync, subscribe);
-  }
+  if (available.has('memory')) globals['__EC_MEMORY__'] = createMemoryApi(call);
+  if (available.has('pipeline')) globals['__EC_PIPELINE__'] = createPipelineApi(call, subscribe);
   if (available.has('git')) globals['__EC_GIT__'] = createGitApi(call, subscribe);
   if (available.has('preview')) globals['__EC_PREVIEW__'] = createPreviewApi(call, subscribe);
   if (available.has('rename')) globals['__EC_RENAME__'] = createRenameApi(call, subscribe);

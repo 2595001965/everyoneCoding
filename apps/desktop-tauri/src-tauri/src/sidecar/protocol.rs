@@ -333,6 +333,8 @@ pub struct SidecarManifest {
     #[serde(default)]
     pub node_major: u32,
     #[serde(default)]
+    pub node_abi: Option<u32>,
+    #[serde(default)]
     pub migrations: Option<String>,
 }
 
@@ -525,11 +527,12 @@ mod tests {
     #[test]
     fn manifest_parsing_reports_reason_on_bad_input() {
         let manifest = parse_manifest(
-            r#"{"protocol":1,"runtime":"everyone-coding-sidecar","entry":"x.cjs","hostCapabilities":["secure.encrypt"],"nodeMajor":22,"migrations":"migrations"}"#,
+            r#"{"protocol":1,"runtime":"everyone-coding-sidecar","entry":"x.cjs","hostCapabilities":["secure.encrypt"],"nodeMajor":22,"nodeAbi":127,"migrations":"migrations"}"#,
         )
         .expect("合法清单必须可解析");
         assert_eq!(manifest.protocol, PROTOCOL_VERSION);
         assert_eq!(manifest.node_major, 22);
+        assert_eq!(manifest.node_abi, Some(127));
         assert!(manifest
             .host_capabilities
             .contains(&capability::SECURE_ENCRYPT.to_string()));

@@ -18,20 +18,34 @@ export function S5QueueSection({
   choice,
 }: S5QueueSectionProps): JSX.Element {
   const api = usePipelineApi();
-  const [state, setState] = useState<QueueState | null>(() => api.getQueueState(projectId));
+  const [state, setState] = useState<QueueState | null>(null);
+  const [resume, setResume] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  useEffect(
-    () =>
-      api.subscribe('pipeline:*', (raw) => {
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async (): Promise<void> => {
+      const [nextState, progress] = await Promise.all([
+        api.getQueueState(projectId),
+        api.getResumeProgress(projectId),
+      ]);
+      if (cancelled) return;
+      setState(nextState);
+      setResume(progress.s5Progress);
+    };
+    void refresh().catch((cause: unknown) => setError(String(cause)));
+    const unsubscribe = api.subscribe('pipeline:*', (raw) => {
         const event = raw as { projectId?: string; type?: string; message?: string };
         if (event.projectId !== projectId) return;
-        setState(api.getQueueState(projectId));
+        void refresh().catch((cause: unknown) => setError(String(cause)));
         if (event.message) setMessage(event.message);
-      }),
-    [api, projectId],
-  );
+      });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [api, projectId]);
 
   const execute = useCallback(async (work: () => Promise<QueueState>) => {
     setBusy(true);
@@ -44,10 +58,11 @@ export function S5QueueSection({
       setBusy(false);
     }
   }, []);
-  const run = (resume: boolean): void => {
+  const run = (shouldResume: boolean): void => {
     void execute(async () => {
-      const split = api.getSplit(projectId);
+      const split = await api.getSplit(projectId);
       if (!split) throw new Error('请先完成 S4 拆分');
+      const progress = resume ?? (await api.getResumeProgress(projectId)).s5Progress;
       const result = await api.runGeneration({
         projectId,
         userId,
@@ -56,13 +71,14 @@ export function S5QueueSection({
         split,
         requirementDoc: '',
         techDoc: '',
-        ...(resume ? { resumeProgress: api.getResumeProgress(projectId).s5Progress } : {}),
+        ...(shouldResume ? { resumeProgress: progress } : {}),
       });
+      const latest = await api.getQueueState(projectId);
+      if (latest !== null) return latest;
       return result.state as QueueState;
     });
   };
   const running = busy || state?.currentId != null;
-  const resume = api.getResumeProgress(projectId).s5Progress;
   return (
     <div className="ec-pipe-queue" data-testid="s5-queue">
       <Button variant="primary" disabled={running} onClick={() => run(false)}>
@@ -75,13 +91,7 @@ export function S5QueueSection({
       )}
       {running && (
         <Button
-          onClick={() => {
-            try {
-              setState(api.pauseQueue(projectId));
-            } catch (cause) {
-              setError(String(cause));
-            }
-          }}
+          onClick={() => void execute(() => api.pauseQueue(projectId))}
         >
           暂停队列
         </Button>

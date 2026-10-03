@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button, EmptyState, SearchInput, Select, SplitPane, Switch, Tag } from '@ec/ui';
-import { LAYER_LABELS, type MemoryLayer, type MemoryPatch } from '@ec/memory';
+import { LAYER_LABELS, type MemoryItem, type MemoryLayer, type MemoryPatch } from '@ec/memory';
 
 import { BatchActions } from './BatchActions';
 import { ChangeLogPanel } from './ChangeLogPanel';
@@ -53,8 +53,30 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
   const [exportNames, setExportNames] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [items, setItems] = useState<MemoryItem[]>([]);
+  const [tagPool, setTagPool] = useState<MemoryItem[]>([]);
+  const [stats, setStats] = useState<MemoryStats>({
+    layers: [],
+    activeIssues: 0,
+    longtermCount: 0,
+    longtermLimit: 500,
+  });
+  const [conflicts, setConflicts] = useState<Record<string, ConflictAnnotation[]>>({});
+  const [detail, setDetail] = useState<MemoryDetail | null>(null);
+  const [changeLogs, setChangeLogs] = useState<ChangeLogRecord[]>([]);
 
-  const projects = api ? api.listProjects() : [];
+  useEffect(() => {
+    if (!api) return;
+    let cancelled = false;
+    void api.listProjects().then((result) => {
+      if (!cancelled) setProjects(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, revision]);
 
   // 项目切换后清空选中态，避免把上一个项目的条目编辑串到新项目
   useEffect(() => {
@@ -76,34 +98,56 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
     return base;
   }, [selectedLayer, selectedTags, text, orderBy, view]);
 
-  /**
-   * 数据读取直接放在渲染期，不做 memo 缓存。
-   *
-   * 理由：端口上的读取是**同步的本地查询**（SQLite 内存表 / 个位毫秒级），
-   * 缓存反而带来两个问题 —— 写操作后必须手动失效（否则列表不刷新），
-   * 且依赖数组会被 lint 判为"多余依赖"。直接读既天然正确，也少一层状态同步。
-   */
-  const items = api ? api.list({ userId, projectId, query }) : [];
+  // 所有查询经真实异步域 RPC；一次 revision 表示写操作完成后重新读取权威状态。
+  useEffect(() => {
+    if (!api) return;
+    let cancelled = false;
+    setItems([]);
+    setTagPool([]);
+    setStats({ layers: [], activeIssues: 0, longtermCount: 0, longtermLimit: 500 });
+    setConflicts({});
+    setChangeLogs([]);
+    void Promise.all([
+      api.list({ userId, projectId, query }),
+      api.list({ userId, projectId, query: { limit: 500 } }),
+      api.stats({ userId, projectId }),
+      api.conflictIndex({ userId, projectId }),
+      api.changeLog({ userId, ...(selectedId ? { memoryId: selectedId } : {}), limit: 50 }),
+    ])
+      .then(([nextItems, nextTagPool, nextStats, nextConflicts, nextChangeLogs]) => {
+        if (cancelled) return;
+        setItems(nextItems);
+        setTagPool(nextTagPool);
+        setStats(nextStats);
+        setConflicts(nextConflicts);
+        setChangeLogs(nextChangeLogs);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setNotice(`记忆数据读取失败：${cause instanceof Error ? cause.message : String(cause)}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, userId, projectId, query, selectedId, revision]);
 
-  // 标签池：不受关键字与标签筛选影响，否则勾掉一个标签后它就再也点不回来
-  const tagPool = api ? api.list({ userId, projectId, query: { limit: 500 } }) : [];
+  useEffect(() => {
+    if (!api || !selectedId) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetail((current) => (current?.item.id === selectedId ? current : null));
+    void api.detail(selectedId).then((nextDetail) => {
+      if (!cancelled) setDetail(nextDetail);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, selectedId, revision]);
+
   const allTags = [...new Set(tagPool.flatMap((item) => item.tags))].sort((a, b) =>
     a.localeCompare(b),
   );
-
-  const stats: MemoryStats = api
-    ? api.stats({ userId, projectId })
-    : { layers: [], activeIssues: 0, longtermCount: 0, longtermLimit: 500 };
-
-  const conflicts: Record<string, ConflictAnnotation[]> = api
-    ? api.conflictIndex({ userId, projectId })
-    : {};
-
-  const detail: MemoryDetail | null = api && selectedId ? api.detail(selectedId) : null;
-
-  const changeLogs: ChangeLogRecord[] = api
-    ? api.changeLog({ userId, ...(selectedId ? { memoryId: selectedId } : {}), limit: 50 })
-    : [];
 
   const selectedNodeId = useMemo(() => {
     if (view) return `${VIEW_NODE_PREFIX}${view}`;
@@ -139,7 +183,8 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
     async (patch: MemoryPatch, expectedVersion: number) => {
       if (!api || !selectedId) return;
       // 成功/冲突提示由编辑器自己给出（含版本冲突文案），这里不重复播报
-      api.update(selectedId, patch, expectedVersion);
+      await api.update(selectedId, patch, expectedVersion);
+      setRevision((value) => value + 1);
     },
     [api, selectedId],
   );
@@ -149,7 +194,8 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
       if (!api) return;
       setBusy(true);
       try {
-        const result = api.remove(ids);
+        const result = await api.remove(ids);
+        setRevision((value) => value + 1);
         setLastRemovedIds(result.removedIds);
         setCheckedIds([]);
         setSelectedId(null);
@@ -163,7 +209,8 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
 
   const handleUndoRemove = useCallback(async () => {
     if (!api) return;
-    api.restore(lastRemovedIds);
+    await api.restore(lastRemovedIds);
+    setRevision((value) => value + 1);
     refreshNotice(`已恢复 ${lastRemovedIds.length} 条`);
     setLastRemovedIds([]);
   }, [api, lastRemovedIds, refreshNotice]);
@@ -171,7 +218,8 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
   const handleMoveLayer = useCallback(
     async (target: LayerMoveTarget) => {
       if (!api) return;
-      api.moveLayer(checkedIds, target);
+      await api.moveLayer(checkedIds, target);
+      setRevision((value) => value + 1);
       setCheckedIds([]);
       refreshNotice(
         `已移动 ${checkedIds.length} 条到「${LAYER_LABELS[target.scope === 'page' && target.elementId ? 'element' : target.scope]}」`,
@@ -345,10 +393,14 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
                       detail={detail}
                       onSave={handleSave}
                       onTogglePin={() => {
-                        api.setPinned(detail.item.id, !detail.item.pinned);
+                        void api.setPinned(detail.item.id, !detail.item.pinned).then(() => {
+                          setRevision((value) => value + 1);
+                        });
                       }}
                       onSetIssueStatus={(next) => {
-                        api.setIssueStatus(detail.item.id, next);
+                        void api.setIssueStatus(detail.item.id, next).then(() => {
+                          setRevision((value) => value + 1);
+                        });
                       }}
                     />
                     <section className="ec-memory-center__changelog" aria-label="变更日志">
@@ -370,6 +422,7 @@ export function MemoryCenter({ userId, height = 560 }: MemoryCenterProps): JSX.E
         onPreviewImport={(files) => api.importPreview({ userId, files })}
         onCommitImport={async (decisions) => {
           await api.importCommit({ userId, decisions });
+          setRevision((value) => value + 1);
           refreshNotice('导入完成');
         }}
         lastExportNames={exportNames}

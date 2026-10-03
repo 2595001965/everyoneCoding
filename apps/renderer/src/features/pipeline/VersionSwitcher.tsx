@@ -50,16 +50,18 @@ export function VersionSwitcher({
         onChange={(value) => {
           const version = Number(value);
           if (Number.isNaN(version)) return;
-          api.switchVersion(projectId, stage, version);
-          if (version !== activeVersion) {
-            // 切换回历史版本：提示"正在查看历史版本"，不强制重建下游
-            api.notifyDownstream(
-              projectId,
-              stage,
-              `已切换到历史版本 v${version}（最新为 v${latest}），下游产物不会自动变更`,
-            );
-          }
-          onSwitch(version);
+          void (async () => {
+            await api.switchVersion(projectId, stage, version);
+            if (version !== activeVersion) {
+              // 切换回历史版本：提示"正在查看历史版本"，不强制重建下游
+              await api.notifyDownstream(
+                projectId,
+                stage,
+                `已切换到历史版本 v${version}（最新为 v${latest}），下游产物不会自动变更`,
+              );
+            }
+            onSwitch(version);
+          })();
         }}
       />
       {isHistorical && (

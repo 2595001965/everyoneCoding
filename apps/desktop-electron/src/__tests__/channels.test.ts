@@ -14,6 +14,7 @@ function buildDeps(): IpcDependencies {
       showMessageBox: async () => ({ response: 0 }),
     },
     getWindow: () => null,
+    openAgentWindow: () => undefined,
     clipboard: { readText: () => '', writeText: () => undefined, clear: () => undefined },
     safeStorage: null,
     updater: null,

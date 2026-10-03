@@ -20,6 +20,22 @@ import { S5QueueSection } from './S5QueueSection';
 
 const STAGE_ORDER_LIST: readonly PipelineStage[] = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'];
 
+function emptySnapshot(): PipelineStageSnapshot {
+  return Object.fromEntries(
+    STAGE_ORDER_LIST.map((stage) => [
+      stage,
+      {
+        stage,
+        status: 'pending',
+        activeVersion: null,
+        latestVersion: 0,
+        skippedAt: null,
+        updatedAt: 0,
+      },
+    ]),
+  ) as PipelineStageSnapshot;
+}
+
 /**
  * 流水线工作台（T5-02 集成视图 / E2E-03 载体）。
  *
@@ -43,34 +59,43 @@ export function PipelineWorkspace({
   projectName,
 }: PipelineWorkspaceProps): JSX.Element {
   const api = usePipelineApi();
-  const [description, setDescription] = useState(
-    () => api.getResumeProgress(projectId).inputs?.description ?? '',
-  );
+  const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [downstreamStage, setDownstreamStage] = useState<PipelineStage | null>(null);
-  const [snapshot, setSnapshot] = useState<PipelineStageSnapshot>(() => api.snapshot(projectId));
+  const [snapshot, setSnapshot] = useState<PipelineStageSnapshot>(() => emptySnapshot());
+  const [choice, setChoice] = useState<TechChoice | null>(null);
   const [viewingStage, setViewingStage] = useState<PipelineStage | null>(null);
   const [viewingVersion, setViewingVersion] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [supplementOpen, setSupplementOpen] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<PipelineStage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [splitModel, setSplitModel] = useState<SplitModel | null>(() => {
-    const split = api.getSplit(projectId);
-    return split === null ? null : SplitModelClass.fromResult(split);
-  });
+  const [splitModel, setSplitModel] = useState<SplitModel | null>(null);
+
+  const refreshAuthoritative = useCallback(async () => {
+    const [nextSnapshot, nextChoice, split] = await Promise.all([
+      api.snapshot(projectId),
+      api.getTechChoice(projectId),
+      api.getSplit(projectId),
+    ]);
+    setSnapshot(nextSnapshot);
+    setChoice(nextChoice);
+    setSplitModel(split === null ? null : SplitModelClass.fromResult(split));
+  }, [api, projectId]);
 
   // 订阅流水线事件刷新快照
   useEffect(() => {
     const unsubscribe = api.subscribe('pipeline:*', (raw) => {
       const event = raw as { projectId?: string; event?: string; data?: { stage?: PipelineStage } };
       if (event.projectId && event.projectId !== projectId) return;
-      setSnapshot(api.snapshot(projectId));
+      void refreshAuthoritative().catch((cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      });
       if (event.event === 'downstream-stale' && event.data?.stage)
         setDownstreamStage(event.data.stage);
     });
     return unsubscribe;
-  }, [api, projectId]);
+  }, [api, projectId, refreshAuthoritative]);
 
   const currentStage = useMemo<PipelineStage>(() => {
     for (const stage of STAGE_ORDER_LIST) if (snapshot[stage].status === 'running') return stage;
@@ -85,11 +110,11 @@ export function PipelineWorkspace({
 
   useEffect(() => {
     let cancelled = false;
-    void api
-      .recoverProject(projectId)
-      .then((result) => {
+    void Promise.all([api.getResumeProgress(projectId), api.recoverProject(projectId)])
+      .then(async ([progress, result]) => {
         if (cancelled) return;
-        setSnapshot(api.snapshot(projectId));
+        setDescription(progress.inputs?.description ?? '');
+        await refreshAuthoritative();
         if (result.integrityProblems.length > 0)
           setError(
             '部分阶段产物缺失，请回到对应阶段重新生成：' +
@@ -102,7 +127,7 @@ export function PipelineWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, projectId]);
+  }, [api, projectId, refreshAuthoritative]);
 
   const activeView = viewingStage ?? currentStage;
 
@@ -114,14 +139,14 @@ export function PipelineWorkspace({
       setError(null);
       try {
         await work();
-        setSnapshot(api.snapshot(projectId));
+        await refreshAuthoritative();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
         setBusy(false);
       }
     },
-    [api, projectId],
+    [refreshAuthoritative],
   );
 
   const handleGenerateS1 = useCallback(
@@ -140,8 +165,8 @@ export function PipelineWorkspace({
 
   const handleGenerateS3 = useCallback(
     async (instruction?: string) => {
-      const choice = api.getTechChoice(projectId);
-      if (choice === null) {
+      const selectedChoice = await api.getTechChoice(projectId);
+      if (selectedChoice === null) {
         setWizardOpen(true);
         return;
       }
@@ -151,7 +176,7 @@ export function PipelineWorkspace({
           userId,
           projectName,
           description,
-          choice,
+          choice: selectedChoice,
           requirementDoc: '',
           ...(instruction ? { instruction } : {}),
         }),
@@ -180,46 +205,35 @@ export function PipelineWorkspace({
   );
 
   const handleConfirm = useCallback(
-    (stage: PipelineStage) => {
-      api.confirm(projectId, stage);
-      setSnapshot(api.snapshot(projectId));
-      if (stage === 'S3') {
-        const choice = api.getTechChoice(projectId);
-        if (choice !== null) {
-          const split = api.getSplit(projectId);
-          setSplitModel(split === null ? null : SplitModelClass.fromResult(split));
-        }
-      }
+    async (stage: PipelineStage) => {
+      await api.confirm(projectId, stage);
+      await refreshAuthoritative();
     },
-    [api, projectId],
+    [api, projectId, refreshAuthoritative],
   );
 
-  const handleAdvance = useCallback(() => {
+  const handleAdvance = useCallback(async () => {
     const to = nextStageOf(activeView);
     if (to === null) return;
     try {
-      api.advance(projectId, activeView, to);
+      await api.advance(projectId, activeView, to);
       setViewingStage(null);
       setViewingVersion(0);
-      setSnapshot(api.snapshot(projectId));
-      if (to === 'S3' && api.getTechChoice(projectId) === null) setWizardOpen(true);
-      if (to === 'S4') {
-        const split = api.getSplit(projectId);
-        setSplitModel(split === null ? null : SplitModelClass.fromResult(split));
-      }
+      await refreshAuthoritative();
+      if (to === 'S3' && (await api.getTechChoice(projectId)) === null) setWizardOpen(true);
     } catch (cause) {
       if (to === 'S3') setWizardOpen(true);
       else setError(cause instanceof Error ? cause.message : String(cause));
     }
-  }, [api, projectId, activeView]);
+  }, [api, projectId, activeView, refreshAuthoritative]);
 
-  const handleRollbackConfirm = useCallback(() => {
+  const handleRollbackConfirm = useCallback(async () => {
     if (rollbackTarget === null) return;
-    api.back(projectId, currentStage, rollbackTarget);
-    setSnapshot(api.snapshot(projectId));
+    await api.back(projectId, currentStage, rollbackTarget);
+    await refreshAuthoritative();
     setViewingStage(null);
     setRollbackTarget(null);
-  }, [api, projectId, currentStage, rollbackTarget]);
+  }, [api, projectId, currentStage, rollbackTarget, refreshAuthoritative]);
 
   const handleSubmitSupplement = useCallback(
     (instruction: string) => {
@@ -231,24 +245,20 @@ export function PipelineWorkspace({
   );
 
   const handleEvaluateImpact = useCallback(
-    (_instruction: string): ImpactReport | null => {
-      const split = api.getSplit(projectId);
-      if (split === null) return null;
-      const model = SplitModelClass.fromResult(split);
+    async (_instruction: string): Promise<ImpactReport | null> => {
+      if (splitModel === null) return null;
+      const model = splitModel;
       const targets = model.nodeIds().filter((id) => id.startsWith('f-'));
       return targets.length > 0 ? model.evaluateImpact({ type: 'supplement', targets }) : null;
     },
-    [api, projectId],
+    [splitModel],
   );
 
   /* ------------------------------ 渲染 ------------------------------ */
 
-  const choice = api.getTechChoice(projectId);
-
   return (
     <div className="ec-pipe-workspace" data-testid="pipeline-workspace">
       <PipelineBar
-        projectId={projectId}
         snapshot={snapshot}
         onReview={(stage) => {
           setViewingStage(stage);
@@ -270,9 +280,10 @@ export function PipelineWorkspace({
               <Button onClick={() => setDownstreamStage(null)}>保留现有产物</Button>
               <Button
                 onClick={() => {
-                  api.applyDownstreamStale(projectId, downstreamStage);
-                  setSnapshot(api.snapshot(projectId));
-                  setDownstreamStage(null);
+                  void execute(async () => {
+                    await api.applyDownstreamStale(projectId, downstreamStage);
+                    setDownstreamStage(null);
+                  });
                 }}
               >
                 标记下游待重新生成
@@ -298,7 +309,7 @@ export function PipelineWorkspace({
               <Button
                 variant="danger"
                 data-testid="rollback-confirm"
-                onClick={handleRollbackConfirm}
+                onClick={() => void execute(handleRollbackConfirm)}
               >
                 确认回退到 {STAGE_DEFS[rollbackTarget].name}
               </Button>
@@ -368,7 +379,7 @@ export function PipelineWorkspace({
               size="sm"
               variant="secondary"
               data-testid="stage-advance"
-              onClick={handleAdvance}
+              onClick={() => void handleAdvance()}
               disabled={busy || activeView === 'S7' || snapshot[activeView].status !== 'confirmed'}
             >
               进入下一阶段
@@ -378,7 +389,7 @@ export function PipelineWorkspace({
                 size="sm"
                 variant="primary"
                 data-testid="stage-confirm"
-                onClick={() => handleConfirm(activeView)}
+                onClick={() => void execute(() => handleConfirm(activeView))}
               >
                 确认{STAGE_DEFS[activeView].artifactLabel}
               </Button>
@@ -414,7 +425,8 @@ export function PipelineWorkspace({
               onChange={(model) => {
                 void execute(async () => {
                   await api.saveSplit(projectId, model.result());
-                  setSplitModel(SplitModelClass.fromResult(api.getSplit(projectId)!));
+                  const saved = await api.getSplit(projectId);
+                  setSplitModel(saved === null ? null : SplitModelClass.fromResult(saved));
                 });
               }}
             />

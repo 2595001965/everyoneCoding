@@ -28,6 +28,7 @@ import { currentUserId } from '../runtime/project-context';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectStore } from '../store/useProjectStore';
 import { PagePlaceholder } from './PagePlaceholder';
+import type { ShellHost } from '@ec/shell-api';
 
 /**
  * 代码与上下文页（T12-02）。
@@ -135,6 +136,7 @@ export function CodePage(): JSX.Element {
   const [generating, setGenerating] = useState(false);
   const [streamText, setStreamText] = useState('');
   const [generation, setGeneration] = useState<CodeGenerateResult | null>(null);
+  const [openingAgent, setOpeningAgent] = useState(false);
 
   const projectId = project?.id ?? '';
 
@@ -363,6 +365,28 @@ export function CodePage(): JSX.Element {
         左侧是本次将提交给模型的上下文（可勾选、折叠、就地编辑）；右侧是项目代码的只读视图。
         代码只能由 AI 写入：任何修改诉求都走「交给 AI 修改」，由模型产出差异后再确认应用。
       </p>
+      <Button
+        size="sm"
+        loading={openingAgent}
+        disabled={openingAgent}
+        onClick={() => {
+          const shell = (globalThis as typeof globalThis & { __EC_SHELL__?: ShellHost }).__EC_SHELL__;
+          if (shell === undefined || project === null) return;
+          setOpeningAgent(true);
+          void shell.window
+            .openAgentWindow({
+              projectId: project.id,
+              projectName: project.name,
+              sessionId: globalThis.crypto.randomUUID(),
+              title: `Agent · ${project.name}`,
+            })
+            .catch((error: unknown) => setNotice(error instanceof Error ? error.message : String(error)))
+            .finally(() => setOpeningAgent(false));
+        }}
+        data-testid="ec-open-agent-window"
+      >
+        打开 Agent 原生窗口
+      </Button>
 
       {changes.length > 0 && (
         <div

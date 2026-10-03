@@ -113,6 +113,28 @@ export interface CodeViewApi {
   subscribeWritePlan?(listener: (hint: WritePlanHint) => void): () => void;
   /** 订阅代码生成流（未接入时不订阅） */
   subscribeGeneration?(listener: (event: CodeGenerationEvent) => void): () => void;
+  /** Persistent D06/D07 agent sessions and asynchronous task commands. */
+  agent?: AgentTaskApi;
+}
+
+export interface AgentTaskRecord {
+  task: { taskId: string; sessionId: string | null; objective: string; status: string; updatedAt: number };
+  executionState: string;
+  result: unknown;
+  error: string | null;
+}
+
+export interface AgentTaskSnapshot {
+  session: { sessionId: string; title: string | null; status: string } | null;
+  tasks: AgentTaskRecord[];
+  events: Array<{ eventId: string; type: string; occurredAt: number; taskId: string | null; payload: unknown }>;
+  cursor: number;
+}
+
+export interface AgentTaskApi {
+  startTask(input: { projectId: string; sessionId: string; idempotencyKey: string; objective: string }): Promise<AgentTaskRecord>;
+  snapshot(projectId: string, sessionId: string, after: number): Promise<AgentTaskSnapshot>;
+  cancel(projectId: string, taskId: string): Promise<boolean>;
 }
 
 const CodeViewContext = createContext<CodeViewApi | null>(null);

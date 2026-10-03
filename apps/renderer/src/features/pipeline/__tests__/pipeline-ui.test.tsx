@@ -78,7 +78,7 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
 
   const api: PipelineApi = {
     ready: true,
-    getQueueState: () => null,
+    getQueueState: async () => null,
     async captureDesign() {
       machine.startStage('S2');
       const artifact = await api.saveArtifact({
@@ -90,28 +90,28 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
       machine.submitForReview('S2');
       return { artifact, pages: 1 };
     },
-    snapshot(): PipelineStageSnapshot {
+    async snapshot(): Promise<PipelineStageSnapshot> {
       return machine.snapshot();
     },
-    advance(_pid, from, to) {
+    async advance(_pid, from, to) {
       machine.advance(from, to);
     },
-    startStage(_pid, stage) {
+    async startStage(_pid, stage) {
       machine.startStage(stage);
     },
-    submitForReview(_pid, stage) {
+    async submitForReview(_pid, stage) {
       machine.submitForReview(stage);
     },
-    confirm(_pid, stage) {
+    async confirm(_pid, stage) {
       machine.confirm(stage);
     },
-    back(_pid, from, to) {
+    async back(_pid, from, to) {
       return machine.back(from, to);
     },
-    skip(_pid, stage) {
+    async skip(_pid, stage) {
       machine.skip(stage);
     },
-    applyDownstreamStale(_pid, stage) {
+    async applyDownstreamStale(_pid, stage) {
       return machine.applyDownstreamStale(stage);
     },
     async saveArtifact(input) {
@@ -146,7 +146,7 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
       machine.restoreStageState({ ...stageState, activeVersion: version, latestVersion: version });
       return entry;
     },
-    listArtifacts(_pid, stage) {
+    async listArtifacts(_pid, stage) {
       return [...(artifacts.get(stage) ?? [])];
     },
     async readArtifact(_pid, stage, version) {
@@ -155,11 +155,11 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
     async readDiff(_pid, stage, version) {
       return diffContents.get(key(stage, version)) ?? null;
     },
-    switchVersion(_pid, stage, version) {
+    async switchVersion(_pid, stage, version) {
       const state = machine.stageState(stage);
       machine.restoreStageState({ ...state, activeVersion: version });
     },
-    notifyDownstream(pid, stage, message) {
+    async notifyDownstream(pid, stage, message) {
       void pid;
       machine.notifyDownstream(stage, message);
     },
@@ -183,7 +183,7 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
       machine.submitForReview('S1');
       return result;
     },
-    getTechChoice() {
+    async getTechChoice() {
       return choice;
     },
     async saveTechChoice(_pid, value) {
@@ -211,13 +211,13 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
       machine.submitForReview('S3');
       return result;
     },
-    getSplit() {
+    async getSplit() {
       return split;
     },
     async saveSplit(_pid, value) {
       split = value;
     },
-    evaluateImpact(_pid, change: ImpactRequest): ImpactReport {
+    async evaluateImpact(_pid, change: ImpactRequest): Promise<ImpactReport> {
       if (split === null) return { direct: [], indirect: [], affected: [], paths: {} };
       const model = SplitModel.fromResult(split);
       return model.evaluateImpact(change);
@@ -252,10 +252,10 @@ export function createFakeApi(projectId: string): PipelineApi & { machine: Pipel
     async skipNode(): Promise<QueueState> {
       return emptyQueue();
     },
-    pauseQueue(): QueueState {
+    async pauseQueue(): Promise<QueueState> {
       return emptyQueue();
     },
-    getResumeProgress() {
+    async getResumeProgress() {
       return { snapshot: machine.snapshot(), s5Progress: null, resumeStage: null };
     },
     async recoverProject() {
@@ -288,7 +288,7 @@ describe('PipelineBar（步骤条）', () => {
     const onReview = vi.fn();
     render(
       <PipelineProvider api={api}>
-        <PipelineBar projectId="P1" onReview={onReview} onRollback={vi.fn()} />
+        <PipelineBar snapshot={api.machine.snapshot()} onReview={onReview} onRollback={vi.fn()} />
       </PipelineProvider>,
     );
 
@@ -370,7 +370,7 @@ describe('SupplementDialog（补充需求 + 影响清单）', () => {
     await userEvent.type(screen.getByTestId('supplement-input'), '增加游客模式');
     fireEvent.click(screen.getByTestId('supplement-evaluate'));
 
-    const nodes = screen.getAllByTestId('supplement-impact-node');
+    const nodes = await screen.findAllByTestId('supplement-impact-node');
     expect(nodes.length).toBeGreaterThan(0);
     expect(nodes.map((node) => node.textContent)).toContain('f-auth');
 
@@ -397,7 +397,7 @@ describe('VersionSwitcher + DiffPanel（版本切换与 diff）', () => {
       content: `${EIGHT_SECTIONS_DOC}\n## 补充\n- 新增权限管理`,
     });
 
-    const versions = api.listArtifacts('P1', 'S1');
+    const versions = await api.listArtifacts('P1', 'S1');
     expect(versions).toHaveLength(2);
 
     render(

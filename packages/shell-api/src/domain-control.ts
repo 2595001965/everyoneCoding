@@ -121,6 +121,7 @@ export const DOMAIN_RPC_METHODS = {
     'completeOAuth',
     'pollOAuthCallback',
     'submitOAuthCallback',
+    'deliverProtocolUrl',
     'pollWechatScan',
     'listBindings',
     'bind',

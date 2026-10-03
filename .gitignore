@@ -44,6 +44,7 @@ vitest.config.ts.timestamp-*
 target/
 apps/desktop-tauri/src-tauri/target/
 apps/desktop-tauri/src-tauri/gen/
+apps/desktop-tauri/src-tauri/resources/sidecar/
 
 # 归档包
 *.ecpkg

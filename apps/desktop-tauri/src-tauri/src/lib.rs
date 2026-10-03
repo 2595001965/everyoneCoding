@@ -22,12 +22,40 @@ pub mod sidecar;
 pub mod state;
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::Manager;
 
 use sidecar::protocol::SidecarConfigWire;
 use sidecar::SidecarManager;
 use state::AppState;
+
+static OAUTH_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+fn deliver_oauth_protocol_url(manager: Arc<SidecarManager>, value: String) {
+    let Ok(url) = url::Url::parse(&value) else { return };
+    if url.scheme() != "everyonecoding"
+        || url.host_str() != Some("oauth")
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.port().is_some()
+        || !url.path().is_empty() && url.path() != "/"
+    {
+        return;
+    }
+    let request = serde_json::json!({
+        "requestId": format!("oauth-protocol-{}-{}", std::process::id(), OAUTH_EVENT_SEQUENCE.fetch_add(1, Ordering::Relaxed)),
+        "domain": "auth",
+        "method": "deliverProtocolUrl",
+        "params": { "url": value },
+    });
+    tauri::async_runtime::spawn(async move {
+        let response = manager.invoke_domain(request).await;
+        if response.get("ok").and_then(serde_json::Value::as_bool) != Some(true) {
+            eprintln!("[oauth] deep-link callback rejected: {}", response);
+        }
+    });
+}
 
 /// 组装侧车启动配置。
 ///
@@ -54,6 +82,14 @@ fn build_sidecar_config(app: &tauri::AppHandle) -> SidecarConfigWire {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        // Must be first: the deep-link feature forwards the second instance's
+        // URL to the deep-link plugin before the callback focuses the window.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
@@ -64,6 +100,22 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let manager = SidecarManager::new(handle, build_sidecar_config(app.handle()));
+            use tauri_plugin_deep_link::DeepLinkExt;
+            #[cfg(any(target_os = "linux", all(debug_assertions, target_os = "windows")))]
+            if let Err(error) = app.deep_link().register_all() {
+                eprintln!("[oauth] protocol registration failed: {error}");
+            }
+            let protocol_manager = manager.clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    deliver_oauth_protocol_url(protocol_manager.clone(), url.to_string());
+                }
+            });
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                for url in urls {
+                    deliver_oauth_protocol_url(manager.clone(), url.to_string());
+                }
+            }
             // 后台预热：侧车装配要跑 SQLite 迁移并初始化 AI 栈，放在窗口出现之后再等
             // 用户去点第一个按钮，体验是"界面卡了一下"。预热失败不改启动结果 ——
             // 能力协商会在 `capabilities()` / `domain.describe()` 里如实上报。
@@ -108,6 +160,7 @@ pub fn run() {
             commands::secure_store::secure_store_list_keys,
             // 窗口
             commands::window::window_set_title,
+            commands::window::window_open_agent,
             commands::window::window_minimize,
             commands::window::window_maximize,
             commands::window::window_unmaximize,

@@ -3,7 +3,7 @@
  *
  * 与 `domain-ports.test.ts` 的分工：那里锁四个基础域的注入边界与事件关联，
  * 这里锁**十一域生产端口**的四件事：
- * 1. 同步签名端口（memory / pipeline）的注入前提——外壳没有 `invokeSync` 就不注入；
+ * 1. memory / pipeline 使用异步域 RPC，不依赖 `invokeSync`；
  * 2. 真实项目 ID 由「当前项目上下文」注入每次调用（含项目切换后不串）；
  * 3. 跨进程错误码映射到端口约定的形状（GitApi 的 `GitResult` / ShellError）；
  * 4. 进度事件按 requestId 关联，别的调用与别的项目的事件都要被丢掉。
@@ -130,7 +130,6 @@ async function install(options: FakeHostOptions = {}): Promise<{
   const subscribe: DomainEventSubscriber = (listener) => host.onEvent?.(listener) ?? (() => {});
   const globals: ProductionPortGlobals = {};
   const result = await installProductionPorts(
-    host,
     createDomainCaller(host),
     subscribe,
     new Set(PRODUCTION_DESCRIPTORS.map((item) => item.kind)),
@@ -148,16 +147,13 @@ beforeEach(() => {
   useProjectStore.getState().closeProject();
 });
 
-describe('同步口缺失时的注入边界（Tauri / mock 降级）', () => {
-  it('没有 invokeSync：memory / pipeline 不注入并给出原因，其余九个域照常注入', async () => {
+describe('异步口注入边界（Electron / Tauri 共用）', () => {
+  it('没有 invokeSync：memory / pipeline 仍注入，且没有同步口缺失告警', async () => {
     const { globals, unavailable } = await install();
 
-    expect(globals['__EC_MEMORY__']).toBeUndefined();
-    expect(globals['__EC_PIPELINE__']).toBeUndefined();
-    expect(unavailable.map((item) => item.kind).sort()).toEqual(['memory', 'pipeline']);
-    for (const item of unavailable) {
-      expect(item.reason).toContain('invokeSync');
-    }
+    expect(globals['__EC_MEMORY__']).toBeTruthy();
+    expect(globals['__EC_PIPELINE__']).toBeTruthy();
+    expect(unavailable).toEqual([]);
 
     for (const key of [
       '__EC_GIT__',
@@ -174,11 +170,19 @@ describe('同步口缺失时的注入边界（Tauri / mock 降级）', () => {
     }
   });
 
-  it('有 invokeSync：两个同步端口都注入，且不再报缺口', async () => {
-    const { globals, unavailable } = await install({ sync: true });
+  it('即使宿主额外提供 invokeSync，页面域端口也不走同步通道', async () => {
+    const { globals, unavailable, calls, syncCalls } = await install({ sync: true });
     expect(globals['__EC_MEMORY__']).toBeTruthy();
     expect(globals['__EC_PIPELINE__']).toBeTruthy();
     expect(unavailable).toEqual([]);
+    await (globals['__EC_MEMORY__'] as MemoryApi).list({
+      userId: 'local-user',
+      projectId: null,
+      query: {},
+    });
+    await (globals['__EC_PIPELINE__'] as PipelineApi).snapshot('P-A');
+    expect(calls.map((item) => item.method)).toEqual(['list', 'snapshot']);
+    expect(syncCalls).toEqual([]);
   });
 
   it('createDomainSyncCaller 在缺 invokeSync 时返回 null（调用方据此不注入）', () => {
@@ -208,44 +212,45 @@ describe('V2-D05 用量上下文估算端口', () => {
   });
 });
 
-describe('同步端口走 invokeSync 且参数逐字透传', () => {
-  it('memory.list 经同步口发出，不产生异步调用', async () => {
-    const { globals, calls, syncCalls } = await install({ sync: true });
+describe('memory / pipeline 端口走异步 invoke 且参数逐字透传', () => {
+  it('memory.list 经异步口发出', async () => {
+    const { globals, calls, syncCalls } = await install();
     const memory = globals['__EC_MEMORY__'] as MemoryApi;
 
-    memory.list({ userId: 'local-user', projectId: 'P-A', query: { text: '登录' } });
+    await memory.list({ userId: 'local-user', projectId: 'P-A', query: { text: '登录' } });
 
-    expect(calls).toHaveLength(0);
-    expect(syncCalls).toHaveLength(1);
-    expect(syncCalls[0]?.domain).toBe('memory');
-    expect(syncCalls[0]?.method).toBe('list');
-    expect(syncCalls[0]?.params).toEqual({
+    expect(syncCalls).toHaveLength(0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.domain).toBe('memory');
+    expect(calls[0]?.method).toBe('list');
+    expect(calls[0]?.params).toEqual({
       userId: 'local-user',
       projectId: 'P-A',
       query: { text: '登录' },
     });
   });
 
-  it('pipeline.advance 经同步口；readArtifact 这类 IO 方法走异步口', async () => {
-    const { globals, calls, syncCalls } = await install({ sync: true });
+  it('pipeline.advance 与 readArtifact 都经异步口', async () => {
+    const { globals, calls, syncCalls } = await install();
     const pipeline = globals['__EC_PIPELINE__'] as PipelineApi;
 
-    pipeline.advance('P-A', 'S1', 'S2');
+    await pipeline.advance('P-A', 'S1', 'S2');
     await pipeline.readArtifact('P-A', 'S1', 1);
 
-    expect(syncCalls.map((item) => item.method)).toEqual(['advance']);
-    expect(calls.map((item) => item.method)).toEqual(['readArtifact']);
+    expect(syncCalls).toEqual([]);
+    expect(calls.map((item) => item.method)).toEqual(['advance', 'readArtifact']);
   });
 
-  it('同步口失败同样还原为带 code 的 ShellError', async () => {
+  it('异步口失败还原为带 code 的 ShellError', async () => {
     const { globals } = await install({
-      sync: true,
-      scriptSync: () => ({ ok: false, error: { code: 'NOT_FOUND', message: '条目不存在' } }),
+      script: () => ({ ok: false, error: { code: 'NOT_FOUND', message: '条目不存在' } }),
     });
     const memory = globals['__EC_MEMORY__'] as MemoryApi;
-    expect(() => memory.detail('missing')).toThrowError(
-      expect.objectContaining({ name: 'ShellError', code: 'NOT_FOUND', message: '条目不存在' }),
-    );
+    await expect(memory.detail('missing')).rejects.toMatchObject({
+      name: 'ShellError',
+      code: 'NOT_FOUND',
+      message: '条目不存在',
+    });
   });
 });
 
@@ -337,15 +342,14 @@ describe('跨进程错误码映射到端口约定形状', () => {
 
   it('pipeline.evaluateImpact 缺技术选型时抛 INVALID_ARGUMENT（不返回空报告）', async () => {
     const { globals } = await install({
-      sync: true,
       // getTechChoice 返回 null：尚未完成 S3 问卷
-      scriptSync: (request) =>
+      script: (request) =>
         request.method === 'getTechChoice' ? { ok: true, result: null } : undefined,
     });
     const pipeline = globals['__EC_PIPELINE__'] as PipelineApi;
-    expect(() =>
+    await expect(
       pipeline.evaluateImpact('P-A', { kind: 'rename', from: 'a', to: 'b' } as never),
-    ).toThrowError(expect.objectContaining({ code: 'INVALID_ARGUMENT' }));
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
   });
 });
 
@@ -409,7 +413,7 @@ describe('进度事件按 requestId 关联', () => {
   });
 
   it('pipeline 事件按项目过滤：切到别的项目后旧项目事件不再投递', async () => {
-    const { globals, emit } = await install({ sync: true });
+    const { globals, emit } = await install();
     openProject('P-B');
     const pipeline = globals['__EC_PIPELINE__'] as PipelineApi;
 
@@ -437,7 +441,6 @@ describe('未装配的域不注入任何槽位', () => {
     const subscribed: DomainEventSubscriber = (listener) => host.onEvent?.(listener) ?? (() => {});
     const globals: ProductionPortGlobals = {};
     const result = await installProductionPorts(
-      host,
       createDomainCaller(host),
       subscribed,
       new Set(['git']), // 只有 git 可用

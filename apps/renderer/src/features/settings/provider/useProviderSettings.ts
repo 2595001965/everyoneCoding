@@ -89,6 +89,7 @@ export interface UseProviderSettingsResult {
   patchCapability(modelId: string, patch: CapabilityPatch): void;
   testDraft(): Promise<ConnectionTestResult>;
   setBinding(binding: PurposeBinding): void;
+  syncPlatformCatalog(): Promise<{ generatedAt: number; providers: number; models: number }>;
 }
 
 export function useProviderSettings(): UseProviderSettingsResult {
@@ -265,6 +266,15 @@ export function useProviderSettings(): UseProviderSettingsResult {
       void run(() => {
         api.saveBinding(next);
       });
+    },
+    syncPlatformCatalog: async () => {
+      let result: { generatedAt: number; providers: number; models: number } | null = null;
+      await run(async () => {
+        if (!api.syncPlatformCatalog) throw new Error('当前环境尚未装配平台托管能力');
+        result = await api.syncPlatformCatalog();
+      });
+      if (!result) throw new Error(error ?? '平台目录同步失败');
+      return result;
     },
   };
 }

@@ -25,6 +25,10 @@ export interface ChatRequest {
   /** 关闭时一次性返回（连接测试等场景用） */
   stream?: boolean;
   signal?: AbortSignal;
+  /** 每个真实上游 attempt 独有；平台网关据此绑定账务幂等。 */
+  idempotencyKey?: string;
+  /** 用户动作标识；只用于平台请求对账，不含请求正文。 */
+  logicalRequestId?: string;
 }
 
 /** 适配器运行上下文：由 Gateway 注入，便于测试替换传输实现 */

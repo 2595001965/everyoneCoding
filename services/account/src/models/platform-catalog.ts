@@ -58,6 +58,21 @@ export interface OfficialPriceWrite {
   effectiveFrom: number;
 }
 
+/** Internal gateway routing view. Never serialize this value to a client. */
+export interface PlatformGatewayRoute {
+  providerId: string;
+  providerDisplayName: string;
+  protocol: ProviderProtocol;
+  baseUrl: string;
+  credentialRef: string;
+  modelId: string;
+  upstreamModelName: string;
+  modelDisplayName: string;
+  contextWindowTokens: number | null;
+  priceVersionId: string;
+  priceVersion: PriceVersion;
+}
+
 interface ProviderRow {
   provider_id: string;
   display_name: string;
@@ -421,6 +436,110 @@ export class PlatformCatalogDb {
           price.effectiveFrom <= at && (price.effectiveTo === null || at < price.effectiveTo),
       ) ?? null
     );
+  }
+
+  private getGatewayPrice(providerId: string, modelId: string, at: number): PriceVersion | null {
+    const published = this.getPriceAt(providerId, modelId, at);
+    if (published) return published;
+    const official = this.db
+      .prepare(
+        `SELECT o.*
+         FROM platform_official_price_snapshot o
+         JOIN platform_model m
+           ON m.canonical_vendor = o.canonical_vendor AND m.canonical_model = o.canonical_model
+         JOIN platform_provider p ON p.provider_id = m.provider_id
+         WHERE m.provider_id = ? AND m.model_id = ?
+           AND p.status = 'active' AND m.status = 'active'
+           AND o.effective_from <= ?
+           AND NOT EXISTS (
+             SELECT 1 FROM platform_official_price_snapshot next
+             WHERE next.canonical_vendor = o.canonical_vendor
+               AND next.canonical_model = o.canonical_model
+               AND next.effective_from > o.effective_from AND next.effective_from <= ?
+           )
+         ORDER BY o.effective_from DESC, o.version DESC LIMIT 1`,
+      )
+      .get(providerId, modelId, at, at) as OfficialPriceRow | undefined;
+    if (!official) return null;
+    const next = this.db
+      .prepare(
+        `SELECT MIN(effective_from) AS next_from FROM platform_official_price_snapshot
+         WHERE canonical_vendor = ? AND canonical_model = ? AND effective_from > ?`,
+      )
+      .get(official.canonical_vendor, official.canonical_model, official.effective_from) as {
+      next_from: number | null;
+    };
+    return {
+      priceVersionId: official.snapshot_id,
+      providerModelKey: providerModelKeyOf({ providerId, modelId }),
+      billingMode: official.billing_mode,
+      currency: official.currency,
+      rates: json<PriceRates>(official.rates_json),
+      cacheWriteRateSemantics: 'full_rate',
+      source: {
+        kind: 'official_vendor',
+        evidenceUrl: official.source_url,
+        verifiedAt: official.verified_at,
+      },
+      effectiveFrom: official.effective_from,
+      effectiveTo: next.next_from,
+      publishedAt: official.published_at,
+      version: official.version,
+    };
+  }
+
+  /** Resolve only an active, catalog-owned route with a currently billable price. */
+  getGatewayRoute(
+    providerId: string,
+    modelId: string,
+    at = Date.now(),
+  ): PlatformGatewayRoute | null {
+    const row = this.db
+      .prepare(
+        `SELECT p.provider_id, p.display_name AS provider_display_name, p.protocol,
+                p.base_url, p.credential_ref, p.status AS provider_status,
+                m.model_id, m.upstream_model_name, m.display_name AS model_display_name,
+                m.context_window_tokens, m.status AS model_status
+         FROM platform_provider p
+         JOIN platform_model m ON m.provider_id = p.provider_id
+         WHERE p.provider_id = ? AND m.model_id = ?`,
+      )
+      .get(providerId, modelId) as
+      | {
+          provider_id: string;
+          provider_display_name: string;
+          protocol: ProviderProtocol;
+          base_url: string;
+          credential_ref: string | null;
+          provider_status: PlatformProviderStatus;
+          model_status: PlatformModelStatus;
+          model_id: string;
+          upstream_model_name: string;
+          model_display_name: string;
+          context_window_tokens: number | null;
+        }
+      | undefined;
+    if (
+      !row ||
+      row.provider_status !== 'active' ||
+      row.model_status !== 'active' ||
+      row.credential_ref === null
+    ) return null;
+    const priceVersion = this.getGatewayPrice(providerId, modelId, at);
+    if (priceVersion === null) return null;
+    return {
+      providerId: row.provider_id,
+      providerDisplayName: row.provider_display_name,
+      protocol: row.protocol,
+      baseUrl: row.base_url,
+      credentialRef: row.credential_ref,
+      modelId: row.model_id,
+      upstreamModelName: row.upstream_model_name,
+      modelDisplayName: row.model_display_name,
+      contextWindowTokens: row.context_window_tokens,
+      priceVersionId: priceVersion.priceVersionId,
+      priceVersion,
+    };
   }
 
   pricePublicationIssue(

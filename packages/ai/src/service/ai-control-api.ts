@@ -34,6 +34,12 @@ import { parseCreateProvider, type CreateProviderInput } from '../dto/create-pro
 import { parseUpdateProvider, type UpdateProviderInput } from '../dto/update-provider';
 import { parseProxyUrl, testProxyConnectivity, type ProxyTestResult } from '../gateway/proxy';
 import { newUlid } from '@ec/data';
+import { isHostedGatewayProvider } from '../adapters/platform-gateway';
+import {
+  platformCatalogSnapshotSchema,
+  providerModelKeyOf,
+  type PlatformCatalogSnapshot,
+} from '@ec/core';
 import { AttemptRuntime } from '../gateway/attempt-runtime';
 import type { StreamChunk } from '../core/stream';
 import { toAiError } from '../core/error';
@@ -61,6 +67,10 @@ export interface AiControlDeps {
   transport: HttpTransport;
   failover?: FailoverController;
   events?: AiEventLog;
+  platformGateway?: {
+    accountBaseUrl: string;
+    getAccessToken: () => Promise<string | null>;
+  };
 }
 
 /** 启动刷新的单源结果（设置页「上次拉取」与默认模型询问都读它） */
@@ -172,7 +182,131 @@ export class AiControlService {
   }
 
   async testConnection(providerId: string): Promise<ConnectionTestResult> {
+    const provider = this.deps.providers.findById(providerId);
+    if (
+      provider &&
+      isHostedGatewayProvider(provider, this.deps.platformGateway?.accountBaseUrl)
+    ) {
+      throw new Error('托管路由由平台账号鉴权；选择目录模型后可直接使用，无需发送测试生成请求');
+    }
     return this.deps.gateway.testConnection(providerId);
+  }
+
+  /** Fetch the public platform catalog and materialize local routes without importing any keys. */
+  async syncPlatformCatalog(): Promise<{ generatedAt: number; providers: number; models: number }> {
+    const hosted = this.deps.platformGateway;
+    if (!hosted) throw new Error('当前外壳未配置平台托管入口');
+    const token = await hosted.getAccessToken();
+    if (!token) throw new Error('平台托管需要先登录 EveryoneCoding 账号');
+    const base = hosted.accountBaseUrl.replace(/\/+$/, '');
+    const response = await this.deps.transport.request({
+      url: `${base}/api/catalog/snapshot`,
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+      timeoutMs: 15_000,
+    });
+    if (response.status >= 400) throw new Error(`平台目录读取失败（${response.status}）`);
+    let raw: unknown;
+    try {
+      raw = JSON.parse(await response.text()) as unknown;
+    } catch {
+      throw new Error('平台目录响应格式无效');
+    }
+    const snapshot = platformCatalogSnapshotSchema.parse(raw);
+    await this.materializeHostedRoutes(snapshot, `${base}/api/ai/requests`);
+    return {
+      generatedAt: snapshot.generatedAt,
+      providers: snapshot.providers.filter((provider) => provider.status === 'active').length,
+      models: snapshot.models.filter((model) =>
+        snapshot.providers.some(
+          (provider) => provider.providerId === model.providerId && provider.status === 'active',
+        ),
+      ).length,
+    };
+  }
+
+  private async materializeHostedRoutes(
+    snapshot: PlatformCatalogSnapshot,
+    endpoint: string,
+  ): Promise<void> {
+    const activeProviders = new Map(
+      snapshot.providers
+        .filter((provider) => provider.status === 'active')
+        .map((provider) => [provider.providerId, provider]),
+    );
+    const models = snapshot.models.filter((model) => activeProviders.has(model.providerId));
+    const existing = this.deps.providers.list(this.deps.userId);
+    const hostedByProtocol = new Map<'openai' | 'anthropic', Provider>();
+    for (const protocol of ['openai', 'anthropic'] as const) {
+      const routes = models.filter(
+        (model) => activeProviders.get(model.providerId)?.protocol === protocol,
+      );
+      if (routes.length === 0) continue;
+      const routeNames = routes.map((model) =>
+        providerModelKeyOf({ providerId: model.providerId, modelId: model.modelId }),
+      );
+      const found = existing.find(
+        (candidate) =>
+          candidate.source === 'platform' &&
+          candidate.protocol === protocol &&
+          candidate.baseUrl.replace(/\/+$/, '') === endpoint,
+      );
+      const provider = found
+        ? await this.deps.providers.update(
+            found.id,
+            { manualModels: routeNames, version: found.version },
+            found.version,
+          )
+        : await this.deps.providers.create({
+            userId: this.deps.userId,
+            name:
+              protocol === 'openai'
+                ? 'EveryoneCoding 托管网关（OpenAI）'
+                : 'EveryoneCoding 托管网关（Anthropic）',
+            protocol,
+            source: 'platform',
+            baseUrl: endpoint,
+            manualModels: routeNames,
+            supportsStream: true,
+            supportsTools: true,
+            supportsVision: true,
+            enabled: true,
+            headers: {},
+          });
+      if (!provider) throw new Error('托管模型 Provider 已被其他操作删除，请重新同步目录');
+      hostedByProtocol.set(protocol, provider);
+    }
+    for (const model of models) {
+      const provider = hostedByProtocol.get(activeProviders.get(model.providerId)!.protocol);
+      if (!provider) continue;
+      const routeName = providerModelKeyOf({
+        providerId: model.providerId,
+        modelId: model.modelId,
+      });
+      const capabilities = new Set(model.capabilities ?? []);
+      const capability = {
+        contextWindow: model.contextWindowTokens,
+        maxOutput: null,
+        supportsStream: true,
+        supportsTools: capabilities.has('tools') || capabilities.has('tool_use'),
+        supportsVision: capabilities.has('vision') || capabilities.has('images'),
+        inputPricePerMTok: null,
+        outputPricePerMTok: null,
+      };
+      const local = this.deps.models.createIfMissing(provider.id, routeName, capability).model;
+      this.deps.models.setDisplayName(
+        local.id,
+        `${activeProviders.get(model.providerId)!.displayName} / ${model.displayName}`,
+      );
+      this.deps.models.setCanonicalIdentity(local.id, {
+        canonicalVendor: model.canonicalVendor,
+        canonicalModel: model.canonicalModel,
+      });
+      this.deps.models.updateCapability(local.id, capability, {
+        overwrite: true,
+        keepManualFlag: true,
+      });
+    }
   }
 
   /**

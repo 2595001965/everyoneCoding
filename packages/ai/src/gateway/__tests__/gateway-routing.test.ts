@@ -132,6 +132,52 @@ describe('用途化模型绑定走网关同一条解析链', () => {
     expect(empty.gateway.describeModel(USER, 'code')).toBeNull();
     expect(empty.control.readiness().ready).toBe(false);
   });
+
+  it('平台账号服务停服时，本地 BYOK 仍直连且只发送本地 Provider Key', async () => {
+    const db = openTestDb();
+    insertUser(db, USER);
+    const local = await relay('BYOK remains local');
+    let platformTokenReads = 0;
+    const stack = createAiStack({
+      db,
+      secureStore: testSecureStore(),
+      userId: USER,
+      platformGateway: {
+        accountBaseUrl: 'http://127.0.0.1:1',
+        getAccessToken: async () => {
+          platformTokenReads += 1;
+          throw new Error('simulated platform outage');
+        },
+      },
+    });
+    const provider = await stack.providers.create({
+      userId: USER,
+      name: '本地 BYOK',
+      protocol: 'openai',
+      baseUrl: `${local.url}/v1`,
+    });
+    await stack.providers.saveApiKey(provider.id, 'local-only-BYOK-key');
+    const model = stack.models.create(provider.id, 'local-model');
+    stack.bindings.save(USER, {
+      bindings: {},
+      useDefaultForAll: true,
+      defaultModelId: model.id,
+    });
+
+    const result = await collect(
+      stack.gateway.chat({
+        userId: USER,
+        purpose: 'code',
+        messages: [{ role: 'user', content: 'never upload local key' }],
+      }),
+    );
+
+    expect(result.text).toBe('BYOK remains local');
+    expect(platformTokenReads).toBe(0);
+    expect(local.requests).toHaveLength(1);
+    expect(local.requests[0]?.headers['authorization']).toBe('Bearer local-only-BYOK-key');
+    expect(local.requests[0]?.body).not.toContain('local-only-BYOK-key');
+  });
 });
 
 describe('密钥脱敏：登记过的明文在任何文本里都被打码', () => {

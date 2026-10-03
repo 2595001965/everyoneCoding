@@ -69,6 +69,13 @@ export async function createRendererAiSettings(host: AiControlHost): Promise<AiS
 
   await refresh();
   return {
+    syncPlatformCatalog: () =>
+      after(
+        invoke<{ generatedAt: number; providers: number; models: number }>(
+          'syncPlatformCatalog',
+          {},
+        ),
+      ),
     listProviders: () => providers,
     createProvider: (input: Omit<CreateProviderInput, 'userId'>) =>
       after(invoke<Provider>('createProvider', input)),

@@ -115,7 +115,10 @@ export interface AuthDomainOptions {
   loopbackPort?: number | undefined;
 }
 
-export function createAuthDomain(options: AuthDomainOptions): { router: DomainRouter } {
+export function createAuthDomain(options: AuthDomainOptions): {
+  router: DomainRouter;
+  getPlatformAccessToken(): Promise<string | null>;
+} {
   const secureStore = createDpapiSecureStore(options.safeStorage, options.secureDir);
 
   const transport: TransportPort = options.transport ?? {
@@ -421,7 +424,16 @@ export function createAuthDomain(options: AuthDomainOptions): { router: DomainRo
     }
   };
 
-  return { router };
+  return {
+    router,
+    async getPlatformAccessToken() {
+      try {
+        return await client.withToken(async (token) => token);
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
 /** 服务端业务错误 / 网络错误 → 结构化错误码（message 保留，交给运行时统一脱敏） */

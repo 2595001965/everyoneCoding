@@ -28,6 +28,10 @@ export interface AppConfig {
   billingAttemptLeaseMs: number;
   /** 待人工对账 SLA；超期只提示管理员，不自动释放冻结或归零，默认 24h */
   billingReconciliationSlaMs: number;
+  /** Root directory for secret:// Provider credentials; keep this directory access-restricted. */
+  platformSecretDir: string;
+  /** Test-only loopback upstream allowance. Public/private non-loopback addresses stay blocked. */
+  gatewayAllowLoopbackUpstreams: boolean;
   /** 邮箱验证链接有效期（秒），默认 24h */
   emailVerifyTtlSec: number;
   /** 重置密码验证码有效期（秒），默认 10 分钟 */
@@ -87,6 +91,8 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       process.env.ACCOUNT_BILLING_RECONCILIATION_SLA_MS,
       24 * 60 * 60 * 1000,
     ),
+    platformSecretDir: str(process.env.ACCOUNT_PLATFORM_SECRET_DIR, 'data/platform-secrets'),
+    gatewayAllowLoopbackUpstreams: process.env.ACCOUNT_GATEWAY_ALLOW_LOOPBACK === 'true',
     emailVerifyTtlSec: num(process.env.ACCOUNT_EMAIL_VERIFY_TTL, 24 * 60 * 60),
     passwordResetTtlSec: num(process.env.ACCOUNT_PASSWORD_RESET_TTL, 10 * 60),
     emailResendCooldownMs: num(process.env.ACCOUNT_EMAIL_RESEND_COOLDOWN_MS, 60 * 1000),

@@ -44,7 +44,7 @@ export function ProviderSettings(): JSX.Element {
 
   return (
     <div className="ec-ai">
-      <LocalModePanel />
+      <LocalModePanel busy={state.busy} onSync={state.syncPlatformCatalog} />
 
       <ProviderList
         providers={state.providers}

@@ -28,6 +28,7 @@ import type { AiStreamHandle } from '@ec/shell-api';
 export type ProviderFormInput = Omit<CreateProviderInput, 'userId'>;
 
 export interface AiSettingsApi {
+  syncPlatformCatalog?(): Promise<{ generatedAt: number; providers: number; models: number }>;
   /* Provider */
   listProviders(): Provider[];
   createProvider(input: ProviderFormInput): Promise<Provider>;

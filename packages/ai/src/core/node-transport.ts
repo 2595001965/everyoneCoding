@@ -9,6 +9,7 @@ import {
   type HttpRequest,
   type HttpResponse,
   type HttpTransport,
+  type HttpLookup,
   type ProxyConfig,
 } from './http';
 import { openTunnel } from './tunnel';
@@ -30,6 +31,8 @@ export interface NodeTransportOptions {
   proxy?: ProxyConfig | undefined;
   /** 自签名证书场景可关闭校验（默认开启） */
   rejectUnauthorized?: boolean;
+  /** Optional DNS lookup implementation; per-request pinned lookups take precedence. */
+  lookup?: HttpLookup;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -96,6 +99,9 @@ export function createNodeHttpTransport(
               method,
               headers,
               agent: false,
+              ...((req.lookup ?? options.lookup)
+                ? { lookup: (req.lookup ?? options.lookup) as never }
+                : {}),
               ...(createConnection ? { createConnection } : {}),
             },
             (res) => {

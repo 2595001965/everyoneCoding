@@ -10,9 +10,10 @@ import { RemoteConfigRepo } from '../repo/remote-config-repo';
 import { createNodeHttpTransport } from '../core/node-transport';
 import { OpenAiAdapter } from '../adapters/openai/client';
 import { AnthropicAdapter } from '../adapters/anthropic/client';
+import { PlatformGatewayAdapter, isHostedGatewayProvider } from '../adapters/platform-gateway';
 import type { HttpTransport, ProxyConfig } from '../core/http';
 import type { ProviderAdapter } from '../core/adapter';
-import type { Protocol } from '../domain/provider';
+import type { Protocol, Provider } from '../domain/provider';
 import { BudgetGuard, type BudgetConfig } from '../gateway/budget';
 import { UsageTracker } from '../gateway/usage-tracker';
 import { RequestQueue } from '../gateway/queue';
@@ -52,6 +53,11 @@ export interface AiStackOptions {
   priceFor?: AiGatewayDeps['priceFor'];
   /** 运维事件落点（已脱敏）；Electron 用它写主进程日志 */
   onAiEvent?: (record: AiEventRecord) => void;
+  /** Account service address and main-process-only session token callback. */
+  platformGateway?: {
+    accountBaseUrl: string;
+    getAccessToken: () => Promise<string | null>;
+  };
 }
 
 export interface AiStack {
@@ -126,6 +132,20 @@ export function createAiStack(options: AiStackOptions): AiStack {
     ['openai', new OpenAiAdapter()],
     ['anthropic', new AnthropicAdapter()],
   ]);
+  const hostedAdapters = new Map<Protocol, ProviderAdapter>(
+    options.platformGateway
+      ? [
+          [
+            'openai',
+            new PlatformGatewayAdapter('openai', options.platformGateway.accountBaseUrl),
+          ],
+          [
+            'anthropic',
+            new PlatformGatewayAdapter('anthropic', options.platformGateway.accountBaseUrl),
+          ],
+        ]
+      : [],
+  );
 
   const proxy =
     typeof options.proxy === 'string' ? parseProxyUrl(options.proxy) : (options.proxy ?? null);
@@ -139,11 +159,27 @@ export function createAiStack(options: AiStackOptions): AiStack {
     queue,
     failover,
     transport,
-    adapterFor: (protocol) => {
+    adapterFor: (protocol, provider) => {
+      if (
+        provider &&
+        options.platformGateway &&
+        isHostedGatewayProvider(provider, options.platformGateway.accountBaseUrl)
+      ) {
+        const hosted = hostedAdapters.get(protocol);
+        if (hosted) return hosted;
+      }
       const adapter = adapters.get(protocol);
       if (!adapter) throw new Error(`不支持的协议：${protocol}`);
       return adapter;
     },
+    ...(options.platformGateway
+      ? {
+          resolveApiKey: async (provider: Provider) =>
+            isHostedGatewayProvider(provider, options.platformGateway!.accountBaseUrl)
+              ? options.platformGateway!.getAccessToken()
+              : providers.getApiKey(provider.id),
+        }
+      : {}),
     ...(execution ? { execution } : {}),
     ...(proxy ? { proxy } : {}),
     ...(options.logger ? { logger: options.logger } : {}),
@@ -178,6 +214,7 @@ export function createAiStack(options: AiStackOptions): AiStack {
       transport,
       failover,
       events,
+      ...(options.platformGateway ? { platformGateway: options.platformGateway } : {}),
     }),
     async dispose(): Promise<void> {
       execution?.dispose();

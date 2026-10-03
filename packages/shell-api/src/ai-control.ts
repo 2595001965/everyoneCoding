@@ -45,6 +45,7 @@ export const AI_RPC_METHODS = [
   'limitsConfig',
   'recentEvents',
   'readiness',
+  'syncPlatformCatalog',
   // 密钥环：明文 Key 的唯一入口，只回传引用名
   'persistApiKey',
   'discardTempKey',

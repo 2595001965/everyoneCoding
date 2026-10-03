@@ -4,7 +4,7 @@ info:
   description: >
     服务端复用既有账号认证，并提供发布版/目录/价格、平台钱包与账务对账 API。
     客户端可离线读取已保存目录快照；本服务不提供云同步、远程配置下发与分享链接。
-  version: '1.6.0'
+  version: '1.7.0'
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
@@ -23,6 +23,8 @@ tags:
     description: 平台目录与价格版本（D10）
   - name: wallet
     description: 平台钱包、不可变账本与管理员对账（D11）；不提供真实支付
+  - name: ai-gateway
+    description: 登录后的平台托管请求网关（D12）；上游地址、凭据和结算由服务端控制
 
 paths:
   /api/auth/register:
@@ -461,6 +463,115 @@ paths:
             application/json:
               schema: { type: object, properties: { accepted: { type: boolean } } }
         '401':
+          $ref: '#/components/responses/Error'
+
+  /api/ai/requests:
+    post:
+      tags: [ai-gateway]
+      summary: 发起平台托管流式请求
+      description: >
+        `model` 必须是公开目录中的 providerId/modelId ULID 路由。Idempotency-Key 是服务端 attempt ID；
+        同 attempt 重放只返回冲突和查询提示，不会再次调用上游。请求正文不持久化，响应为 V2EventEnvelope SSE。
+      operationId: createPlatformAiRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+        - name: X-EC-Logical-Request-Id
+          in: header
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [model, messages]
+              properties:
+                model: { type: string, description: 'providerId/modelId 两个 ULID 以 / 分隔' }
+                messages:
+                  type: array
+                  minItems: 1
+                  maxItems: 256
+                  items:
+                    type: object
+                    required: [role, content]
+                    properties:
+                      role: { type: string, enum: [system, user, assistant, tool] }
+                      content: {}
+                tools: { type: array, maxItems: 128, items: { type: object } }
+                temperature: { type: number, minimum: 0, maximum: 2 }
+                maxTokens: { type: integer, minimum: 1, maximum: 200000 }
+      responses:
+        '200':
+          description: 流式输出、用量、结算状态与完成事件
+          content:
+            text/event-stream:
+              schema: { type: string, description: '每个 event/data 帧的 data 是 V2EventEnvelope JSON' }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          description: 目录不可用、无有效价格、余额不足、预算超限或重复 attempt；重复 attempt 不会重发
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/ai/requests/{attemptId}:
+    get:
+      tags: [ai-gateway]
+      summary: 查询本人平台托管请求
+      operationId: getPlatformAiRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+      responses:
+        '200':
+          description: 本人 attempt 的执行、路由和结算摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request: { $ref: '#/components/schemas/PlatformAiAttempt' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/ai/requests/{attemptId}/cancel:
+    post:
+      tags: [ai-gateway]
+      summary: 取消本人平台托管请求
+      operationId: cancelPlatformAiRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: attemptId
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+      responses:
+        '200':
+          description: 已取消或返回当前终态；派发后执行结果不明时保持预占并等待对账
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request: { $ref: '#/components/schemas/PlatformAiAttempt' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
 
   /api/wallets:
@@ -1029,6 +1140,26 @@ components:
               type: object,
               description: 官网证据 URL、版本、哈希、适用条件和费率；不含管理员证据原文,
             }
+    PlatformAiAttempt:
+      type: object
+      description: 仅返回请求身份、目录路由与计费状态；不包含消息正文、上游地址或 Key
+      required: [attemptId, logicalRequestId, status, dispatchState, providerModelKey, currency, reservedMicros, priceVersionId]
+      properties:
+        attemptId: { type: string }
+        logicalRequestId: { type: string }
+        status:
+          type: string
+          enum: [reserved, unknown_pending_reconciliation, reconciliation_required, settled, released, reversed]
+        dispatchState: { type: string, enum: [not_dispatched, dispatched] }
+        providerModelKey: { type: string, description: D10 providerId/modelId route key }
+        currency: { type: string }
+        reservedMicros: { type: integer, minimum: 0 }
+        finalMicros: { type: integer, nullable: true }
+        usage: { type: object, nullable: true, description: 可信归一 Token 分桶；未知状态为 null 或不完整 }
+        priceVersionId: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+        settledAt: { type: integer, nullable: true }
     WalletSnapshot:
       type: object
       required:

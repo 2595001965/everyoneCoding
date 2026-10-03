@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterAll, describe, expect, it } from 'vitest';
-import { DataClient, Migrator } from '@ec/data';
+import { DataClient, Migrator, newUlid } from '@ec/data';
 
 import { createAiStack, type AiStack } from '../../service/ai-stack';
 import { PurposeBindingRepo } from '../../repo/purpose-binding-repo';
@@ -440,5 +440,89 @@ describe('A/B Provider 同 modelId：复合路由身份隔离（V2-T02）', () =
     expect(buckets.get(modelA.id)).toBe(15);
     expect(buckets.get(modelB.id)).toBe(21);
     expect(buckets.get('(未记录)')).toBe(6);
+  });
+
+  it('同步公开平台快照只在本地创建网关端点与 route key，不导入上游地址或 Key', async () => {
+    const db = openDb(':memory:');
+    const now = Date.now();
+    const providerId = newUlid(now);
+    const modelId = newUlid(now);
+    const snapshot = {
+      schemaVersion: 1,
+      generatedAt: now,
+      providers: [
+        {
+          providerId,
+          displayName: '托管渠道',
+          protocol: 'openai',
+          status: 'active',
+          statusReason: null,
+          updatedAt: now,
+        },
+      ],
+      models: [
+        {
+          providerId,
+          modelId,
+          providerSource: 'platform',
+          displayName: '托管模型',
+          protocol: 'openai',
+          baseUrl: null,
+          canonicalVendor: null,
+          canonicalModel: null,
+          contextWindowTokens: 128_000,
+          contextWindowSource: 'measured',
+          capabilities: ['tools'],
+          revision: 1,
+          createdAt: now,
+          updatedAt: now,
+          upstreamModelName: 'server-owned-model-name',
+        },
+      ],
+      platformPrices: [],
+      officialPrices: [],
+    };
+    const server = await startMockServer([
+      {
+        method: 'GET',
+        path: '/api/catalog/snapshot',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(snapshot),
+      },
+    ]);
+    servers.push(server);
+    const stack = createAiStack({
+      db,
+      secureStore: testSecureStore(),
+      userId: USER,
+      platformGateway: {
+        accountBaseUrl: server.url,
+        getAccessToken: async () => 'desktop-account-session-token',
+      },
+    });
+    stacks.push(stack);
+
+    const synced = await stack.control.syncPlatformCatalog();
+    const provider = stack.providers
+      .list(USER)
+      .find((candidate) => candidate.source === 'platform');
+    expect(synced).toMatchObject({ providers: 1, models: 1 });
+    expect(provider).toMatchObject({
+      source: 'platform',
+      baseUrl: `${server.url}/api/ai/requests`,
+      keyRef: null,
+      manualModels: [`${providerId}/${modelId}`],
+    });
+    const model = stack.models.findByRoute(`${provider?.id}:${providerId}/${modelId}`);
+    expect(model).toMatchObject({
+      name: `${providerId}/${modelId}`,
+      displayName: '托管渠道 / 托管模型',
+      capability: { contextWindow: 128_000, supportsTools: true },
+    });
+    expect(server.requests).toHaveLength(1);
+    expect(server.requests[0]?.headers['authorization']).toBe(
+      'Bearer desktop-account-session-token',
+    );
+    expect(server.requests[0]?.method).toBe('GET');
   });
 });

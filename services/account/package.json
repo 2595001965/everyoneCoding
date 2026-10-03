@@ -14,7 +14,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ec/ai": "workspace:*",
     "@ec/core": "workspace:*",
+    "@ec/data": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "fastify": "^5.12.4",
     "zod": "^3.23.8"

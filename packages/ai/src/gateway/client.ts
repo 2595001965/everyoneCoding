@@ -62,7 +62,9 @@ export interface AiGatewayDeps {
   queue: RequestQueue;
   failover: FailoverController;
   transport: HttpTransport;
-  adapterFor: (protocol: Protocol) => ProviderAdapter;
+  adapterFor: (protocol: Protocol, provider?: Provider) => ProviderAdapter;
+  /** Hosted platform Providers use the account access token, never a BYOK key reference. */
+  resolveApiKey?: (provider: Provider) => Promise<string | null>;
   proxy?: ProxyConfig | null;
   logger?: Logger | null;
   retry?: Partial<RetryPolicy>;
@@ -91,6 +93,8 @@ export interface GatewayChatRequest {
   taskId?: string | null;
   contextSafetyMarginTokens?: number;
   stream?: boolean;
+  /** Created inside the gateway for each real attempt; never supplied by the renderer. */
+  attemptIdempotencyKey?: string;
 }
 
 /** The assembled next payload and route overrides needed for a transient preview. */
@@ -289,7 +293,7 @@ export class AiGateway {
     model: Model,
     request: GatewayChatRequest,
   ): AsyncGenerator<StreamChunk, AttemptOutcome, void> {
-    const adapter = this.deps.adapterFor(provider.protocol);
+    const adapter = this.deps.adapterFor(provider.protocol, provider);
     this.emit({
       type: 'provider-selected',
       providerId: provider.id,
@@ -349,11 +353,12 @@ export class AiGateway {
           this.emit({ type: 'budget-exceeded', message: currentBudget.message });
           throw new ProviderUnavailableError(currentBudget.message, { retryable: false });
         }
+        const attemptRequest = { ...request, attemptIdempotencyKey: newUlid() };
         const result = yield* this.streamOnce(
           adapter,
           provider,
           model,
-          request,
+          attemptRequest,
           Date.now() - queuedAt,
           (chunk) => {
             if (chunk.type === 'delta' || chunk.type === 'tool_call') emittedContent = true;
@@ -436,7 +441,9 @@ export class AiGateway {
     queuedMs: number,
     onChunk: (chunk: StreamChunk) => void,
   ): AsyncGenerator<StreamChunk, { usage: Usage | null; latencyMs: number }, void> {
-    const apiKey = await this.deps.providers.getApiKey(provider.id);
+    const apiKey = this.deps.resolveApiKey
+      ? await this.deps.resolveApiKey(provider)
+      : await this.deps.providers.getApiKey(provider.id);
     const context: AdapterContext = {
       transport: this.deps.transport,
       apiKey,
@@ -489,6 +496,8 @@ export class AiGateway {
         ...(request.maxTokens !== undefined ? { maxTokens: request.maxTokens } : {}),
         ...(request.signal ? { signal: request.signal } : {}),
         ...(request.stream !== undefined ? { stream: request.stream } : {}),
+        ...(request.attemptIdempotencyKey ? { idempotencyKey: request.attemptIdempotencyKey } : {}),
+        ...(request.logicalRequestId ? { logicalRequestId: request.logicalRequestId } : {}),
       },
       context,
     );
@@ -572,7 +581,7 @@ export class AiGateway {
     if (!candidate) return null;
     return {
       ...this.estimateContext(
-        this.deps.adapterFor(candidate.provider.protocol),
+        this.deps.adapterFor(candidate.provider.protocol, candidate.provider),
         candidate.provider,
         candidate.model,
         request,
@@ -699,7 +708,7 @@ export class AiGateway {
       ...(this.proxy ? { proxy: this.proxy } : {}),
       timeoutMs: provider.timeoutMs,
     };
-    const adapter = this.deps.adapterFor(provider.protocol);
+    const adapter = this.deps.adapterFor(provider.protocol, provider);
     return runConnectionTest(adapter, provider, context, (chat, discovery) => {
       this.deps.models.upsertDiscovered(provider.id, discovery);
       const target =
@@ -733,7 +742,9 @@ export class AiGateway {
       ...(this.proxy ? { proxy: this.proxy } : {}),
       timeoutMs: provider.timeoutMs,
     };
-    const discovery = await this.deps.adapterFor(provider.protocol).listModels(provider, context);
+    const discovery = await this.deps
+      .adapterFor(provider.protocol, provider)
+      .listModels(provider, context);
     this.deps.models.upsertDiscovered(providerId, discovery);
     return discovery;
   }

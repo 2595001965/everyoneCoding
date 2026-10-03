@@ -81,6 +81,7 @@ export type {
 } from './adapters/openai/embeddings';
 
 export { AnthropicAdapter } from './adapters/anthropic/client';
+export { PlatformGatewayAdapter, isHostedGatewayProvider } from './adapters/platform-gateway';
 export * from './adapters/anthropic/request-map';
 export {
   chunksFromAnthropicResponse,

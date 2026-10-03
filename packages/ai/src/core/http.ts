@@ -33,7 +33,16 @@ export interface HttpRequest {
   signal?: AbortSignal;
   /** 本次请求使用的代理；未设置则直连 */
   proxy?: ProxyConfig | undefined;
+  /** Optional DNS pin installed by a trusted server-side SSRF guard. */
+  lookup?: HttpLookup | undefined;
 }
+
+export type HttpLookupAddress = { address: string; family: number };
+export type HttpLookup = (
+  hostname: string,
+  options: unknown,
+  callback: (error: Error | null, address: string | HttpLookupAddress[], family?: number) => void,
+) => void;
 
 export interface HttpResponse {
   status: number;

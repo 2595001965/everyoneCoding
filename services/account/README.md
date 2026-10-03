@@ -1,6 +1,6 @@
 # 云端账号服务端（EveryoneCoding · Apache-2.0）
 
-账号服务端承载既有账号服务（T9-06）、平台目录/价格版本（V2-D10）及平台钱包账本（V2-D11）。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
+账号服务端承载既有账号服务（T9-06）、平台目录/价格版本（V2-D10）、平台钱包账本（V2-D11）及可信平台 AI 网关（V2-D12）。客户端基础工作流仍可离线运行；平台托管模型调用与账号服务可用性由相应模式决定。
 
 ## 已实现接口（严格按 PRD §8）
 
@@ -14,6 +14,9 @@
 | GET/POST/DELETE | `/api/auth/bindings`                  | 第三方身份绑定：列出 / 绑定 / 解绑                                               |
 | POST            | `/api/usage/report`                   | 匿名用量上报（需授权）                                                           |
 | GET             | `/api/release/check`                  | 版本检查，按 `?form=tauri\|electron` 分别下发版本与增量包清单                    |
+| POST            | `/api/ai/requests`                    | 登录账号经目录路由发起平台托管流式生成；服务端内部预占并按可信最终 usage 结算    |
+| GET             | `/api/ai/requests/:attemptId`         | 查询本人托管请求状态、实际平台路由、价格版本与结算摘要                            |
+| POST            | `/api/ai/requests/:attemptId/cancel`  | 取消本人活动请求；派发后状态不明时保留预占并进入对账                              |
 
 ### 邮箱闭环补充接口（FR-ACC-08）
 
@@ -98,7 +101,7 @@ Provider 的上游地址仅能通过管理 API 读写；上游凭据只接受 `e
 
 `WalletLedger.reserveAttempt()` 只接受服务端传入的上下文估算，并从 D10 的不可变平台价或已核验官网快照读取价格；按受理时快照调用 `@ec/core/v2` 的 `computeUsageCost` 算预占。结算同样只收可信最终 Token 分桶，不收客户端金额。精确费用无法确定、上游执行状态未知或可用余额不足时保留冻结并开待对账记录。只有标记为未派发的请求可直接释放；开始派发后取消必须保持待对账，管理员确认未执行后才可释放。`buildApp` 启动时把超出租约且未结束的 attempt 转入对账队列，不自动归零或释放。
 
-当前提供受控的服务端 `WalletLedger` attempt 方法供后续 D12 网关接入；HTTP 不暴露客户端预占/结算写接口。**没有在线充值、支付商户、支付回调或真实支付接入**；充值只能等运营与支付方案确认后另行实施。人工额度调整是有审计的后台入账能力，不代表在线充值。
+`WalletLedger` 不暴露接受客户端金额或 usage 的原始预占/结算写接口。D12 的 `/api/ai/requests` 是唯一面向桌面托管流量的受控入口：它按 D10 目录解析 Provider+Model，固定价格快照并预占，再由服务端适配器取得上游 Key、转发流式结果并用可信最终 usage 结算。**没有在线充值、支付商户、支付回调或真实支付接入**；充值只能等运营与支付方案确认后另行实施。人工额度调整是有审计的后台入账能力，不代表在线充值。
 
 用户读接口：`GET /api/wallets`、`GET /api/wallets/:currency`、`GET /api/wallets/:currency/ledger`、
 `GET /api/billing/attempts` 和 `GET /api/billing/attempts/:attemptId`。管理员接口：
@@ -110,13 +113,25 @@ Provider 的上游地址仅能通过管理 API 读写；上游凭据只接受 `e
 对账租约与提醒期限可经 `ACCOUNT_BILLING_ATTEMPT_LEASE_MS`（默认 30 秒）和
 `ACCOUNT_BILLING_RECONCILIATION_SLA_MS`（默认 24 小时）配置。SLA 超期只会显示在管理员队列，不能自动释放余额。
 
+## V2-D12 平台可信网关与桌面托管模式
+
+桌面端同步 `/api/catalog/snapshot` 后只在本机创建指向账号服务 `/api/ai/requests` 的平台路由，模型名携带 D10 的稳定 Provider+Model ULID。渲染层不接触账号令牌或上游 Key；Electron 主进程从 DPAPI 会话读取账号 access token。服务端从 D10 目录读取上游地址/凭据引用，并从 `env:NAME` 或 `secret://relative/path` 解析密钥；明文只在请求内存中存在，不返回客户端、不写入账单。
+
+托管请求必须带 `Idempotency-Key`（作为 attempt ULID）与 `X-EC-Logical-Request-Id`。attempt 按受理时价格快照预占；OpenAI/Anthropic 流式协议由共享适配器解析后转成带 `V2EventEnvelope` 的 SSE。只有上游报告完整、可信最终用量且费用可精确计算时才结算。内容指纹只保存 SHA-256，不保留提示词或生成正文。明确的上游 4xx 拒绝会释放预占；派发后断流、取消、用量缺项或服务异常会保留预占并转待对账，不自动重发。用 `GET /api/ai/requests/:attemptId` 查询本人状态，再由管理员按 D11 对账流程核实；不得将未知状态当作未执行。
+
+服务端上游默认必须为 HTTPS，DNS 解析结果拒绝环回、私网、链路本地及保留地址，连接阶段固定使用已校验地址且不跟随重定向。`ACCOUNT_GATEWAY_ALLOW_LOOPBACK=true` 只供本机受控测试上游使用；生产不得启用。上游密钥目录可用 `ACCOUNT_PLATFORM_SECRET_DIR` 配置（默认 `data/platform-secrets`），该目录和文件须限制服务运营账号读取。目录停用/维护、缺少价格或未配置凭据都会在派发前拒绝。
+
+BYOK 仍由本机安全进程直接访问用户自选上游，Key 留在本机 DPAPI；不会因同步平台目录而生成本地 Provider，也不会向平台上传 BYOK Key。平台停服或登出只会使托管请求不可用。
+
+受控本地 HTTP 上游集成覆盖平台路由、密钥注入、预占、流式转发、最终结算、幂等重放/内容冲突、显式取消、客户端断流、未知 usage、上游明确拒绝、停用目录与 SSRF 拒绝。未接入真实厂商付费流量，测试价格和上游密钥均为合成夹具。
+
 ## 技术栈
 
 - Node.js 24 + Fastify（HTTP 框架）
 - better-sqlite3（本地 SQLite 存储，原生模块，按 Node 24 编译）
 - zod（入参校验）
 - 认证：Node 内置 `node:crypto` 手写 HMAC-SHA256 JWT（不引入 jsonwebtoken），密码使用 `scrypt` + 随机盐
-- 运行期依赖：`@ec/core` + `fastify` + `better-sqlite3` + `zod`
+- 运行期依赖：`@ec/ai`、`@ec/core`、`@ec/data`、`fastify`、`better-sqlite3` 与 `zod`
 
 ## 设计要点
 
@@ -145,7 +160,8 @@ services/account/
 │   ├── models/account.ts    # 账号数据访问层
 │   ├── models/platform-catalog.ts # 平台目录与不可变价格存储
 │   ├── models/wallet-ledger.ts # 服务端钱包、attempt 与账本
-│   ├── routes/              # auth / usage / release / catalog / wallet 路由
+│   ├── routes/              # auth / usage / release / catalog / wallet / ai-gateway 路由
+│   ├── gateway/             # 上游地址防护与服务端凭据引用解析
 │   ├── oauth/               # google / github / wechat 策略 + 流程
 │   ├── middleware/          # error / idempotency / rate-limit
 │   └── __tests__/           # 集成测试
@@ -175,6 +191,7 @@ pnpm typecheck
 `ACCOUNT_JWT_SECRET`、`ACCOUNT_ACCESS_TTL`、`ACCOUNT_REFRESH_TTL`、
 `ACCOUNT_LOGIN_LIMIT`、`ACCOUNT_REGISTER_LIMIT`、`ACCOUNT_OAUTH_*_ID/SECRET/REDIRECT` 等。
 V2-D10/D11 使用 `ACCOUNT_PLATFORM_ADMIN_IDS`（逗号分隔的平台运营账号 ID；为空时不启用管理权限）。
+托管网关使用 `ACCOUNT_PLATFORM_SECRET_DIR`（`secret://` 凭据根目录）；生产上游只能使用 HTTPS 且不得解析到本机/内网。`ACCOUNT_GATEWAY_ALLOW_LOOPBACK=true` 仅用于受控本机测试，公网部署不得启用。
 
 ### 邮件与邮箱验证（FR-ACC-08）
 

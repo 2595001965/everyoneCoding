@@ -18,6 +18,7 @@ import { usageRoutes } from './routes/usage.ts';
 import { releaseRoutes } from './routes/release.ts';
 import { catalogRoutes } from './routes/catalog.ts';
 import { walletRoutes } from './routes/wallet.ts';
+import { aiGatewayRoutes } from './routes/ai-gateway.ts';
 import { WalletLedger } from './models/wallet-ledger.ts';
 
 export async function buildApp(config: AppConfig, db?: Database): Promise<FastifyInstance> {
@@ -46,6 +47,9 @@ export async function buildApp(config: AppConfig, db?: Database): Promise<Fastif
   await app.register(releaseRoutes);
   await app.register(catalogRoutes);
   await app.register(walletRoutes);
+  await app.register((instance) =>
+    aiGatewayRoutes(instance, { db: database, ledger: walletLedger, config }),
+  );
 
   await app.ready();
   return app;

@@ -164,6 +164,8 @@ export interface ReserveAttemptInput {
   priceVersionId: string;
   /** Trusted gateway context estimate; totalOutput is the maximum accepted output. */
   usageEstimate: NormalizedUsage;
+  /** SHA-256 of the transient request bytes. Only the digest is persisted. */
+  contentFingerprint?: string;
 }
 
 export interface WalletLedgerOptions {
@@ -572,12 +574,15 @@ export class WalletLedger {
     if (usageEstimate.quality !== 'context_estimate' || !usageIsComplete(usageEstimate)) {
       throw new AppError(ErrCode.BAD_REQUEST, '预占必须使用完整的服务端上下文估算', 400);
     }
+    const contentFingerprint = input.contentFingerprint ?? null;
+    if (contentFingerprint !== null && !/^[0-9a-f]{64}$/.test(contentFingerprint)) {
+      throw new AppError(ErrCode.BAD_REQUEST, '请求内容指纹无效', 400);
+    }
     const requestFingerprint = fingerprint({
       attemptId,
       logicalRequestId,
       providerModelKey,
-      priceVersionId,
-      usageEstimate,
+      contentFingerprint,
     });
     const tx = this.db.transaction(() => {
       const duplicate = this.db
@@ -594,6 +599,21 @@ export class WalletLedger {
           wallet: this.getWallet(accountId, duplicate.currency),
           replayed: true,
         };
+      }
+      const pendingLogical = this.db
+        .prepare(
+          `SELECT attempt_id FROM billing_attempt
+           WHERE account_id = ? AND logical_request_id = ?
+             AND status IN ('reserved', 'unknown_pending_reconciliation', 'reconciliation_required')
+           LIMIT 1`,
+        )
+        .get(accountId, logicalRequestId) as { attempt_id: string } | undefined;
+      if (pendingLogical) {
+        throw new AppError(
+          ErrCode.CONFLICT,
+          '该逻辑请求仍在执行或待对账；先查询账单状态，不要重新发送收费请求',
+          409,
+        );
       }
       const existingAttempt = this.db
         .prepare('SELECT attempt_id FROM billing_attempt WHERE attempt_id = ?')
@@ -671,6 +691,44 @@ export class WalletLedger {
       };
     });
     return tx.immediate();
+  }
+
+  /** Check a replay before consulting the current catalog or price version. */
+  findIdempotentReplay(input: {
+    accountId: string;
+    idempotencyKey: string;
+    attemptId: string;
+    logicalRequestId: string;
+    providerModelKey: string;
+    contentFingerprint: string;
+  }): BillingAttemptView | null {
+    const accountId = input.accountId;
+    const attemptId = ulidSchema.parse(input.attemptId);
+    const idempotencyKey = validateIdempotencyKey(input.idempotencyKey);
+    const routeParts = input.providerModelKey.split('/');
+    const route = providerModelRouteSchema.safeParse(
+      routeParts.length === 2 ? { providerId: routeParts[0], modelId: routeParts[1] } : null,
+    );
+    if (!route.success || !/^[0-9a-f]{64}$/.test(input.contentFingerprint)) {
+      throw new AppError(ErrCode.BAD_REQUEST, '请求幂等信息无效', 400);
+    }
+    const logicalRequestId = input.logicalRequestId.trim();
+    const row = this.db
+      .prepare(
+        'SELECT * FROM billing_attempt WHERE account_id = ? AND request_idempotency_key = ?',
+      )
+      .get(accountId, idempotencyKey) as AttemptRow | undefined;
+    if (!row) return null;
+    const expected = fingerprint({
+      attemptId,
+      logicalRequestId,
+      providerModelKey: providerModelKeyOf(route.data),
+      contentFingerprint: input.contentFingerprint,
+    });
+    if (row.attempt_id !== attemptId || row.request_fingerprint !== expected) {
+      throw new AppError(ErrCode.IDEMPOTENCY_CONFLICT, '幂等键已用于不同的计费请求', 409);
+    }
+    return toAttemptView(row);
   }
 
   renewAttemptLease(attemptIdInput: string): boolean {
@@ -916,6 +974,55 @@ export class WalletLedger {
           attemptId,
         );
       this.resolveReconciliationCase(attemptId, 'final_usage', actorAccountId, resolutionNote, now);
+      return toAttemptView(this.attemptRow(attemptId)!);
+    });
+    return tx.immediate();
+  }
+
+  /** Release a hold only after the trusted gateway received a definite upstream rejection. */
+  releaseRejectedAttempt(input: { attemptId: string; reason: string }): BillingAttemptView {
+    const attemptId = ulidSchema.parse(input.attemptId);
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 500)
+      throw new AppError(ErrCode.BAD_REQUEST, '上游拒绝原因无效', 400);
+    const tx = this.db.transaction(() => {
+      const attempt = this.attemptRow(attemptId);
+      if (!attempt) throw new AppError(ErrCode.NOT_FOUND, '计费请求不存在', 404);
+      if (attempt.status === 'released') return toAttemptView(attempt);
+      if (attempt.status !== 'reserved' || attempt.dispatch_state !== 'dispatched') {
+        throw new AppError(ErrCode.CONFLICT, '只有已派发且被上游明确拒绝的请求才能释放预占', 409);
+      }
+      const hold = this.db
+        .prepare('SELECT * FROM wallet_hold WHERE attempt_id = ?')
+        .get(attemptId) as { hold_id: string; amount_micros: number; status: string } | undefined;
+      const wallet = this.walletRow(attempt.account_id, attempt.currency);
+      if (!hold || hold.status !== 'active' || !wallet)
+        throw new AppError(ErrCode.CONFLICT, '有效预占不存在', 409);
+      const now = this.now();
+      this.applyMovement({
+        wallet,
+        postedDelta: 0,
+        heldDelta: -hold.amount_micros,
+        entryType: 'release',
+        amountMicros: hold.amount_micros,
+        idempotencyKey: `billing-release:${attemptId}`,
+        requestFingerprint: fingerprint({ attemptId, reason, rejectedByUpstream: true }),
+        attemptId,
+        holdId: hold.hold_id,
+        reason,
+        action: 'billing.attempt.upstream_rejected',
+        details: { releasedMicros: hold.amount_micros, dispatchState: attempt.dispatch_state },
+        now,
+      });
+      this.db
+        .prepare("UPDATE wallet_hold SET status = 'released', updated_at = ? WHERE attempt_id = ?")
+        .run(now, attemptId);
+      this.db
+        .prepare(
+          `UPDATE billing_attempt SET status = 'released', lease_expires_at = NULL, updated_at = ?
+         WHERE attempt_id = ?`,
+        )
+        .run(now, attemptId);
       return toAttemptView(this.attemptRow(attemptId)!);
     });
     return tx.immediate();

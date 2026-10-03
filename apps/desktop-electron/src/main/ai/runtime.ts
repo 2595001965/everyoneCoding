@@ -37,6 +37,9 @@ export interface ElectronAiRuntimeOptions {
   migrationsDir: string;
   safeStorage: SafeStorageLike | null;
   userId?: string;
+  accountBaseUrl?: string;
+  /** Access token stays in the main process and is read from the existing encrypted session. */
+  getPlatformAccessToken?: () => Promise<string | null>;
   /** 测试注入（生产走 Node HTTP 实现）；集成测试用它把请求打到本机 mock，从不连真实服务 */
   transport?: HttpTransport;
   /** 运维事件落点（已脱敏）；缺省写主进程控制台 */
@@ -107,6 +110,15 @@ export async function createElectronAiRuntime(
     },
     secureStore: secure,
     userId,
+    ...(options.getPlatformAccessToken
+      ? {
+          platformGateway: {
+            accountBaseUrl:
+              options.accountBaseUrl ?? process.env['EC_ACCOUNT_BASE_URL'] ?? 'http://127.0.0.1:3000',
+            getAccessToken: options.getPlatformAccessToken,
+          },
+        }
+      : {}),
     budget: persistedBudget,
     limits: readPersistedLimits(settingsStore),
     failover: readPersistedFailover(settingsStore),
@@ -353,6 +365,8 @@ async function routeInvoke(
   switch (method) {
     case 'listProviders':
       return control.listProviders();
+    case 'syncPlatformCatalog':
+      return control.syncPlatformCatalog();
     case 'createProvider':
       return control.createProvider(params as never);
     case 'updateProvider':

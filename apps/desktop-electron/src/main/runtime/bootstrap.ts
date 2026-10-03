@@ -206,6 +206,9 @@ export async function createHeadlessRuntime(
           migrationsDir: options.migrationsDir ?? resolveMigrationsDir(),
           safeStorage: options.safeStorage,
           userId,
+          accountBaseUrl:
+            options.accountBaseUrl ?? process.env['EC_ACCOUNT_BASE_URL'] ?? 'http://127.0.0.1:3000',
+          ...(auth ? { getPlatformAccessToken: auth.getPlatformAccessToken } : {}),
         });
       } catch (error) {
         // 如实记录并继续：设置 / 工作台 / 文档 / 记忆等域不该被 AI 栈的失败连坐。

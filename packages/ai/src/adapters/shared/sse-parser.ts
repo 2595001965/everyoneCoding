@@ -1,3 +1,5 @@
+import { TextDecoder } from 'node:util';
+
 /**
  * SSE（text/event-stream）字节级解析器。
  *
@@ -18,7 +20,7 @@ const LINE_BREAK = /\r\n|\r|\n/;
 
 export async function* parseSse(
   bytes: AsyncIterable<Uint8Array>,
-  options: { decoder?: TextDecoder } = {},
+  options: { decoder?: InstanceType<typeof TextDecoder> } = {},
 ): AsyncGenerator<SseEvent> {
   const decoder = options.decoder ?? new TextDecoder('utf8');
   let buffer = '';
